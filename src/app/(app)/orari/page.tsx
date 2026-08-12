@@ -1,16 +1,26 @@
 import { prisma } from "@/lib/prisma";
-import { addDays, endOfMonth, endOfYear, parseDateKey, startOfMonth, startOfWeek, startOfYear, toDateKey } from "@/lib/week";
+import {
+  addDays,
+  endOfMonth,
+  endOfYear,
+  parseDateKey,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+  toDateKey,
+} from "@/lib/week";
 import { OrariView, type ViewMode } from "./orari-view";
 
 export default async function OrariPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; date?: string; employee?: string }>;
+  searchParams: Promise<{ view?: string; date?: string; employee?: string; mode?: string }>;
 }) {
   const params = await searchParams;
   const view = (["day", "week", "month", "year"].includes(params.view ?? "") ? params.view : "week") as ViewMode;
   const refDate = params.date ? parseDateKey(params.date) : parseDateKey(toDateKey(new Date()));
   const employeeFilter = params.employee || undefined;
+  const displayMode = params.mode === "employees" ? "employees" : "periods";
 
   const rangeStart =
     view === "day"
@@ -35,22 +45,33 @@ export default async function OrariPage({
   });
 
   const needsLeave = view === "day" || view === "week";
+  const weekStart = view === "week" ? startOfWeek(refDate) : null;
 
-  const [blocks, leaveEntries] = await Promise.all([
+  const [blocks, leaveEntries, closures, weekPlan] = await Promise.all([
     prisma.shiftBlock.findMany({ where: { date: { gte: rangeStart, lte: rangeEnd } } }),
     needsLeave
       ? prisma.leaveEntry.findMany({ where: { date: { gte: rangeStart, lte: rangeEnd } } })
       : Promise.resolve([]),
+    prisma.closureDay.findMany({ where: { date: { gte: rangeStart, lte: rangeEnd } } }),
+    weekStart ? prisma.weekPlan.findUnique({ where: { weekStart } }) : Promise.resolve(null),
   ]);
 
   return (
     <OrariView
       view={view}
+      displayMode={displayMode}
       dateKey={toDateKey(refDate)}
       rangeStartKey={toDateKey(rangeStart)}
       rangeEndKey={toDateKey(rangeEnd)}
       employeeFilter={employeeFilter}
-      employees={employees.map((e) => ({ id: e.id, name: e.name, role: e.role, sortOrder: e.sortOrder }))}
+      employees={employees.map((e) => ({
+        id: e.id,
+        name: e.name,
+        role: e.role,
+        jobTitle: e.jobTitle,
+        sortOrder: e.sortOrder,
+        photoVersion: e.photoUpdatedAt ? String(e.photoUpdatedAt.getTime()) : null,
+      }))}
       blocks={blocks.map((b) => ({
         id: b.id,
         employeeId: b.employeeId,
@@ -66,6 +87,10 @@ export default async function OrariPage({
         type: l.type,
         quantity: l.quantity,
       }))}
+      closures={closures.map((c) => ({ dateKey: toDateKey(c.date), reason: c.reason }))}
+      weekPlan={
+        weekPlan ? { publishedAt: weekPlan.publishedAt ? weekPlan.publishedAt.toISOString() : null } : { publishedAt: null }
+      }
     />
   );
 }

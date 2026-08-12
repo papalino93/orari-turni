@@ -1,31 +1,28 @@
 "use client";
 
-import { monthLabel, sumHours } from "@/lib/week";
-import { orderEmployees, type Block, type Employee } from "./shared";
+import { monthLabel } from "@/lib/week";
+import { formatHours, type buildSchedule } from "@/lib/schedule";
+import { EmployeeAvatar } from "@/components/avatar";
+import { orderEmployees } from "./shared";
 
 export function YearView({
   year,
-  employees,
-  blocks,
+  schedule,
   employeeFilter,
 }: {
   year: number;
-  employees: Employee[];
-  blocks: Block[];
+  schedule: ReturnType<typeof buildSchedule>;
   employeeFilter?: string;
 }) {
   // Il titolare non contribuisce al monte ore: escluso dai riepiloghi annuali.
-  const allOrdered = orderEmployees(employees).filter((e) => e.role !== "OWNER");
+  const allOrdered = orderEmployees(schedule.employees).filter((e) => e.role !== "OWNER");
   const orderedEmployees = employeeFilter ? allOrdered.filter((e) => e.id === employeeFilter) : allOrdered;
   const months = Array.from({ length: 12 }, (_, i) => i);
 
   function hoursForMonth(employeeId: string, monthIndex: number) {
-    const prefix = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
-    return sumHours(blocks.filter((b) => b.employeeId === employeeId && b.dateKey.startsWith(prefix)));
-  }
-
-  function yearTotal(employeeId: string) {
-    return sumHours(blocks.filter((b) => b.employeeId === employeeId));
+    const from = `${year}-${String(monthIndex + 1).padStart(2, "0")}-01`;
+    const to = `${year}-${String(monthIndex + 1).padStart(2, "0")}-31`;
+    return schedule.hoursInRange(employeeId, from, to);
   }
 
   if (orderedEmployees.length === 0) {
@@ -42,24 +39,23 @@ export function YearView({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-foreground-muted">
-                Dipendente
-              </th>
+              <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-foreground-muted">Dipendente</th>
               {months.map((m) => (
                 <th key={m} className="border-b border-border px-2 py-3 text-center text-xs font-medium text-foreground-muted">
                   {monthLabel(m, true)}
                 </th>
               ))}
-              <th className="border-b border-border px-4 py-3 text-center text-xs font-medium text-foreground-muted">
-                Totale anno
-              </th>
+              <th className="border-b border-border px-4 py-3 text-center text-xs font-medium text-foreground-muted">Totale anno</th>
             </tr>
           </thead>
           <tbody>
             {orderedEmployees.map((emp) => (
               <tr key={emp.id}>
                 <td className="border-b border-border px-4 py-3">
-                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">{emp.name}</span>
+                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <EmployeeAvatar employee={emp} size="sm" />
+                    {emp.name}
+                  </span>
                 </td>
                 {months.map((m) => (
                   <td key={m} className="border-b border-border px-2 py-3 text-center text-sm text-foreground-muted">
@@ -67,7 +63,7 @@ export function YearView({
                   </td>
                 ))}
                 <td className="border-b border-border px-4 py-3 text-center text-sm font-semibold text-foreground">
-                  {yearTotal(emp.id)}h
+                  {formatHours(schedule.employeeHours(emp.id))}
                 </td>
               </tr>
             ))}
@@ -79,8 +75,11 @@ export function YearView({
         {orderedEmployees.map((emp) => (
           <div key={emp.id} className="px-4 py-4">
             <div className="mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">{emp.name}</span>
-              <span className="text-sm font-semibold text-foreground">{yearTotal(emp.id)}h</span>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <EmployeeAvatar employee={emp} size="sm" />
+                {emp.name}
+              </span>
+              <span className="text-sm font-semibold text-foreground">{formatHours(schedule.employeeHours(emp.id))}</span>
             </div>
             <div className="grid grid-cols-4 gap-1.5">
               {months.map((m) => (

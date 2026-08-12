@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/toast";
 import { setPassword } from "./actions";
 
 export function PasswordForm({ userId, isSelf }: { userId: string; isSelf: boolean }) {
@@ -8,55 +9,57 @@ export function PasswordForm({ userId, isSelf }: { userId: string; isSelf: boole
   const [value, setValue] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
+  const toast = useToast();
 
   function save() {
     setError(null);
-    setSuccess(false);
     if (value !== confirm) {
       setError("Le due password non coincidono.");
       return;
     }
     startTransition(async () => {
       const res = await setPassword(userId, value);
-      if (res.error) {
+      if (!res.ok) {
         setError(res.error);
-      } else {
-        setSuccess(true);
-        setValue("");
-        setConfirm("");
-        setOpen(false);
+        return;
       }
+      toast.showSuccess("Password aggiornata");
+      setValue("");
+      setConfirm("");
+      setOpen(false);
     });
   }
 
   if (!open) {
     return (
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="text-xs font-medium text-accent hover:text-accent-hover"
-        >
-          {isSelf ? "Cambia la tua password" : "Imposta nuova password"}
-        </button>
-        {success && <span className="text-xs text-success">Aggiornata ✓</span>}
-      </div>
+      <button type="button" onClick={() => setOpen(true)} className="text-xs font-medium text-accent hover:text-accent-hover">
+        {isSelf ? "Cambia la tua password" : "Imposta nuova password"}
+      </button>
     );
   }
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
+      <label className="sr-only" htmlFor={`new-password-${userId}`}>
+        Nuova password
+      </label>
       <input
+        id={`new-password-${userId}`}
         type="password"
-        placeholder="Nuova password (min 6 caratteri)"
+        autoComplete="new-password"
+        placeholder="Nuova password (min 8 caratteri)"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         className="rounded-lg border border-border bg-surface px-2.5 py-2 text-sm outline-none focus:border-accent"
       />
+      <label className="sr-only" htmlFor={`confirm-password-${userId}`}>
+        Ripeti la nuova password
+      </label>
       <input
+        id={`confirm-password-${userId}`}
         type="password"
+        autoComplete="new-password"
         placeholder="Ripeti la password"
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}
@@ -70,7 +73,7 @@ export function PasswordForm({ userId, isSelf }: { userId: string; isSelf: boole
           disabled={pending || !value}
           className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
         >
-          Salva
+          {pending ? "Salvo…" : "Salva"}
         </button>
         <button
           type="button"
