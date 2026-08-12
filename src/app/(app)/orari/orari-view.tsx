@@ -9,6 +9,7 @@ import {
   formatFullDate,
   formatMonthYear,
   formatWeekRange,
+  isToday,
   parseDateKey,
   startOfWeek,
   toDateKey,
@@ -20,6 +21,7 @@ import { MonthView } from "./month-view";
 import { YearView } from "./year-view";
 import { ExportButton } from "./export-button";
 import { SummaryExportButton } from "./summary-export-button";
+import { ClearWeekButton } from "./clear-week-button";
 import { confirmPastShifts } from "./actions";
 
 export type ViewMode = "day" | "week" | "month" | "year";
@@ -86,7 +88,7 @@ export function OrariView({
 
   const title =
     view === "day"
-      ? capitalize(formatFullDate(date))
+      ? capitalize(formatFullDate(date)) + (isToday(date) ? " — Oggi" : "")
       : view === "week"
         ? "Orari settimanali"
         : view === "month"
@@ -164,13 +166,16 @@ export function OrariView({
             </button>
           )}
           {view === "week" && (
-            <ExportButton
-              weekStartKey={toDateKey(startOfWeek(date))}
-              employees={employees}
-              blocks={blocks}
-              leaveEntries={leaveEntries}
-              employeeFilter={employeeFilter}
-            />
+            <>
+              <ExportButton
+                weekStartKey={toDateKey(startOfWeek(date))}
+                employees={employees}
+                blocks={blocks}
+                leaveEntries={leaveEntries}
+                employeeFilter={employeeFilter}
+              />
+              <ClearWeekButton weekStartKey={toDateKey(startOfWeek(date))} />
+            </>
           )}
           {view === "month" && <SummaryExportButton monthDateKey={dateKey} employees={employees} blocks={blocks} />}
         </div>

@@ -122,7 +122,6 @@ export function WeekBody({
                     {orderedEmployees.map((emp) => {
                       const { leave } = cellData(emp.id, dateKey);
                       const empBlocks = periodBlocks(emp.id, dateKey, period);
-                      if (!leave && empBlocks.length === 0) return null;
                       return (
                         <button
                           key={emp.id}
@@ -141,13 +140,6 @@ export function WeekBody({
                   </div>
                 </div>
               ))}
-              <button
-                type="button"
-                onClick={() => setEditingCell({ employeeId: orderedEmployees[0]?.id ?? "", dateKey })}
-                className="block w-full border-t border-border px-4 py-2 text-center text-xs font-medium text-accent active:bg-surface-2"
-              >
-                + aggiungi turno
-              </button>
             </div>
           );
         })}
@@ -195,16 +187,27 @@ function PeriodTable({
             </th>
             {days.map((d) => {
               const dateKey = toDateKey(d);
+              const today = isToday(d);
               return (
                 <th
                   key={dateKey}
-                  className={`border-b border-border px-2 py-2.5 text-center align-top ${
-                    isToday(d) ? "bg-surface-2/60" : "bg-surface-2/60"
+                  className={`border-b px-2 py-2.5 text-center align-top ${
+                    today ? "border-accent bg-accent text-accent-foreground" : "border-border bg-surface-2/60"
                   }`}
                 >
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground">
-                    {dayLabel(d)} <span className="font-normal text-foreground-muted">{formatDayMonth(d)}</span>
+                  <div
+                    className={`text-xs font-semibold uppercase tracking-wide ${
+                      today ? "text-accent-foreground" : "text-foreground"
+                    }`}
+                  >
+                    {dayLabel(d)}{" "}
+                    <span className={today ? "font-normal opacity-90" : "font-normal text-foreground-muted"}>
+                      {formatDayMonth(d)}
+                    </span>
                   </div>
+                  {today && (
+                    <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider opacity-90">Oggi</div>
+                  )}
                 </th>
               );
             })}

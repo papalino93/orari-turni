@@ -63,3 +63,20 @@ export async function confirmPastShifts(rangeStartKey: string, rangeEndKey: stri
   });
   revalidatePath("/orari");
 }
+
+// Elimina tutti i turni, ferie e permessi della settimana indicata (7 giorni
+// da weekStartKey incluso), per tutti i dipendenti. Azione distruttiva: va
+// sempre confermata lato UI prima di essere chiamata.
+export async function clearWeekData(weekStartKey: string) {
+  const start = new Date(`${weekStartKey}T00:00:00.000Z`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 6);
+
+  await prisma.$transaction([
+    prisma.shiftBlock.deleteMany({ where: { date: { gte: start, lte: end } } }),
+    prisma.leaveEntry.deleteMany({ where: { date: { gte: start, lte: end } } }),
+  ]);
+
+  revalidatePath("/orari");
+  revalidatePath("/ferie");
+}

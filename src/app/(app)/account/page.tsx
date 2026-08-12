@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PasswordForm } from "./password-form";
+import { ThemeSetting } from "./theme-setting";
 
 export default async function AccountPage() {
   const session = await getServerSession(authOptions);
@@ -14,6 +15,10 @@ export default async function AccountPage() {
         Entrambi gli accessi hanno gli stessi permessi: puoi cambiare qui sia la tua password che
         quella dell&apos;altro accesso, se serve resettarla.
       </p>
+
+      <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-surface">
+        <ThemeSetting />
+      </div>
 
       <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
         {users.map((u) => (
