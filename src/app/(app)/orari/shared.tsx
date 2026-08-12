@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { coverageCounts, COVERAGE_END_HOUR, COVERAGE_START_HOUR, dayLabel, formatDayMonth, parseDateKey, timeToMinutes } from "@/lib/week";
+import { coverageCounts, COVERAGE_END_HOUR, COVERAGE_START_HOUR, dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { saveDayEntry, type DayLeaveInput } from "./actions";
 
 export type Role = "EMPLOYEE" | "OWNER";
@@ -127,11 +127,64 @@ export function CoverageHeatmap({
   );
 }
 
-function timeSlotLabel(startTime: string): string {
-  const h = Math.floor(timeToMinutes(startTime) / 60);
-  if (h < 14) return "Mattina";
-  if (h < 18) return "Pomeriggio";
-  return "Sera";
+// La mattina va dalle 8 alle 13, il pomeriggio dalle 13 alle 24: due fasce
+// fisse, non un orario libero unico che potrebbe coprire tutta la giornata.
+const MATTINA_MIN = "08:00";
+const MATTINA_MAX = "13:00";
+const POMERIGGIO_MIN = "13:00";
+const POMERIGGIO_MAX = "23:59";
+
+function clampTime(value: string, min: string, max: string): string {
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
+
+type Row = { startTime: string; endTime: string; enabled: boolean };
+
+function PeriodRowInput({
+  label,
+  row,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  row: Row;
+  min: string;
+  max: string;
+  onChange: (row: Row) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <label className="flex items-center gap-1.5">
+        <input
+          type="checkbox"
+          checked={row.enabled}
+          onChange={(e) => onChange({ ...row, enabled: e.target.checked })}
+          className="h-4 w-4 accent-accent"
+        />
+        <span className="w-20 shrink-0 text-xs font-medium text-foreground-muted">{label}</span>
+      </label>
+      <input
+        type="time"
+        min={min}
+        max={max}
+        value={row.startTime}
+        onChange={(e) => onChange({ ...row, startTime: clampTime(e.target.value, min, max) })}
+        className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
+      />
+      <span className="text-foreground-muted">–</span>
+      <input
+        type="time"
+        min={min}
+        max={max}
+        value={row.endTime}
+        onChange={(e) => onChange({ ...row, endTime: clampTime(e.target.value, min, max) })}
+        className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
+      />
+    </div>
+  );
 }
 
 export function DayEditorModal({
@@ -148,20 +201,37 @@ export function DayEditorModal({
   onClose: () => void;
 }) {
   type Mode = "WORK" | "FERIE" | "PERMESSO" | "LIBERO";
-  type Row = { startTime: string; endTime: string; enabled: boolean };
 
   const [mode, setMode] = useState<Mode>(initialLeave ? initialLeave.type : "WORK");
-  const [rows, setRows] = useState<Row[]>(
-    initialBlocks.length > 0
-      ? initialBlocks
-          .slice()
-          .sort((a, b) => a.startTime.localeCompare(b.startTime))
-          .map((b) => ({ startTime: b.startTime, endTime: b.endTime, enabled: true }))
-      : [
-          { startTime: "09:00", endTime: "13:00", enabled: false },
-          { startTime: "16:00", endTime: "20:00", enabled: false },
-        ],
+
+  // Turni creati prima di questo vincolo potevano avere un blocco unico che
+  // sconfina tra mattina e pomeriggio (es. 09:00–23:00): li dividiamo qui,
+  // così aprendo il giorno non si perde il pezzo di orario oltre le 13:00.
+  const existingMattina = initialBlocks.find((b) => b.startTime < POMERIGGIO_MIN);
+  const existingPomeriggio = initialBlocks.find((b) => b.startTime >= POMERIGGIO_MIN);
+  const mattinaSpillsOver = existingMattina && existingMattina.endTime > POMERIGGIO_MIN;
+
+  const [mattina, setMattina] = useState<Row>(
+    existingMattina
+      ? {
+          startTime: clampTime(existingMattina.startTime, MATTINA_MIN, MATTINA_MAX),
+          endTime: clampTime(existingMattina.endTime, MATTINA_MIN, MATTINA_MAX),
+          enabled: true,
+        }
+      : { startTime: "09:00", endTime: MATTINA_MAX, enabled: false },
   );
+  const [pomeriggio, setPomeriggio] = useState<Row>(
+    existingPomeriggio
+      ? {
+          startTime: clampTime(existingPomeriggio.startTime, POMERIGGIO_MIN, POMERIGGIO_MAX),
+          endTime: clampTime(existingPomeriggio.endTime, POMERIGGIO_MIN, POMERIGGIO_MAX),
+          enabled: true,
+        }
+      : mattinaSpillsOver
+        ? { startTime: POMERIGGIO_MIN, endTime: clampTime(existingMattina!.endTime, POMERIGGIO_MIN, POMERIGGIO_MAX), enabled: true }
+        : { startTime: POMERIGGIO_MIN, endTime: "20:00", enabled: false },
+  );
+
   const [quantity, setQuantity] = useState(initialLeave?.quantity ?? 1);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -170,7 +240,10 @@ export function DayEditorModal({
 
   function save() {
     const leave: DayLeaveInput = mode === "WORK" ? null : { type: mode, quantity: mode === "LIBERO" ? 0 : quantity };
-    const blocks = mode === "WORK" ? rows.filter((r) => r.enabled && r.startTime && r.endTime) : [];
+    const blocks =
+      mode === "WORK"
+        ? [mattina, pomeriggio].filter((r) => r.enabled && r.startTime && r.endTime)
+        : [];
     startTransition(async () => {
       await saveDayEntry(employee.id, dateKey, blocks, leave);
       router.refresh();
@@ -215,55 +288,23 @@ export function DayEditorModal({
 
         {mode === "WORK" && (
           <div className="space-y-2">
-            {rows.map((row, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={row.enabled}
-                    onChange={(e) =>
-                      setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, enabled: e.target.checked } : r)))
-                    }
-                    className="h-4 w-4 accent-accent"
-                  />
-                  <span className="w-20 shrink-0 text-xs font-medium text-foreground-muted">
-                    {timeSlotLabel(row.startTime)}
-                  </span>
-                </label>
-                <input
-                  type="time"
-                  value={row.startTime}
-                  onChange={(e) =>
-                    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, startTime: e.target.value } : r)))
-                  }
-                  className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
-                />
-                <span className="text-foreground-muted">–</span>
-                <input
-                  type="time"
-                  value={row.endTime}
-                  onChange={(e) =>
-                    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, endTime: e.target.value } : r)))
-                  }
-                  className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
-                />
-                <button
-                  type="button"
-                  onClick={() => setRows((rs) => rs.filter((_, idx) => idx !== i))}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground-muted hover:bg-danger-bg hover:text-danger"
-                  aria-label="Rimuovi"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => setRows((rs) => [...rs, { startTime: "20:00", endTime: "23:00", enabled: true }])}
-              className="text-xs font-medium text-accent hover:text-accent-hover"
-            >
-              + aggiungi un altro orario
-            </button>
+            <PeriodRowInput
+              label="Mattina"
+              row={mattina}
+              min={MATTINA_MIN}
+              max={MATTINA_MAX}
+              onChange={setMattina}
+            />
+            <PeriodRowInput
+              label="Pomeriggio"
+              row={pomeriggio}
+              min={POMERIGGIO_MIN}
+              max={POMERIGGIO_MAX}
+              onChange={setPomeriggio}
+            />
+            <p className="text-xs text-foreground-muted">
+              Mattina 8:00–13:00, pomeriggio 13:00–24:00: due fasce separate, non un orario unico.
+            </p>
           </div>
         )}
 

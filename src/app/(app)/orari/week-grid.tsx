@@ -17,7 +17,7 @@ import { DayCellContent, DayEditorModal, orderEmployees, type Block, type Employ
 type Period = "mattina" | "pomeriggio";
 
 function periodOf(block: Block): Period {
-  return Math.floor(timeToMinutes(block.startTime) / 60) < 14 ? "mattina" : "pomeriggio";
+  return Math.floor(timeToMinutes(block.startTime) / 60) < 13 ? "mattina" : "pomeriggio";
 }
 
 export function WeekBody({
