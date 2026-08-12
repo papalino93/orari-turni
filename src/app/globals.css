@@ -1,26 +1,91 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0c0b0d;
+  --surface: #18161a;
+  --surface-2: #221f24;
+  --border: #2f2a2f;
+  --foreground: #f3efe9;
+  --foreground-muted: #a39d9a;
+  --accent: #8a2740;
+  --accent-hover: #a3304d;
+  --accent-foreground: #fdf2f4;
+  --gold: #c9a24b;
+  --success: #3fae74;
+  --success-bg: #163425;
+  --danger: #e2574c;
+  --danger-bg: #3a1c1a;
+  --radius: 0.75rem;
+}
+
+:root[data-theme="light"] {
+  --background: #faf8f6;
+  --surface: #ffffff;
+  --surface-2: #f1ede9;
+  --border: #e4dedb;
+  --foreground: #201c1e;
+  --foreground-muted: #6b6468;
+  --accent: #8a2740;
+  --accent-hover: #711f34;
+  --accent-foreground: #fdf2f4;
+  --gold: #93701f;
+  --success: #217a4c;
+  --success-bg: #e3f5ea;
+  --danger: #c23b33;
+  --danger-bg: #fbe7e5;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
   --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-gold: var(--gold);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* scrollbar minimale, coerente col tema */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-2);
+  border-radius: 999px;
 }
