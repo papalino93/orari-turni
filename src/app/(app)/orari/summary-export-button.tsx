@@ -65,9 +65,7 @@ export function SummaryExportButton({
             </div>
 
             <div className="max-w-full overflow-auto rounded-xl" style={{ maxHeight: "60vh" }}>
-              <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: 800 * 0.85 }}>
-                <SummaryExportCard ref={cardRef} monthDateKey={monthDateKey} employees={employees} blocks={blocks} />
-              </div>
+              <SummaryExportCard ref={cardRef} monthDateKey={monthDateKey} employees={employees} blocks={blocks} />
             </div>
 
             <button

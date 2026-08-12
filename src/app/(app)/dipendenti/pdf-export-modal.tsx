@@ -171,17 +171,15 @@ export function PdfExportModal({
           {loading || !data ? (
             <div className="flex h-40 w-full items-center justify-center text-sm text-foreground-muted">Caricamento…</div>
           ) : (
-            <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: 700 * 0.85 }}>
-              <RangeCard
-                ref={cardRef}
-                employeeName={employeeName}
-                jobTitle={jobTitle}
-                rangeLabel={rangeLabel}
-                dateKeys={dateKeys}
-                blocks={data.blocks}
-                leaveEntries={data.leaveEntries}
-              />
-            </div>
+            <RangeCard
+              ref={cardRef}
+              employeeName={employeeName}
+              jobTitle={jobTitle}
+              rangeLabel={rangeLabel}
+              dateKeys={dateKeys}
+              blocks={data.blocks}
+              leaveEntries={data.leaveEntries}
+            />
           )}
         </div>
 

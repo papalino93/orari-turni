@@ -129,29 +129,32 @@ export function CoverageHeatmap({
 }) {
   const counts = coverageCounts(blocks);
   const max = Math.max(1, ...counts);
-  const barHeight = compact ? 20 : 28;
+  const n = counts.length;
+  const H = compact ? 22 : 30;
+  const barW = 0.62;
+  const radius = barW / 2;
 
   return (
     <div>
-      <div className="flex items-end gap-[2px]" style={{ height: barHeight }}>
+      <svg
+        viewBox={`0 0 ${n} ${H}`}
+        preserveAspectRatio="none"
+        style={{ width: "100%", height: H, display: "block", overflow: "visible" }}
+      >
+        <line x1={0} y1={H - 0.5} x2={n} y2={H - 0.5} stroke="var(--border)" strokeWidth={0.4} />
         {counts.map((c, i) => {
           const hour = COVERAGE_START_HOUR + i;
           const under = threshold !== null && threshold > 0 && c < threshold;
-          const h = Math.max(3, (c / max) * barHeight);
+          const color = c === 0 ? "var(--border)" : under ? "var(--danger)" : "var(--success)";
+          const barH = c === 0 ? 0.6 : Math.max(2.2, (c / max) * (H - 5));
+          const x = i + (1 - barW) / 2;
           return (
-            <div
-              key={hour}
-              title={`ore ${hour}:00 — ${c} in turno${threshold ? ` (minimo richiesto: ${threshold})` : ""}`}
-              className="w-1 flex-1 rounded-sm"
-              style={{
-                height: h,
-                background: c === 0 ? "var(--border)" : under ? "var(--danger)" : "var(--success)",
-                opacity: c === 0 ? 0.5 : 1,
-              }}
-            />
+            <rect key={hour} x={x} y={H - 1 - barH} width={barW} height={barH} rx={radius} fill={color}>
+              <title>{`ore ${hour}:00 — ${c} in turno${threshold ? ` (minimo richiesto: ${threshold})` : ""}`}</title>
+            </rect>
           );
         })}
-      </div>
+      </svg>
       {showAxis && (
         <div className="mt-1 flex justify-between text-[10px] text-foreground-muted/70">
           <span>{COVERAGE_START_HOUR}</span>

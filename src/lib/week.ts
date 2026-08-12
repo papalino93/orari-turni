@@ -155,6 +155,24 @@ export function weeksInMonth(date: Date): Date[][] {
   return weeks;
 }
 
+// Come weeksInMonth, ma ogni fascia è "tagliata" al mese: la prima parte
+// dal giorno 1 (anche se non è lunedì) e l'ultima finisce all'ultimo
+// giorno del mese, senza mai includere giorni del mese precedente/successivo.
+export function weekRangesInMonth(date: Date): { start: Date; end: Date }[] {
+  const monthStart = startOfMonth(date);
+  const monthEnd = endOfMonth(date);
+  const ranges: { start: Date; end: Date }[] = [];
+  let cursor = startOfWeek(monthStart);
+  while (cursor <= monthEnd) {
+    const weekEnd = addDays(cursor, 6);
+    const start = cursor < monthStart ? monthStart : cursor;
+    const end = weekEnd > monthEnd ? monthEnd : weekEnd;
+    ranges.push({ start, end });
+    cursor = addDays(cursor, 7);
+  }
+  return ranges;
+}
+
 export function startOfYear(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
 }

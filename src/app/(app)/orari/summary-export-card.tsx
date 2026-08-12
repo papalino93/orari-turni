@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { addDays, formatDayMonth, formatMonthYear, sumHours, toDateKey, weeksInMonth } from "@/lib/week";
+import { formatDayMonth, formatMonthYear, sumHours, toDateKey, weekRangesInMonth } from "@/lib/week";
 import { orderEmployees, type Block, type Employee } from "./shared";
 
 export const SummaryExportCard = forwardRef<
@@ -11,7 +11,7 @@ export const SummaryExportCard = forwardRef<
   }
 >(function SummaryExportCard({ monthDateKey, employees, blocks }, ref) {
   const monthDate = new Date(`${monthDateKey}T00:00:00.000Z`);
-  const weeks = weeksInMonth(monthDate);
+  const weeks = weekRangesInMonth(monthDate);
   const orderedEmployees = orderEmployees(employees);
 
   function hoursForEmployeeInRange(employeeId: string, start: Date, end: Date) {
@@ -67,7 +67,7 @@ export const SummaryExportCard = forwardRef<
             </th>
             {weeks.map((week, i) => (
               <th key={i} style={{ padding: "8px 6px", background: "#8a2740", color: "#fdf2f4", textAlign: "center" }}>
-                {formatDayMonth(week[0])}–{formatDayMonth(week[6])}
+                {formatDayMonth(week.start)}–{formatDayMonth(week.end)}
               </th>
             ))}
             <th
@@ -92,7 +92,7 @@ export const SummaryExportCard = forwardRef<
               </td>
               {weeks.map((week, wi) => (
                 <td key={wi} style={{ padding: "8px 6px", textAlign: "center" }}>
-                  {hoursForEmployeeInRange(emp.id, week[0], addDays(week[0], 6))}h
+                  {hoursForEmployeeInRange(emp.id, week.start, week.end)}h
                 </td>
               ))}
               <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: "#8a2740" }}>

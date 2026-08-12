@@ -1,6 +1,6 @@
 "use client";
 
-import { addDays, formatDayMonth, sumHours, toDateKey, weeksInMonth } from "@/lib/week";
+import { formatDayMonth, sumHours, toDateKey, weekRangesInMonth } from "@/lib/week";
 import { orderEmployees, type Block, type Employee } from "./shared";
 
 export function MonthView({
@@ -15,7 +15,7 @@ export function MonthView({
   employeeFilter?: string;
 }) {
   const monthDate = new Date(`${monthDateKey}T00:00:00.000Z`);
-  const weeks = weeksInMonth(monthDate);
+  const weeks = weekRangesInMonth(monthDate);
   const allOrdered = orderEmployees(employees);
   const orderedEmployees = employeeFilter ? allOrdered.filter((e) => e.id === employeeFilter) : allOrdered;
 
@@ -53,7 +53,7 @@ export function MonthView({
                   key={i}
                   className="border-b border-border px-3 py-3 text-center text-xs font-medium text-foreground-muted"
                 >
-                  {formatDayMonth(week[0])}–{formatDayMonth(week[6])}
+                  {formatDayMonth(week.start)}–{formatDayMonth(week.end)}
                 </th>
               ))}
               <th className="border-b border-border px-4 py-3 text-center text-xs font-medium text-foreground-muted">
@@ -72,7 +72,7 @@ export function MonthView({
                 </td>
                 {weeks.map((week, i) => (
                   <td key={i} className="border-b border-border px-3 py-3 text-center text-sm text-foreground-muted">
-                    {hoursForEmployeeInRange(emp.id, week[0], addDays(week[0], 6))}h
+                    {hoursForEmployeeInRange(emp.id, week.start, week.end)}h
                   </td>
                 ))}
                 <td className="border-b border-border px-4 py-3 text-center text-sm font-semibold text-foreground">
@@ -97,9 +97,9 @@ export function MonthView({
             <div className="flex flex-wrap gap-1.5">
               {weeks.map((week, i) => (
                 <span key={i} className="rounded-full bg-surface-2 px-2 py-1 text-[11px] text-foreground-muted">
-                  {formatDayMonth(week[0])}–{formatDayMonth(week[6])}:{" "}
+                  {formatDayMonth(week.start)}–{formatDayMonth(week.end)}:{" "}
                   <span className="font-medium text-foreground">
-                    {hoursForEmployeeInRange(emp.id, week[0], addDays(week[0], 6))}h
+                    {hoursForEmployeeInRange(emp.id, week.start, week.end)}h
                   </span>
                 </span>
               ))}

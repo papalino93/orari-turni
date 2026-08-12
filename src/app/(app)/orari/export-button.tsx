@@ -69,16 +69,14 @@ export function ExportButton({
             </div>
 
             <div className="max-w-full overflow-auto rounded-xl" style={{ maxHeight: "60vh" }}>
-              <div style={{ transform: "scale(0.75)", transformOrigin: "top left", width: 800 * 0.75 }}>
-                <ExportCard
-                  ref={cardRef}
-                  weekStartKey={weekStartKey}
-                  employees={employees}
-                  blocks={blocks}
-                  leaveEntries={leaveEntries}
-                  employeeFilter={employeeFilter}
-                />
-              </div>
+              <ExportCard
+                ref={cardRef}
+                weekStartKey={weekStartKey}
+                employees={employees}
+                blocks={blocks}
+                leaveEntries={leaveEntries}
+                employeeFilter={employeeFilter}
+              />
             </div>
 
             <button
