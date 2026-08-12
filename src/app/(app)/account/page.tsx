@@ -17,7 +17,7 @@ export default async function AccountPage() {
 
       <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
         {users.map((u) => (
-          <div key={u.id} className="flex items-center justify-between gap-4 px-5 py-4">
+          <div key={u.id} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-medium text-foreground">
                 {u.name}

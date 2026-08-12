@@ -59,7 +59,7 @@ function EmployeeRow({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 px-5 py-3.5">
+    <div className="flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-2">
         <div className="flex shrink-0 flex-col">
           <button
@@ -117,7 +117,7 @@ function EmployeeRow({
             )}
 
             {employee.role === "OWNER" && (
-              <span className="hidden shrink-0 rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-medium text-gold sm:inline">
+              <span className="shrink-0 rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-medium text-gold">
                 Titolare
               </span>
             )}
