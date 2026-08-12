@@ -49,7 +49,11 @@ export function DayCellContent({
     );
   }
   if (blocks.length === 0) {
-    return <span className="text-xs text-foreground-muted/50">+</span>;
+    return (
+      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-border text-xs text-foreground-muted/70">
+        +
+      </span>
+    );
   }
   const needsConfirm = isPast && blocks.some((b) => !b.confirmed);
   return (

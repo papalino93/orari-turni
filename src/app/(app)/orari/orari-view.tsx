@@ -19,6 +19,7 @@ import { DayView } from "./day-view";
 import { MonthView } from "./month-view";
 import { YearView } from "./year-view";
 import { ExportButton } from "./export-button";
+import { SummaryExportButton } from "./summary-export-button";
 import { confirmPastShifts } from "./actions";
 
 export type ViewMode = "day" | "week" | "month" | "year";
@@ -185,22 +186,35 @@ export function OrariView({
               employeeFilter={employeeFilter}
             />
           )}
+          {view === "month" && <SummaryExportButton monthDateKey={dateKey} employees={employees} blocks={blocks} />}
         </div>
       </div>
 
-      <div className="mb-5 flex gap-1 rounded-full border border-border bg-surface p-1 w-fit">
-        {(Object.keys(VIEW_LABELS) as ViewMode[]).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => navigate({ view: v })}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              v === view ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
-            }`}
-          >
-            {VIEW_LABELS[v]}
-          </button>
-        ))}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <div className="flex gap-1 rounded-full border border-border bg-surface p-1 w-fit">
+          {(Object.keys(VIEW_LABELS) as ViewMode[]).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => navigate({ view: v })}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                v === view ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
+              }`}
+            >
+              {VIEW_LABELS[v]}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-foreground-muted">
+          {view === "day" || view === "week" ? (
+            <>
+              <span className="text-accent">✎</span> Clicca su una casella per inserire o modificare un turno, ferie
+              o permesso.
+            </>
+          ) : (
+            "Vista di sola lettura — riepiloga i totali. Per inserire o modificare gli orari passa a Giorno o Settimana."
+          )}
+        </p>
       </div>
 
       {view === "day" && (
