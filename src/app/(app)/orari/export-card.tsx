@@ -89,8 +89,13 @@ export const ExportCard = forwardRef<
                 return (
                   <td key={i} style={{ padding: "10px 6px", textAlign: "center", verticalAlign: "top" }}>
                     {leave ? (
-                      <span style={{ color: leave.type === "FERIE" ? "#8a2740" : "#93701f", fontWeight: 600 }}>
-                        {leave.type === "FERIE" ? "Ferie" : `Perm. ${leave.quantity}h`}
+                      <span
+                        style={{
+                          color: leave.type === "FERIE" ? "#8a2740" : leave.type === "PERMESSO" ? "#93701f" : "#6b6468",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {leave.type === "FERIE" ? "Ferie" : leave.type === "PERMESSO" ? `Perm. ${leave.quantity}h` : "Libero"}
                       </span>
                     ) : dayBlocks.length > 0 ? (
                       <div>
