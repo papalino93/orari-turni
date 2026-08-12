@@ -67,6 +67,10 @@ export function isToday(date: Date): boolean {
   return toDateKey(date) === toDateKey(new Date());
 }
 
+export function isPastDateKey(dateKey: string): boolean {
+  return dateKey < toDateKey(new Date());
+}
+
 // Orario di riferimento per la vista copertura (fasce orarie di un'enoteca).
 export const COVERAGE_START_HOUR = 8;
 export const COVERAGE_END_HOUR = 24;

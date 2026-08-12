@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { sumHours } from "@/lib/week";
+import { isPastDateKey, sumHours } from "@/lib/week";
 import {
   CoverageHeatmap,
+  CoverageLegend,
   DayCellContent,
   DayEditorModal,
   orderEmployees,
@@ -43,14 +44,22 @@ export function DayView({
     <div>
       <div className="mb-4 overflow-hidden rounded-2xl border border-border bg-surface">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <p className="text-sm font-medium text-foreground-muted">Copertura della giornata</p>
+          <div>
+            <p className="text-sm font-medium text-foreground-muted">Copertura della giornata</p>
+            <p className="text-xs text-foreground-muted">
+              Ogni barra è un&apos;ora (dalle 8 alle 24): più alta e verde = più persone in turno.
+            </p>
+          </div>
           <p className="text-sm">
             <span className="font-semibold text-foreground">{totalHours}h</span>{" "}
             <span className="text-foreground-muted">totali</span>
           </p>
         </div>
         <div className="px-4 py-3">
-          <CoverageHeatmap blocks={blocks} threshold={threshold} />
+          <CoverageHeatmap blocks={blocks} threshold={threshold} showAxis />
+        </div>
+        <div className="border-t border-border px-4 py-2.5">
+          <CoverageLegend />
         </div>
       </div>
 
@@ -80,7 +89,7 @@ export function DayView({
                   {empBlocks.length > 0 && (
                     <span className="text-xs text-foreground-muted">{sumHours(empBlocks)}h</span>
                   )}
-                  <DayCellContent blocks={empBlocks} leave={leave} align="right" />
+                  <DayCellContent blocks={empBlocks} leave={leave} align="right" isPast={isPastDateKey(dateKey)} />
                 </div>
               </button>
             );

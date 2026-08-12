@@ -4,7 +4,7 @@ import { EmployeeList } from "./employee-list";
 
 export default async function DipendentiPage() {
   const employees = await prisma.employee.findMany({
-    orderBy: [{ active: "desc" }, { role: "asc" }, { name: "asc" }],
+    orderBy: [{ active: "desc" }, { sortOrder: "asc" }],
   });
 
   return (

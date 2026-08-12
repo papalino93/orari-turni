@@ -41,7 +41,7 @@ export default async function OrariPage({
 
   const employees = await prisma.employee.findMany({
     where: { active: true },
-    orderBy: [{ role: "asc" }, { name: "asc" }],
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
 
   const needsLeaveAndThresholds = view === "day" || view === "week";
@@ -73,14 +73,17 @@ export default async function OrariPage({
     <OrariView
       view={view}
       dateKey={toDateKey(refDate)}
+      rangeStartKey={toDateKey(rangeStart)}
+      rangeEndKey={toDateKey(rangeEnd)}
       employeeFilter={employeeFilter}
-      employees={employees.map((e) => ({ id: e.id, name: e.name, role: e.role }))}
+      employees={employees.map((e) => ({ id: e.id, name: e.name, role: e.role, sortOrder: e.sortOrder }))}
       blocks={blocks.map((b) => ({
         id: b.id,
         employeeId: b.employeeId,
         dateKey: toDateKey(b.date),
         startTime: b.startTime,
         endTime: b.endTime,
+        confirmed: b.confirmed,
       }))}
       leaveEntries={leaveEntries.map((l) => ({
         id: l.id,

@@ -2,31 +2,40 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { coverageCounts, COVERAGE_START_HOUR, dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
+import { coverageCounts, COVERAGE_END_HOUR, COVERAGE_START_HOUR, dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { saveDayEntry, setDayThreshold, type DayLeaveInput } from "./actions";
 
 export type Role = "EMPLOYEE" | "OWNER";
 export type LeaveType = "FERIE" | "PERMESSO";
 
-export type Employee = { id: string; name: string; role: Role };
-export type Block = { id: string; employeeId: string; dateKey: string; startTime: string; endTime: string };
+export type Employee = { id: string; name: string; role: Role; sortOrder: number };
+export type Block = {
+  id: string;
+  employeeId: string;
+  dateKey: string;
+  startTime: string;
+  endTime: string;
+  confirmed: boolean;
+};
 export type Leave = { id: string; employeeId: string; dateKey: string; type: LeaveType; quantity: number };
 export type Threshold = { dayOfWeek: number | null; dateKey: string | null; minStaff: number };
 
+// L'ordine è quello scelto manualmente dal titolare (es. titolare in cima,
+// poi il personale di sala): vedi la pagina Dipendenti.
 export function orderEmployees(employees: Employee[]): Employee[] {
-  const active = employees.filter((e) => e.role === "EMPLOYEE");
-  const owner = employees.find((e) => e.role === "OWNER");
-  return owner ? [...active, owner] : active;
+  return employees.slice().sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export function DayCellContent({
   blocks,
   leave,
   align = "left",
+  isPast = false,
 }: {
   blocks: Block[];
   leave: Leave | null;
   align?: "left" | "right";
+  isPast?: boolean;
 }) {
   if (leave) {
     return (
@@ -42,8 +51,14 @@ export function DayCellContent({
   if (blocks.length === 0) {
     return <span className="text-xs text-foreground-muted/50">+</span>;
   }
+  const needsConfirm = isPast && blocks.some((b) => !b.confirmed);
   return (
     <div className={`flex flex-col gap-0.5 ${align === "right" ? "items-end" : "items-start"}`}>
+      {needsConfirm && (
+        <span className="flex items-center gap-1 text-[10px] font-medium text-gold">
+          <span className="h-1.5 w-1.5 rounded-full bg-gold" /> da confermare
+        </span>
+      )}
       {blocks
         .slice()
         .sort((a, b) => a.startTime.localeCompare(b.startTime))
@@ -101,33 +116,66 @@ export function CoverageHeatmap({
   blocks,
   threshold,
   compact = false,
+  showAxis = false,
 }: {
   blocks: Block[];
   threshold: number | null;
   compact?: boolean;
+  showAxis?: boolean;
 }) {
   const counts = coverageCounts(blocks);
   const max = Math.max(1, ...counts);
+  const barHeight = compact ? 20 : 28;
 
   return (
-    <div className="flex items-end gap-[2px]" style={{ height: compact ? 20 : 28 }}>
-      {counts.map((c, i) => {
-        const hour = COVERAGE_START_HOUR + i;
-        const under = threshold !== null && threshold > 0 && c < threshold;
-        const h = Math.max(3, (c / max) * (compact ? 20 : 28));
-        return (
-          <div
-            key={hour}
-            title={`${hour}:00 — ${c} presenti${threshold ? ` (min ${threshold})` : ""}`}
-            className="w-1 flex-1 rounded-sm"
-            style={{
-              height: h,
-              background: c === 0 ? "var(--border)" : under ? "var(--danger)" : "var(--success)",
-              opacity: c === 0 ? 0.5 : 1,
-            }}
-          />
-        );
-      })}
+    <div>
+      <div className="flex items-end gap-[2px]" style={{ height: barHeight }}>
+        {counts.map((c, i) => {
+          const hour = COVERAGE_START_HOUR + i;
+          const under = threshold !== null && threshold > 0 && c < threshold;
+          const h = Math.max(3, (c / max) * barHeight);
+          return (
+            <div
+              key={hour}
+              title={`ore ${hour}:00 — ${c} in turno${threshold ? ` (minimo richiesto: ${threshold})` : ""}`}
+              className="w-1 flex-1 rounded-sm"
+              style={{
+                height: h,
+                background: c === 0 ? "var(--border)" : under ? "var(--danger)" : "var(--success)",
+                opacity: c === 0 ? 0.5 : 1,
+              }}
+            />
+          );
+        })}
+      </div>
+      {showAxis && (
+        <div className="mt-1 flex justify-between text-[10px] text-foreground-muted/70">
+          <span>{COVERAGE_START_HOUR}</span>
+          <span>{Math.round((COVERAGE_START_HOUR + COVERAGE_END_HOUR) / 2)}</span>
+          <span>{COVERAGE_END_HOUR}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Legenda del colore delle barre di copertura: quante persone sono in
+// turno in ogni ora della giornata, e se bastano rispetto alla soglia.
+export function CoverageLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-foreground-muted">
+      <span className="flex items-center gap-1.5">
+        <span className="inline-block h-2 w-2 rounded-sm" style={{ background: "var(--success)" }} />
+        persone sufficienti
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="inline-block h-2 w-2 rounded-sm" style={{ background: "var(--danger)" }} />
+        sotto la soglia minima
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="inline-block h-2 w-2 rounded-sm opacity-50" style={{ background: "var(--border)" }} />
+        nessuno in turno
+      </span>
     </div>
   );
 }

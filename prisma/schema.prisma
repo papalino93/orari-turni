@@ -33,7 +33,9 @@ model Employee {
   id        String       @id @default(cuid())
   name      String
   role      EmployeeRole @default(EMPLOYEE)
+  jobTitle  String? // etichetta libera, es. "Responsabile sala" — solo descrittiva
   active    Boolean      @default(true)
+  sortOrder Int          @default(0)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
@@ -53,6 +55,7 @@ model ShiftBlock {
   date       DateTime @db.Date
   startTime  String // "HH:MM", 24h
   endTime    String // "HH:MM", 24h
+  confirmed  Boolean  @default(false) // il titolare ha verificato che l'orario pianificato corrisponde a quello realmente lavorato
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

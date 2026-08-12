@@ -57,6 +57,25 @@ export async function setDayThreshold(dateKey: string, minStaff: number) {
   revalidatePath("/orari");
 }
 
+// Marca come confermati (verificati dal titolare) tutti i turni fino a
+// oggi escluso, entro l'intervallo dato — opzionalmente per un solo
+// dipendente. Usato dopo aver rivisto gli orari effettivamente lavorati.
+export async function confirmPastShifts(rangeStartKey: string, rangeEndKey: string, employeeId?: string) {
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const endKey = rangeEndKey < todayKey ? rangeEndKey : todayKey;
+  if (rangeStartKey > endKey) return;
+
+  await prisma.shiftBlock.updateMany({
+    where: {
+      date: { gte: new Date(`${rangeStartKey}T00:00:00.000Z`), lte: new Date(`${endKey}T00:00:00.000Z`) },
+      confirmed: false,
+      ...(employeeId ? { employeeId } : {}),
+    },
+    data: { confirmed: true },
+  });
+  revalidatePath("/orari");
+}
+
 export async function setWeekdayDefaultThreshold(dayOfWeek: number, minStaff: number) {
   const existing = await prisma.coverageThreshold.findFirst({
     where: { dayOfWeek, specificDate: null },

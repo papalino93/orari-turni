@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme-provider";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-detection per evitare mismatch di idratazione col tema, pattern raccomandato da next-themes
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-detection per evitare mismatch di idratazione: il tema reale (letto da localStorage via script) può differire da quello di partenza lato server
     setMounted(true);
   }, []);
 

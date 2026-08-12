@@ -53,6 +53,16 @@ export function AppShell({
           </nav>
 
           <div className="flex items-center gap-3">
+            <Link
+              href="/account"
+              aria-label="Account"
+              title="Account"
+              className={`flex h-9 w-9 items-center justify-center rounded-full border border-border transition-colors hover:border-accent hover:text-foreground ${
+                pathname?.startsWith("/account") ? "text-foreground" : "text-foreground-muted"
+              }`}
+            >
+              <GearIcon />
+            </Link>
             <ThemeToggle />
             <span className="hidden text-sm text-foreground-muted sm:block">{userName}</span>
             <button
@@ -105,6 +115,15 @@ function PalmIcon({ active }: { active: boolean }) {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2}>
       <path d="M12 21V10M12 10c0-4-3-7-7-7 0 4 3 6 7 6M12 10c0-4 3-7 7-7 0 4-3 6-7 6M12 12c0-3-2.5-5-6-5 0 3 2 5 6 5M12 12c0-3 2.5-5 6-5 0 3-2 5-6 5" />
+    </svg>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.35a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.65 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.65 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.65a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.35 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.96z" />
     </svg>
   );
 }

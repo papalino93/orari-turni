@@ -5,6 +5,7 @@ import {
   addDays,
   dayLabel,
   formatDayMonth,
+  isPastDateKey,
   isToday,
   jsDayOfWeek,
   parseDateKey,
@@ -14,6 +15,7 @@ import {
 import { setWeekdayDefaultThreshold } from "./actions";
 import {
   CoverageHeatmap,
+  CoverageLegend,
   DayCellContent,
   DayEditorModal,
   ThresholdBadge,
@@ -136,7 +138,7 @@ export function WeekBody({
                       }`}
                       onClick={() => setEditingCell({ employeeId: emp.id, dateKey })}
                     >
-                      <DayCellContent blocks={dayBlocks} leave={leave} />
+                      <DayCellContent blocks={dayBlocks} leave={leave} isPast={isPastDateKey(dateKey)} />
                     </td>
                   );
                 })}
@@ -164,9 +166,15 @@ export function WeekBody({
             </tr>
           </tfoot>
         </table>
+        <div className="border-t border-border px-3 py-2.5">
+          <CoverageLegend />
+        </div>
       </div>
 
       {/* Mobile */}
+      <div className="mb-4 rounded-2xl border border-border bg-surface px-4 py-3 md:hidden">
+        <CoverageLegend />
+      </div>
       {orderedEmployees.length > 1 && (
         <div className="mb-4 flex flex-wrap gap-2 md:hidden">
           {orderedEmployees.map((emp) => (
@@ -215,7 +223,7 @@ export function WeekBody({
                         {emp.name}
                         {emp.role === "OWNER" && <span className="text-[10px] text-gold">★</span>}
                       </span>
-                      <DayCellContent blocks={empBlocks} leave={leave} align="right" />
+                      <DayCellContent blocks={empBlocks} leave={leave} align="right" isPast={isPastDateKey(dateKey)} />
                     </button>
                   );
                 })}

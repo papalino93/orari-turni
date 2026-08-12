@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addDays,
@@ -18,6 +18,8 @@ import { WeekBody } from "./week-grid";
 import { DayView } from "./day-view";
 import { MonthView } from "./month-view";
 import { YearView } from "./year-view";
+import { ExportButton } from "./export-button";
+import { confirmPastShifts } from "./actions";
 
 export type ViewMode = "day" | "week" | "month" | "year";
 
@@ -31,6 +33,8 @@ const VIEW_LABELS: Record<ViewMode, string> = {
 export function OrariView({
   view,
   dateKey,
+  rangeStartKey,
+  rangeEndKey,
   employeeFilter,
   employees,
   blocks,
@@ -40,6 +44,8 @@ export function OrariView({
 }: {
   view: ViewMode;
   dateKey: string;
+  rangeStartKey: string;
+  rangeEndKey: string;
   employeeFilter?: string;
   employees: Employee[];
   blocks: Block[];
@@ -50,6 +56,9 @@ export function OrariView({
   const router = useRouter();
   const date = parseDateKey(dateKey);
   const [showDefaults, setShowDefaults] = useState(false);
+  const [confirming, startConfirming] = useTransition();
+
+  const hasUnconfirmedPast = blocks.some((b) => !b.confirmed && b.dateKey < toDateKey(new Date()));
 
   function navigate(params: { view?: ViewMode; date?: string; employee?: string | null }) {
     const search = new URLSearchParams();
@@ -150,6 +159,31 @@ export function OrariView({
             >
               Soglie predefinite
             </button>
+          )}
+          {hasUnconfirmedPast && (
+            <button
+              type="button"
+              disabled={confirming}
+              onClick={() =>
+                startConfirming(async () => {
+                  await confirmPastShifts(rangeStartKey, rangeEndKey, employeeFilter);
+                  router.refresh();
+                })
+              }
+              className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold hover:bg-gold/20"
+              title="Segna come verificati tutti i turni passati in questo periodo"
+            >
+              {confirming ? "Conferma…" : "Conferma turni passati"}
+            </button>
+          )}
+          {view === "week" && (
+            <ExportButton
+              weekStartKey={toDateKey(startOfWeek(date))}
+              employees={employees}
+              blocks={blocks}
+              leaveEntries={leaveEntries}
+              employeeFilter={employeeFilter}
+            />
           )}
         </div>
       </div>

@@ -12,7 +12,7 @@ export default async function FeriePage() {
   const [employees, balances, entries] = await Promise.all([
     prisma.employee.findMany({
       where: { role: "EMPLOYEE", active: true },
-      orderBy: { name: "asc" },
+      orderBy: { sortOrder: "asc" },
     }),
     prisma.leaveBalance.findMany({ where: { year } }),
     prisma.leaveEntry.findMany({ where: { date: { gte: yearStart, lte: yearEnd } } }),
