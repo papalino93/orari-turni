@@ -1,0 +1,120 @@
+// Schema dati per "orari-turni": griglia orari settimanale + copertura,
+// area titolare con ferie/permessi. Vedi ONBOARDING/memoria di progetto
+// per il contesto delle decisioni.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// I due account con pieni permessi (titolare + persona di fiducia).
+// Nessun login per i singoli dipendenti.
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+enum EmployeeRole {
+  EMPLOYEE
+  OWNER
+}
+
+// Il titolare è un Employee con role OWNER: compare in griglia orari e
+// copertura come chiunque altro, ma è escluso da ogni logica di ferie/permessi.
+model Employee {
+  id        String       @id @default(cuid())
+  name      String
+  role      EmployeeRole @default(EMPLOYEE)
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  shiftBlocks   ShiftBlock[]
+  leaveEntries  LeaveEntry[]
+  leaveBalances LeaveBalance[]
+
+  @@index([role])
+}
+
+// Un blocco di presenza in un giorno (orario libero, più blocchi per
+// giorno per gestire orari spezzati: es. 9-13 e 16-20 lo stesso giorno).
+model ShiftBlock {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  startTime  String // "HH:MM", 24h
+  endTime    String // "HH:MM", 24h
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([date])
+  @@index([employeeId, date])
+}
+
+enum LeaveType {
+  FERIE
+  PERMESSO
+}
+
+// Un giorno di ferie o permesso pianificato/goduto per un dipendente.
+// FERIE: quantity in giorni (es. 1, 0.5). PERMESSO: quantity in ore.
+// Non esiste per dipendenti con role OWNER (esclusi dalla logica ferie).
+model LeaveEntry {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime  @db.Date
+  type       LeaveType
+  quantity   Float
+  note       String?
+  createdAt  DateTime  @default(now())
+
+  @@index([date])
+  @@index([employeeId, type, date])
+}
+
+// Saldo di partenza e tasso di maturazione per dipendente/tipo/anno.
+// openingBalance: residuo portato dall'anno precedente (o dalla busta
+// paga al momento dell'import iniziale). monthlyAccrualRate: giorni/mese
+// (FERIE) o ore/mese (PERMESSO), dedotto dal contratto in busta paga.
+// Se non esiste una riga per un dipendente, la sua area ferie/permessi
+// resta semplicemente vuota (nessun dato ancora caricato).
+model LeaveBalance {
+  id                 String    @id @default(cuid())
+  employeeId         String
+  employee           Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType          LeaveType
+  year               Int
+  openingBalance     Float     @default(0)
+  monthlyAccrualRate Float     @default(0)
+  sourceNote         String? // es. "da busta paga luglio 2026"
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([employeeId, leaveType, year])
+}
+
+// Soglia minima di copertura per la vista orari. Una riga con dayOfWeek
+// valorizzato (0=domenica..6=sabato) e specificDate nullo è il default
+// settimanale; una riga con specificDate valorizzato è un override per
+// quel singolo giorno (es. evento) e ha sempre la precedenza.
+model CoverageThreshold {
+  id           String    @id @default(cuid())
+  dayOfWeek    Int? // 0-6, usato quando specificDate è nullo
+  specificDate DateTime? @db.Date
+  minStaff     Int
+  note         String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([dayOfWeek])
+  @@index([specificDate])
+}
