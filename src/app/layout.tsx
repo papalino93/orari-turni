@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Orari & Turni",
+  title: "L'Angolo del Vino — Orari",
   description: "Gestione orari, copertura e ferie del personale",
 };
 

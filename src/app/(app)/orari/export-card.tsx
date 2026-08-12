@@ -30,21 +30,9 @@ export const ExportCard = forwardRef<
         borderRadius: 20,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: "#8a2740",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 22,
-          }}
-        >
-          🍷
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- va dentro un canvas catturato da html-to-image, next/image non è compatibile */}
+        <img src="/logo.png" alt="" style={{ height: 34, width: "auto" }} />
         <div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>
             {singleEmployee ? `Orario di ${singleEmployee.name}` : "Orari settimanali"}
@@ -123,7 +111,7 @@ export const ExportCard = forwardRef<
               })}
             </tr>
           ))}
-          {singleEmployee && (
+          {singleEmployee && singleEmployee.role !== "OWNER" && (
             <tr>
               <td colSpan={8} style={{ padding: "12px 8px", textAlign: "right", fontWeight: 700, color: "#8a2740" }}>
                 Totale settimana: {sumHours(blocks.filter((b) => b.employeeId === singleEmployee.id))}h

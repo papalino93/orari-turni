@@ -2,30 +2,19 @@
 
 import { useState } from "react";
 import { isPastDateKey, sumHours } from "@/lib/week";
-import {
-  CoverageHeatmap,
-  CoverageLegend,
-  DayCellContent,
-  DayEditorModal,
-  orderEmployees,
-  type Block,
-  type Employee,
-  type Leave,
-} from "./shared";
+import { CoverageHeatmap, DayCellContent, DayEditorModal, orderEmployees, type Block, type Employee, type Leave } from "./shared";
 
 export function DayView({
   dateKey,
   employees,
   blocks,
   leaveEntries,
-  threshold,
   employeeFilter,
 }: {
   dateKey: string;
   employees: Employee[];
   blocks: Block[];
   leaveEntries: Leave[];
-  threshold: number | null;
   employeeFilter?: string;
 }) {
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
@@ -47,7 +36,7 @@ export function DayView({
           <div>
             <p className="text-sm font-medium text-foreground-muted">Copertura della giornata</p>
             <p className="text-xs text-foreground-muted">
-              Ogni barra è un&apos;ora (dalle 8 alle 24): più alta e verde = più persone in turno.
+              Ogni barra è un&apos;ora (dalle 8 alle 24): più è alta, più persone sono in turno.
             </p>
           </div>
           <p className="text-sm">
@@ -56,10 +45,7 @@ export function DayView({
           </p>
         </div>
         <div className="px-4 py-3">
-          <CoverageHeatmap blocks={blocks} threshold={threshold} showAxis />
-        </div>
-        <div className="border-t border-border px-4 py-2.5">
-          <CoverageLegend />
+          <CoverageHeatmap blocks={blocks} showAxis />
         </div>
       </div>
 

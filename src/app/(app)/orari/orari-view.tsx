@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addDays,
@@ -13,7 +13,7 @@ import {
   startOfWeek,
   toDateKey,
 } from "@/lib/week";
-import { orderEmployees, type Block, type Employee, type Leave, type Threshold } from "./shared";
+import { orderEmployees, type Block, type Employee, type Leave } from "./shared";
 import { WeekBody } from "./week-grid";
 import { DayView } from "./day-view";
 import { MonthView } from "./month-view";
@@ -40,8 +40,6 @@ export function OrariView({
   employees,
   blocks,
   leaveEntries,
-  thresholds,
-  dayThreshold,
 }: {
   view: ViewMode;
   dateKey: string;
@@ -51,12 +49,9 @@ export function OrariView({
   employees: Employee[];
   blocks: Block[];
   leaveEntries: Leave[];
-  thresholds: Threshold[];
-  dayThreshold: number | null;
 }) {
   const router = useRouter();
   const date = parseDateKey(dateKey);
-  const [showDefaults, setShowDefaults] = useState(false);
   const [confirming, startConfirming] = useTransition();
 
   const hasUnconfirmedPast = blocks.some((b) => !b.confirmed && b.dateKey < toDateKey(new Date()));
@@ -152,15 +147,6 @@ export function OrariView({
           >
             ›
           </button>
-          {(view === "day" || view === "week") && (
-            <button
-              type="button"
-              onClick={() => setShowDefaults((v) => !v)}
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-            >
-              Soglie predefinite
-            </button>
-          )}
           {hasUnconfirmedPast && (
             <button
               type="button"
@@ -223,7 +209,6 @@ export function OrariView({
           employees={employees}
           blocks={blocks}
           leaveEntries={leaveEntries}
-          threshold={dayThreshold}
           employeeFilter={employeeFilter}
         />
       )}
@@ -233,10 +218,7 @@ export function OrariView({
           employees={employees}
           blocks={blocks}
           leaveEntries={leaveEntries}
-          thresholds={thresholds}
           employeeFilter={employeeFilter}
-          showDefaults={showDefaults}
-          onCloseDefaults={() => setShowDefaults(false)}
         />
       )}
       {view === "month" && (

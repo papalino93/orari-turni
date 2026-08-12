@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { coverageCounts, COVERAGE_END_HOUR, COVERAGE_START_HOUR, dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
-import { saveDayEntry, setDayThreshold, type DayLeaveInput } from "./actions";
+import { coverageCounts, COVERAGE_END_HOUR, COVERAGE_START_HOUR, dayLabel, formatDayMonth, parseDateKey, timeToMinutes } from "@/lib/week";
+import { saveDayEntry, type DayLeaveInput } from "./actions";
 
 export type Role = "EMPLOYEE" | "OWNER";
-export type LeaveType = "FERIE" | "PERMESSO";
+export type LeaveType = "FERIE" | "PERMESSO" | "LIBERO";
 
 export type Employee = { id: string; name: string; role: Role; sortOrder: number };
 export type Block = {
@@ -18,7 +18,6 @@ export type Block = {
   confirmed: boolean;
 };
 export type Leave = { id: string; employeeId: string; dateKey: string; type: LeaveType; quantity: number };
-export type Threshold = { dayOfWeek: number | null; dateKey: string | null; minStaff: number };
 
 // L'ordine è quello scelto manualmente dal titolare (es. titolare in cima,
 // poi il personale di sala): vedi la pagina Dipendenti.
@@ -38,13 +37,19 @@ export function DayCellContent({
   isPast?: boolean;
 }) {
   if (leave) {
+    const styles: Record<LeaveType, string> = {
+      FERIE: "bg-accent/15 text-accent",
+      PERMESSO: "bg-gold/15 text-gold",
+      LIBERO: "bg-surface-2 text-foreground-muted",
+    };
+    const labels: Record<LeaveType, string> = {
+      FERIE: `Ferie${leave.quantity !== 1 ? ` (${leave.quantity}g)` : ""}`,
+      PERMESSO: `Permesso ${leave.quantity}h`,
+      LIBERO: "Libero",
+    };
     return (
-      <span
-        className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium ${
-          leave.type === "FERIE" ? "bg-accent/15 text-accent" : "bg-gold/15 text-gold"
-        }`}
-      >
-        {leave.type === "FERIE" ? `Ferie${leave.quantity !== 1 ? ` (${leave.quantity}g)` : ""}` : `Permesso ${leave.quantity}h`}
+      <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium ${styles[leave.type]}`}>
+        {labels[leave.type]}
       </span>
     );
   }
@@ -75,55 +80,12 @@ export function DayCellContent({
   );
 }
 
-export function ThresholdBadge({ dateKey, value }: { dateKey: string; value: number | null }) {
-  const [editing, setEditing] = useState(false);
-  const [pending, startTransition] = useTransition();
-  const [val, setVal] = useState(value?.toString() ?? "");
-
-  if (editing) {
-    return (
-      <input
-        autoFocus
-        type="number"
-        min={0}
-        value={val}
-        onChange={(e) => setVal(e.target.value)}
-        onBlur={() => {
-          setEditing(false);
-          const n = Number(val);
-          if (!Number.isNaN(n)) startTransition(() => setDayThreshold(dateKey, n));
-        }}
-        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-        onClick={(e) => e.stopPropagation()}
-        className="mt-1 w-12 rounded border border-accent bg-surface-2 px-1 py-0.5 text-center text-[11px]"
-      />
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={(e) => {
-        e.stopPropagation();
-        setEditing(true);
-      }}
-      className="mt-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-foreground-muted hover:border-accent hover:text-foreground"
-      title="Soglia minima di copertura per questo giorno"
-    >
-      min {value ?? "–"}
-    </button>
-  );
-}
-
 export function CoverageHeatmap({
   blocks,
-  threshold,
   compact = false,
   showAxis = false,
 }: {
   blocks: Block[];
-  threshold: number | null;
   compact?: boolean;
   showAxis?: boolean;
 }) {
@@ -144,13 +106,12 @@ export function CoverageHeatmap({
         <line x1={0} y1={H - 0.5} x2={n} y2={H - 0.5} stroke="var(--border)" strokeWidth={0.4} />
         {counts.map((c, i) => {
           const hour = COVERAGE_START_HOUR + i;
-          const under = threshold !== null && threshold > 0 && c < threshold;
-          const color = c === 0 ? "var(--border)" : under ? "var(--danger)" : "var(--success)";
+          const color = c === 0 ? "var(--border)" : "var(--accent)";
           const barH = c === 0 ? 0.6 : Math.max(2.2, (c / max) * (H - 5));
           const x = i + (1 - barW) / 2;
           return (
             <rect key={hour} x={x} y={H - 1 - barH} width={barW} height={barH} rx={radius} fill={color}>
-              <title>{`ore ${hour}:00 — ${c} in turno${threshold ? ` (minimo richiesto: ${threshold})` : ""}`}</title>
+              <title>{`ore ${hour}:00 — ${c} in turno`}</title>
             </rect>
           );
         })}
@@ -166,25 +127,11 @@ export function CoverageHeatmap({
   );
 }
 
-// Legenda del colore delle barre di copertura: quante persone sono in
-// turno in ogni ora della giornata, e se bastano rispetto alla soglia.
-export function CoverageLegend() {
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-foreground-muted">
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block h-2 w-2 rounded-sm" style={{ background: "var(--success)" }} />
-        persone sufficienti
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block h-2 w-2 rounded-sm" style={{ background: "var(--danger)" }} />
-        sotto la soglia minima
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block h-2 w-2 rounded-sm opacity-50" style={{ background: "var(--border)" }} />
-        nessuno in turno
-      </span>
-    </div>
-  );
+function timeSlotLabel(startTime: string): string {
+  const h = Math.floor(timeToMinutes(startTime) / 60);
+  if (h < 14) return "Mattina";
+  if (h < 18) return "Pomeriggio";
+  return "Sera";
 }
 
 export function DayEditorModal({
@@ -200,12 +147,20 @@ export function DayEditorModal({
   initialLeave: Leave | null;
   onClose: () => void;
 }) {
-  type Mode = "WORK" | "FERIE" | "PERMESSO";
+  type Mode = "WORK" | "FERIE" | "PERMESSO" | "LIBERO";
+  type Row = { startTime: string; endTime: string; enabled: boolean };
+
   const [mode, setMode] = useState<Mode>(initialLeave ? initialLeave.type : "WORK");
-  const [rows, setRows] = useState<{ startTime: string; endTime: string }[]>(
+  const [rows, setRows] = useState<Row[]>(
     initialBlocks.length > 0
-      ? initialBlocks.map((b) => ({ startTime: b.startTime, endTime: b.endTime }))
-      : [{ startTime: "09:00", endTime: "13:00" }],
+      ? initialBlocks
+          .slice()
+          .sort((a, b) => a.startTime.localeCompare(b.startTime))
+          .map((b) => ({ startTime: b.startTime, endTime: b.endTime, enabled: true }))
+      : [
+          { startTime: "09:00", endTime: "13:00", enabled: false },
+          { startTime: "16:00", endTime: "20:00", enabled: false },
+        ],
   );
   const [quantity, setQuantity] = useState(initialLeave?.quantity ?? 1);
   const [pending, startTransition] = useTransition();
@@ -214,8 +169,8 @@ export function DayEditorModal({
   const date = parseDateKey(dateKey);
 
   function save() {
-    const leave: DayLeaveInput = mode === "WORK" ? null : { type: mode, quantity };
-    const blocks = mode === "WORK" ? rows.filter((r) => r.startTime && r.endTime) : [];
+    const leave: DayLeaveInput = mode === "WORK" ? null : { type: mode, quantity: mode === "LIBERO" ? 0 : quantity };
+    const blocks = mode === "WORK" ? rows.filter((r) => r.enabled && r.startTime && r.endTime) : [];
     startTransition(async () => {
       await saveDayEntry(employee.id, dateKey, blocks, leave);
       router.refresh();
@@ -247,8 +202,9 @@ export function DayEditorModal({
           <h2 className="text-base font-semibold text-foreground">{employee.name}</h2>
         </div>
 
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex flex-wrap gap-2">
           <ModeButton label="Turno" active={mode === "WORK"} onClick={() => setMode("WORK")} />
+          <ModeButton label="Libero" active={mode === "LIBERO"} onClick={() => setMode("LIBERO")} />
           {employee.role === "EMPLOYEE" && (
             <>
               <ModeButton label="Ferie" active={mode === "FERIE"} onClick={() => setMode("FERIE")} accent />
@@ -261,6 +217,19 @@ export function DayEditorModal({
           <div className="space-y-2">
             {rows.map((row, i) => (
               <div key={i} className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={row.enabled}
+                    onChange={(e) =>
+                      setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, enabled: e.target.checked } : r)))
+                    }
+                    className="h-4 w-4 accent-accent"
+                  />
+                  <span className="w-20 shrink-0 text-xs font-medium text-foreground-muted">
+                    {timeSlotLabel(row.startTime)}
+                  </span>
+                </label>
                 <input
                   type="time"
                   value={row.startTime}
@@ -290,10 +259,10 @@ export function DayEditorModal({
             ))}
             <button
               type="button"
-              onClick={() => setRows((rs) => [...rs, { startTime: "16:00", endTime: "20:00" }])}
+              onClick={() => setRows((rs) => [...rs, { startTime: "20:00", endTime: "23:00", enabled: true }])}
               className="text-xs font-medium text-accent hover:text-accent-hover"
             >
-              + aggiungi orario
+              + aggiungi un altro orario
             </button>
           </div>
         )}
@@ -312,6 +281,12 @@ export function DayEditorModal({
               className="w-20 rounded-lg border border-border bg-surface-2 px-2 py-2 text-center text-sm outline-none focus:border-accent"
             />
           </div>
+        )}
+
+        {mode === "LIBERO" && (
+          <p className="text-sm text-foreground-muted">
+            Giorno segnato come libero — non conta su ferie o permessi, serve solo a far sapere che è stato deciso.
+          </p>
         )}
 
         <div className="mt-6 flex items-center justify-between">

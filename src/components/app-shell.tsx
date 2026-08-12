@@ -25,12 +25,8 @@ export function AppShell({
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-base">
-              🍷
-            </span>
-            <span className="hidden text-sm font-semibold tracking-tight text-foreground sm:block">
-              Orari & Turni
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element -- logo statico, non serve l'ottimizzazione di next/image */}
+            <img src="/logo.png" alt="L'Angolo del Vino" className="h-7 w-auto" />
           </div>
 
           <nav className="hidden items-center gap-1 md:flex">

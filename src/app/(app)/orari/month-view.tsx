@@ -16,7 +16,8 @@ export function MonthView({
 }) {
   const monthDate = new Date(`${monthDateKey}T00:00:00.000Z`);
   const weeks = weekRangesInMonth(monthDate);
-  const allOrdered = orderEmployees(employees);
+  // Il titolare non contribuisce al monte ore: escluso dai riepiloghi mensili.
+  const allOrdered = orderEmployees(employees).filter((e) => e.role !== "OWNER");
   const orderedEmployees = employeeFilter ? allOrdered.filter((e) => e.id === employeeFilter) : allOrdered;
 
   function hoursForEmployeeInRange(employeeId: string, start: Date, end: Date) {
@@ -67,7 +68,6 @@ export function MonthView({
                 <td className="border-b border-border px-4 py-3">
                   <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                     {emp.name}
-                    {emp.role === "OWNER" && <span className="text-[10px] text-gold">★</span>}
                   </span>
                 </td>
                 {weeks.map((week, i) => (
@@ -88,10 +88,7 @@ export function MonthView({
         {orderedEmployees.map((emp) => (
           <div key={emp.id} className="px-4 py-4">
             <div className="mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                {emp.name}
-                {emp.role === "OWNER" && <span className="text-[10px] text-gold">★</span>}
-              </span>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">{emp.name}</span>
               <span className="text-sm font-semibold text-foreground">{monthTotal(emp.id)}h</span>
             </div>
             <div className="flex flex-wrap gap-1.5">

@@ -45,11 +45,9 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-2xl">
-            🍷
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Orari & Turni</h1>
-          <p className="mt-1 text-sm text-foreground-muted">Accedi per gestire orari, copertura e ferie</p>
+          {/* eslint-disable-next-line @next/next/no-img-element -- logo statico, non serve l'ottimizzazione di next/image */}
+          <img src="/logo.png" alt="L'Angolo del Vino" className="mx-auto mb-4 h-14 w-auto" />
+          <p className="text-sm text-foreground-muted">Accedi per gestire orari, copertura e ferie</p>
         </div>
 
         <form

@@ -45,18 +45,6 @@ export async function saveDayEntry(
   revalidatePath("/ferie");
 }
 
-export async function setDayThreshold(dateKey: string, minStaff: number) {
-  const date = new Date(`${dateKey}T00:00:00.000Z`);
-
-  const existing = await prisma.coverageThreshold.findFirst({ where: { specificDate: date } });
-  if (existing) {
-    await prisma.coverageThreshold.update({ where: { id: existing.id }, data: { minStaff } });
-  } else {
-    await prisma.coverageThreshold.create({ data: { specificDate: date, minStaff } });
-  }
-  revalidatePath("/orari");
-}
-
 // Marca come confermati (verificati dal titolare) tutti i turni fino a
 // oggi escluso, entro l'intervallo dato — opzionalmente per un solo
 // dipendente. Usato dopo aver rivisto gli orari effettivamente lavorati.
@@ -73,17 +61,5 @@ export async function confirmPastShifts(rangeStartKey: string, rangeEndKey: stri
     },
     data: { confirmed: true },
   });
-  revalidatePath("/orari");
-}
-
-export async function setWeekdayDefaultThreshold(dayOfWeek: number, minStaff: number) {
-  const existing = await prisma.coverageThreshold.findFirst({
-    where: { dayOfWeek, specificDate: null },
-  });
-  if (existing) {
-    await prisma.coverageThreshold.update({ where: { id: existing.id }, data: { minStaff } });
-  } else {
-    await prisma.coverageThreshold.create({ data: { dayOfWeek, minStaff } });
-  }
   revalidatePath("/orari");
 }

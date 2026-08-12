@@ -37,11 +37,6 @@ export function weekDays(weekStart: Date): Date[] {
   return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 }
 
-// dayOfWeek nel modello CoverageThreshold: 0=domenica..6=sabato (convenzione JS Date).
-export function jsDayOfWeek(date: Date): number {
-  return date.getUTCDay();
-}
-
 export function dayLabel(date: Date, full = false): string {
   const idx = (date.getUTCDay() + 6) % 7; // 0=lunedì..6=domenica
   return (full ? DAY_LABELS_FULL : DAY_LABELS)[idx];

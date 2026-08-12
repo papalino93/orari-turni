@@ -1,15 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import {
-  addDays,
-  endOfMonth,
-  endOfYear,
-  jsDayOfWeek,
-  parseDateKey,
-  startOfMonth,
-  startOfWeek,
-  startOfYear,
-  toDateKey,
-} from "@/lib/week";
+import { addDays, endOfMonth, endOfYear, parseDateKey, startOfMonth, startOfWeek, startOfYear, toDateKey } from "@/lib/week";
 import { OrariView, type ViewMode } from "./orari-view";
 
 export default async function OrariPage({
@@ -44,30 +34,14 @@ export default async function OrariPage({
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
 
-  const needsLeaveAndThresholds = view === "day" || view === "week";
+  const needsLeave = view === "day" || view === "week";
 
-  const [blocks, leaveEntries, thresholds] = await Promise.all([
+  const [blocks, leaveEntries] = await Promise.all([
     prisma.shiftBlock.findMany({ where: { date: { gte: rangeStart, lte: rangeEnd } } }),
-    needsLeaveAndThresholds
+    needsLeave
       ? prisma.leaveEntry.findMany({ where: { date: { gte: rangeStart, lte: rangeEnd } } })
       : Promise.resolve([]),
-    needsLeaveAndThresholds
-      ? prisma.coverageThreshold.findMany({
-          where: {
-            OR: [{ specificDate: { gte: rangeStart, lte: rangeEnd } }, { specificDate: null }],
-          },
-        })
-      : Promise.resolve([]),
   ]);
-
-  let dayThreshold: number | null = null;
-  if (view === "day") {
-    const dateKey = toDateKey(refDate);
-    const override = thresholds.find((t) => t.specificDate && toDateKey(t.specificDate) === dateKey);
-    const dow = jsDayOfWeek(refDate);
-    const weekdayDefault = thresholds.find((t) => t.dayOfWeek === dow && !t.specificDate);
-    dayThreshold = override?.minStaff ?? weekdayDefault?.minStaff ?? null;
-  }
 
   return (
     <OrariView
@@ -92,12 +66,6 @@ export default async function OrariPage({
         type: l.type,
         quantity: l.quantity,
       }))}
-      thresholds={thresholds.map((t) => ({
-        dayOfWeek: t.dayOfWeek,
-        dateKey: t.specificDate ? toDateKey(t.specificDate) : null,
-        minStaff: t.minStaff,
-      }))}
-      dayThreshold={dayThreshold}
     />
   );
 }

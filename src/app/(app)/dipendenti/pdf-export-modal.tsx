@@ -12,6 +12,7 @@ import {
 } from "@/lib/week";
 import { getEmployeeScheduleRange } from "./actions";
 import { RangeCard } from "./range-card";
+import { shareOrDownloadFile } from "@/lib/share-file";
 
 type RangeType = "week" | "month" | "custom";
 
@@ -92,7 +93,13 @@ export function PdfExportModal({
 
       const pdf = new jsPDF({ unit: "px", format: [img.width, img.height] });
       pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
-      pdf.save(`orario-${employeeName.replace(/\s+/g, "-").toLowerCase()}-${fromKey}_${toKey}.pdf`);
+      const blob = pdf.output("blob");
+      const file = new File(
+        [blob],
+        `orario-${employeeName.replace(/\s+/g, "-").toLowerCase()}-${fromKey}_${toKey}.pdf`,
+        { type: "application/pdf" },
+      );
+      await shareOrDownloadFile(file);
     } finally {
       setDownloading(false);
     }
@@ -189,7 +196,7 @@ export function PdfExportModal({
           disabled={downloading || loading}
           className="mt-4 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
         >
-          {downloading ? "Preparazione…" : "Scarica PDF"}
+          {downloading ? "Preparazione…" : "Condividi / Scarica PDF"}
         </button>
       </div>
     </div>

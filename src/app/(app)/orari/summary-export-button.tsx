@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { SummaryExportCard } from "./summary-export-card";
+import { shareOrDownloadFile } from "@/lib/share-file";
 import type { Block, Employee } from "./shared";
 
 export function SummaryExportButton({
@@ -33,7 +34,9 @@ export function SummaryExportButton({
 
       const pdf = new jsPDF({ unit: "px", format: [img.width, img.height] });
       pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
-      pdf.save(`riepilogo-ore-${monthDateKey}.pdf`);
+      const blob = pdf.output("blob");
+      const file = new File([blob], `riepilogo-ore-${monthDateKey}.pdf`, { type: "application/pdf" });
+      await shareOrDownloadFile(file);
     } finally {
       setDownloading(false);
     }
@@ -74,7 +77,7 @@ export function SummaryExportButton({
               disabled={downloading}
               className="mt-4 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
             >
-              {downloading ? "Preparazione…" : "Scarica PDF"}
+              {downloading ? "Preparazione…" : "Condividi / Scarica PDF"}
             </button>
           </div>
         </div>

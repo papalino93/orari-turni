@@ -12,7 +12,8 @@ export const SummaryExportCard = forwardRef<
 >(function SummaryExportCard({ monthDateKey, employees, blocks }, ref) {
   const monthDate = new Date(`${monthDateKey}T00:00:00.000Z`);
   const weeks = weekRangesInMonth(monthDate);
-  const orderedEmployees = orderEmployees(employees);
+  // Il titolare non contribuisce al monte ore.
+  const orderedEmployees = orderEmployees(employees).filter((e) => e.role !== "OWNER");
 
   function hoursForEmployeeInRange(employeeId: string, start: Date, end: Date) {
     const startKey = toDateKey(start);
@@ -38,21 +39,9 @@ export const SummaryExportCard = forwardRef<
         borderRadius: 20,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: "#8a2740",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 22,
-          }}
-        >
-          🍷
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- va dentro un canvas catturato da html-to-image, next/image non è compatibile */}
+        <img src="/logo.png" alt="" style={{ height: 34, width: "auto" }} />
         <div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Riepilogo ore — tutto il personale</div>
           <div style={{ fontSize: 13, color: "#6b6468" }}>{formatMonthYear(monthDate)}</div>
@@ -86,10 +75,7 @@ export const SummaryExportCard = forwardRef<
         <tbody>
           {orderedEmployees.map((emp, i) => (
             <tr key={emp.id} style={{ background: i % 2 === 0 ? "#fff" : "#faf2f0" }}>
-              <td style={{ padding: "8px 10px", fontWeight: 600 }}>
-                {emp.name}
-                {emp.role === "OWNER" ? " ★" : ""}
-              </td>
+              <td style={{ padding: "8px 10px", fontWeight: 600 }}>{emp.name}</td>
               {weeks.map((week, wi) => (
                 <td key={wi} style={{ padding: "8px 6px", textAlign: "center" }}>
                   {hoursForEmployeeInRange(emp.id, week.start, week.end)}h

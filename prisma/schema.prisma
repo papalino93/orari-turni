@@ -66,11 +66,15 @@ model ShiftBlock {
 enum LeaveType {
   FERIE
   PERMESSO
+  LIBERO // giorno segnato esplicitamente come libero, non conta su ferie/permessi
 }
 
-// Un giorno di ferie o permesso pianificato/goduto per un dipendente.
-// FERIE: quantity in giorni (es. 1, 0.5). PERMESSO: quantity in ore.
-// Non esiste per dipendenti con role OWNER (esclusi dalla logica ferie).
+// Un giorno di ferie, permesso o "libero" pianificato/goduto per un
+// dipendente. FERIE: quantity in giorni (es. 1, 0.5). PERMESSO: quantity
+// in ore. LIBERO: quantity non significativa (0), serve solo a
+// distinguere "giorno di riposo confermato" da "non ancora pianificato".
+// FERIE/PERMESSO non esistono per dipendenti con role OWNER (esclusi
+// dalla logica ferie); LIBERO è disponibile per chiunque.
 model LeaveEntry {
   id         String    @id @default(cuid())
   employeeId String
@@ -103,21 +107,4 @@ model LeaveBalance {
   updatedAt          DateTime  @updatedAt
 
   @@unique([employeeId, leaveType, year])
-}
-
-// Soglia minima di copertura per la vista orari. Una riga con dayOfWeek
-// valorizzato (0=domenica..6=sabato) e specificDate nullo è il default
-// settimanale; una riga con specificDate valorizzato è un override per
-// quel singolo giorno (es. evento) e ha sempre la precedenza.
-model CoverageThreshold {
-  id           String    @id @default(cuid())
-  dayOfWeek    Int? // 0-6, usato quando specificDate è nullo
-  specificDate DateTime? @db.Date
-  minStaff     Int
-  note         String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  @@index([dayOfWeek])
-  @@index([specificDate])
 }

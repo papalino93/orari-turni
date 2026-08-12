@@ -14,7 +14,8 @@ export function YearView({
   blocks: Block[];
   employeeFilter?: string;
 }) {
-  const allOrdered = orderEmployees(employees);
+  // Il titolare non contribuisce al monte ore: escluso dai riepiloghi annuali.
+  const allOrdered = orderEmployees(employees).filter((e) => e.role !== "OWNER");
   const orderedEmployees = employeeFilter ? allOrdered.filter((e) => e.id === employeeFilter) : allOrdered;
   const months = Array.from({ length: 12 }, (_, i) => i);
 
@@ -58,10 +59,7 @@ export function YearView({
             {orderedEmployees.map((emp) => (
               <tr key={emp.id}>
                 <td className="border-b border-border px-4 py-3">
-                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    {emp.name}
-                    {emp.role === "OWNER" && <span className="text-[10px] text-gold">★</span>}
-                  </span>
+                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">{emp.name}</span>
                 </td>
                 {months.map((m) => (
                   <td key={m} className="border-b border-border px-2 py-3 text-center text-sm text-foreground-muted">
@@ -81,10 +79,7 @@ export function YearView({
         {orderedEmployees.map((emp) => (
           <div key={emp.id} className="px-4 py-4">
             <div className="mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                {emp.name}
-                {emp.role === "OWNER" && <span className="text-[10px] text-gold">★</span>}
-              </span>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">{emp.name}</span>
               <span className="text-sm font-semibold text-foreground">{yearTotal(emp.id)}h</span>
             </div>
             <div className="grid grid-cols-4 gap-1.5">

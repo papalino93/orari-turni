@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ExportCard } from "./export-card";
+import { shareOrDownloadFile } from "@/lib/share-file";
 import type { Block, Employee, Leave } from "./shared";
 
 export function ExportButton({
@@ -25,12 +26,13 @@ export function ExportButton({
     if (!cardRef.current) return;
     setDownloading(true);
     try {
-      const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2 });
-      const link = document.createElement("a");
-      link.download = `orari-${weekStartKey}${employeeFilter ? `-${employeeFilter}` : ""}.png`;
-      link.href = dataUrl;
-      link.click();
+      const { toBlob } = await import("html-to-image");
+      const blob = await toBlob(cardRef.current, { pixelRatio: 2 });
+      if (!blob) return;
+      const file = new File([blob], `orari-${weekStartKey}${employeeFilter ? `-${employeeFilter}` : ""}.png`, {
+        type: "image/png",
+      });
+      await shareOrDownloadFile(file);
     } finally {
       setDownloading(false);
     }
@@ -85,7 +87,7 @@ export function ExportButton({
               disabled={downloading}
               className="mt-4 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
             >
-              {downloading ? "Preparazione…" : "Scarica immagine PNG"}
+              {downloading ? "Preparazione…" : "Condividi / Scarica PNG"}
             </button>
           </div>
         </div>

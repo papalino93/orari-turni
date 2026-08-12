@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { blockHours, dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 
 type RangeBlock = { dateKey: string; startTime: string; endTime: string };
-type RangeLeave = { dateKey: string; type: "FERIE" | "PERMESSO"; quantity: number };
+type RangeLeave = { dateKey: string; type: "FERIE" | "PERMESSO" | "LIBERO"; quantity: number };
 
 export const RangeCard = forwardRef<
   HTMLDivElement,
@@ -29,21 +29,9 @@ export const RangeCard = forwardRef<
         borderRadius: 20,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: "#8a2740",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 22,
-          }}
-        >
-          🍷
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- va dentro un canvas catturato da html-to-image, next/image non è compatibile */}
+        <img src="/logo.png" alt="" style={{ height: 34, width: "auto" }} />
         <div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Orario di {employeeName}</div>
           <div style={{ fontSize: 13, color: "#6b6468" }}>
@@ -80,8 +68,13 @@ export const RangeCard = forwardRef<
                 </td>
                 <td style={{ padding: "8px 10px" }}>
                   {leave ? (
-                    <span style={{ color: leave.type === "FERIE" ? "#8a2740" : "#93701f", fontWeight: 600 }}>
-                      {leave.type === "FERIE" ? "Ferie" : `Permesso ${leave.quantity}h`}
+                    <span
+                      style={{
+                        color: leave.type === "FERIE" ? "#8a2740" : leave.type === "PERMESSO" ? "#93701f" : "#6b6468",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {leave.type === "FERIE" ? "Ferie" : leave.type === "PERMESSO" ? `Permesso ${leave.quantity}h` : "Libero"}
                     </span>
                   ) : dayBlocks.length > 0 ? (
                     dayBlocks.map((b, bi) => (
