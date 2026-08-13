@@ -28,21 +28,17 @@ import {
   ROW_ALT,
   TEXT,
   WINE,
-  col,
   drawFooter,
   drawGenericTable,
   drawHeader,
   drawLockIcon,
   drawSectionTitle,
   ensureSpace,
-  initials,
-  loadPhotoDataUrl,
   newLandscapeDoc,
   truncate,
 } from "@/lib/pdf";
 
 type JsPDF = import("jspdf").jsPDF;
-type PhotoMap = Map<string, string>;
 
 export async function exportScheduleWeekPdf({
   weekStartKey,
@@ -66,11 +62,15 @@ export async function exportScheduleWeekPdf({
   const rows = employeeFilter ? allOrdered.filter((e) => e.id === employeeFilter) : allOrdered;
 
   const schedule = buildSchedule({ dateKeys, employees: rows, blocks, leaveEntries, closures });
-  const photos = await loadPhotos(rows);
 
   const doc = await newLandscapeDoc();
   let y = drawHeader(doc, "Orario settimanale", formatWeekRange(weekStart));
 
+  // Un solo documento, un solo scopo: il programma di chi lavora quando,
+  // pensato per essere stampato e appeso — non un misto tra orario e
+  // riepilogo ore. Il riepilogo ore per dipendente (utile solo al
+  // titolare, non a chi lavora in sala) vive già altrove: nell'export del
+  // singolo dipendente e nel riepilogo ore mensile.
   y = drawSectionTitle(doc, "Programmazione per fascia oraria", y);
   for (const period of PERIODS) {
     y = drawPeriodTable(doc, {
@@ -90,14 +90,6 @@ export async function exportScheduleWeekPdf({
     });
     y += 4;
   }
-
-  y += 4;
-  if (y > 150) {
-    doc.addPage();
-    y = MARGIN;
-  }
-  y = drawSectionTitle(doc, "Riepilogo dipendenti", y);
-  drawEmployeeSummaries(doc, { days, dateKeys, rows, schedule, photos, startY: y });
 
   drawFooter(doc);
 
@@ -273,106 +265,4 @@ function drawPeriodTable(
   }
 
   return y;
-}
-
-function drawEmployeeSummaries(
-  doc: JsPDF,
-  opts: {
-    days: Date[];
-    dateKeys: string[];
-    rows: Employee[];
-    schedule: ReturnType<typeof buildSchedule>;
-    photos: PhotoMap;
-    startY: number;
-  },
-): number {
-  let y = opts.startY;
-  const rowH = 9;
-  const photoSize = 8;
-  const headerH = 8;
-
-  for (const emp of opts.rows) {
-    y = ensureSpace(doc, y, headerH + rowH + 4);
-
-    const photo = opts.photos.get(emp.id);
-    if (photo) {
-      try {
-        doc.addImage(photo, "JPEG", MARGIN, y, photoSize, photoSize);
-      } catch {
-        // ignora, resta lo spazio bianco
-      }
-    } else {
-      doc.setFillColor(...col(emp.role === "OWNER" ? [233, 213, 165] : [241, 226, 224]));
-      doc.circle(MARGIN + photoSize / 2, y + photoSize / 2, photoSize / 2, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(...col(emp.role === "OWNER" ? GOLD : WINE));
-      doc.text(initials(emp.name), MARGIN + photoSize / 2, y + photoSize / 2 + 1, { align: "center", baseline: "middle" });
-    }
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-    doc.setTextColor(...TEXT);
-    doc.text(emp.name, MARGIN + photoSize + 3, y + 3.5);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...MUTED);
-    // Se la mansione impostata è già "Titolare" (scelta comune per il
-    // titolare stesso), non ripeterlo una seconda volta accanto.
-    const jobTitleIsTitolare = emp.jobTitle?.trim().toLowerCase() === "titolare";
-    const roleText = [
-      emp.jobTitle,
-      emp.role === "OWNER" && !jobTitleIsTitolare ? "Titolare" : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    doc.text(roleText || " ", MARGIN + photoSize + 3, y + 7.2);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(...WINE);
-    doc.text(formatHours(opts.schedule.employeeHours(emp.id)), CONTENT_W + MARGIN, y + 5, { align: "right" });
-
-    y += headerH;
-
-    doc.setFillColor(...ROW_ALT);
-    doc.rect(MARGIN, y, CONTENT_W, rowH, "F");
-    const cellW = CONTENT_W / 7;
-    opts.dateKeys.forEach((dateKey, i) => {
-      const x = MARGIN + i * cellW;
-      const entry = opts.schedule.entry(emp.id, dateKey);
-      const label = entry.kind === "CHIUSO" ? "Chiuso" : entryLabel(entry);
-      const { color, bold } = cellText(entry.kind, label);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.setTextColor(...MUTED);
-      doc.text(dayLabel(opts.days[i]), x + cellW / 2, y + 3.2, { align: "center" });
-      doc.setFont("helvetica", bold ? "bold" : "normal");
-      doc.setFontSize(6.8);
-      doc.setTextColor(...color);
-      doc.text(truncate(doc, label, cellW - 2), x + cellW / 2, y + 6.8, { align: "center" });
-    });
-    doc.setDrawColor(230, 220, 218);
-    doc.setLineWidth(0.15);
-    for (let i = 1; i < 7; i++) {
-      const x = MARGIN + i * cellW;
-      doc.line(x, y, x, y + rowH);
-    }
-    y += rowH + 4;
-  }
-
-  return y;
-}
-
-async function loadPhotos(employees: Employee[]): Promise<PhotoMap> {
-  const map: PhotoMap = new Map();
-  await Promise.all(
-    employees
-      .filter((e) => e.photoVersion)
-      .map(async (e) => {
-        const dataUrl = await loadPhotoDataUrl(e.id, e.photoVersion!);
-        if (dataUrl) map.set(e.id, dataUrl);
-      }),
-  );
-  return map;
 }

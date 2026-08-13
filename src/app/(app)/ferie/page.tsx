@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/prisma";
-import { toDateKey } from "@/lib/week";
+import { toDateKey, todayKey } from "@/lib/week";
 import { computeLeaveSummary } from "@/lib/leave";
 import { LeaveCard } from "./leave-card";
 
 export default async function FeriePage() {
-  const year = new Date().getUTCFullYear();
+  const today = todayKey();
+  const year = Number(today.slice(0, 4));
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year, 11, 31));
-  const today = new Date();
 
   const [employees, balances, entries] = await Promise.all([
     prisma.employee.findMany({ where: { role: "EMPLOYEE" }, orderBy: [{ active: "desc" }, { sortOrder: "asc" }] }),

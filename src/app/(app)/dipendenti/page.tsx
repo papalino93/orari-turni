@@ -1,10 +1,14 @@
 import { prisma } from "@/lib/prisma";
-import { addDays, startOfWeek, toDateKey } from "@/lib/week";
+import { addDays, parseDateKey, startOfWeek, toDateKey, todayKey } from "@/lib/week";
 import { NewEmployeeForm } from "./new-employee-form";
 import { EmployeeList } from "./employee-list";
 
 export default async function DipendentiPage() {
-  const weekStart = startOfWeek(new Date());
+  // todayKey() e non new Date(): quest'ultima, passata a startOfWeek (che
+  // legge i campi UTC), sbaglierebbe settimana nella finestra tra la
+  // mezzanotte UTC e quella italiana — ad es. domenica notte in Italia
+  // mostrerebbe ancora la settimana appena finita.
+  const weekStart = startOfWeek(parseDateKey(todayKey()));
   const weekEnd = addDays(weekStart, 6);
   const dateKeys = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i)));
 
