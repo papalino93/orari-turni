@@ -134,15 +134,18 @@ export function OrariView({
 
   const allEmployees = orderEmployees(employees);
   const weekStartKey = toDateKey(startOfWeek(date));
+  // "Condiviso" non è più un interruttore manuale: si accende da solo
+  // quando l'orario viene davvero esportato (PDF o immagine), e si spegne
+  // da solo alla prima modifica successiva — vedi unpublishWeeksForDates
+  // in actions.ts. Prima era un tasto scollegato da qualunque azione reale
+  // ("che senso ha il tasto pubblica?"), e restava acceso anche su una
+  // settimana appena svuotata. L'unico controllo manuale rimasto è
+  // annullare una condivisione segnata per sbaglio.
   const isPublished = Boolean(weekPlan.publishedAt);
 
-  function togglePublish() {
+  function unshare() {
     startPublishing(async () => {
-      const result = await runWithToast(
-        toast,
-        () => setWeekPublished(weekStartKey, !isPublished),
-        isPublished ? "Orario riportato in bozza" : "Orario pubblicato",
-      );
+      const result = await runWithToast(toast, () => setWeekPublished(weekStartKey, false), "Segnato come non condiviso");
       if (result !== null) router.refresh();
     });
   }
@@ -214,18 +217,6 @@ export function OrariView({
           )}
           {view === "week" && (
             <>
-              <button
-                type="button"
-                onClick={togglePublish}
-                disabled={publishing}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  isPublished
-                    ? "border-success/40 bg-success-bg text-success hover:bg-success-bg/70"
-                    : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
-                }`}
-              >
-                {publishing ? "…" : isPublished ? "🟢 Pubblicato" : "Pubblica orario"}
-              </button>
               <ExportButton
                 weekStartKey={weekStartKey}
                 employees={employees}
@@ -242,7 +233,7 @@ export function OrariView({
       </div>
 
       {(view === "week" || view === "day") && (
-        <WeekSummary schedule={schedule} isPublished={isPublished} view={view} />
+        <WeekSummary schedule={schedule} isPublished={isPublished} view={view} onUnshare={unshare} unsharing={publishing} />
       )}
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -310,19 +301,39 @@ function WeekSummary({
   schedule,
   isPublished,
   view,
+  onUnshare,
+  unsharing,
 }: {
   schedule: ReturnType<typeof buildSchedule>;
   isPublished: boolean;
   view: ViewMode;
+  onUnshare: () => void;
+  unsharing: boolean;
 }) {
   const staffCount = schedule.employees.filter((e) => e.role !== "OWNER").length;
   const anomalyCount = schedule.anomalies.length;
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-      {view === "week" && (
-        <Badge tone={isPublished ? "success" : "neutral"}>{isPublished ? "🟢 Orario pubblicato" : "○ Bozza"}</Badge>
-      )}
+      {view === "week" &&
+        (isPublished ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-bg px-2.5 py-1 text-success">
+            🟢 Condiviso
+            <button
+              type="button"
+              onClick={onUnshare}
+              disabled={unsharing}
+              className="text-success/70 underline decoration-dotted hover:text-success"
+              title="L'orario è stato esportato e non è ancora stato modificato da allora"
+            >
+              {unsharing ? "…" : "annulla"}
+            </button>
+          </span>
+        ) : (
+          <Badge tone="neutral" title="Diventa 'Condiviso' automaticamente quando esporti questa settimana in PDF o immagine">
+            ○ Non condiviso
+          </Badge>
+        ))}
       <Badge tone="neutral">
         {staffCount} dipendent{staffCount === 1 ? "e" : "i"}
       </Badge>
@@ -339,14 +350,26 @@ function WeekSummary({
   );
 }
 
-function Badge({ children, tone }: { children: React.ReactNode; tone: "neutral" | "success" | "warning" }) {
+function Badge({
+  children,
+  tone,
+  title,
+}: {
+  children: React.ReactNode;
+  tone: "neutral" | "success" | "warning";
+  title?: string;
+}) {
   const cls =
     tone === "success"
       ? "border-success/30 bg-success-bg text-success"
       : tone === "warning"
         ? "border-gold/40 bg-gold/10 text-gold"
         : "border-border bg-surface text-foreground-muted";
-  return <span className={`rounded-full border px-2.5 py-1 font-medium ${cls}`}>{children}</span>;
+  return (
+    <span title={title} className={`rounded-full border px-2.5 py-1 font-medium ${cls}`}>
+      {children}
+    </span>
+  );
 }
 
 function capitalize(s: string): string {

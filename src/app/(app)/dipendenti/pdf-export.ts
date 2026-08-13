@@ -24,15 +24,16 @@ import {
   drawCircularImage,
   drawFooter,
   drawLockIcon,
+  drawLogo,
   drawTopRoundedRect,
   ensureSpace,
   initials,
+  LOGO_ASPECT,
   loadPhotoDataUrl,
   newLandscapeDoc,
   truncate,
 } from "@/lib/pdf";
 import { blockHours } from "@/lib/week";
-import { LOGO_DATA_URI } from "@/lib/logo-data-uri";
 
 type RangeBlock = { dateKey: string; startTime: string; endTime: string };
 type RangeLeave = { dateKey: string; type: LeaveType; quantity: number };
@@ -68,15 +69,15 @@ export async function exportEmployeeRangePdf({
   let y = contentTop;
 
   // --- Header: logo + foto/iniziali + nome, raggruppati come sull'anteprima ---
-  const logoSize = 17;
-  try {
-    doc.addImage(LOGO_DATA_URI, "PNG", CARD_X, y, logoSize, logoSize * 0.44);
-  } catch {
-    // il PDF resta comunque leggibile senza logo
-  }
-
   const avatarSize = 16;
-  const avatarX = CARD_X + logoSize + 10;
+  const logoW = 28;
+  // Il logo è largo e basso (vedi drawLogo in lib/pdf.ts): lo si centra
+  // verticalmente sull'altezza dell'avatar invece di allinearlo in alto,
+  // altrimenti la scritta corsiva galleggia isolata sopra la foto.
+  const logoH = logoW / LOGO_ASPECT;
+  drawLogo(doc, CARD_X, y + (avatarSize - logoH) / 2, logoW);
+
+  const avatarX = CARD_X + logoW + 10;
   const avatarY = y;
   if (photo) {
     try {
@@ -100,7 +101,7 @@ export async function exportEmployeeRangePdf({
   const subtitle = [jobTitle, rangeLabel].filter(Boolean).join("  ·  ");
   doc.text(subtitle, textX, y + 13.5);
 
-  y += Math.max(logoSize, avatarSize) + 7;
+  y += avatarSize + 7;
 
   // Sottile linea a sfumare, stesso tocco del brand usato nell'anteprima e
   // nel PDF settimanale.
