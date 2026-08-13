@@ -466,14 +466,6 @@ function ChevronIcon({ className }: { className?: string }) {
   );
 }
 
-function HamburgerIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-      <path d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  );
-}
-
 function CheckIcon({ className }: { className?: string }) {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -571,13 +563,13 @@ function DisplayModeMenu({ mode, onSelect }: { mode: DisplayMode; onSelect: (m: 
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        title={`Visualizza per: ${DISPLAY_MODE_LABELS[mode]}`}
-        aria-label="Modalità di visualizzazione"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+        className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:border-accent"
       >
-        <HamburgerIcon />
+        {mode === "periods" ? <PeriodsIcon /> : <PersonIcon />}
+        {DISPLAY_MODE_LABELS[mode]}
+        <ChevronIcon className={`text-foreground-muted transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <div role="menu" className="absolute left-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-xl">
