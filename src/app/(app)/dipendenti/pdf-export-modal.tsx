@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   addDays,
   addMonths,
@@ -11,6 +11,7 @@ import {
   toDateKey,
 } from "@/lib/week";
 import { useToast } from "@/components/toast";
+import { shareOrDownloadFile } from "@/lib/share-file";
 import { getEmployeeScheduleRange } from "./actions";
 import { RangeCard } from "./range-card";
 
@@ -41,7 +42,8 @@ export function PdfExportModal({
   const [data, setData] = useState<ScheduleData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState<"image" | "pdf" | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
 
   const { fromKey, toKey, dateKeys, rangeLabel } = useMemo(() => {
@@ -81,9 +83,29 @@ export function PdfExportModal({
     };
   }, [employeeId, fromKey, toKey]);
 
+  async function downloadImage() {
+    if (!cardRef.current) return;
+    setDownloading("image");
+    try {
+      const { toBlob } = await import("html-to-image");
+      const blob = await toBlob(cardRef.current, { pixelRatio: 2 });
+      if (!blob) throw new Error("vuoto");
+      const file = new File(
+        [blob],
+        `orario-${employeeName.replace(/\s+/g, "-").toLowerCase()}-${fromKey}_${toKey}.png`,
+        { type: "image/png" },
+      );
+      await shareOrDownloadFile(file);
+    } catch {
+      toast.showError("Impossibile generare l'immagine. Riprova.");
+    } finally {
+      setDownloading(null);
+    }
+  }
+
   async function downloadPdf() {
     if (!data) return;
-    setDownloading(true);
+    setDownloading("pdf");
     try {
       const { exportEmployeeRangePdf } = await import("./pdf-export");
       await exportEmployeeRangePdf({
@@ -100,7 +122,7 @@ export function PdfExportModal({
     } catch {
       toast.showError("Impossibile generare il PDF. Riprova.");
     } finally {
-      setDownloading(false);
+      setDownloading(null);
     }
   }
 
@@ -183,28 +205,40 @@ export function PdfExportModal({
               {error ? <span className="text-danger">{error}</span> : "Caricamento…"}
             </div>
           ) : (
-            <RangeCard
-              employeeId={employeeId}
-              employeeName={employeeName}
-              photoVersion={photoVersion}
-              jobTitle={jobTitle}
-              rangeLabel={rangeLabel}
-              dateKeys={dateKeys}
-              blocks={data.blocks}
-              leaveEntries={data.leaveEntries as { dateKey: string; type: "FERIE" | "PERMESSO" | "LIBERO" | "MALATTIA"; quantity: number }[]}
-              closures={data.closures}
-            />
+            <div ref={cardRef}>
+              <RangeCard
+                employeeId={employeeId}
+                employeeName={employeeName}
+                photoVersion={photoVersion}
+                jobTitle={jobTitle}
+                rangeLabel={rangeLabel}
+                dateKeys={dateKeys}
+                blocks={data.blocks}
+                leaveEntries={data.leaveEntries as { dateKey: string; type: "FERIE" | "PERMESSO" | "LIBERO" | "MALATTIA"; quantity: number }[]}
+                closures={data.closures}
+              />
+            </div>
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={downloadPdf}
-          disabled={downloading || loading || !data}
-          className="mt-4 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
-        >
-          {downloading ? "Preparazione…" : "📄 Scarica PDF"}
-        </button>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={downloadImage}
+            disabled={downloading !== null || loading || !data}
+            className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:border-accent disabled:opacity-60"
+          >
+            {downloading === "image" ? "Preparazione…" : "📤 Esporta immagine (WhatsApp)"}
+          </button>
+          <button
+            type="button"
+            onClick={downloadPdf}
+            disabled={downloading !== null || loading || !data}
+            className="flex-1 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
+          >
+            {downloading === "pdf" ? "Preparazione…" : "📄 Esporta PDF (A4)"}
+          </button>
+        </div>
       </div>
     </div>
   );

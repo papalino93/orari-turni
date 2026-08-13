@@ -32,6 +32,7 @@ import {
   drawFooter,
   drawGenericTable,
   drawHeader,
+  drawLockIcon,
   drawSectionTitle,
   ensureSpace,
   initials,
@@ -154,14 +155,22 @@ export async function exportMonthSummaryPdf({
 
 // --- disegno specifico della griglia orari ----------------------------------
 
-function cellText(kind: string, text: string): { text: string; color: readonly [number, number, number]; bold: boolean } {
-  if (kind === "CHIUSO") return { text: "🔒 LOCALE CHIUSO", color: WINE, bold: true };
-  if (kind === "TURNO") return { text, color: TEXT, bold: false };
-  if (kind === "NON_PIANIFICATO") return { text: "—", color: [194, 183, 180], bold: false };
-  if (kind === "FERIE") return { text, color: WINE, bold: true };
-  if (kind === "PERMESSO") return { text, color: GOLD, bold: true };
-  if (kind === "MALATTIA") return { text, color: DANGER, bold: true };
-  return { text, color: MUTED, bold: false }; // RIPOSO
+type CellStyle = { text: string; color: readonly [number, number, number]; bold: boolean; kind: string };
+
+function cellText(kind: string, text: string): CellStyle {
+  // Niente emoji nel testo: i font standard di jsPDF (Helvetica e affini)
+  // coprono solo la codifica WinAnsi e non hanno il glifo del lucchetto —
+  // passarlo a doc.text() non stampa un carattere mancante ma un blocco di
+  // caratteri a caso, E falsa la larghezza misurata dal testo (usata da
+  // truncate()), facendo sconfinare la cella nelle colonne vicine. Il
+  // lucchetto vero è disegnato a parte con drawLockIcon (vettoriale).
+  if (kind === "CHIUSO") return { text: "CHIUSO", color: WINE, bold: true, kind };
+  if (kind === "TURNO") return { text, color: TEXT, bold: false, kind };
+  if (kind === "NON_PIANIFICATO") return { text: "—", color: [194, 183, 180], bold: false, kind };
+  if (kind === "FERIE") return { text, color: WINE, bold: true, kind };
+  if (kind === "PERMESSO") return { text, color: GOLD, bold: true, kind };
+  if (kind === "MALATTIA") return { text, color: DANGER, bold: true, kind };
+  return { text, color: MUTED, bold: false, kind }; // RIPOSO
 }
 
 function drawPeriodTable(
@@ -172,7 +181,7 @@ function drawPeriodTable(
     dateKeys: string[];
     rows: Employee[];
     startY: number;
-    cell: (emp: Employee, dateKey: string) => { text: string; color: readonly [number, number, number]; bold: boolean };
+    cell: (emp: Employee, dateKey: string) => CellStyle;
   },
 ): number {
   const nameColW = 46;
@@ -215,14 +224,24 @@ function drawPeriodTable(
     const displayName = truncate(doc, emp.name, nameColW - (isOwner ? 12 : 6));
     doc.text(displayName, MARGIN + 3, y + rowH / 2 + 1, { baseline: "middle" });
     if (isOwner) {
-      doc.setTextColor(...GOLD);
-      doc.text("★", MARGIN + 3 + doc.getTextWidth(displayName) + 1.5, y + rowH / 2 + 1, { baseline: "middle" });
-      doc.setTextColor(...TEXT);
+      // Un pallino pieno, non una stellina "★": anche quella è un glifo
+      // fuori dalla codifica WinAnsi dei font standard di jsPDF e usciva
+      // come un carattere a caso, proprio come il lucchetto.
+      doc.setFillColor(...GOLD);
+      doc.circle(MARGIN + 3 + doc.getTextWidth(displayName) + 2.4, y + rowH / 2 - 0.3, 0.9, "F");
     }
 
     opts.dateKeys.forEach((dateKey, di) => {
       const x = MARGIN + nameColW + di * dayColW;
-      const { text, color, bold } = opts.cell(emp, dateKey);
+      const { text, color, bold, kind } = opts.cell(emp, dateKey);
+      if (kind === "CHIUSO") {
+        drawLockIcon(doc, x + dayColW / 2, y + rowH / 2 - 2, 3.4, color);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.8);
+        doc.setTextColor(...color);
+        doc.text(text, x + dayColW / 2, y + rowH / 2 + 2.6, { align: "center" });
+        return;
+      }
       doc.setFont("helvetica", bold ? "bold" : "normal");
       doc.setFontSize(text.length > 11 ? 6.5 : 7.5);
       doc.setTextColor(...color);
@@ -298,7 +317,15 @@ function drawEmployeeSummaries(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(...MUTED);
-    const roleText = [emp.jobTitle, emp.role === "OWNER" ? "Titolare" : null].filter(Boolean).join(" · ");
+    // Se la mansione impostata è già "Titolare" (scelta comune per il
+    // titolare stesso), non ripeterlo una seconda volta accanto.
+    const jobTitleIsTitolare = emp.jobTitle?.trim().toLowerCase() === "titolare";
+    const roleText = [
+      emp.jobTitle,
+      emp.role === "OWNER" && !jobTitleIsTitolare ? "Titolare" : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
     doc.text(roleText || " ", MARGIN + photoSize + 3, y + 7.2);
 
     doc.setFont("helvetica", "bold");
@@ -314,7 +341,7 @@ function drawEmployeeSummaries(
     opts.dateKeys.forEach((dateKey, i) => {
       const x = MARGIN + i * cellW;
       const entry = opts.schedule.entry(emp.id, dateKey);
-      const label = entry.kind === "CHIUSO" ? "🔒 Chiuso" : entryLabel(entry);
+      const label = entry.kind === "CHIUSO" ? "Chiuso" : entryLabel(entry);
       const { color, bold } = cellText(entry.kind, label);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6.5);
