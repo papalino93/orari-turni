@@ -58,6 +58,40 @@ export function drawLockIcon(doc: JsPDF, cx: number, cy: number, size: number, c
 
 type JsPDF = import("jspdf").jsPDF;
 
+// La foto profilo va disegnata circolare, come ovunque nell'app (avatar
+// tondi via CSS `rounded-full`) — un'immagine quadrata accanto a iniziali
+// tonde stonerebbe. jsPDF non ha un parametro "circular" su addImage: si
+// definisce un cerchio come path senza riempimento/tratto, lo si imposta
+// come area di ritaglio, si disegna l'immagine dentro, poi si ripristina lo
+// stato grafico per non ritagliare anche quel che segue.
+export function drawCircularImage(doc: JsPDF, dataUrl: string, x: number, y: number, size: number, format: "JPEG" | "PNG" = "JPEG") {
+  doc.saveGraphicsState();
+  doc.circle(x + size / 2, y + size / 2, size / 2, null);
+  doc.clip();
+  doc.discardPath();
+  doc.addImage(dataUrl, format, x, y, size, size);
+  doc.restoreGraphicsState();
+}
+
+// Un rettangolo pieno con solo gli angoli superiori arrotondati — l'header
+// di una tabella "a card" (come sul web) invece di un blocco squadrato.
+// Trucco: si disegna il roundedRect completo, poi si sovrappone un
+// rettangolo pieno che copre esattamente la metà inferiore, squadrando
+// quella e lasciando arrotondata solo la parte alta.
+export function drawTopRoundedRect(
+  doc: JsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  color: readonly [number, number, number],
+) {
+  doc.setFillColor(...color);
+  doc.roundedRect(x, y, w, h, r, r, "F");
+  doc.rect(x, y + h / 2, w, h / 2, "F");
+}
+
 export async function newLandscapeDoc(): Promise<JsPDF> {
   const { jsPDF } = await import("jspdf");
   return new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });

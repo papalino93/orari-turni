@@ -7,8 +7,10 @@ import {
   daysInMonth,
   formatMonthYear,
   formatWeekRange,
+  parseDateKey,
   startOfWeek,
   toDateKey,
+  todayKey,
 } from "@/lib/week";
 import { useToast } from "@/components/toast";
 import { shareOrDownloadFile } from "@/lib/share-file";
@@ -31,9 +33,12 @@ export function PdfExportModal({
   onClose: () => void;
 }) {
   const [rangeType, setRangeType] = useState<RangeType>("week");
-  const [anchor, setAnchor] = useState(() => toDateKey(new Date()));
-  const [customFrom, setCustomFrom] = useState(() => toDateKey(startOfWeek(new Date())));
-  const [customTo, setCustomTo] = useState(() => toDateKey(addDays(startOfWeek(new Date()), 6)));
+  // todayKey() e non toDateKey(new Date()): quest'ultima legge il giorno in
+  // UTC anche nel browser, sbagliando data/settimana di default nella
+  // finestra tra mezzanotte UTC e quella italiana.
+  const [anchor, setAnchor] = useState(() => todayKey());
+  const [customFrom, setCustomFrom] = useState(() => toDateKey(startOfWeek(parseDateKey(todayKey()))));
+  const [customTo, setCustomTo] = useState(() => toDateKey(addDays(startOfWeek(parseDateKey(todayKey())), 6)));
   type ScheduleData = {
     blocks: { dateKey: string; startTime: string; endTime: string }[];
     leaveEntries: { dateKey: string; type: string; quantity: number }[];

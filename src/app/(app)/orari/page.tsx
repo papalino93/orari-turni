@@ -8,6 +8,7 @@ import {
   startOfWeek,
   startOfYear,
   toDateKey,
+  todayKey,
 } from "@/lib/week";
 import { OrariView, type ViewMode } from "./orari-view";
 
@@ -18,7 +19,10 @@ export default async function OrariPage({
 }) {
   const params = await searchParams;
   const view = (["day", "week", "month", "year"].includes(params.view ?? "") ? params.view : "week") as ViewMode;
-  const refDate = params.date ? parseDateKey(params.date) : parseDateKey(toDateKey(new Date()));
+  // todayKey() e non toDateKey(new Date()): quest'ultima legge il giorno in
+  // UTC, sbagliando la vista di default nella finestra tra mezzanotte UTC e
+  // quella italiana (l'utente aprirebbe /orari e vedrebbe ancora ieri).
+  const refDate = params.date ? parseDateKey(params.date) : parseDateKey(todayKey());
   const employeeFilter = params.employee || undefined;
   const displayMode = params.mode === "employees" ? "employees" : "periods";
 

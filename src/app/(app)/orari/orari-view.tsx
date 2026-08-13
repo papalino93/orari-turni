@@ -13,6 +13,7 @@ import {
   parseDateKey,
   startOfWeek,
   toDateKey,
+  todayKey,
 } from "@/lib/week";
 import { buildSchedule, type Block, type Closure, type Employee, type Leave } from "@/lib/schedule";
 import { orderEmployees } from "./shared";
@@ -187,7 +188,7 @@ export function OrariView({
           </button>
           <button
             type="button"
-            onClick={() => navigate({ date: toDateKey(new Date()) })}
+            onClick={() => navigate({ date: todayKey() })}
             className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
           >
             Oggi

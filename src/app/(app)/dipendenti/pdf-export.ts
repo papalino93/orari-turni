@@ -1,24 +1,30 @@
 "use client";
 
-// Vero PDF vettoriale per l'orario di un singolo dipendente — stessa base di
-// disegno dell'export settimanale in /orari (vedi lib/pdf.ts), non uno
-// screenshot.
+// PDF vettoriale per l'orario di un singolo dipendente. Non una tabella
+// burocratica a tutta larghezza: una card centrata sulla pagina — stessa
+// composizione dell'anteprima a schermo (logo, foto accanto al nome,
+// sottotitolo, tabella con angoli arrotondati) — perché è quello il
+// documento che le persone giudicano "bello" o no, non una griglia piena
+// di spazio vuoto.
 
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { DAY_KIND_LABEL, leaveTypeToKind, type LeaveType } from "@/lib/schedule";
 import {
-  CONTENT_W,
   DANGER,
   GOLD,
+  LINE,
   MARGIN,
   MUTED,
+  PAGE_W,
   ROW_ALT,
   TEXT,
   WINE,
+  WINE_DARK,
   col,
+  drawCircularImage,
   drawFooter,
-  drawHeader,
   drawLockIcon,
+  drawTopRoundedRect,
   ensureSpace,
   initials,
   loadPhotoDataUrl,
@@ -26,10 +32,14 @@ import {
   truncate,
 } from "@/lib/pdf";
 import { blockHours } from "@/lib/week";
+import { LOGO_DATA_URI } from "@/lib/logo-data-uri";
 
 type RangeBlock = { dateKey: string; startTime: string; endTime: string };
 type RangeLeave = { dateKey: string; type: LeaveType; quantity: number };
 type RangeClosure = { dateKey: string; reason: string | null };
+
+const CARD_W = 190;
+const CARD_X = (PAGE_W - CARD_W) / 2;
 
 export async function exportEmployeeRangePdf({
   employeeId,
@@ -53,57 +63,85 @@ export async function exportEmployeeRangePdf({
   closures: RangeClosure[];
 }) {
   const doc = await newLandscapeDoc();
-  let y = drawHeader(doc, `Orario di ${employeeName}`, rangeLabel);
-
   const photo = photoVersion ? await loadPhotoDataUrl(employeeId, photoVersion) : null;
-  const badgeSize = 12;
+  const contentTop = MARGIN;
+  let y = contentTop;
+
+  // --- Header: logo + foto/iniziali + nome, raggruppati come sull'anteprima ---
+  const logoSize = 17;
+  try {
+    doc.addImage(LOGO_DATA_URI, "PNG", CARD_X, y, logoSize, logoSize * 0.44);
+  } catch {
+    // il PDF resta comunque leggibile senza logo
+  }
+
+  const avatarSize = 16;
+  const avatarX = CARD_X + logoSize + 10;
+  const avatarY = y;
   if (photo) {
     try {
-      doc.addImage(photo, "JPEG", CONTENT_W + MARGIN - badgeSize, MARGIN, badgeSize, badgeSize);
+      drawCircularImage(doc, photo, avatarX, avatarY, avatarSize);
     } catch {
-      // ignora
+      drawAvatarFallback(doc, avatarX, avatarY, avatarSize, employeeName);
     }
-  }
-  if (jobTitle) {
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
-    doc.setTextColor(...MUTED);
-    doc.text(jobTitle, CONTENT_W + MARGIN, MARGIN + 18, { align: "right" });
+  } else {
+    drawAvatarFallback(doc, avatarX, avatarY, avatarSize, employeeName);
   }
 
-  const closedSet = new Set(closures.map((c) => c.dateKey));
-  const nameColW = 44;
-  const timeColW = 130;
-  const hoursColW = CONTENT_W - nameColW - timeColW;
-  const rowH = 8.5;
-  const headerH = 9;
+  const textX = avatarX + avatarSize + 5;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(...TEXT);
+  doc.text(employeeName, textX, y + 7);
 
-  y = ensureSpace(doc, y, headerH + rowH);
-  doc.setFillColor(...WINE);
-  doc.rect(MARGIN, y, CONTENT_W, headerH, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...MUTED);
+  const subtitle = [jobTitle, rangeLabel].filter(Boolean).join("  ·  ");
+  doc.text(subtitle, textX, y + 13.5);
+
+  y += Math.max(logoSize, avatarSize) + 7;
+
+  // Sottile linea a sfumare, stesso tocco del brand usato nell'anteprima e
+  // nel PDF settimanale.
+  doc.setDrawColor(...WINE);
+  doc.setLineWidth(0.6);
+  doc.line(CARD_X, y, CARD_X + CARD_W, y);
+  y += 7;
+
+  // --- Tabella Data / Orario / Ore, con angoli superiori arrotondati ---
+  const dataColW = 40;
+  const oreColW = 26;
+  const orarioColW = CARD_W - dataColW - oreColW;
+  const headerH = 10;
+  const rowH = 9;
+  const cornerR = 2.5;
+
+  const tableTop = y;
+  drawTopRoundedRect(doc, CARD_X, y, CARD_W, headerH, cornerR, WINE);
   doc.setTextColor(253, 242, 244);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text("DATA", MARGIN + 4, y + headerH / 2 + 1, { baseline: "middle" });
-  doc.text("ORARIO", MARGIN + nameColW + 4, y + headerH / 2 + 1, { baseline: "middle" });
-  doc.text("ORE", MARGIN + nameColW + timeColW + hoursColW / 2, y + headerH / 2 + 1, { align: "center", baseline: "middle" });
+  doc.setFontSize(8.5);
+  doc.text("DATA", CARD_X + 5, y + headerH / 2 + 1, { baseline: "middle" });
+  doc.text("ORARIO", CARD_X + dataColW + 5, y + headerH / 2 + 1, { baseline: "middle" });
+  doc.text("ORE", CARD_X + CARD_W - 5, y + headerH / 2 + 1, { align: "right", baseline: "middle" });
   y += headerH;
-  const tableTop = y - headerH;
-  const pagesBeforeRows = doc.getNumberOfPages();
 
+  const pagesBeforeRows = doc.getNumberOfPages();
+  const closedSet = new Set(closures.map((c) => c.dateKey));
   let totalHours = 0;
 
   dateKeys.forEach((dateKey, i) => {
     y = ensureSpace(doc, y, rowH);
     if (i % 2 === 1) {
       doc.setFillColor(...ROW_ALT);
-      doc.rect(MARGIN, y, CONTENT_W, rowH, "F");
+      doc.rect(CARD_X, y, CARD_W, rowH, "F");
     }
     const date = parseDateKey(dateKey);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
+    doc.setFontSize(8.5);
     doc.setTextColor(...TEXT);
-    doc.text(`${dayLabel(date)} ${formatDayMonth(date)}`, MARGIN + 4, y + rowH / 2 + 1, { baseline: "middle" });
+    doc.text(`${dayLabel(date)} ${formatDayMonth(date)}`, CARD_X + 5, y + rowH / 2 + 1, { baseline: "middle" });
 
     const closed = closedSet.has(dateKey);
     const dayBlocks = blocks.filter((b) => b.dateKey === dateKey).sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -111,75 +149,85 @@ export async function exportEmployeeRangePdf({
     const hours = closed ? 0 : dayBlocks.reduce((sum, b) => sum + blockHours(b), 0);
     totalHours += hours;
 
+    const orarioX = CARD_X + dataColW + 5;
     if (closed) {
-      // Niente emoji: i font standard di jsPDF non hanno il glifo del
-      // lucchetto (produce testo illeggibile e sballa la larghezza
-      // misurata). Il lucchetto è disegnato a parte, vettoriale.
-      drawLockIcon(doc, MARGIN + nameColW + 4 + 1.7, y + rowH / 2, 3.4, WINE);
+      drawLockIcon(doc, orarioX + 1.7, y + rowH / 2, 3.6, WINE);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
+      doc.setFontSize(8.5);
       doc.setTextColor(...WINE);
-      doc.text("LOCALE CHIUSO", MARGIN + nameColW + 4 + 5, y + rowH / 2 + 1, { baseline: "middle" });
+      doc.text("LOCALE CHIUSO", orarioX + 5.5, y + rowH / 2 + 1, { baseline: "middle" });
     } else if (leave) {
       const kind = leaveTypeToKind(leave.type);
       const color = col(kind === "FERIE" ? WINE : kind === "PERMESSO" ? GOLD : kind === "MALATTIA" ? DANGER : MUTED);
       const label = kind === "PERMESSO" ? `Permesso ${leave.quantity}h` : DAY_KIND_LABEL[kind];
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
+      doc.setFontSize(8.5);
       doc.setTextColor(...color);
-      doc.text(label, MARGIN + nameColW + 4, y + rowH / 2 + 1, { baseline: "middle" });
+      doc.text(label, orarioX, y + rowH / 2 + 1, { baseline: "middle" });
     } else if (dayBlocks.length > 0) {
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
+      doc.setFontSize(8.5);
       doc.setTextColor(...TEXT);
       const text = dayBlocks.map((b) => `${b.startTime}–${b.endTime}`).join("   ");
-      doc.text(truncate(doc, text, timeColW - 8), MARGIN + nameColW + 4, y + rowH / 2 + 1, { baseline: "middle" });
+      doc.text(truncate(doc, text, orarioColW - 10), orarioX, y + rowH / 2 + 1, { baseline: "middle" });
     } else {
       doc.setFont("helvetica", "italic");
-      doc.setFontSize(8);
+      doc.setFontSize(8.5);
       doc.setTextColor(...MUTED);
-      doc.text("Non pianificato", MARGIN + nameColW + 4, y + rowH / 2 + 1, { baseline: "middle" });
+      doc.text("Non pianificato", orarioX, y + rowH / 2 + 1, { baseline: "middle" });
     }
 
     if (hours > 0) {
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
+      doc.setFontSize(8.5);
       doc.setTextColor(...TEXT);
-      doc.text(`${Math.round(hours * 100) / 100}h`, MARGIN + nameColW + timeColW + hoursColW / 2, y + rowH / 2 + 1, {
-        align: "center",
+      doc.text(`${Math.round(hours * 100) / 100}h`, CARD_X + CARD_W - 5, y + rowH / 2 + 1, {
+        align: "right",
         baseline: "middle",
       });
     }
     y += rowH;
   });
 
-  // Il bordo attorno alla tabella ha senso solo se non c'è stata
-  // un'interruzione di pagina in mezzo: altrimenti le coordinate non
-  // corrisponderebbero più alle righe realmente disegnate.
-  if (doc.getNumberOfPages() === pagesBeforeRows) {
-    doc.setDrawColor(230, 220, 218);
+  const tableBottom = y;
+  const noPageBreak = doc.getNumberOfPages() === pagesBeforeRows;
+  if (noPageBreak) {
+    // Nessuna linea verticale interna: la tabella ha solo colonne di testo
+    // libero, righe alternate bastano a guidare l'occhio. Solo il bordo
+    // esterno.
+    doc.setDrawColor(...LINE);
     doc.setLineWidth(0.2);
-    doc.rect(MARGIN, tableTop, CONTENT_W, y - tableTop);
+    doc.rect(CARD_X, tableTop, CARD_W, tableBottom - tableTop);
   }
 
-  y += 3;
-  y = ensureSpace(doc, y, 10);
+  // --- Totale ore: riga propria, coerente con il tfoot dell'anteprima ---
+  y += 1.5;
+  doc.setFillColor(...WINE_DARK);
+  doc.roundedRect(CARD_X, y, CARD_W, 10, 1.5, 1.5, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(...WINE);
-  doc.text(`Totale ore: ${Math.round(totalHours * 100) / 100}h`, CONTENT_W + MARGIN, y + 4, { align: "right" });
+  doc.setFontSize(9.5);
+  doc.setTextColor(253, 242, 244);
+  doc.text("TOTALE ORE", CARD_X + 5, y + 6.3);
+  doc.text(`${Math.round(totalHours * 100) / 100} h`, CARD_X + CARD_W - 5, y + 6.3, { align: "right" });
+  y += 10;
 
-  if (!photo) {
-    const cx = CONTENT_W + MARGIN - badgeSize / 2;
-    const cy = MARGIN + badgeSize / 2;
-    doc.setFillColor(241, 226, 224);
-    doc.circle(cx, cy, badgeSize / 2, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(...WINE);
-    doc.text(initials(employeeName), cx, cy + 1, { align: "center", baseline: "middle" });
+  // Cornice leggera attorno all'intera card, solo se il documento sta su
+  // una pagina sola: dà l'effetto "scheda" invece di "modulo".
+  if (noPageBreak) {
+    doc.setDrawColor(...LINE);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(CARD_X - 6, contentTop - 4, CARD_W + 12, y - contentTop + 8, 4, 4, "S");
   }
 
   drawFooter(doc);
   doc.save(`orario-${employeeName.replace(/\s+/g, "-").toLowerCase()}-${dateKeys[0]}_${dateKeys[dateKeys.length - 1]}.pdf`);
+}
+
+function drawAvatarFallback(doc: import("jspdf").jsPDF, x: number, y: number, size: number, name: string) {
+  doc.setFillColor(241, 226, 224);
+  doc.circle(x + size / 2, y + size / 2, size / 2, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(size * 0.42);
+  doc.setTextColor(...WINE);
+  doc.text(initials(name), x + size / 2, y + size / 2 + 1, { align: "center", baseline: "middle" });
 }
