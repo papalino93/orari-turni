@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addDays,
@@ -246,65 +246,26 @@ export function OrariView({
         <WeekSummary schedule={schedule} isPublished={isPublished} view={view} onUnshare={unshare} unsharing={publishing} />
       )}
 
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-wrap gap-1 rounded-full border border-border bg-surface p-1 w-fit">
-            {(Object.keys(VIEW_LABELS) as ViewMode[]).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => navigate({ view: v })}
-                title={VIEW_EDITABLE[v] ? `${VIEW_LABELS[v]} — puoi inserire e modificare i turni` : `${VIEW_LABELS[v]} — sola lettura`}
-                className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                  v === view ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
-                }`}
-              >
-                {VIEW_LABELS[v]}
-                {VIEW_EDITABLE[v] && <EditPencilIcon className={v === view ? "text-accent" : "text-foreground-muted/60"} />}
-              </button>
-            ))}
-          </div>
-          {view === "week" && (
-            // Divisore + etichetta "Vista": senza, queste due pillole
-            // affiancate a Giorno/Settimana/Mese/Anno (stesso identico
-            // stile) si leggevano come un'unica barra di sei linguette,
-            // mentre sono due controlli indipendenti — una sceglie il
-            // periodo, l'altra come disporre la stessa settimana.
-            <div className="flex flex-wrap items-center gap-2 border-l border-border pl-3">
-              <span className="text-xs font-medium text-foreground-muted/70">Vista</span>
-              <div className="flex gap-1 rounded-full border border-border bg-surface p-1 w-fit" role="group" aria-label="Modalità di visualizzazione">
-                <button
-                  type="button"
-                  onClick={() => navigate({ mode: "periods" })}
-                  title="Fasce orarie"
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                    displayMode === "periods" ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
-                  }`}
-                >
-                  <PeriodsIcon /> <span className="hidden min-[400px]:inline">Fasce orarie</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate({ mode: "employees" })}
-                  title="Dipendenti"
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                    displayMode === "employees" ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
-                  }`}
-                >
-                  <PersonIcon /> <span className="hidden min-[400px]:inline">Dipendenti</span>
-                </button>
-              </div>
-            </div>
-          )}
+      <div className="mb-3 flex flex-col gap-1.5">
+        {/* Prima erano 4+2 linguette identiche affiancate su una riga: si
+            leggevano come un unico gruppo di sei opzioni, non due controlli
+            indipendenti (periodo vs. disposizione). Ora: un menu a tendina
+            per il periodo (mostra subito se quella vista si può modificare)
+            e, solo in Settimana, un piccolo menu ad hamburger per la
+            disposizione — un pulsante compatto e ovviamente "altro menu",
+            non un'altra fila di pillole uguali alle prime. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <ViewSwitcher view={view} onSelect={(v) => navigate({ view: v })} />
+          {view === "week" && <DisplayModeMenu mode={displayMode} onSelect={(m) => navigate({ mode: m })} />}
         </div>
-        <p className="text-xs text-foreground-muted">
+        <p className="flex items-center gap-1 text-[11px] text-foreground-muted/80">
           {view === "day" || view === "week" ? (
             <>
-              <EditPencilIcon className="text-accent" /> Clicca su una casella per inserire o modificare un turno, riposo,
-              ferie o permesso.
+              <EditPencilIcon className="shrink-0 text-accent" /> Tocca una casella per inserire o modificare un turno,
+              riposo, ferie o permesso.
             </>
           ) : (
-            "Vista di sola lettura — riepiloga i totali. Per inserire o modificare gli orari passa a Giorno o Settimana (contrassegnate dalla matita)."
+            "Sola lettura — riepiloga i totali. Passa a Giorno o Settimana (nel menu qui sopra) per modificare gli orari."
           )}
         </p>
       </div>
@@ -339,22 +300,31 @@ function WeekSummary({
     <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
       {view === "week" &&
         (isPublished ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-bg px-2.5 py-1 text-success">
-            🟢 Condiviso
+          <InfoPopoverBadge tone="success" label={<>🟢 Condiviso</>}>
+            <p className="text-foreground">
+              Questa settimana è stata esportata (PDF o immagine) e non è più stata modificata da allora — per questo
+              risulta &ldquo;condivisa&rdquo; con lo staff.
+            </p>
+            <p className="mt-1 text-foreground-muted">
+              Torna automaticamente &ldquo;non condivisa&rdquo; alla prima modifica di un turno in questa settimana.
+            </p>
             <button
               type="button"
               onClick={onUnshare}
               disabled={unsharing}
-              className="text-success/70 underline decoration-dotted hover:text-success"
-              title="L'orario è stato esportato e non è ancora stato modificato da allora"
+              className="mt-2 text-success underline decoration-dotted hover:text-success/80"
             >
-              {unsharing ? "…" : "annulla"}
+              {unsharing ? "Annullo…" : "Segna come non condivisa"}
             </button>
-          </span>
+          </InfoPopoverBadge>
         ) : (
-          <Badge tone="neutral" title="Diventa 'Condiviso' automaticamente quando esporti questa settimana in PDF o immagine">
-            ○ Non condiviso
-          </Badge>
+          <InfoPopoverBadge tone="neutral" label={<>○ Non condiviso</>}>
+            <p className="text-foreground">Nessuno ha ancora ricevuto l&apos;orario di questa settimana.</p>
+            <p className="mt-1 text-foreground-muted">
+              Diventa &ldquo;condiviso&rdquo; da solo quando esporti questa settimana con &ldquo;Invia orari&rdquo; (PDF o
+              immagine) — non serve nessun interruttore da ricordarsi di premere.
+            </p>
+          </InfoPopoverBadge>
         ))}
       <Badge tone="neutral">
         {staffCount} dipendent{staffCount === 1 ? "e" : "i"}
@@ -365,9 +335,24 @@ function WeekSummary({
           🔒 {schedule.closedDateKeys.length} giorn{schedule.closedDateKeys.length === 1 ? "o" : "i"} di chiusura
         </Badge>
       )}
-      <Badge tone={anomalyCount > 0 ? "warning" : "success"}>
-        {anomalyCount > 0 ? `⚠️ ${anomalyCount} da controllare` : "✓ 0 anomalie"}
-      </Badge>
+      {anomalyCount > 0 ? (
+        <InfoPopoverBadge tone="warning" label={<>⚠️ {anomalyCount} da controllare</>}>
+          <p className="mb-1.5 font-medium text-foreground">Turni che vale la pena ricontrollare:</p>
+          <ul className="space-y-1 text-foreground-muted">
+            {schedule.anomalies.slice(0, 6).map((a, i) => (
+              <li key={i} className="flex gap-1.5">
+                <span aria-hidden>·</span>
+                <span>{a.message}</span>
+              </li>
+            ))}
+          </ul>
+          {schedule.anomalies.length > 6 && (
+            <p className="mt-1 text-foreground-muted">+ altr{schedule.anomalies.length - 6 === 1 ? "o" : "i"} {schedule.anomalies.length - 6}</p>
+          )}
+        </InfoPopoverBadge>
+      ) : (
+        <Badge tone="success">✓ 0 anomalie</Badge>
+      )}
     </div>
   );
 }
@@ -391,6 +376,52 @@ function Badge({
     <span title={title} className={`rounded-full border px-2.5 py-1 font-medium ${cls}`}>
       {children}
     </span>
+  );
+}
+
+// Prima queste due pillole (Condiviso / N da controllare) portavano solo un
+// title="…" — una spiegazione visibile solo passandoci sopra col mouse, mai
+// al tocco su telefono, quindi su mobile restavano due parole criptiche
+// senza modo di capire cosa significassero. Ora sono pulsanti che aprono un
+// piccolo pannello con la spiegazione (e, per le anomalie, l'elenco vero e
+// proprio di cosa controllare) — funziona identico al tocco e al click.
+function InfoPopoverBadge({
+  children,
+  tone,
+  label,
+}: {
+  children: React.ReactNode;
+  tone: "neutral" | "success" | "warning";
+  label: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useClickOutside(ref, () => setOpen(false));
+
+  const cls =
+    tone === "success"
+      ? "border-success/30 bg-success-bg text-success"
+      : tone === "warning"
+        ? "border-gold/40 bg-gold/10 text-gold"
+        : "border-border bg-surface text-foreground-muted";
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className={`flex items-center gap-1 rounded-full border px-2.5 py-1 font-medium ${cls}`}
+      >
+        {label}
+        <ChevronIcon className={`opacity-60 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-20 mt-1 w-72 max-w-[80vw] rounded-xl border border-border bg-surface p-3 text-xs normal-case shadow-xl">
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -424,5 +455,156 @@ function PersonIcon() {
       <circle cx="12" cy="8" r="3.5" />
       <path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" />
     </svg>
+  );
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function HamburgerIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+// Chiude il pannello al primo click/tocco fuori, o con Esc — lo stesso
+// comportamento di qualunque menu a tendina nativo del sistema operativo.
+function useClickOutside(ref: React.RefObject<HTMLElement | null>, onOutside: () => void) {
+  useEffect(() => {
+    function handlePointerDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onOutside();
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onOutside();
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [ref, onOutside]);
+}
+
+// Prima Giorno/Settimana/Mese/Anno erano 4 linguette sempre tutte visibili:
+// un vero e proprio menu a tendina (come richiesto) le sostituisce con un
+// solo pulsante che mostra la vista corrente — meno elementi sullo schermo,
+// e la lista che si apre mostra subito, per ognuna, se si può modificare o
+// è di sola lettura (prima era un'informazione nascosta in un tooltip).
+function ViewSwitcher({ view, onSelect }: { view: ViewMode; onSelect: (v: ViewMode) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useClickOutside(ref, () => setOpen(false));
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:border-accent"
+      >
+        {VIEW_LABELS[view]}
+        {VIEW_EDITABLE[view] && <EditPencilIcon className="text-accent" />}
+        <ChevronIcon className={`text-foreground-muted transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div role="listbox" className="absolute left-0 top-full z-20 mt-1 w-60 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-xl">
+          {(Object.keys(VIEW_LABELS) as ViewMode[]).map((v) => (
+            <button
+              key={v}
+              type="button"
+              role="option"
+              aria-selected={v === view}
+              onClick={() => {
+                onSelect(v);
+                setOpen(false);
+              }}
+              className={`flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-colors ${
+                v === view ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:bg-surface-2 hover:text-foreground"
+              }`}
+            >
+              {VIEW_LABELS[v]}
+              <span className="text-[10px] font-medium uppercase tracking-wide text-foreground-muted/60">
+                {VIEW_EDITABLE[v] ? "Modifica" : "Sola lettura"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DISPLAY_MODE_LABELS: Record<DisplayMode, string> = {
+  periods: "Fasce orarie",
+  employees: "Dipendenti",
+};
+
+// Controllo secondario (come disporre la stessa settimana), usato molto
+// meno spesso del cambio periodo qui sopra: un pulsante a hamburger, come
+// richiesto, invece dell'ennesima coppia di pillole identiche alle altre —
+// segnala da solo "qui c'è dell'altro", senza pesare sulla riga.
+function DisplayModeMenu({ mode, onSelect }: { mode: DisplayMode; onSelect: (m: DisplayMode) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useClickOutside(ref, () => setOpen(false));
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        title={`Visualizza per: ${DISPLAY_MODE_LABELS[mode]}`}
+        aria-label="Modalità di visualizzazione"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+      >
+        <HamburgerIcon />
+      </button>
+      {open && (
+        <div role="menu" className="absolute left-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-xl">
+          <p className="px-3 pb-1 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-foreground-muted/60">
+            Visualizza per
+          </p>
+          {(Object.keys(DISPLAY_MODE_LABELS) as DisplayMode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="menuitemradio"
+              aria-checked={m === mode}
+              onClick={() => {
+                onSelect(m);
+                setOpen(false);
+              }}
+              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                m === mode ? "text-foreground" : "text-foreground-muted hover:text-foreground"
+              }`}
+            >
+              {m === "periods" ? <PeriodsIcon /> : <PersonIcon />}
+              {DISPLAY_MODE_LABELS[m]}
+              {m === mode && <CheckIcon className="ml-auto text-accent" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

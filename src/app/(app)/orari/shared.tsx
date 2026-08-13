@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useState, useTransition } from "react";
+import { forwardRef, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
@@ -219,7 +219,62 @@ function TimeFieldInput({
       <DigitInput value={hh} max={maxHour} ariaLabel={`${ariaLabel} — ora`} onComplete={(v, el) => commit(v, mm, el)} />
       <span className="text-foreground-muted">:</span>
       <DigitInput value={mm} max={59} ariaLabel={`${ariaLabel} — minuti`} onComplete={(v, el) => commit(hh, v, el)} />
+      <TimePresetSelect min={min} max={max} onSelect={onChange} ariaLabel={`${ariaLabel} — scegli da un elenco di orari`} />
     </span>
+  );
+}
+
+function buildTimeOptions(min: string, max: string, stepMinutes: number): string[] {
+  const [minH, minM] = min.split(":").map(Number);
+  const [maxH, maxM] = max.split(":").map(Number);
+  const startTotal = minH * 60 + minM;
+  const endTotal = maxH * 60 + maxM;
+  const options: string[] = [];
+  for (let t = startTotal; t <= endTotal; t += stepMinutes) {
+    options.push(`${pad2(Math.floor(t / 60))}:${pad2(t % 60)}`);
+  }
+  return options;
+}
+
+// Digitare a mano (sopra) resta sempre possibile ed è il modo principale:
+// questo è solo un modo alternativo, più veloce, per scegliere un orario
+// "tondo" senza digitare nulla. Un <select> nativo vero, non un pannello
+// disegnato a mano: resta accessibile da tastiera e apre lo stesso menu che
+// il sistema operativo usa per ogni altro elenco a scelta singola. Il
+// valore mostrato nel pulsante resta sempre la freccetta ▾ (non l'ultimo
+// orario scelto): è un pulsante-menu "usa e getta", lo stato vero resta nei
+// campi a cifre accanto.
+function TimePresetSelect({
+  min,
+  max,
+  onSelect,
+  ariaLabel,
+}: {
+  min: string;
+  max: string;
+  onSelect: (value: string) => void;
+  ariaLabel: string;
+}) {
+  const options = useMemo(() => buildTimeOptions(min, max, 15), [min, max]);
+  return (
+    <select
+      value=""
+      onChange={(e) => {
+        if (e.target.value) onSelect(e.target.value);
+      }}
+      aria-label={ariaLabel}
+      title="Scegli da un elenco di orari"
+      className="h-8 w-6 shrink-0 cursor-pointer rounded-lg border border-border bg-surface-2 text-center text-xs text-foreground-muted outline-none focus:border-accent"
+    >
+      <option value="" disabled>
+        ▾
+      </option>
+      {options.map((t) => (
+        <option key={t} value={t}>
+          {t}
+        </option>
+      ))}
+    </select>
   );
 }
 

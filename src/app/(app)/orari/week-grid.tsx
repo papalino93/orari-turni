@@ -37,6 +37,16 @@ export function WeekBody({
 
   return (
     <div>
+      {/* Prima l'unico modo per chiudere una giornata era cliccare
+          sull'intestazione del giorno — un'etichetta di testo che non
+          sembrava affatto un pulsante, spiegata solo da un tooltip al
+          passaggio del mouse (invisibile al tocco), e per giunta assente
+          del tutto nella vista "Dipendenti" (i giorni lì sono righe dentro
+          la scheda di ognuno, non un'intestazione di colonna). Questa riga
+          è sempre visibile, sempre etichettata, sempre cliccabile, in
+          entrambe le disposizioni. */}
+      <WeekClosureBar days={days} schedule={schedule} onManageDay={setManagingDate} />
+
       {displayMode === "periods" ? (
         <PeriodsLayout
           days={days}
@@ -83,6 +93,60 @@ export function WeekBody({
   );
 }
 
+function WeekClosureBar({
+  days,
+  schedule,
+  onManageDay,
+}: {
+  days: Date[];
+  schedule: ReturnType<typeof buildSchedule>;
+  onManageDay: (dateKey: string) => void;
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-surface px-2.5 py-2">
+      <span className="mr-0.5 shrink-0 text-[11px] font-medium text-foreground-muted">Chiusure settimana</span>
+      {days.map((d) => {
+        const dateKey = toDateKey(d);
+        const closed = schedule.isClosed(dateKey);
+        return (
+          <button
+            key={dateKey}
+            type="button"
+            onClick={() => onManageDay(dateKey)}
+            title={closed ? "Locale chiuso — clicca per riaprire o gestire" : "Clicca per chiudere il locale in questa giornata"}
+            className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-colors ${
+              closed
+                ? "border-danger/40 bg-danger/10 text-danger"
+                : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
+            }`}
+          >
+            {closed ? <LockClosedIcon /> : <LockOpenIcon />}
+            {dayLabel(d)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function LockClosedIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+      <rect x="4" y="10" width="16" height="11" rx="2" />
+      <path d="M7 10V7a5 5 0 0 1 10 0v3" />
+    </svg>
+  );
+}
+
+function LockOpenIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+      <rect x="4" y="10" width="16" height="11" rx="2" />
+      <path d="M7 10V7a5 5 0 0 1 9.5-2.2" />
+    </svg>
+  );
+}
+
 function DayHeaderCell({
   d,
   onManageDay,
@@ -99,11 +163,12 @@ function DayHeaderCell({
       <button
         type="button"
         onClick={() => onManageDay(dateKey)}
-        className={`rounded-lg px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-surface ${
-          closed ? "text-danger" : "text-foreground"
+        className={`flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-surface ${
+          closed ? "text-danger" : "text-foreground-muted hover:text-foreground"
         }`}
         title={closed ? "Locale chiuso — clicca per gestire" : "Clicca per chiudere il locale in questa giornata"}
       >
+        {closed ? <LockClosedIcon /> : <LockOpenIcon />}
         {dayLabel(d)} <span className="font-normal text-foreground-muted">{formatDayMonth(d)}</span>
       </button>
       {today && (
