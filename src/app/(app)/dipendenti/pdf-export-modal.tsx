@@ -184,7 +184,9 @@ export function PdfExportModal({
             </div>
           ) : (
             <RangeCard
+              employeeId={employeeId}
               employeeName={employeeName}
+              photoVersion={photoVersion}
               jobTitle={jobTitle}
               rangeLabel={rangeLabel}
               dateKeys={dateKeys}

@@ -237,6 +237,13 @@ function drawPeriodTable(
     doc.setDrawColor(230, 220, 218);
     doc.setLineWidth(0.2);
     doc.rect(MARGIN, tableTop, CONTENT_W, y - tableTop);
+    // Una linea verticale tra ogni giorno: senza, gli orari di giorni
+    // consecutivi (es. giovedì e venerdì) si leggono come se fossero
+    // appiccicati l'uno all'altro.
+    for (let i = 0; i <= opts.dateKeys.length; i++) {
+      const x = MARGIN + nameColW + i * dayColW;
+      doc.line(x, tableTop, x, y);
+    }
   }
 
   return y;
@@ -311,6 +318,12 @@ function drawEmployeeSummaries(
       doc.setTextColor(...color);
       doc.text(truncate(doc, label, cellW - 2), x + cellW / 2, y + 6.8, { align: "center" });
     });
+    doc.setDrawColor(230, 220, 218);
+    doc.setLineWidth(0.15);
+    for (let i = 1; i < 7; i++) {
+      const x = MARGIN + i * cellW;
+      doc.line(x, y, x, y + rowH);
+    }
     y += rowH + 4;
   }
 

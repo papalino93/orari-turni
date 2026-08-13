@@ -18,7 +18,9 @@ const LEAVE_LABEL: Record<RangeLeave["type"], (q: number) => { text: string; col
 // parte, vettoriale, in pdf-export.ts — questa card serve solo a vedere cosa
 // si sta per esportare prima di scaricarlo).
 export function RangeCard({
+  employeeId,
   employeeName,
+  photoVersion,
   jobTitle,
   rangeLabel,
   dateKeys,
@@ -26,7 +28,9 @@ export function RangeCard({
   leaveEntries,
   closures,
 }: {
+  employeeId: string;
   employeeName: string;
+  photoVersion?: string | null;
   jobTitle?: string | null;
   rangeLabel: string;
   dateKeys: string[];
@@ -51,23 +55,32 @@ export function RangeCard({
         {/* eslint-disable-next-line @next/next/no-img-element -- anteprima statica, non serve next/image */}
         <img src={LOGO_DATA_URI} alt="" style={{ height: 40, width: "auto" }} />
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 34,
-              height: 34,
-              borderRadius: 999,
-              background: "#f1e2e0",
-              color: "#8a2740",
-              fontSize: 15,
-              fontWeight: 700,
-              flexShrink: 0,
-            }}
-          >
-            {employeeName.charAt(0).toUpperCase()}
-          </span>
+          {photoVersion ? (
+            // eslint-disable-next-line @next/next/no-img-element -- va dentro un canvas catturato da html-to-image, next/image non è compatibile
+            <img
+              src={`/api/employee-photo/${employeeId}?v=${photoVersion}`}
+              alt=""
+              style={{ width: 34, height: 34, borderRadius: 999, objectFit: "cover", flexShrink: 0 }}
+            />
+          ) : (
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 34,
+                height: 34,
+                borderRadius: 999,
+                background: "#f1e2e0",
+                color: "#8a2740",
+                fontSize: 15,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
+            >
+              {employeeName.charAt(0).toUpperCase()}
+            </span>
+          )}
           <div>
             <div style={{ fontSize: 21, fontWeight: 700 }}>{employeeName}</div>
             <div style={{ fontSize: 13, color: "#6b6468" }}>

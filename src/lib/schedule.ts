@@ -261,7 +261,7 @@ export function buildSchedule({
     openDateKeys,
     closedDateKeys,
     totalHours,
-    anomalies: findAnomalies(ordered, dateKeys, entry, closureByDate),
+    anomalies: findAnomalies(ordered, dateKeys, entry, closureByDate, today),
     unverifiedPastBlocks,
   };
 }
@@ -271,6 +271,7 @@ function findAnomalies(
   dateKeys: string[],
   entry: (employeeId: string, dateKey: string) => DayEntry,
   closureByDate: Map<string, Closure>,
+  today: string,
 ): Anomaly[] {
   const anomalies: Anomaly[] = [];
 
@@ -289,16 +290,22 @@ function findAnomalies(
       }
 
       // Due blocchi che si sovrappongono significano quasi sempre un
-      // pomeriggio inserito senza correggere la mattina.
+      // pomeriggio inserito senza correggere la mattina. Si confronta con la
+      // fine più tardiva vista finora, non solo con il blocco immediatamente
+      // precedente: con 3+ blocchi in un giorno un confronto solo "a coppie
+      // consecutive" perderebbe una sovrapposizione con un blocco più
+      // indietro nell'elenco ordinato.
       const sorted = e.blocks.slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
+      let maxEndSoFar = sorted.length > 0 ? timeToMinutes(sorted[0].endTime) : 0;
       for (let i = 1; i < sorted.length; i++) {
-        if (timeToMinutes(sorted[i].startTime) < timeToMinutes(sorted[i - 1].endTime)) {
+        if (timeToMinutes(sorted[i].startTime) < maxEndSoFar) {
           anomalies.push({
             dateKey,
             employeeId: emp.id,
             message: `${emp.name}: due turni sovrapposti`,
           });
         }
+        maxEndSoFar = Math.max(maxEndSoFar, timeToMinutes(sorted[i].endTime));
       }
 
       if (e.kind === "CHIUSO" && e.suspendedBlocks.length > 0) {
@@ -311,16 +318,21 @@ function findAnomalies(
     }
   }
 
-  // Giornata aperta in cui non lavora nessuno: o manca la pianificazione, o
-  // in realtà il locale quel giorno è chiuso e va segnato come tale.
+  // Giornata già passata, aperta, in cui non ha lavorato nessuno: o è
+  // mancata la pianificazione, o in realtà quel giorno il locale era chiuso
+  // e andava segnato come tale. Guardiamo solo al passato: una settimana
+  // futura ancora da pianificare non è un'anomalia, è solo lavoro non
+  // ancora fatto — segnalarla ogni volta finché non si pianifica sarebbe
+  // solo rumore.
   for (const dateKey of dateKeys) {
+    if (dateKey >= today) continue;
     if (closureByDate.has(dateKey)) continue;
     const anyWork = employees.some((e) => entry(e.id, dateKey).kind === "TURNO");
     if (!anyWork) {
       anomalies.push({
         dateKey,
         employeeId: null,
-        message: "Giornata aperta senza nessuno in turno",
+        message: "Giornata passata senza nessun turno registrato",
       });
     }
   }
