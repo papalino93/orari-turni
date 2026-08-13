@@ -15,6 +15,7 @@ import {
 } from "./actions";
 import { PdfExportModal } from "./pdf-export-modal";
 import { PhotoEditor } from "./photo-editor";
+import { EmployeeCredentials } from "./employee-credentials";
 import { DayCellContent } from "../orari/shared";
 
 type EmployeeRow = {
@@ -25,6 +26,8 @@ type EmployeeRow = {
   active: boolean;
   sortOrder: number;
   photoVersion: string | null;
+  username: string | null;
+  password: string | null;
 };
 
 export function EmployeeList({
@@ -281,6 +284,10 @@ function EmployeeCard({
             );
           })}
         </div>
+      )}
+
+      {employee.role === "EMPLOYEE" && (
+        <EmployeeCredentials employeeId={employee.id} username={employee.username} password={employee.password} />
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">

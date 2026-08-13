@@ -43,10 +43,21 @@ model Employee {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  photo         EmployeePhoto?
-  shiftBlocks   ShiftBlock[]
-  leaveEntries  LeaveEntry[]
-  leaveBalances LeaveBalance[]
+  // Area Dipendenti: login personale, creato in automatico alla creazione
+  // del dipendente (vedi lib/employee-credentials.ts). password è cifrata
+  // (non hash) perché il titolare deve poterla rileggere in ogni momento
+  // dalla scheda del dipendente — scelta deliberata, non un hash "debole".
+  // deactivatedAt segna il confine oltre il quale un dipendente disattivato
+  // smette di vedere/compilare (resta in lettura fino a quella data compresa).
+  username      String?   @unique
+  password      String?
+  deactivatedAt DateTime?
+
+  photo               EmployeePhoto?
+  shiftBlocks         ShiftBlock[]
+  leaveEntries        LeaveEntry[]
+  leaveBalances       LeaveBalance[]
+  monthlySubmissions  MonthlySubmission[]
 
   @@index([role])
 }
@@ -74,6 +85,17 @@ model ShiftBlock {
   confirmed  Boolean  @default(false) // il titolare ha verificato che l'orario pianificato corrisponde a quello realmente lavorato
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  // Area Dipendenti — revisione mensile: il dipendente corregge l'orario
+  // stesso invece di tenere un valore "ore effettive" separato (un solo
+  // numero vero in tutta l'app, vedi actions del mese). Se la correzione
+  // cambia un orario già pianificato dal titolare, il valore originale si
+  // salva qui la prima volta — non ad ogni modifica successiva — per poter
+  // mostrare "era 9:00–13:00, ora 9:00–13:30" a chi approva.
+  addedByEmployee    Boolean   @default(false)
+  originalStartTime  String?
+  originalEndTime    String?
+  editedByEmployeeAt DateTime?
 
   @@index([date])
   @@index([employeeId, date])
@@ -135,6 +157,35 @@ model WeekPlan {
   publishedAt DateTime?
   publishedBy String? // username di chi ha pubblicato
   updatedAt   DateTime  @updatedAt
+}
+
+enum SubmissionStatus {
+  DRAFT // il dipendente sta ancora rivedendo, o non ha ancora iniziato
+  SUBMITTED // inviato, in attesa che il titolare lo controlli
+  APPROVED // approvato, non più modificabile dal dipendente
+  REOPENED // il titolare l'ha rimandato indietro per una correzione
+}
+
+// Stato della revisione mensile del dipendente — vedi Area Dipendenti nel
+// piano di progetto. Una riga per dipendente/mese: assente = il dipendente
+// non ha ancora aperto quel mese (equivale a DRAFT ai fini del promemoria).
+model MonthlySubmission {
+  id           String            @id @default(cuid())
+  employeeId   String
+  employee     Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  year         Int
+  month        Int // 1-12
+  status       SubmissionStatus  @default(DRAFT)
+  submittedAt  DateTime?
+  approvedAt   DateTime?
+  approvedBy   String? // username titolare/consulente
+  reopenedAt   DateTime?
+  reopenNote   String? // perché il titolare l'ha rimandato indietro
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([employeeId, year, month])
+  @@index([employeeId])
 }
 
 // Saldo di partenza e tasso di maturazione per dipendente/tipo/anno.

@@ -2,6 +2,42 @@ import { prisma } from "@/lib/prisma";
 import { addDays, parseDateKey, startOfWeek, toDateKey, todayKey } from "@/lib/week";
 import { NewEmployeeForm } from "./new-employee-form";
 import { EmployeeList } from "./employee-list";
+import {
+  decryptEmployeePassword,
+  encryptEmployeePassword,
+  generateEmployeePassword,
+  generateEmployeeUsername,
+} from "@/lib/employee-credentials";
+import type { Employee } from "@prisma/client";
+
+// Dipendenti creati prima dell'Area Dipendenti non hanno ancora username e
+// password: si assegnano da soli alla prima apertura di questa pagina dopo
+// l'aggiornamento, invece di richiedere uno script di migrazione dati a
+// parte da ricordarsi di lanciare in produzione.
+// Se NEXTAUTH_SECRET cambiasse (o il dato fosse corrotto) la decifrazione
+// fallirebbe: meglio mostrare "—" per quel dipendente che far esplodere
+// l'intera pagina Dipendenti.
+function safeDecrypt(stored: string): string | null {
+  try {
+    return decryptEmployeePassword(stored);
+  } catch {
+    return null;
+  }
+}
+
+async function ensureEmployeeCredentials(employees: Employee[]): Promise<Employee[]> {
+  const missing = employees.filter((e) => e.role === "EMPLOYEE" && !e.username);
+  if (missing.length === 0) return employees;
+
+  const byId = new Map(employees.map((e) => [e.id, e]));
+  for (const emp of missing) {
+    const username = await generateEmployeeUsername(emp.name);
+    const password = encryptEmployeePassword(generateEmployeePassword());
+    const updated = await prisma.employee.update({ where: { id: emp.id }, data: { username, password } });
+    byId.set(emp.id, updated);
+  }
+  return employees.map((e) => byId.get(e.id)!);
+}
 
 export default async function DipendentiPage() {
   // todayKey() e non new Date(): quest'ultima, passata a startOfWeek (che
@@ -12,12 +48,13 @@ export default async function DipendentiPage() {
   const weekEnd = addDays(weekStart, 6);
   const dateKeys = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i)));
 
-  const [employees, blocks, leaveEntries, closures] = await Promise.all([
+  const [employeesRaw, blocks, leaveEntries, closures] = await Promise.all([
     prisma.employee.findMany({ orderBy: [{ active: "desc" }, { sortOrder: "asc" }] }),
     prisma.shiftBlock.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
     prisma.leaveEntry.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
     prisma.closureDay.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
   ]);
+  const employees = await ensureEmployeeCredentials(employeesRaw);
 
   const mapped = employees.map((e) => ({
     id: e.id,
@@ -27,6 +64,10 @@ export default async function DipendentiPage() {
     active: e.active,
     sortOrder: e.sortOrder,
     photoVersion: e.photoUpdatedAt ? String(e.photoUpdatedAt.getTime()) : null,
+    username: e.username,
+    // Decifrata qui, non nel Client Component: la chiave di decifrazione
+    // (derivata da NEXTAUTH_SECRET) non deve mai lasciare il server.
+    password: e.password ? safeDecrypt(e.password) : null,
   }));
 
   return (
