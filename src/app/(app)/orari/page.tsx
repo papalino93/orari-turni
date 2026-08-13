@@ -83,6 +83,9 @@ export default async function OrariPage({
         startTime: b.startTime,
         endTime: b.endTime,
         confirmed: b.confirmed,
+        addedByEmployee: b.addedByEmployee,
+        originalStartTime: b.originalStartTime,
+        originalEndTime: b.originalEndTime,
       }))}
       leaveEntries={leaveEntries.map((l) => ({
         id: l.id,

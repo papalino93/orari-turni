@@ -16,6 +16,7 @@ import {
 import { PdfExportModal } from "./pdf-export-modal";
 import { PhotoEditor } from "./photo-editor";
 import { EmployeeCredentials } from "./employee-credentials";
+import { PendingMonths } from "./pending-months";
 import { DayCellContent } from "../orari/shared";
 
 type EmployeeRow = {
@@ -28,6 +29,7 @@ type EmployeeRow = {
   photoVersion: string | null;
   username: string | null;
   password: string | null;
+  pendingSubmissions: { year: number; month: number; submittedAt: string | null }[];
 };
 
 export function EmployeeList({
@@ -267,6 +269,10 @@ function EmployeeCard({
           </div>
         )}
       </div>
+
+      {employee.role === "EMPLOYEE" && employee.pendingSubmissions.length > 0 && (
+        <PendingMonths employeeId={employee.id} submissions={employee.pendingSubmissions} />
+      )}
 
       {employee.active && (
         <div className="divide-y divide-border">

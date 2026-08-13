@@ -29,10 +29,19 @@ export default async function MieOrePage({
   const weekEnd = addDays(weekStart, 6);
   const dateKeys = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i)));
 
-  const [blocks, leaveEntries, closures] = await Promise.all([
+  // L'ultimo mese concluso è quello che più probabilmente serve rivedere
+  // "a fine mese" — vedi il promemoria mostrato qui sotto se non è ancora
+  // stato inviato.
+  const now = parseDateKey(todayKey());
+  const lastCompletedMonth = { year: now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear(), month: now.getUTCMonth() === 0 ? 12 : now.getUTCMonth() };
+
+  const [blocks, leaveEntries, closures, lastMonthSubmission] = await Promise.all([
     prisma.shiftBlock.findMany({ where: { employeeId: employee.id, date: { gte: weekStart, lte: weekEnd } } }),
     prisma.leaveEntry.findMany({ where: { employeeId: employee.id, date: { gte: weekStart, lte: weekEnd } } }),
     prisma.closureDay.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
+    prisma.monthlySubmission.findUnique({
+      where: { employeeId_year_month: { employeeId: employee.id, ...lastCompletedMonth } },
+    }),
   ]);
 
   return (
@@ -44,6 +53,8 @@ export default async function MieOrePage({
         photoVersion: employee.photoUpdatedAt ? String(employee.photoUpdatedAt.getTime()) : null,
       }}
       deactivatedAtKey={employee.deactivatedAt ? toDateKey(employee.deactivatedAt) : null}
+      lastCompletedMonth={lastCompletedMonth}
+      lastMonthStatus={lastMonthSubmission?.status ?? null}
       weekStartKey={toDateKey(weekStart)}
       dateKeys={dateKeys}
       blocks={blocks.map((b) => ({
@@ -53,6 +64,9 @@ export default async function MieOrePage({
         startTime: b.startTime,
         endTime: b.endTime,
         confirmed: b.confirmed,
+        addedByEmployee: b.addedByEmployee,
+        originalStartTime: b.originalStartTime,
+        originalEndTime: b.originalEndTime,
       }))}
       leaveEntries={leaveEntries.map((l) => ({
         id: l.id,
