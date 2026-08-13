@@ -84,9 +84,27 @@ export const ExportCard = forwardRef<
                 <tr key={emp.id} style={{ background: rowIdx % 2 === 0 ? "#fff" : "#fbf1ef", borderBottom: rowIdx === rows.length - 1 ? "none" : "1px solid #f1e2e0" }}>
                   {!singleEmployee && (
                     <td style={{ padding: "10px 10px", verticalAlign: "middle" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <ExportAvatar employee={emp} size={24} />
-                        <span style={{ fontWeight: 600 }}>{emp.name}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                        <ExportAvatar employee={emp} size={32} />
+                        <span>
+                          <span style={{ fontWeight: 600, display: "block" }}>{emp.name}</span>
+                          {emp.role === "OWNER" && (
+                            <span
+                              style={{
+                                display: "inline-block",
+                                marginTop: 1,
+                                padding: "1px 6px",
+                                borderRadius: 999,
+                                background: "#f3e6c2",
+                                color: "#8a6a1f",
+                                fontSize: 10,
+                                fontWeight: 700,
+                              }}
+                            >
+                              Titolare
+                            </span>
+                          )}
+                        </span>
                       </div>
                     </td>
                   )}

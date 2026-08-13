@@ -6,6 +6,7 @@ import { entryForPeriod, formatHours, PERIOD_LABEL, PERIODS, type DayEntry, type
 import { DayCellContent, DayEditorModal, orderEmployees } from "./shared";
 import { DayStatusModal } from "./day-status-modal";
 import { EmployeeAvatar } from "@/components/avatar";
+import { PdfExportModal } from "../dipendenti/pdf-export-modal";
 import type { DisplayMode } from "./orari-view";
 
 export function WeekBody({
@@ -352,6 +353,7 @@ export function EmployeeWeekCard({
   onEdit?: (employeeId: string, dateKey: string) => void;
 }) {
   const totalHours = schedule.employeeHours(employee.id);
+  const [showPdfExport, setShowPdfExport] = useState(false);
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface">
       <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
@@ -397,6 +399,25 @@ export function EmployeeWeekCard({
           );
         })}
       </div>
+      <div className="border-t border-border px-4 py-2.5">
+        <button
+          type="button"
+          onClick={() => setShowPdfExport(true)}
+          className="text-xs font-medium text-foreground-muted transition-colors hover:text-accent"
+        >
+          📄 Esporta orario di {employee.name.split(" ")[0]}
+        </button>
+      </div>
+
+      {showPdfExport && (
+        <PdfExportModal
+          employeeId={employee.id}
+          employeeName={employee.name}
+          jobTitle={employee.jobTitle}
+          photoVersion={employee.photoVersion}
+          onClose={() => setShowPdfExport(false)}
+        />
+      )}
     </div>
   );
 }
