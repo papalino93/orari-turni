@@ -70,6 +70,7 @@ export const ExportCard = forwardRef<
                       textAlign: "center",
                       borderTopRightRadius: i === days.length - 1 ? 10 : 0,
                       borderBottomRightRadius: i === days.length - 1 ? 10 : 0,
+                      borderLeft: "1px solid rgba(253,242,244,0.25)",
                     }}
                   >
                     <div style={{ fontWeight: 700 }}>{dayLabel(d)}</div>
@@ -84,23 +85,7 @@ export const ExportCard = forwardRef<
                   {!singleEmployee && (
                     <td style={{ padding: "10px 10px", verticalAlign: "middle" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: 24,
-                            height: 24,
-                            borderRadius: 999,
-                            background: emp.role === "OWNER" ? "#e9d5a5" : "#f1e2e0",
-                            color: emp.role === "OWNER" ? "#8a6a1f" : "#8a2740",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {emp.name.charAt(0).toUpperCase()}
-                        </span>
+                        <ExportAvatar employee={emp} size={24} />
                         <span style={{ fontWeight: 600 }}>{emp.name}</span>
                       </div>
                     </td>
@@ -109,7 +94,15 @@ export const ExportCard = forwardRef<
                     const closed = schedule.isClosed(dateKey);
                     const entry = closed ? schedule.entry(emp.id, dateKey) : entryForPeriod(schedule.entry(emp.id, dateKey), period);
                     return (
-                      <td key={i} style={{ padding: "10px 4px", textAlign: "center", verticalAlign: "middle" }}>
+                      <td
+                        key={i}
+                        style={{
+                          padding: "10px 4px",
+                          textAlign: "center",
+                          verticalAlign: "middle",
+                          borderLeft: "1px solid #f1e2e0",
+                        }}
+                      >
                         <ExportCellLabel kind={entry.kind} text={entry.kind === "TURNO" || entry.kind === "CHIUSO" ? undefined : entryLabel(entry)} blocks={entry.blocks} />
                       </td>
                     );
@@ -162,4 +155,46 @@ function ExportCellLabel({
   }
   const color = kind === "FERIE" ? "#8a2740" : kind === "PERMESSO" ? "#93701f" : kind === "MALATTIA" ? "#c23b33" : "#6b6468";
   return <span style={{ color, fontWeight: 600 }}>{text}</span>;
+}
+
+// Foto se presente, altrimenti iniziale — stessa logica di
+// components/avatar.tsx ma con stili inline: questa card è catturata via
+// html-to-image, dove le classi Tailwind coi colori del tema non sono
+// affidabili quanto uno stile inline con colori fissi.
+function ExportAvatar({ employee, size }: { employee: Employee; size: number }) {
+  if (employee.photoVersion) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- va dentro un canvas catturato da html-to-image, next/image non è compatibile
+      <img
+        src={`/api/employee-photo/${employee.id}?v=${employee.photoVersion}`}
+        alt=""
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 999,
+          objectFit: "cover",
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
+  return (
+    <span
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: size,
+        height: size,
+        borderRadius: 999,
+        background: employee.role === "OWNER" ? "#e9d5a5" : "#f1e2e0",
+        color: employee.role === "OWNER" ? "#8a6a1f" : "#8a2740",
+        fontSize: size * 0.46,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      {employee.name.charAt(0).toUpperCase()}
+    </span>
+  );
 }

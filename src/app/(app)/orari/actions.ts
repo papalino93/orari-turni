@@ -85,12 +85,15 @@ export async function saveDayEntry(
           return { startTime, endTime };
         });
 
+    // Confronta con la fine più tardiva vista finora, non solo con il blocco
+    // immediatamente precedente: con più di due blocchi un confronto a
+    // coppie consecutive perderebbe una sovrapposizione con un blocco più
+    // indietro nell'elenco ordinato.
     const sorted = blocks.slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
+    let maxEndSoFar = sorted.length > 0 ? timeToMinutes(sorted[0].endTime) : 0;
     for (let i = 1; i < sorted.length; i++) {
-      assert(
-        timeToMinutes(sorted[i].startTime) >= timeToMinutes(sorted[i - 1].endTime),
-        "I due turni della giornata si sovrappongono.",
-      );
+      assert(timeToMinutes(sorted[i].startTime) >= maxEndSoFar, "I due turni della giornata si sovrappongono.");
+      maxEndSoFar = Math.max(maxEndSoFar, timeToMinutes(sorted[i].endTime));
     }
 
     const ops: Prisma.PrismaPromise<unknown>[] = [

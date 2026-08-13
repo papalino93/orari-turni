@@ -142,6 +142,83 @@ function clampTime(value: string, min: string, max: string): string {
 
 type Row = { startTime: string; endTime: string; enabled: boolean };
 
+// L'<input type="time"> nativo del browser è un widget su cui l'app non ha
+// controllo: la digitazione da tastiera è a scatti (bisogna digitare le due
+// cifre dell'ora abbastanza in fretta, altrimenti "23" diventa "02" poi
+// "03") e il selettore a scorrimento del sistema operativo non rispetta in
+// modo prevedibile i limiti mattina/pomeriggio. Due <select> — ore e minuti
+// — risolvono entrambi i problemi: rispondono in modo affidabile alla
+// tastiera (digitare "23" seleziona subito l'opzione giusta, comportamento
+// standard di ogni <select>) e restano dentro l'intervallo consentito senza
+// bisogno di clampare dopo il fatto.
+const MINUTE_STEPS = [0, 15, 30, 45];
+
+function hourOptions(min: string, max: string): number[] {
+  const minH = Number(min.split(":")[0]);
+  const maxH = Number(max.split(":")[0]);
+  const hours: number[] = [];
+  for (let h = minH; h <= maxH; h++) hours.push(h);
+  return hours;
+}
+
+function minuteOptions(currentMinute: number): number[] {
+  // Un turno storico potrebbe avere minuti "strani" (es. :05): li includiamo
+  // comunque nell'elenco, così non scompaiono in silenzio al primo render.
+  return Array.from(new Set([...MINUTE_STEPS, currentMinute])).sort((a, b) => a - b);
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function TimeFieldSelect({
+  value,
+  min,
+  max,
+  onChange,
+  ariaLabel,
+}: {
+  value: string;
+  min: string;
+  max: string;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+}) {
+  const [hh, mm] = value.split(":");
+  const hours = hourOptions(min, max);
+  const minutes = minuteOptions(Number(mm));
+
+  return (
+    <span className="flex flex-1 items-center gap-1">
+      <select
+        value={hh}
+        onChange={(e) => onChange(`${e.target.value}:${mm}`)}
+        aria-label={`${ariaLabel} — ora`}
+        className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
+      >
+        {hours.map((h) => (
+          <option key={h} value={pad2(h)}>
+            {pad2(h)}
+          </option>
+        ))}
+      </select>
+      <span className="text-foreground-muted">:</span>
+      <select
+        value={mm}
+        onChange={(e) => onChange(`${hh}:${e.target.value}`)}
+        aria-label={`${ariaLabel} — minuti`}
+        className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
+      >
+        {minutes.map((m) => (
+          <option key={m} value={pad2(m)}>
+            {pad2(m)}
+          </option>
+        ))}
+      </select>
+    </span>
+  );
+}
+
 function PeriodRowInput({
   label,
   row,
@@ -155,6 +232,17 @@ function PeriodRowInput({
   max: string;
   onChange: (row: Row) => void;
 }) {
+  // Scegliere un orario è già un'istruzione chiara di voler attivare quella
+  // fascia: non ha senso costringere l'utente a spuntare anche la casella a
+  // parte. La spunta resta comunque disattivabile a mano, per poter
+  // "spegnere" una fascia senza perdere l'orario già impostato.
+  function updateStart(startTime: string) {
+    onChange({ ...row, startTime: clampTime(startTime, min, max), enabled: true });
+  }
+  function updateEnd(endTime: string) {
+    onChange({ ...row, endTime: clampTime(endTime, min, max), enabled: true });
+  }
+
   return (
     <div className="flex items-center gap-2">
       <label className="flex items-center gap-1.5">
@@ -166,25 +254,9 @@ function PeriodRowInput({
         />
         <span className="w-20 shrink-0 text-xs font-medium text-foreground-muted">{label}</span>
       </label>
-      <input
-        type="time"
-        min={min}
-        max={max}
-        value={row.startTime}
-        onChange={(e) => onChange({ ...row, startTime: clampTime(e.target.value, min, max) })}
-        aria-label={`${label} — inizio`}
-        className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
-      />
+      <TimeFieldSelect value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
       <span className="text-foreground-muted">–</span>
-      <input
-        type="time"
-        min={min}
-        max={max}
-        value={row.endTime}
-        onChange={(e) => onChange({ ...row, endTime: clampTime(e.target.value, min, max) })}
-        aria-label={`${label} — fine`}
-        className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
-      />
+      <TimeFieldSelect value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
     </div>
   );
 }
@@ -227,7 +299,7 @@ export function DayEditorModal({
           endTime: clampTime(existingMattina.endTime, MATTINA_MIN, MATTINA_MAX),
           enabled: true,
         }
-      : { startTime: "09:00", endTime: MATTINA_MAX, enabled: false },
+      : { startTime: "09:30", endTime: MATTINA_MAX, enabled: false },
   );
   const [pomeriggio, setPomeriggio] = useState<Row>(
     existingPomeriggio
@@ -238,7 +310,7 @@ export function DayEditorModal({
         }
       : mattinaSpillsOver
         ? { startTime: POMERIGGIO_MIN, endTime: clampTime(existingMattina!.endTime, POMERIGGIO_MIN, POMERIGGIO_MAX), enabled: true }
-        : { startTime: POMERIGGIO_MIN, endTime: "20:00", enabled: false },
+        : { startTime: "16:30", endTime: "22:00", enabled: false },
   );
 
   const [quantity, setQuantity] = useState(entry.leave?.quantity ?? 1);
@@ -250,7 +322,14 @@ export function DayEditorModal({
 
   function save() {
     const leave: DayLeaveInput =
-      mode === "WORK" ? null : { type: mode === "LIBERO" ? "LIBERO" : mode, quantity: mode === "LIBERO" ? 0 : quantity };
+      mode === "WORK"
+        ? null
+        : {
+            type: mode === "LIBERO" ? "LIBERO" : mode,
+            // Solo ferie e permesso hanno una quantità: riposo e malattia sono
+            // assenze dell'intera giornata, la quantità non ha senso per loro.
+            quantity: mode === "FERIE" || mode === "PERMESSO" ? quantity : 0,
+          };
     const blocks = mode === "WORK" ? [mattina, pomeriggio].filter((r) => r.enabled && r.startTime && r.endTime) : [];
     startTransition(async () => {
       const result = await runWithToast(toast, () => saveDayEntry(employee.id, dateKey, blocks, leave), "Turno salvato");

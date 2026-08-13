@@ -50,17 +50,31 @@ export async function moveEmployee(idInput: string, directionInput: "up" | "down
     const id = parseId(idInput, "dipendente");
     const direction = parseEnum(directionInput, ["up", "down"] as const, "direzione");
 
-    const all = await prisma.employee.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
-    const index = all.findIndex((e) => e.id === id);
+    const target = await prisma.employee.findUnique({ where: { id } });
+    assert(target, "Dipendente non trovato.");
+
+    // La UI mostra due liste separate — dipendenti attivi e "Disattivati" —
+    // e i pulsanti su/giù sono abilitati in base alla posizione dentro la
+    // lista visibile. Se lo scambio avvenisse sull'ordinamento globale, un
+    // dipendente disattivato "nascosto" in mezzo potrebbe finire scambiato
+    // al posto di quello visibile: il click sembrerebbe non fare nulla.
+    // Per questo la riga da spostare si cerca solo tra i dipendenti con lo
+    // stesso stato attivo/disattivato del dipendente selezionato.
+    const siblings = await prisma.employee.findMany({
+      where: { active: target.active },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    });
+    const index = siblings.findIndex((e) => e.id === id);
     assert(index !== -1, "Dipendente non trovato.");
     const swapWith = direction === "up" ? index - 1 : index + 1;
-    if (swapWith < 0 || swapWith >= all.length) return;
+    if (swapWith < 0 || swapWith >= siblings.length) return;
 
-    const a = all[index];
-    const b = all[swapWith];
+    const a = siblings[index];
+    const b = siblings[swapWith];
     // Gli ordinamenti storici possono avere valori uguali: in quel caso lo
-    // scambio non sposterebbe nulla, quindi si riscrive l'ordine per intero.
-    const reordered = all.slice();
+    // scambio non sposterebbe nulla, quindi si riscrive l'ordine del gruppo
+    // per intero (senza toccare il sortOrder degli altri dipendenti).
+    const reordered = siblings.slice();
     reordered[index] = b;
     reordered[swapWith] = a;
     await prisma.$transaction(

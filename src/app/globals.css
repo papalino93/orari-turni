@@ -72,6 +72,17 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* Il logo è disegnato nel colore vinaccia del brand su sfondo trasparente:
+   pensato per la carta bianca del PDF, ha un contrasto molto basso su uno
+   sfondo quasi nero. In tema scuro lo si schiarisce via filtro invece di
+   avere due asset separati da mantenere allineati. */
+.brand-logo {
+  transition: filter 0.15s ease;
+}
+:root[data-theme="dark"] .brand-logo {
+  filter: brightness(1.8) saturate(1.15);
+}
+
 ::selection {
   background: var(--accent);
   color: var(--accent-foreground);

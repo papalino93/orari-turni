@@ -26,7 +26,7 @@ export function AppShell({
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element -- logo statico, non serve l'ottimizzazione di next/image */}
-            <img src="/logo.png" alt="L'Angolo del Vino" className="h-7 w-auto" />
+            <img src="/logo.png" alt="L'Angolo del Vino" className="brand-logo h-10 w-auto" />
           </div>
 
           <nav className="hidden items-center gap-1 md:flex">
