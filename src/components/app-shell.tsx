@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { InstallBanner } from "@/components/install-banner";
 
 const NAV_ITEMS = [
   { href: "/orari", label: "Orari", icon: CalendarIcon },
@@ -79,6 +80,7 @@ export function AppShell({
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-6 sm:px-6 md:pb-10">
+        <InstallBanner />
         {children}
       </main>
 

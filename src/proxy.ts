@@ -15,5 +15,12 @@ export const config = {
   // file con estensione non deve mai passare per il controllo di login,
   // altrimenti su una pagina non autenticata (es. /login) l'immagine
   // viene rediretta a sua volta e appare come icona rotta.
-  matcher: ["/((?!api/auth|login|_next/static|_next/image|.*\\..*).*)"],
+  //
+  // opengraph-image è generata da Next senza estensione nell'URL (a
+  // differenza di manifest.webmanifest o apple-icon.png, che un'estensione
+  // ce l'hanno e sono già esclusi dalla regola sopra): senza questa
+  // eccezione esplicita finiva reindirizzata al login, e chi riceve il
+  // link su WhatsApp — senza sessione — vedeva un'anteprima vuota invece
+  // dell'immagine.
+  matcher: ["/((?!api/auth|login|opengraph-image|twitter-image|_next/static|_next/image|.*\\..*).*)"],
 };

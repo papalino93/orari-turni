@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -19,6 +20,17 @@ export default async function AccountPage() {
       <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-surface">
         <ThemeSetting />
       </div>
+
+      <Link
+        href="/installa"
+        className="mb-6 flex items-center justify-between rounded-2xl border border-border bg-surface px-5 py-4 transition-colors hover:border-accent"
+      >
+        <div>
+          <p className="text-sm font-medium text-foreground">Installa l&apos;app sul telefono</p>
+          <p className="mt-0.5 text-xs text-foreground-muted">Icona sulla schermata Home, come una vera app</p>
+        </div>
+        <span className="text-foreground-muted">›</span>
+      </Link>
 
       <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
         {users.map((u) => (
