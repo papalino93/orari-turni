@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { forwardRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
@@ -142,36 +142,104 @@ function clampTime(value: string, min: string, max: string): string {
 
 type Row = { startTime: string; endTime: string; enabled: boolean };
 
-// L'<input type="time"> nativo del browser è un widget su cui l'app non ha
-// controllo: la digitazione da tastiera è a scatti (bisogna digitare le due
-// cifre dell'ora abbastanza in fretta, altrimenti "23" diventa "02" poi
-// "03") e il selettore a scorrimento del sistema operativo non rispetta in
-// modo prevedibile i limiti mattina/pomeriggio. Due <select> — ore e minuti
-// — risolvono entrambi i problemi: rispondono in modo affidabile alla
-// tastiera (digitare "23" seleziona subito l'opzione giusta, comportamento
-// standard di ogni <select>) e restano dentro l'intervallo consentito senza
-// bisogno di clampare dopo il fatto.
-const MINUTE_STEPS = [0, 15, 30, 45];
-
-function hourOptions(min: string, max: string): number[] {
-  const minH = Number(min.split(":")[0]);
-  const maxH = Number(max.split(":")[0]);
-  const hours: number[] = [];
-  for (let h = minH; h <= maxH; h++) hours.push(h);
-  return hours;
-}
-
-function minuteOptions(currentMinute: number): number[] {
-  // Un turno storico potrebbe avere minuti "strani" (es. :05): li includiamo
-  // comunque nell'elenco, così non scompaiono in silenzio al primo render.
-  return Array.from(new Set([...MINUTE_STEPS, currentMinute])).sort((a, b) => a - b);
-}
-
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-function TimeFieldSelect({
+// Prima qui c'erano due <select> (ore/minuti): risolvevano il problema della
+// digitazione a scatti dell'<input type="time"> nativo, ma introducevano il
+// proprio — la ricerca-per-tastiera di un <select> si "dimentica" la prima
+// cifra se la seconda non arriva abbastanza in fretta, quindi scrivere "11"
+// con calma selezionava "01" invece di "11". Un campo di testo a 2 cifre
+// elimina anche questo: nessun timeout, e appena la seconda cifra arriva si
+// passa da soli al campo successivo (ora → minuti → fine turno successivo),
+// senza dover nemmeno premere Tab — che comunque resta libero per chi
+// preferisce muoversi a mano.
+const DigitInput = forwardRef<
+  HTMLInputElement,
+  { value: string; max: number; ariaLabel: string; onComplete: (twoDigits: string, el: HTMLInputElement) => void }
+>(function DigitInput({ value, max, ariaLabel, onComplete }, ref) {
+  const [buffer, setBuffer] = useState(value);
+  // Il valore committato può cambiare "da fuori" — tipicamente perché il
+  // campo minuti ha appena fatto sforare il massimo consentito e il
+  // clampTime del genitore ha corretto anche l'ora. Si aggiorna il buffer
+  // durante il render (pattern consigliato da React), non in un effect: non
+  // c'è un sistema esterno da sincronizzare, solo uno stato derivato da una
+  // prop che è cambiata.
+  const [lastSyncedValue, setLastSyncedValue] = useState(value);
+  if (value !== lastSyncedValue) {
+    setLastSyncedValue(value);
+    setBuffer(value);
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/\D/g, "");
+    if (digits.length === 0) {
+      setBuffer("");
+      return;
+    }
+    if (digits.length === 1) {
+      setBuffer(digits);
+      return;
+    }
+    // Selezione automatica al focus (sotto) fa sì che il caso normale sia
+    // "esattamente 2 cifre digitate di fila"; prendere le ultime due copre
+    // anche incolla/digitazione più rapida del previsto.
+    const padded = pad2(Math.min(max, Number(digits.slice(-2))));
+    setBuffer(padded);
+    onComplete(padded, e.target);
+  }
+
+  function handleFocus(e: React.FocusEvent<HTMLInputElement>) {
+    e.target.select();
+  }
+
+  function handleBlur(e: React.FocusEvent<HTMLInputElement>) {
+    if (buffer.length === 1) {
+      const padded = pad2(Number(buffer));
+      setBuffer(padded);
+      onComplete(padded, e.target);
+    } else if (buffer.length === 0) {
+      setBuffer(value);
+    }
+  }
+
+  return (
+    <input
+      ref={ref}
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      maxLength={2}
+      value={buffer}
+      onChange={handleChange}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      aria-label={ariaLabel}
+      data-time-chain-input=""
+      className="w-11 shrink-0 rounded-lg border border-border bg-surface-2 px-1 py-2 text-center text-sm tabular-nums outline-none focus:border-accent"
+    />
+  );
+});
+
+// Cerca, dentro il contenitore [data-time-chain-root] più vicino, il
+// prossimo campo-cifre in ordine di comparsa nel DOM e ci sposta il focus.
+// Niente ref passate a mano attraverso Mattina/Pomeriggio: l'ordine nel DOM
+// coincide già con l'ordine visivo (ora → minuti → fine → fascia
+// successiva), quindi basta cercarlo.
+function focusNextChainInput(current: HTMLElement) {
+  const container = current.closest("[data-time-chain-root]");
+  if (!container) return;
+  const all = Array.from(container.querySelectorAll<HTMLInputElement>("[data-time-chain-input]"));
+  const idx = all.indexOf(current as HTMLInputElement);
+  if (idx >= 0 && idx < all.length - 1) {
+    const next = all[idx + 1];
+    next.focus();
+    next.select();
+  }
+}
+
+function TimeFieldInput({
   value,
   min,
   max,
@@ -185,36 +253,26 @@ function TimeFieldSelect({
   ariaLabel: string;
 }) {
   const [hh, mm] = value.split(":");
-  const hours = hourOptions(min, max);
-  const minutes = minuteOptions(Number(mm));
+  const maxHour = Number(max.split(":")[0]);
+
+  function commit(newHH: string, newMM: string, el: HTMLInputElement) {
+    onChange(clampTime(`${newHH}:${newMM}`, min, max));
+    // Spostare il focus subito, in modo sincrono, fa scattare il blur sul
+    // campo appena completato PRIMA che React abbia ridisegnato quel campo
+    // con le sue 2 cifre definitive: l'handler onBlur vede ancora lo stato
+    // di un istante fa (un solo carattere in buffer) e — pensando che
+    // l'utente si sia allontanato a metà digitazione — rilancia un commit
+    // "fantasma" con solo la prima cifra, sovrascrivendo quello corretto
+    // appena fatto. Rimandare lo spostamento del focus a un macrotask dà a
+    // React il tempo di completare il render con lo stato aggiornato.
+    setTimeout(() => focusNextChainInput(el), 0);
+  }
 
   return (
     <span className="flex flex-1 items-center gap-1">
-      <select
-        value={hh}
-        onChange={(e) => onChange(`${e.target.value}:${mm}`)}
-        aria-label={`${ariaLabel} — ora`}
-        className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
-      >
-        {hours.map((h) => (
-          <option key={h} value={pad2(h)}>
-            {pad2(h)}
-          </option>
-        ))}
-      </select>
+      <DigitInput value={hh} max={maxHour} ariaLabel={`${ariaLabel} — ora`} onComplete={(v, el) => commit(v, mm, el)} />
       <span className="text-foreground-muted">:</span>
-      <select
-        value={mm}
-        onChange={(e) => onChange(`${hh}:${e.target.value}`)}
-        aria-label={`${ariaLabel} — minuti`}
-        className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
-      >
-        {minutes.map((m) => (
-          <option key={m} value={pad2(m)}>
-            {pad2(m)}
-          </option>
-        ))}
-      </select>
+      <DigitInput value={mm} max={59} ariaLabel={`${ariaLabel} — minuti`} onComplete={(v, el) => commit(hh, v, el)} />
     </span>
   );
 }
@@ -243,8 +301,8 @@ function PeriodRowInput({
     onChange({ ...row, endTime: clampTime(endTime, min, max), enabled: true });
   }
 
-  // Sotto ~400px di larghezza (un iPhone SE, non un caso raro) le 4 select
-  // ora/minuti più l'etichetta non ci stanno tutte su una riga: l'ultima
+  // Sotto ~400px di larghezza (un iPhone SE, non un caso raro) i 4 campi
+  // ora/minuti più l'etichetta non ci stanno tutte su una riga: l'ultimo
   // finiva letteralmente fuori dallo schermo, inutilizzabile al tocco.
   // Sotto "sm" l'orario va a capo su una riga propria, indentato sotto la
   // checkbox invece che schiacciato accanto ad essa.
@@ -260,9 +318,9 @@ function PeriodRowInput({
         <span className="w-20 shrink-0 text-xs font-medium text-foreground-muted">{label}</span>
       </label>
       <div className="flex items-center gap-2 pl-6 sm:pl-0">
-        <TimeFieldSelect value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
+        <TimeFieldInput value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
         <span className="text-foreground-muted">–</span>
-        <TimeFieldSelect value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
+        <TimeFieldInput value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
       </div>
     </div>
   );
@@ -419,7 +477,7 @@ export function DayEditorModal({
             </div>
 
             {mode === "WORK" && (
-              <div className="space-y-2">
+              <div className="space-y-2" data-time-chain-root="">
                 <PeriodRowInput label="Mattina" row={mattina} min={MATTINA_MIN} max={MATTINA_MAX} onChange={setMattina} />
                 <PeriodRowInput
                   label="Pomeriggio"

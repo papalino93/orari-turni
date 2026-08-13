@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addDays,
@@ -235,9 +235,7 @@ export function OrariView({
                 closures={closures}
                 employeeFilter={employeeFilter}
               />
-              <OverflowMenu>
-                <ClearWeekButton weekStartKey={weekStartKey} asMenuItem />
-              </OverflowMenu>
+              <ClearWeekButton weekStartKey={weekStartKey} />
             </>
           )}
           {view === "month" && <SummaryExportButton monthDateKey={dateKey} employees={employees} blocks={blocks} closures={closures} />}
@@ -267,25 +265,33 @@ export function OrariView({
             ))}
           </div>
           {view === "week" && (
-            <div className="flex gap-1 rounded-full border border-border bg-surface p-1 w-fit" role="group" aria-label="Modalità di visualizzazione">
-              <button
-                type="button"
-                onClick={() => navigate({ mode: "periods" })}
-                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                  displayMode === "periods" ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
-                }`}
-              >
-                <PeriodsIcon /> Fasce orarie
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate({ mode: "employees" })}
-                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                  displayMode === "employees" ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
-                }`}
-              >
-                <PersonIcon /> Dipendenti
-              </button>
+            // Divisore + etichetta "Vista": senza, queste due pillole
+            // affiancate a Giorno/Settimana/Mese/Anno (stesso identico
+            // stile) si leggevano come un'unica barra di sei linguette,
+            // mentre sono due controlli indipendenti — una sceglie il
+            // periodo, l'altra come disporre la stessa settimana.
+            <div className="flex items-center gap-2 border-l border-border pl-3">
+              <span className="text-xs font-medium text-foreground-muted/70">Vista</span>
+              <div className="flex gap-1 rounded-full border border-border bg-surface p-1 w-fit" role="group" aria-label="Modalità di visualizzazione">
+                <button
+                  type="button"
+                  onClick={() => navigate({ mode: "periods" })}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                    displayMode === "periods" ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  <PeriodsIcon /> Fasce orarie
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate({ mode: "employees" })}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                    displayMode === "employees" ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  <PersonIcon /> Dipendenti
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -388,56 +394,6 @@ function Badge({
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-// Contenitore per azioni rare (oggi solo "Svuota settimana"): tenerle fuori
-// dalla riga di controlli principali, così quelle usate spesso (data, vista,
-// esporta) non si perdono in mezzo a un'azione distruttiva usata raramente.
-function OverflowMenu({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Altre azioni"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
-          open ? "border-accent text-foreground" : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
-        }`}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="5" cy="12" r="2" />
-          <circle cx="12" cy="12" r="2" />
-          <circle cx="19" cy="12" r="2" />
-        </svg>
-      </button>
-      {open && (
-        <div role="menu" className="absolute right-0 z-40 mt-2 w-56 rounded-xl border border-border bg-surface p-1.5 shadow-2xl">
-          {children}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function EditPencilIcon({ className }: { className?: string }) {
