@@ -45,7 +45,20 @@ export function WeekBody({
           la scheda di ognuno, non un'intestazione di colonna). Questa riga
           è sempre visibile, sempre etichettata, sempre cliccabile, in
           entrambe le disposizioni. */}
-      <WeekClosureBar days={days} schedule={schedule} onManageDay={setManagingDate} />
+      {/* Su mobile, in disposizione "Fasce orarie" ogni scheda giorno qui
+          sotto mostra già se è chiusa e la si gestisce toccandone
+          l'intestazione: questa barra sarebbe una riga in più che ripete la
+          stessa informazione prima di arrivare al primo giorno vero. In
+          disposizione "Dipendenti" invece resta l'unico modo per chiudere
+          una giornata (i giorni lì sono righe nella scheda di ognuno, non
+          un'intestazione di colonna), quindi lì resta visibile anche su
+          mobile. */}
+      <WeekClosureBar
+        days={days}
+        schedule={schedule}
+        onManageDay={setManagingDate}
+        hideOnMobile={displayMode === "periods"}
+      />
 
       {displayMode === "periods" ? (
         <PeriodsLayout
@@ -66,6 +79,11 @@ export function WeekBody({
 
       {editingCell && editingEmployee && (
         <DayEditorModal
+          // Stessa ragione della key in revisione-view.tsx: lega l'istanza
+          // del modal alla cella dipendente+giorno che sta modificando, così
+          // il suo stato interno non può mai restare quello della cella
+          // precedente.
+          key={`${editingCell.employeeId}-${editingCell.dateKey}`}
           employee={editingEmployee}
           dateKey={editingCell.dateKey}
           entry={schedule.entry(editingCell.employeeId, editingCell.dateKey)}
@@ -97,14 +115,20 @@ function WeekClosureBar({
   days,
   schedule,
   onManageDay,
+  hideOnMobile,
 }: {
   days: Date[];
   schedule: ReturnType<typeof buildSchedule>;
   onManageDay: (dateKey: string) => void;
+  hideOnMobile: boolean;
 }) {
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-surface px-2.5 py-2">
-      <span className="mr-0.5 shrink-0 text-[11px] font-medium text-foreground-muted">Chiusure settimana</span>
+    <div
+      className={`mb-3 items-center gap-1.5 overflow-x-auto rounded-xl border border-border bg-surface px-2.5 py-2 [&>*]:shrink-0 md:flex-wrap md:overflow-visible ${
+        hideOnMobile ? "hidden md:flex" : "flex flex-nowrap"
+      }`}
+    >
+      <span className="mr-0.5 text-[11px] font-medium text-foreground-muted">Chiusure settimana</span>
       {days.map((d) => {
         const dateKey = toDateKey(d);
         const closed = schedule.isClosed(dateKey);
