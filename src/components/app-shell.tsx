@@ -6,20 +6,29 @@ import { signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { InstallBanner } from "@/components/install-banner";
 
-const NAV_ITEMS = [
+const ADMIN_NAV_ITEMS = [
   { href: "/orari", label: "Orari", icon: CalendarIcon },
   { href: "/ferie", label: "Ferie & Permessi", icon: PalmIcon },
   { href: "/dipendenti", label: "Dipendenti", icon: PeopleIcon },
 ];
 
+// Un login da dipendente vede solo la propria area — niente Orari generale,
+// Dipendenti o Ferie & Permessi del titolare (vedi anche il Proxy, che
+// blocca quegli indirizzi anche digitati a mano: qui è solo la vetrina).
+const EMPLOYEE_NAV_ITEMS = [{ href: "/mie-ore", label: "Le mie ore", icon: CalendarIcon }];
+
 export function AppShell({
   userName,
+  role,
   children,
 }: {
   userName: string;
+  role: "ADMIN" | "EMPLOYEE";
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const isAdmin = role === "ADMIN";
+  const navItems = isAdmin ? ADMIN_NAV_ITEMS : EMPLOYEE_NAV_ITEMS;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -35,7 +44,7 @@ export function AppShell({
           </div>
 
           <nav className="hidden items-center gap-1 md:flex">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const active = pathname?.startsWith(item.href);
               const Icon = item.icon;
               return (
@@ -56,16 +65,18 @@ export function AppShell({
           </nav>
 
           <div className="flex items-center gap-3">
-            <Link
-              href="/account"
-              aria-label="Account"
-              title="Account"
-              className={`flex h-9 w-9 items-center justify-center rounded-full border border-brand-band-border transition-colors hover:text-brand-band-foreground ${
-                pathname?.startsWith("/account") ? "text-brand-band-foreground" : "text-brand-band-foreground-muted"
-              }`}
-            >
-              <GearIcon />
-            </Link>
+            {isAdmin && (
+              <Link
+                href="/account"
+                aria-label="Account"
+                title="Account"
+                className={`flex h-9 w-9 items-center justify-center rounded-full border border-brand-band-border transition-colors hover:text-brand-band-foreground ${
+                  pathname?.startsWith("/account") ? "text-brand-band-foreground" : "text-brand-band-foreground-muted"
+                }`}
+              >
+                <GearIcon />
+              </Link>
+            )}
             <ThemeToggle />
             <span className="hidden text-sm text-brand-band-foreground-muted sm:block">{userName}</span>
             <button
@@ -85,7 +96,7 @@ export function AppShell({
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 flex bg-brand-band shadow-[0_-1px_0_rgba(0,0,0,0.18)] backdrop-blur md:hidden">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = pathname?.startsWith(item.href);
           const Icon = item.icon;
           return (

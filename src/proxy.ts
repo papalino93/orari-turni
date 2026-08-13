@@ -1,4 +1,5 @@
-import withAuth from "next-auth/middleware";
+import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
 // Rinominato da middleware.ts a proxy.ts: da Next.js 16 la convenzione
 // "middleware" è deprecata in favore di "proxy" (stessa firma, stesso
@@ -7,8 +8,30 @@ import withAuth from "next-auth/middleware";
 // Importante: il Proxy è solo una prima barriera lato routing. Le Server
 // Action non passano sempre da qui (un matcher sbagliato o un refactor può
 // escluderle silenziosamente), quindi ogni Server Action verifica comunque
-// la sessione per conto proprio — vedi lib/guard.ts::requireUser().
-export default withAuth;
+// la sessione per conto proprio — vedi lib/guard.ts (requireUser/requireEmployee).
+
+// Le uniche pagine raggiungibili da un login dipendente: la sua area e la
+// guida per installare l'app (che ha senso indipendentemente dal ruolo). Un
+// dipendente che digita a mano /orari, /dipendenti, /ferie o /account viene
+// rimandato qui — non solo "non trova il link" nella barra di navigazione.
+const EMPLOYEE_ALLOWED_PREFIXES = ["/mie-ore", "/installa"];
+
+export default withAuth(
+  function proxy(req) {
+    const { pathname } = req.nextUrl;
+    const role = req.nextauth?.token?.role;
+
+    if (role === "EMPLOYEE") {
+      const allowed = EMPLOYEE_ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+      if (!allowed) {
+        return NextResponse.redirect(new URL("/mie-ore", req.url));
+      }
+    }
+
+    return NextResponse.next();
+  },
+  { pages: { signIn: "/login" } },
+);
 
 export const config = {
   // Esclude anche i file statici pubblici (logo, favicon, icone...): un

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/guard";
+import { requireUser, requireSelfOrAdmin } from "@/lib/guard";
 import {
   assert,
   dateKeyToDate,
@@ -14,6 +14,7 @@ import {
   type ActionResult,
 } from "@/lib/validation";
 import { toDateKey } from "@/lib/week";
+import { encryptEmployeePassword, generateEmployeePassword, generateEmployeeUsername } from "@/lib/employee-credentials";
 
 const ROLES = ["EMPLOYEE", "OWNER"] as const;
 
@@ -37,8 +38,18 @@ export async function createEmployee(formData: FormData): Promise<ActionResult> 
     const jobTitle = parseText(formData.get("jobTitle"), "mansione", { max: 60 });
 
     const last = await prisma.employee.findFirst({ orderBy: { sortOrder: "desc" } });
+
+    // Solo i dipendenti (non il titolare, che ha già un account pieno nella
+    // tabella User) ricevono un accesso all'Area Dipendenti — creato subito,
+    // non su richiesta: username e password compaiono già pronti in questa
+    // pagina appena il dipendente è salvato.
+    const credentials =
+      role === "EMPLOYEE"
+        ? { username: await generateEmployeeUsername(name), password: encryptEmployeePassword(generateEmployeePassword()) }
+        : {};
+
     await prisma.employee.create({
-      data: { name, role, jobTitle: jobTitle || null, sortOrder: (last?.sortOrder ?? -1) + 1 },
+      data: { name, role, jobTitle: jobTitle || null, sortOrder: (last?.sortOrder ?? -1) + 1, ...credentials },
     });
     revalidateEmployees();
   });
@@ -115,8 +126,62 @@ export async function toggleEmployeeActive(idInput: string, activeInput: boolean
     const employee = await prisma.employee.findUnique({ where: { id } });
     assert(employee, "Dipendente non trovato.");
 
-    await prisma.employee.update({ where: { id }, data: { active } });
+    // deactivatedAt segna il confine "vede solo il passato" dell'Area
+    // Dipendenti: si azzera alla riattivazione, non un semplice storico di
+    // quando è stato disattivato l'ultima volta.
+    await prisma.employee.update({ where: { id }, data: { active, deactivatedAt: active ? null : new Date() } });
     revalidateEmployees();
+  });
+}
+
+// --- Credenziali Area Dipendenti --------------------------------------------
+
+export async function updateEmployeeUsername(idInput: string, usernameInput: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireUser();
+    const id = parseId(idInput, "dipendente");
+    const username = parseText(usernameInput, "username", { max: 40, required: true }).toLowerCase();
+    assert(/^[a-z0-9.]+$/.test(username), "Lo username può contenere solo lettere minuscole, numeri e punti.");
+
+    const employee = await prisma.employee.findUnique({ where: { id } });
+    assert(employee, "Dipendente non trovato.");
+
+    const clash = await prisma.employee.findFirst({ where: { username, id: { not: id } } });
+    assert(!clash, "Username già in uso da un altro dipendente.");
+
+    await prisma.employee.update({ where: { id }, data: { username } });
+    revalidateEmployees();
+  });
+}
+
+export async function setEmployeePassword(idInput: string, passwordInput: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireUser();
+    const id = parseId(idInput, "dipendente");
+    const password = parseText(passwordInput, "password", { max: 60, required: true });
+    assert(password.length >= 4, "La password deve avere almeno 4 caratteri.");
+
+    const employee = await prisma.employee.findUnique({ where: { id } });
+    assert(employee, "Dipendente non trovato.");
+
+    await prisma.employee.update({ where: { id }, data: { password: encryptEmployeePassword(password) } });
+    revalidateEmployees();
+  });
+}
+
+// Genera una nuova password "a tema vino" senza doverla inventare a mano —
+// resta comunque modificabile liberamente con setEmployeePassword qui sopra.
+export async function regenerateEmployeePassword(idInput: string): Promise<ActionResult<{ password: string }>> {
+  return runAction(async () => {
+    await requireUser();
+    const id = parseId(idInput, "dipendente");
+    const employee = await prisma.employee.findUnique({ where: { id } });
+    assert(employee, "Dipendente non trovato.");
+
+    const password = generateEmployeePassword();
+    await prisma.employee.update({ where: { id }, data: { password: encryptEmployeePassword(password) } });
+    revalidateEmployees();
+    return { password };
   });
 }
 
@@ -233,8 +298,11 @@ export async function getEmployeeScheduleRange(
   }>
 > {
   return runAction(async () => {
-    await requireUser();
     const employeeId = parseId(employeeIdInput, "dipendente");
+    // Il titolare può esportare l'orario di chiunque; un dipendente solo il
+    // proprio — usata sia dalla scheda dipendente in Dipendenti sia da
+    // "Le mie ore" (Area Dipendenti).
+    await requireSelfOrAdmin(employeeId);
     const fromKey = parseDateKey(fromKeyInput, "data di inizio");
     const toKey = parseDateKey(toKeyInput, "data di fine");
     assert(fromKey <= toKey, "La data di inizio deve precedere quella di fine.");
