@@ -176,7 +176,9 @@ function drawPeriodTable(
     cell: (emp: Employee, dateKey: string) => CellStyle;
   },
 ): number {
-  const nameColW = 46;
+  // Più largo di quanto basterebbe al solo nome: deve ospitare anche
+  // l'etichetta "TITOLARE" per il titolare, non solo un pallino.
+  const nameColW = 54;
   const dayColW = (CONTENT_W - nameColW) / 7;
   const headerH = 10;
   const rowH = 9;
@@ -213,14 +215,19 @@ function drawPeriodTable(
     doc.setFontSize(8.5);
     doc.setTextColor(...TEXT);
     const isOwner = emp.role === "OWNER";
-    const displayName = truncate(doc, emp.name, nameColW - (isOwner ? 12 : 6));
+    const displayName = truncate(doc, emp.name, nameColW - (isOwner ? 20 : 6));
     doc.text(displayName, MARGIN + 3, y + rowH / 2 + 1, { baseline: "middle" });
     if (isOwner) {
-      // Un pallino pieno, non una stellina "★": anche quella è un glifo
-      // fuori dalla codifica WinAnsi dei font standard di jsPDF e usciva
-      // come un carattere a caso, proprio come il lucchetto.
-      doc.setFillColor(...GOLD);
-      doc.circle(MARGIN + 3 + doc.getTextWidth(displayName) + 2.4, y + rowH / 2 - 0.3, 0.9, "F");
+      // Un'etichetta leggibile ("TITOLARE"), non solo un pallino: un dipendente
+      // che apre il PDF deve poter capire chi è il titolare senza una legenda
+      // a parte. doc.getTextWidth va misurato subito, mentre il font è ancora
+      // quello con cui è stato disegnato il nome.
+      const nameW = doc.getTextWidth(displayName);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6);
+      doc.setTextColor(...GOLD);
+      doc.text("TITOLARE", MARGIN + 3 + nameW + 2.2, y + rowH / 2 + 1, { baseline: "middle" });
+      doc.setFontSize(8.5);
     }
 
     opts.dateKeys.forEach((dateKey, di) => {

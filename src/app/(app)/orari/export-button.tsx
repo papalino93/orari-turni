@@ -1,10 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ExportCard } from "./export-card";
 import { shareOrDownloadFile } from "@/lib/share-file";
 import { useToast } from "@/components/toast";
 import type { Block, Closure, Employee, Leave } from "@/lib/schedule";
+import { setWeekPublished } from "./actions";
 
 export function ExportButton({
   weekStartKey,
@@ -25,6 +27,19 @@ export function ExportButton({
   const [downloading, setDownloading] = useState<"image" | "pdf" | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
+  const router = useRouter();
+
+  // Esportare la settimana È l'atto che conta come "condivisa": non un
+  // interruttore separato da ricordarsi di premere. Se fallisce, il
+  // download è comunque riuscito — non blocchiamo l'utente per questo.
+  async function markShared() {
+    try {
+      await setWeekPublished(weekStartKey, true);
+      router.refresh();
+    } catch {
+      // silenzioso, non critico
+    }
+  }
 
   async function downloadImage() {
     if (!cardRef.current) return;
@@ -37,6 +52,7 @@ export function ExportButton({
         type: "image/png",
       });
       await shareOrDownloadFile(file);
+      await markShared();
     } catch {
       toast.showError("Impossibile generare l'immagine. Riprova.");
     } finally {
@@ -49,6 +65,7 @@ export function ExportButton({
     try {
       const { exportScheduleWeekPdf } = await import("./pdf-export");
       await exportScheduleWeekPdf({ weekStartKey, employees, blocks, leaveEntries, closures, employeeFilter });
+      await markShared();
     } catch {
       toast.showError("Impossibile generare il PDF. Riprova.");
     } finally {

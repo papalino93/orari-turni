@@ -97,28 +97,46 @@ export async function newLandscapeDoc(): Promise<JsPDF> {
   return new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 }
 
-export function drawHeader(doc: JsPDF, title: string, subtitle: string): number {
+// Il file sorgente (public/logo.png) è largo e basso — 733×210px, rapporto
+// ~3.49:1 — perché è una scritta corsiva, non un'icona quadrata. addImage()
+// non mantiene le proporzioni da solo: passargli un riquadro quadrato o
+// quasi-quadrato lo schiaccia e lo stira, ed è esattamente quello che
+// rendeva il logo "brutto" nei PDF. Questa funzione calcola l'altezza
+// corretta a partire dalla larghezza voluta, per restare fedele all'originale.
+export const LOGO_ASPECT = 733 / 210;
+
+export function drawLogo(doc: JsPDF, x: number, y: number, targetW: number): number {
+  const h = targetW / LOGO_ASPECT;
   try {
-    doc.addImage(LOGO_DATA_URI, "PNG", MARGIN, MARGIN, 16, 16);
+    doc.addImage(LOGO_DATA_URI, "PNG", x, y, targetW, h);
   } catch {
     // se il logo non è caricabile il PDF resta comunque leggibile
   }
+  return h;
+}
+
+export function drawHeader(doc: JsPDF, title: string, subtitle: string): number {
+  const logoW = 30;
+  const logoH = drawLogo(doc, MARGIN, MARGIN + 2, logoW);
+  const textX = MARGIN + logoW + 6;
+
   doc.setTextColor(...TEXT);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("L'ANGOLO DEL VINO", MARGIN + 20, MARGIN + 6);
+  doc.text("L'ANGOLO DEL VINO", textX, MARGIN + 6);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
   doc.setTextColor(...MUTED);
-  doc.text(title, MARGIN + 20, MARGIN + 12);
+  doc.text(title, textX, MARGIN + 12);
   doc.setFontSize(9.5);
-  doc.text(subtitle, MARGIN + 20, MARGIN + 17);
+  doc.text(subtitle, textX, MARGIN + 17);
 
   doc.setDrawColor(...WINE);
   doc.setLineWidth(0.6);
-  doc.line(MARGIN, MARGIN + 21, PAGE_W - MARGIN, MARGIN + 21);
+  const dividerY = Math.max(MARGIN + 21, MARGIN + 2 + logoH + 3);
+  doc.line(MARGIN, dividerY, PAGE_W - MARGIN, dividerY);
 
-  return MARGIN + 27;
+  return dividerY + 6;
 }
 
 export function drawSectionTitle(doc: JsPDF, text: string, y: number): number {

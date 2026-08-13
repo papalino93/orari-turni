@@ -31,6 +31,26 @@ function revalidateSchedule() {
   revalidatePath("/dipendenti");
 }
 
+// "Pubblicato" significa "questo è l'orario che ho comunicato al personale":
+// una fotografia di un momento preciso, non uno stato che si aggiorna da
+// solo. Se dopo la pubblicazione si tocca un turno, si chiude/riapre una
+// giornata o si svuota la settimana, quello che è stato comunicato non
+// corrisponde più a quello che si vede — quindi la settimana torna
+// automaticamente in bozza. Senza questo, il badge "Pubblicato" può restare
+// acceso su una settimana svuotata o modificata, mentendo su cosa sa
+// davvero il personale.
+async function unpublishWeeksForDates(dates: Date[]) {
+  const weekStartKeys = new Set(dates.map((d) => toDateKey(startOfWeek(d))));
+  await Promise.all(
+    Array.from(weekStartKeys).map((key) =>
+      prisma.weekPlan.updateMany({
+        where: { weekStart: dateKeyToDate(key), publishedAt: { not: null } },
+        data: { publishedAt: null, publishedBy: null },
+      }),
+    ),
+  );
+}
+
 // Sostituisce lo stato dell'intera giornata per un dipendente: o una lista di
 // blocchi orario, oppure un'unica voce di assenza (ferie, permesso, malattia,
 // riposo). Le due cose sono alternative nello stesso giorno.
@@ -108,6 +128,7 @@ export async function saveDayEntry(
       }
     }
     await prisma.$transaction(ops);
+    await unpublishWeeksForDates([date]);
 
     revalidateSchedule();
   });
@@ -172,6 +193,9 @@ export async function clearWeekData(weekStartKeyInput: string): Promise<ActionRe
       prisma.shiftBlock.deleteMany({ where: { date: { gte: start, lte: end } } }),
       prisma.leaveEntry.deleteMany({ where: { date: { gte: start, lte: end } } }),
     ]);
+    // Svuotare una settimana pubblicata la riporta in bozza: quello che è
+    // stato comunicato al personale non esiste più.
+    await unpublishWeeksForDates([start]);
 
     revalidateSchedule();
   });
@@ -205,6 +229,7 @@ export async function closeDay(
       prisma.leaveEntry.deleteMany({ where: { date, type: "LIBERO" } }),
       ...(options.removeShifts ? [prisma.shiftBlock.deleteMany({ where: { date } })] : []),
     ]);
+    await unpublishWeeksForDates([date]);
 
     revalidateSchedule();
     return {
@@ -226,6 +251,7 @@ export async function reopenDay(dateKeyInput: string): Promise<ActionResult<{ re
 
     const restoredShifts = await prisma.shiftBlock.count({ where: { date } });
     await prisma.closureDay.delete({ where: { date } });
+    await unpublishWeeksForDates([date]);
 
     revalidateSchedule();
     return { restoredShifts };
