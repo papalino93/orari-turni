@@ -243,8 +243,13 @@ function PeriodRowInput({
     onChange({ ...row, endTime: clampTime(endTime, min, max), enabled: true });
   }
 
+  // Sotto ~400px di larghezza (un iPhone SE, non un caso raro) le 4 select
+  // ora/minuti più l'etichetta non ci stanno tutte su una riga: l'ultima
+  // finiva letteralmente fuori dallo schermo, inutilizzabile al tocco.
+  // Sotto "sm" l'orario va a capo su una riga propria, indentato sotto la
+  // checkbox invece che schiacciato accanto ad essa.
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
       <label className="flex items-center gap-1.5">
         <input
           type="checkbox"
@@ -254,9 +259,11 @@ function PeriodRowInput({
         />
         <span className="w-20 shrink-0 text-xs font-medium text-foreground-muted">{label}</span>
       </label>
-      <TimeFieldSelect value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
-      <span className="text-foreground-muted">–</span>
-      <TimeFieldSelect value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
+      <div className="flex items-center gap-2 pl-6 sm:pl-0">
+        <TimeFieldSelect value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
+        <span className="text-foreground-muted">–</span>
+        <TimeFieldSelect value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
+      </div>
     </div>
   );
 }
