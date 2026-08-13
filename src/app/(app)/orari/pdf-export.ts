@@ -211,7 +211,14 @@ function drawPeriodTable(
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
     doc.setTextColor(...TEXT);
-    doc.text(truncate(doc, emp.name, nameColW - 6), MARGIN + 3, y + rowH / 2 + 1, { baseline: "middle" });
+    const isOwner = emp.role === "OWNER";
+    const displayName = truncate(doc, emp.name, nameColW - (isOwner ? 12 : 6));
+    doc.text(displayName, MARGIN + 3, y + rowH / 2 + 1, { baseline: "middle" });
+    if (isOwner) {
+      doc.setTextColor(...GOLD);
+      doc.text("★", MARGIN + 3 + doc.getTextWidth(displayName) + 1.5, y + rowH / 2 + 1, { baseline: "middle" });
+      doc.setTextColor(...TEXT);
+    }
 
     opts.dateKeys.forEach((dateKey, di) => {
       const x = MARGIN + nameColW + di * dayColW;

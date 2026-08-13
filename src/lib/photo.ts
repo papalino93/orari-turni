@@ -1,47 +1,22 @@
 "use client";
 
-// Ridimensiona l'immagine scelta dall'utente a un quadrato piccolo prima di
-// caricarla: la foto profilo non deve mai pesare più di qualche decina di KB,
-// né essere così grande da rallentare liste e griglie. Fatto lato client per
-// non dover mai gestire sul server un file arbitrariamente pesante.
+// Caricamento e ritaglio dell'immagine scelta dall'utente. Il ritaglio finale
+// è sempre un quadrato piccolo (la foto profilo non deve mai pesare più di
+// qualche decina di KB), ma la posizione e lo zoom dentro quel quadrato sono
+// scelti dall'utente in PhotoCropper — non più un centro automatico che può
+// tagliare male un volto non centrato nella foto originale.
 
-const TARGET_SIZE = 320; // px, lato del quadrato
-const JPEG_QUALITY = 0.85;
+export const TARGET_SIZE = 320; // px, lato del quadrato esportato
+export const JPEG_QUALITY = 0.85;
 
 export class PhotoError extends Error {}
 
-export async function resizeToSquareJpeg(file: File): Promise<File> {
+// Carica il file in un vero <img> (non un ImageBitmap): serve come elemento
+// del DOM per l'anteprima trascinabile del ritaglio, ed è comunque una
+// sorgente valida per drawImage in fase di esportazione finale.
+export async function loadImageElement(file: File): Promise<HTMLImageElement> {
   if (!file.type.startsWith("image/")) {
     throw new PhotoError("Il file scelto non è un'immagine.");
-  }
-
-  const bitmap = await loadBitmap(file);
-  const side = Math.min(bitmap.width, bitmap.height);
-  const sx = (bitmap.width - side) / 2;
-  const sy = (bitmap.height - side) / 2;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = TARGET_SIZE;
-  canvas.height = TARGET_SIZE;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new PhotoError("Impossibile elaborare l'immagine su questo dispositivo.");
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, TARGET_SIZE, TARGET_SIZE);
-
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
-  if (!blob) throw new PhotoError("Impossibile generare l'immagine.");
-
-  return new File([blob], "foto.jpg", { type: "image/jpeg" });
-}
-
-async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {
-  if ("createImageBitmap" in window) {
-    try {
-      return await createImageBitmap(file);
-    } catch {
-      // alcuni formati (es. HEIC su browser non compatibili) falliscono qui:
-      // si tenta comunque il fallback sotto prima di arrendersi.
-    }
   }
   const url = URL.createObjectURL(file);
   try {
@@ -52,7 +27,28 @@ async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {
       img.src = url;
     });
     return img;
-  } finally {
+  } catch (err) {
     URL.revokeObjectURL(url);
+    throw err;
   }
+}
+
+// Ritaglia la regione [sx,sy,sSize×sSize] (in pixel dell'immagine originale)
+// e la esporta come JPEG quadrato TARGET_SIZE×TARGET_SIZE.
+export async function cropToSquareJpeg(
+  img: HTMLImageElement,
+  crop: { sx: number; sy: number; sSize: number },
+): Promise<File> {
+  const canvas = document.createElement("canvas");
+  canvas.width = TARGET_SIZE;
+  canvas.height = TARGET_SIZE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new PhotoError("Impossibile elaborare l'immagine su questo dispositivo.");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, crop.sx, crop.sy, crop.sSize, crop.sSize, 0, 0, TARGET_SIZE, TARGET_SIZE);
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
+  if (!blob) throw new PhotoError("Impossibile generare l'immagine.");
+
+  return new File([blob], "foto.jpg", { type: "image/jpeg" });
 }
