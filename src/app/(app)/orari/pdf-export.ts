@@ -71,6 +71,11 @@ export async function exportScheduleWeekPdf({
   // riepilogo ore. Il riepilogo ore per dipendente (utile solo al
   // titolare, non a chi lavora in sala) vive già altrove: nell'export del
   // singolo dipendente e nel riepilogo ore mensile.
+  //
+  // Mattina sopra, pomeriggio sotto, a piena larghezza — non affiancate:
+  // se la somma delle due tabelle non ci sta su una pagina sola (oltre una
+  // decina di dipendenti), drawPeriodTable ridisegna l'intestazione in
+  // cima alla pagina successiva invece di lasciare righe senza contesto.
   y = drawSectionTitle(doc, "Programmazione per fascia oraria", y);
   for (const period of PERIODS) {
     y = drawPeriodTable(doc, {
@@ -176,37 +181,60 @@ function drawPeriodTable(
     cell: (emp: Employee, dateKey: string) => CellStyle;
   },
 ): number {
-  // Più largo di quanto basterebbe al solo nome: deve ospitare anche
-  // l'etichetta "TITOLARE" per il titolare, non solo un pallino.
-  const nameColW = 54;
+  // Più stretto dell'originale "TITOLARE" per esteso: "TIT." basta a farsi
+  // capire e lascia più respiro alle colonne dei giorni.
+  const nameColW = 50;
   const dayColW = (CONTENT_W - nameColW) / 7;
   const headerH = 10;
   const rowH = 9;
   let y = opts.startY;
 
-  y = ensureSpace(doc, y, headerH + rowH);
-
-  doc.setFillColor(...WINE);
-  doc.rect(MARGIN, y, CONTENT_W, headerH, "F");
-  doc.setTextColor(253, 242, 244);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.text(opts.title.toUpperCase(), MARGIN + 3, y + headerH / 2 + 1.2, { baseline: "middle" });
-  opts.days.forEach((d, i) => {
-    const x = MARGIN + nameColW + i * dayColW;
-    doc.text(dayLabel(d), x + dayColW / 2, y + headerH / 2 - 1, { align: "center" });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.text(formatDayMonth(d), x + dayColW / 2, y + headerH / 2 + 3, { align: "center" });
+  // Intestazione (fascia + giorni): estratta in una funzione perché va
+  // ridisegnata anche in cima a ogni pagina successiva, se la tabella non
+  // ci sta tutta su una — con più di una decina di dipendenti mattina e
+  // pomeriggio insieme possono superare una pagina sola, e senza questo chi
+  // guarda una pagina di continuazione non saprebbe più quale colonna
+  // corrisponde a quale giorno.
+  function drawTableHeader(yy: number): number {
+    doc.setFillColor(...WINE);
+    doc.rect(MARGIN, yy, CONTENT_W, headerH, "F");
+    doc.setTextColor(253, 242, 244);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
-  });
-  y += headerH;
-  const tableTop = opts.startY;
-  const pagesBeforeRows = doc.getNumberOfPages();
+    doc.text(opts.title.toUpperCase(), MARGIN + 3, yy + headerH / 2 + 1.2, { baseline: "middle" });
+    opts.days.forEach((d, i) => {
+      const x = MARGIN + nameColW + i * dayColW;
+      doc.text(dayLabel(d), x + dayColW / 2, yy + headerH / 2 - 1, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.text(formatDayMonth(d), x + dayColW / 2, yy + headerH / 2 + 3, { align: "center" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+    });
+    return yy + headerH;
+  }
+
+  y = ensureSpace(doc, y, headerH + rowH);
+  y = drawTableHeader(y);
+  let tableTop = opts.startY;
+  // Bordi disegnati "a blocchi": uno per ogni pagina su cui la tabella
+  // finisce, invece di un unico rettangolo che assumerebbe (sbagliando)
+  // che stia tutta sulla stessa pagina.
+  const borderBlocks: { top: number; bottom: number }[] = [];
 
   opts.rows.forEach((emp, i) => {
+    const pageBefore = doc.getNumberOfPages();
+    const yBeforeBreakCheck = y;
     y = ensureSpace(doc, y, rowH);
+    if (doc.getNumberOfPages() !== pageBefore) {
+      // Interruzione di pagina nel mezzo della tabella: si chiude il
+      // rettangolo del blocco precedente usando la y di prima della rottura
+      // (non quella già resettata in cima alla nuova pagina), poi si
+      // ridisegna l'intestazione sulla pagina nuova.
+      borderBlocks.push({ top: tableTop, bottom: yBeforeBreakCheck });
+      y = drawTableHeader(y);
+      tableTop = MARGIN;
+    }
     if (i % 2 === 1) {
       doc.setFillColor(...ROW_ALT);
       doc.rect(MARGIN, y, CONTENT_W, rowH, "F");
@@ -215,18 +243,18 @@ function drawPeriodTable(
     doc.setFontSize(8.5);
     doc.setTextColor(...TEXT);
     const isOwner = emp.role === "OWNER";
-    const displayName = truncate(doc, emp.name, nameColW - (isOwner ? 20 : 6));
+    const displayName = truncate(doc, emp.name, nameColW - (isOwner ? 9 : 6));
     doc.text(displayName, MARGIN + 3, y + rowH / 2 + 1, { baseline: "middle" });
     if (isOwner) {
-      // Un'etichetta leggibile ("TITOLARE"), non solo un pallino: un dipendente
-      // che apre il PDF deve poter capire chi è il titolare senza una legenda
-      // a parte. doc.getTextWidth va misurato subito, mentre il font è ancora
-      // quello con cui è stato disegnato il nome.
+      // Un'etichetta leggibile ("TITOLARE" abbreviato), non solo un pallino:
+      // un dipendente che apre il PDF deve poter capire chi è il titolare
+      // senza una legenda a parte. doc.getTextWidth va misurato subito,
+      // mentre il font è ancora quello con cui è stato disegnato il nome.
       const nameW = doc.getTextWidth(displayName);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6);
       doc.setTextColor(...GOLD);
-      doc.text("TITOLARE", MARGIN + 3 + nameW + 2.2, y + rowH / 2 + 1, { baseline: "middle" });
+      doc.text("TIT.", MARGIN + 3 + nameW + 2, y + rowH / 2 + 1, { baseline: "middle" });
       doc.setFontSize(8.5);
     }
 
@@ -256,20 +284,25 @@ function drawPeriodTable(
     y += rowH;
   });
 
-  // Come per la tabella dipendenti: il bordo ha senso solo senza interruzioni
-  // di pagina nel mezzo.
-  if (doc.getNumberOfPages() === pagesBeforeRows) {
+  borderBlocks.push({ top: tableTop, bottom: y });
+  const currentPage = doc.getNumberOfPages();
+  borderBlocks.forEach((block, bi) => {
+    // Ogni blocco vive sulla propria pagina: l'ultimo su quella corrente,
+    // i precedenti risalendo — doc.setPage per disegnare sulla pagina giusta.
+    const pageOffset = borderBlocks.length - 1 - bi;
+    doc.setPage(currentPage - pageOffset);
     doc.setDrawColor(230, 220, 218);
     doc.setLineWidth(0.2);
-    doc.rect(MARGIN, tableTop, CONTENT_W, y - tableTop);
+    doc.rect(MARGIN, block.top, CONTENT_W, block.bottom - block.top);
     // Una linea verticale tra ogni giorno: senza, gli orari di giorni
     // consecutivi (es. giovedì e venerdì) si leggono come se fossero
     // appiccicati l'uno all'altro.
     for (let i = 0; i <= opts.dateKeys.length; i++) {
       const x = MARGIN + nameColW + i * dayColW;
-      doc.line(x, tableTop, x, y);
+      doc.line(x, block.top, x, block.bottom);
     }
-  }
+  });
+  doc.setPage(currentPage);
 
   return y;
 }

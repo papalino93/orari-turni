@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addDays,
@@ -35,6 +35,16 @@ const VIEW_LABELS: Record<ViewMode, string> = {
   week: "Settimana",
   month: "Mese",
   year: "Anno",
+};
+
+// Solo Giorno e Settimana permettono di inserire/modificare i turni: senza
+// un segnale visivo sulle stesse linguette, non è ovvio quale vista usare
+// per farlo — è capitato di dover spiegare "devi andare su Settimana".
+const VIEW_EDITABLE: Record<ViewMode, boolean> = {
+  day: true,
+  week: true,
+  month: false,
+  year: false,
 };
 
 export function OrariView({
@@ -225,7 +235,9 @@ export function OrariView({
                 closures={closures}
                 employeeFilter={employeeFilter}
               />
-              <ClearWeekButton weekStartKey={weekStartKey} />
+              <OverflowMenu>
+                <ClearWeekButton weekStartKey={weekStartKey} asMenuItem />
+              </OverflowMenu>
             </>
           )}
           {view === "month" && <SummaryExportButton monthDateKey={dateKey} employees={employees} blocks={blocks} closures={closures} />}
@@ -244,11 +256,13 @@ export function OrariView({
                 key={v}
                 type="button"
                 onClick={() => navigate({ view: v })}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                title={VIEW_EDITABLE[v] ? `${VIEW_LABELS[v]} — puoi inserire e modificare i turni` : `${VIEW_LABELS[v]} — sola lettura`}
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
                   v === view ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
                 }`}
               >
                 {VIEW_LABELS[v]}
+                {VIEW_EDITABLE[v] && <EditPencilIcon className={v === view ? "text-accent" : "text-foreground-muted/60"} />}
               </button>
             ))}
           </div>
@@ -257,20 +271,20 @@ export function OrariView({
               <button
                 type="button"
                 onClick={() => navigate({ mode: "periods" })}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
                   displayMode === "periods" ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
                 }`}
               >
-                👥 Fasce orarie
+                <PeriodsIcon /> Fasce orarie
               </button>
               <button
                 type="button"
                 onClick={() => navigate({ mode: "employees" })}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
                   displayMode === "employees" ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
                 }`}
               >
-                👤 Dipendenti
+                <PersonIcon /> Dipendenti
               </button>
             </div>
           )}
@@ -278,11 +292,11 @@ export function OrariView({
         <p className="text-xs text-foreground-muted">
           {view === "day" || view === "week" ? (
             <>
-              <span className="text-accent">✎</span> Clicca su una casella per inserire o modificare un turno, riposo,
+              <EditPencilIcon className="text-accent" /> Clicca su una casella per inserire o modificare un turno, riposo,
               ferie o permesso.
             </>
           ) : (
-            "Vista di sola lettura — riepiloga i totali. Per inserire o modificare gli orari passa a Giorno o Settimana."
+            "Vista di sola lettura — riepiloga i totali. Per inserire o modificare gli orari passa a Giorno o Settimana (contrassegnate dalla matita)."
           )}
         </p>
       </div>
@@ -374,4 +388,83 @@ function Badge({
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Contenitore per azioni rare (oggi solo "Svuota settimana"): tenerle fuori
+// dalla riga di controlli principali, così quelle usate spesso (data, vista,
+// esporta) non si perdono in mezzo a un'azione distruttiva usata raramente.
+function OverflowMenu({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Altre azioni"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
+          open ? "border-accent text-foreground" : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
+        }`}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="5" cy="12" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="19" cy="12" r="2" />
+        </svg>
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 z-40 mt-2 w-56 rounded-xl border border-border bg-surface p-1.5 shadow-2xl">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EditPencilIcon({ className }: { className?: string }) {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" className={className}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  );
+}
+
+function PeriodsIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="8" cy="8" r="3" />
+      <path d="M2 20c0-3 2.5-5 6-5s6 2 6 5" />
+      <circle cx="17" cy="9" r="2.3" />
+      <path d="M15.5 14c2.5.3 4.5 2.2 4.5 5.5" />
+    </svg>
+  );
+}
+
+function PersonIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" />
+    </svg>
+  );
 }

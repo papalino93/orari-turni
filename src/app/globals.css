@@ -35,7 +35,27 @@
   --danger-bg: #fbe7e5;
 }
 
+/* Striscia di navigazione: bordeaux fisso con testo/logo bianchi, uguale in
+   entrambi i temi — identità di marca riconoscibile a colpo d'occhio,
+   indipendente dal tema scelto per il resto della pagina. Non è legata al
+   sistema di token del tema (sopra): è un valore fisso a parte, usato solo
+   da header e bottom-nav, per non toccare nessun altro colore dell'app. */
+:root {
+  --brand-band: #560101;
+  --brand-band-hover: rgba(255, 255, 255, 0.14);
+  --brand-band-active: rgba(255, 255, 255, 0.2);
+  --brand-band-foreground: #ffffff;
+  --brand-band-foreground-muted: rgba(255, 255, 255, 0.72);
+  --brand-band-border: rgba(255, 255, 255, 0.32);
+}
+
 @theme inline {
+  --color-brand-band: var(--brand-band);
+  --color-brand-band-hover: var(--brand-band-hover);
+  --color-brand-band-active: var(--brand-band-active);
+  --color-brand-band-foreground: var(--brand-band-foreground);
+  --color-brand-band-foreground-muted: var(--brand-band-foreground-muted);
+  --color-brand-band-border: var(--brand-band-border);
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
@@ -81,6 +101,14 @@ body {
 }
 :root[data-theme="dark"] .brand-logo {
   filter: brightness(1.8) saturate(1.15);
+}
+
+/* Il logo dentro la striscia bordeaux (header/bottom-nav): sempre bianco,
+   indipendentemente dal tema — a differenza di .brand-logo qui sopra, che
+   resta legato al tema perché appare su sfondi che cambiano con esso
+   (la card di login, per esempio). */
+.brand-logo-invert {
+  filter: brightness(0) invert(1);
 }
 
 ::selection {

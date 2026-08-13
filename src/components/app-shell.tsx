@@ -22,26 +22,32 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
+      {/* La striscia di navigazione resta sempre bordeaux con logo/testo
+          bianchi, indipendentemente dal tema chiaro/scuro scelto per il
+          resto della pagina: è la fascia di marca fissa, non un elemento
+          che segue il tema come tutto il resto. */}
+      <header className="sticky top-0 z-30 bg-brand-band shadow-[0_1px_0_rgba(0,0,0,0.18)] backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element -- logo statico, non serve l'ottimizzazione di next/image */}
-            <img src="/logo.png" alt="L'Angolo del Vino" className="brand-logo h-10 w-auto" />
+            <img src="/logo.png" alt="L'Angolo del Vino" className="brand-logo-invert h-10 w-auto" />
           </div>
 
           <nav className="hidden items-center gap-1 md:flex">
             {NAV_ITEMS.map((item) => {
               const active = pathname?.startsWith(item.href);
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
                     active
-                      ? "bg-surface-2 text-foreground"
-                      : "text-foreground-muted hover:text-foreground"
+                      ? "bg-brand-band-active text-brand-band-foreground"
+                      : "text-brand-band-foreground-muted hover:text-brand-band-foreground"
                   }`}
                 >
+                  <Icon active={!!active} />
                   {item.label}
                 </Link>
               );
@@ -53,18 +59,18 @@ export function AppShell({
               href="/account"
               aria-label="Account"
               title="Account"
-              className={`flex h-9 w-9 items-center justify-center rounded-full border border-border transition-colors hover:border-accent hover:text-foreground ${
-                pathname?.startsWith("/account") ? "text-foreground" : "text-foreground-muted"
+              className={`flex h-9 w-9 items-center justify-center rounded-full border border-brand-band-border transition-colors hover:text-brand-band-foreground ${
+                pathname?.startsWith("/account") ? "text-brand-band-foreground" : "text-brand-band-foreground-muted"
               }`}
             >
               <GearIcon />
             </Link>
             <ThemeToggle />
-            <span className="hidden text-sm text-foreground-muted sm:block">{userName}</span>
+            <span className="hidden text-sm text-brand-band-foreground-muted sm:block">{userName}</span>
             <button
               type="button"
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
+              className="rounded-full border border-brand-band-border px-3 py-1.5 text-xs font-medium text-brand-band-foreground-muted transition-colors hover:text-brand-band-foreground"
             >
               Esci
             </button>
@@ -76,7 +82,7 @@ export function AppShell({
         {children}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-surface/95 backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex bg-brand-band shadow-[0_-1px_0_rgba(0,0,0,0.18)] backdrop-blur md:hidden">
         {NAV_ITEMS.map((item) => {
           const active = pathname?.startsWith(item.href);
           const Icon = item.icon;
@@ -85,7 +91,7 @@ export function AppShell({
               key={item.href}
               href={item.href}
               className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
-                active ? "text-accent" : "text-foreground-muted"
+                active ? "text-brand-band-foreground" : "text-brand-band-foreground-muted"
               }`}
             >
               <Icon active={!!active} />

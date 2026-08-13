@@ -13,6 +13,7 @@ import {
   todayKey,
 } from "@/lib/week";
 import { useToast } from "@/components/toast";
+import { ExportChoiceButtons } from "@/components/export-choice-buttons";
 import { shareOrDownloadFile } from "@/lib/share-file";
 import { getEmployeeScheduleRange } from "./actions";
 import { RangeCard } from "./range-card";
@@ -100,7 +101,10 @@ export function PdfExportModal({
         `orario-${employeeName.replace(/\s+/g, "-").toLowerCase()}-${fromKey}_${toKey}.png`,
         { type: "image/png" },
       );
-      await shareOrDownloadFile(file);
+      const outcome = await shareOrDownloadFile(file);
+      if (outcome === "downloaded-whatsapp-web") {
+        toast.showSuccess("Immagine scaricata — trascinala nella chat su WhatsApp Web per condividerla");
+      }
     } catch {
       toast.showError("Impossibile generare l'immagine. Riprova.");
     } finally {
@@ -226,23 +230,8 @@ export function PdfExportModal({
           )}
         </div>
 
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
-            onClick={downloadImage}
-            disabled={downloading !== null || loading || !data}
-            className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:border-accent disabled:opacity-60"
-          >
-            {downloading === "image" ? "Preparazione…" : "📤 Esporta immagine (WhatsApp)"}
-          </button>
-          <button
-            type="button"
-            onClick={downloadPdf}
-            disabled={downloading !== null || loading || !data}
-            className="flex-1 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
-          >
-            {downloading === "pdf" ? "Preparazione…" : "📄 Esporta PDF (A4)"}
-          </button>
+        <div className="mt-4">
+          <ExportChoiceButtons downloading={downloading} disabled={loading || !data} onImage={downloadImage} onPdf={downloadPdf} />
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { addDays, dayLabel, formatDayMonth, formatWeekRange, parseDateKey } from "@/lib/week";
-import { buildSchedule, entryLabel, formatHours, PERIOD_LABEL, PERIODS, entryForPeriod, type Block, type Closure, type Employee, type Leave } from "@/lib/schedule";
+import { buildSchedule, entryForPeriod, entryLabel, formatHours, PERIOD_LABEL, PERIODS, type Block, type Closure, type Employee, type Leave } from "@/lib/schedule";
 import { orderEmployees } from "./shared";
 import { LOGO_DATA_URI } from "@/lib/logo-data-uri";
 

@@ -116,24 +116,26 @@ export function drawLogo(doc: JsPDF, x: number, y: number, targetW: number): num
 }
 
 export function drawHeader(doc: JsPDF, title: string, subtitle: string): number {
-  const logoW = 30;
-  const logoH = drawLogo(doc, MARGIN, MARGIN + 2, logoW);
-  const textX = MARGIN + logoW + 6;
+  // Niente più la scritta "L'ANGOLO DEL VINO" per esteso accanto al logo:
+  // il logo è già quella scritta, in corsivo — ripeterla in stampatello
+  // era ridondante. Lo spazio liberato va a un logo più grande e a
+  // titolo/sottotitolo del documento, allineati verticalmente al centro.
+  const logoW = 42;
+  const logoH = drawLogo(doc, MARGIN, MARGIN, logoW);
+  const textX = MARGIN + logoW + 8;
 
   doc.setTextColor(...TEXT);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text("L'ANGOLO DEL VINO", textX, MARGIN + 6);
+  doc.setFontSize(14);
+  doc.text(title, textX, MARGIN + logoH / 2 - 0.5);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setTextColor(...MUTED);
-  doc.text(title, textX, MARGIN + 12);
-  doc.setFontSize(9.5);
-  doc.text(subtitle, textX, MARGIN + 17);
+  doc.text(subtitle, textX, MARGIN + logoH / 2 + 6);
 
   doc.setDrawColor(...WINE);
   doc.setLineWidth(0.6);
-  const dividerY = Math.max(MARGIN + 21, MARGIN + 2 + logoH + 3);
+  const dividerY = MARGIN + logoH + 6;
   doc.line(MARGIN, dividerY, PAGE_W - MARGIN, dividerY);
 
   return dividerY + 6;
