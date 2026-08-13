@@ -133,13 +133,23 @@ export function RevisioneView({
             const entry = schedule.entry(employee.id, dateKey);
             const dayBlocks = blocks.filter((b) => b.dateKey === dateKey);
             const edited = dayBlocks.some((b) => b.originalStartTime || b.addedByEmployee);
-            const clickable = editable && dateKey <= todayKey();
+            const isFutureDay = dateKey > todayKey();
+            const clickable = editable && !isFutureDay;
             return (
               <button
                 key={dateKey}
                 type="button"
-                disabled={!clickable}
-                onClick={() => setEditingDate(dateKey)}
+                // Disabilitato solo se il mese intero non è modificabile
+                // (spiegato dallo StatusBanner qui sopra). Un giorno futuro
+                // resta invece toccabile apposta: senza, il tocco non fa
+                // letteralmente nulla e su mobile — senza hover per un
+                // title — sembra che l'app "non lasci modificare" senza
+                // dire perché.
+                disabled={!editable}
+                onClick={() => {
+                  if (clickable) setEditingDate(dateKey);
+                  else if (isFutureDay) toast.showError("Non puoi ancora registrare ore per un giorno futuro.");
+                }}
                 className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors ${
                   clickable ? "hover:bg-surface-2" : "cursor-default"
                 }`}
@@ -172,6 +182,13 @@ export function RevisioneView({
 
       {editingDate && editingEntry && (
         <DayEditorModal
+          // Senza key, se mai React arrivasse a riusare la stessa istanza per
+          // un giorno diverso (invece di smontarla e rimontarla), gli stati
+          // interni (orari mattina/pomeriggio, modalità) resterebbero quelli
+          // del giorno precedente: l'editor mostrerebbe un giorno nell'header
+          // ma gli orari di un altro. La key forza React a ricreare da zero
+          // il modal — e quindi il suo stato — ad ogni cambio di giorno.
+          key={editingDate}
           employee={{ id: employee.id, name: employee.name, role: "EMPLOYEE", jobTitle: employee.jobTitle, sortOrder: 0, photoVersion: employee.photoVersion }}
           dateKey={editingDate}
           entry={editingEntry}
