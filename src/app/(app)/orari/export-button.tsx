@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ExportCard } from "./export-card";
 import { shareOrDownloadFile } from "@/lib/share-file";
 import { useToast } from "@/components/toast";
+import { ExportChoiceButtons } from "@/components/export-choice-buttons";
 import type { Block, Closure, Employee, Leave } from "@/lib/schedule";
 import { setWeekPublished } from "./actions";
 
@@ -51,7 +52,10 @@ export function ExportButton({
       const file = new File([blob], `orari-${weekStartKey}${employeeFilter ? `-${employeeFilter}` : ""}.png`, {
         type: "image/png",
       });
-      await shareOrDownloadFile(file);
+      const outcome = await shareOrDownloadFile(file);
+      if (outcome === "downloaded-whatsapp-web") {
+        toast.showSuccess("Immagine scaricata — trascinala nella chat su WhatsApp Web per condividerla");
+      }
       await markShared();
     } catch {
       toast.showError("Impossibile generare l'immagine. Riprova.");
@@ -108,23 +112,8 @@ export function ExportButton({
               />
             </div>
 
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-              <button
-                type="button"
-                onClick={downloadImage}
-                disabled={downloading !== null}
-                className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:border-accent disabled:opacity-60"
-              >
-                {downloading === "image" ? "Preparazione…" : "📤 Esporta immagine (WhatsApp)"}
-              </button>
-              <button
-                type="button"
-                onClick={downloadPdf}
-                disabled={downloading !== null}
-                className="flex-1 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
-              >
-                {downloading === "pdf" ? "Preparazione…" : "📄 Esporta PDF (A4)"}
-              </button>
+            <div className="mt-4">
+              <ExportChoiceButtons downloading={downloading} onImage={downloadImage} onPdf={downloadPdf} />
             </div>
           </div>
         </div>
