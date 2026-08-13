@@ -47,6 +47,12 @@
   --brand-band-foreground: #ffffff;
   --brand-band-foreground-muted: rgba(255, 255, 255, 0.72);
   --brand-band-border: rgba(255, 255, 255, 0.32);
+  /* Per un elemento SOLIDO in bordeaux (es. il pulsante "Accedi" nel
+     login) — non va bene per quello lo stesso --brand-band-hover usato
+     sopra: quello è un velo bianco trasparente pensato per stare SOPRA la
+     striscia bordeaux già piena (nav/bottom-nav), qui serve invece un
+     bordeaux pieno leggermente più chiaro per l'hover. */
+  --brand-band-solid-hover: #740202;
 }
 
 @theme inline {
@@ -56,6 +62,7 @@
   --color-brand-band-foreground: var(--brand-band-foreground);
   --color-brand-band-foreground-muted: var(--brand-band-foreground-muted);
   --color-brand-band-border: var(--brand-band-border);
+  --color-brand-band-solid-hover: var(--brand-band-solid-hover);
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);

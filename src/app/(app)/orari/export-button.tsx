@@ -82,9 +82,14 @@ export function ExportButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+        // Prima era un pulsante-pillola come tutti gli altri ("Esporta"), che
+        // non comunicava di essere IL modo per far avere l'orario allo
+        // staff. Stile pieno + etichetta esplicita + icona di invio: si
+        // deve capire a colpo d'occhio, non dedurlo.
+        className="flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
       >
-        Esporta
+        <SendIcon />
+        Invia orari
       </button>
 
       {open && (
@@ -119,5 +124,14 @@ export function ExportButton({
         </div>
       )}
     </>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 2 11 13" />
+      <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
+    </svg>
   );
 }

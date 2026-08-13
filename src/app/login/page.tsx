@@ -33,29 +33,38 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4">
+    // Stessi colori della striscia di navigazione (bordeaux fisso, non
+    // legato al tema chiaro/scuro): la pagina di accesso è il primo
+    // contatto con l'app, deve sembrare la stessa identità visiva, non un
+    // tema scuro generico con un accento diverso.
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0c0b0d] px-4">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          background:
-            "radial-gradient(80% 60% at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent)",
+          background: "radial-gradient(80% 60% at 50% 0%, color-mix(in srgb, var(--brand-band) 55%, transparent), transparent)",
         }}
       />
 
       <div className="relative w-full max-w-sm">
         <div className="mb-8 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element -- logo statico, non serve l'ottimizzazione di next/image */}
-          <img src="/logo.png" alt="L'Angolo del Vino" className="brand-logo mx-auto mb-4 h-16 w-auto" />
-          <p className="text-sm text-foreground-muted">Accedi per gestire orari, copertura e ferie</p>
+          <img src="/logo.png" alt="L'Angolo del Vino" className="brand-logo-invert mx-auto mb-4 h-16 w-auto" />
+          <p className="text-sm text-white/70">Accedi per gestire orari, copertura e ferie</p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-2xl shadow-black/40"
+          className="space-y-4 rounded-2xl border border-brand-band-border bg-[#18161a] p-6 shadow-2xl shadow-black/40"
         >
+          {/* Sotto: colori scuri fissi, non legati al tema chiaro/scuro —
+              coerente con lo sfondo della pagina, che ora è sempre scuro
+              (vedi sopra) per far risaltare il logo bianco. Riusare i token
+              del tema qui dentro (pensati per adattarsi al tema chiaro)
+              produrrebbe testo scuro su sfondo scuro se l'utente avesse il
+              tema chiaro impostato. */}
           <div className="space-y-1.5">
-            <label htmlFor="username" className="text-sm font-medium text-foreground-muted">
+            <label htmlFor="username" className="text-sm font-medium text-[#a39d9a]">
               Username
             </label>
             <input
@@ -64,12 +73,12 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-foreground outline-none transition-colors focus:border-accent"
+              className="w-full rounded-lg border border-[#2f2a2f] bg-[#221f24] px-3 py-2.5 text-[#f3efe9] outline-none transition-colors focus:border-accent"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="password" className="text-sm font-medium text-foreground-muted">
+            <label htmlFor="password" className="text-sm font-medium text-[#a39d9a]">
               Password
             </label>
             <input
@@ -79,18 +88,16 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-foreground outline-none transition-colors focus:border-accent"
+              className="w-full rounded-lg border border-[#2f2a2f] bg-[#221f24] px-3 py-2.5 text-[#f3efe9] outline-none transition-colors focus:border-accent"
             />
           </div>
 
-          {error && (
-            <p className="rounded-lg bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
-          )}
+          {error && <p className="rounded-lg bg-[#3a1c1a] px-3 py-2 text-sm text-[#e2574c]">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-accent px-3 py-2.5 font-medium text-accent-foreground transition-colors hover:bg-accent-hover disabled:opacity-60"
+            className="w-full rounded-lg bg-brand-band px-3 py-2.5 font-medium text-brand-band-foreground transition-colors hover:bg-brand-band-solid-hover disabled:opacity-60"
           >
             {loading ? "Accesso in corso…" : "Accedi"}
           </button>
