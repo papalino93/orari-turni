@@ -58,38 +58,32 @@ export function formatWeekRange(weekStart: Date): string {
   return `${startStr} – ${endStr}`;
 }
 
+// Fuso del locale. Le date sono salvate come giorno "puro" (@db.Date) e
+// confrontate come stringhe YYYY-MM-DD: "oggi" va quindi calcolato nel fuso
+// del negozio, non in UTC. Con toISOString() dopo la mezzanotte italiana
+// "oggi" sarebbe rimasto al giorno prima fino alle 01:00/02:00, marcando
+// come passati turni ancora in corso.
+const SHOP_TIME_ZONE = "Europe/Rome";
+
+// en-CA formatta come YYYY-MM-DD, lo stesso formato delle chiavi data.
+const dayKeyFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: SHOP_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+export function todayKey(now: Date = new Date()): string {
+  return dayKeyFormatter.format(now);
+}
+
 export function isToday(date: Date): boolean {
-  return toDateKey(date) === toDateKey(new Date());
+  return toDateKey(date) === todayKey();
 }
-
-export function isPastDateKey(dateKey: string): boolean {
-  return dateKey < toDateKey(new Date());
-}
-
-// Orario di riferimento per la vista copertura (fasce orarie di un'enoteca).
-export const COVERAGE_START_HOUR = 8;
-export const COVERAGE_END_HOUR = 24;
 
 export function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
-}
-
-export function coverageCounts(
-  blocks: { startTime: string; endTime: string }[],
-): number[] {
-  const hours = COVERAGE_END_HOUR - COVERAGE_START_HOUR;
-  const counts = new Array(hours).fill(0);
-  for (const b of blocks) {
-    const start = timeToMinutes(b.startTime);
-    const end = timeToMinutes(b.endTime);
-    for (let h = 0; h < hours; h++) {
-      const slotStart = (COVERAGE_START_HOUR + h) * 60;
-      const slotEnd = slotStart + 60;
-      if (start < slotEnd && end > slotStart) counts[h]++;
-    }
-  }
-  return counts;
 }
 
 // Ore lavorate di un singolo blocco (decimali, es. 4.5).

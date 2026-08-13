@@ -2,18 +2,22 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useToast, runWithToast } from "@/components/toast";
 import { clearWeekData } from "./actions";
 
 export function ClearWeekButton({ weekStartKey }: { weekStartKey: string }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const toast = useToast();
 
   function confirmClear() {
     startTransition(async () => {
-      await clearWeekData(weekStartKey);
-      router.refresh();
-      setOpen(false);
+      const result = await runWithToast(toast, () => clearWeekData(weekStartKey), "Settimana svuotata");
+      if (result !== null) {
+        router.refresh();
+        setOpen(false);
+      }
     });
   }
 
@@ -32,14 +36,11 @@ export function ClearWeekButton({ weekStartKey }: { weekStartKey: string }) {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           onClick={() => !pending && setOpen(false)}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5 shadow-2xl"
-          >
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5 shadow-2xl">
             <h2 className="text-base font-semibold text-foreground">Svuotare questa settimana?</h2>
             <p className="mt-2 text-sm text-foreground-muted">
-              Verranno eliminati tutti i turni, ferie, permessi e giorni liberi inseriti in questa settimana, per
-              tutti i dipendenti. Azione irreversibile.
+              Verranno eliminati tutti i turni, ferie, permessi e riposi inseriti in questa settimana, per tutti i
+              dipendenti. Le giornate impostate come chiuse non vengono toccate. Azione irreversibile.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button

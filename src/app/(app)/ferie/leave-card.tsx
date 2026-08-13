@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useToast, runWithToast } from "@/components/toast";
 import { setLeaveBalance } from "./actions";
 import type { LeaveSummary } from "@/lib/leave";
 import type { LeaveBalance } from "@prisma/client";
@@ -12,34 +14,25 @@ export function LeaveCard({
   year,
   ferie,
   permesso,
+  readOnly = false,
 }: {
-  employee: { id: string; name: string };
+  employee: { id: string; name: string; active: boolean };
   year: number;
   ferie: Section;
   permesso: Section;
+  readOnly?: boolean;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-      <div className="border-b border-border px-5 py-3">
+      <div className="flex items-center justify-between border-b border-border px-5 py-3">
         <h2 className="text-sm font-semibold text-foreground">{employee.name}</h2>
+        {!employee.active && (
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-foreground-muted">Disattivato</span>
+        )}
       </div>
       <div className="divide-y divide-border">
-        <LeaveTypeRow
-          employeeId={employee.id}
-          type="FERIE"
-          label="Ferie"
-          unit="giorni"
-          year={year}
-          section={ferie}
-        />
-        <LeaveTypeRow
-          employeeId={employee.id}
-          type="PERMESSO"
-          label="Permessi / ROL"
-          unit="ore"
-          year={year}
-          section={permesso}
-        />
+        <LeaveTypeRow employeeId={employee.id} type="FERIE" label="Ferie" unit="giorni" year={year} section={ferie} readOnly={readOnly} />
+        <LeaveTypeRow employeeId={employee.id} type="PERMESSO" label="Permessi / ROL" unit="ore" year={year} section={permesso} readOnly={readOnly} />
       </div>
     </div>
   );
@@ -52,6 +45,7 @@ function LeaveTypeRow({
   unit,
   year,
   section,
+  readOnly,
 }: {
   employeeId: string;
   type: "FERIE" | "PERMESSO";
@@ -59,19 +53,32 @@ function LeaveTypeRow({
   unit: string;
   year: number;
   section: Section;
+  readOnly: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [opening, setOpening] = useState(section.balance?.openingBalance.toString() ?? "0");
   const [rate, setRate] = useState(section.balance?.monthlyAccrualRate.toString() ?? "0");
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const toast = useToast();
 
   function save() {
     const o = Number(opening);
     const r = Number(rate);
-    if (Number.isNaN(o) || Number.isNaN(r)) return;
+    if (Number.isNaN(o) || Number.isNaN(r)) {
+      toast.showError("Inserisci numeri validi.");
+      return;
+    }
     startTransition(async () => {
-      await setLeaveBalance(employeeId, type, year, o, r, "inserito manualmente");
-      setEditing(false);
+      const result = await runWithToast(
+        toast,
+        () => setLeaveBalance(employeeId, type, year, o, r, "inserito manualmente"),
+        "Saldo aggiornato",
+      );
+      if (result !== null) {
+        setEditing(false);
+        router.refresh();
+      }
     });
   }
 
@@ -79,36 +86,22 @@ function LeaveTypeRow({
     <div className="px-5 py-4">
       <div className="mb-2.5 flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-foreground-muted">{label}</p>
-        <button
-          type="button"
-          onClick={() => setEditing((v) => !v)}
-          className="text-xs font-medium text-accent hover:text-accent-hover"
-        >
-          {section.summary.hasData ? "Modifica saldo" : "Imposta saldo"}
-        </button>
+        {!readOnly && (
+          <button type="button" onClick={() => setEditing((v) => !v)} className="text-xs font-medium text-accent hover:text-accent-hover">
+            {section.summary.hasData ? "Modifica saldo" : "Imposta saldo"}
+          </button>
+        )}
       </div>
 
-      {!section.summary.hasData && !editing && (
-        <p className="text-sm text-foreground-muted">Dati non ancora caricati.</p>
-      )}
+      {!section.summary.hasData && !editing && <p className="text-sm text-foreground-muted">Dati non ancora caricati.</p>}
 
       {section.summary.hasData && !editing && (
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           <Stat label="Maturati" value={section.summary.maturato} unit={unit} />
           <Stat label="Goduti" value={section.summary.goduto} unit={unit} />
           <Stat label="Programmati" value={section.summary.programmato} unit={unit} />
-          <Stat
-            label="Residui"
-            value={section.summary.residuo}
-            unit={unit}
-            highlight
-          />
-          <Stat
-            label={`Residui previsti al 31/12`}
-            value={section.summary.residuoAl31Dic}
-            unit={unit}
-            className="col-span-2 sm:col-span-4"
-          />
+          <Stat label="Residui" value={section.summary.residuo} unit={unit} highlight />
+          <Stat label="Residui previsti al 31/12" value={section.summary.residuoAl31Dic} unit={unit} className="col-span-2 sm:col-span-4" />
         </div>
       )}
 
@@ -140,13 +133,9 @@ function LeaveTypeRow({
             disabled={pending}
             className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
           >
-            Salva
+            {pending ? "Salvo…" : "Salva"}
           </button>
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground-muted"
-          >
+          <button type="button" onClick={() => setEditing(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground-muted">
             Annulla
           </button>
         </div>

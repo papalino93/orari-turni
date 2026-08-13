@@ -36,14 +36,30 @@ model Employee {
   jobTitle  String? // etichetta libera, es. "Responsabile sala" — solo descrittiva
   active    Boolean      @default(true)
   sortOrder Int          @default(0)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  // Valorizzato quando esiste una foto: permette a liste e griglie di sapere
+  // se mostrare l'avatar-foto (e con quale versione, per la cache) senza mai
+  // caricare i byte dell'immagine insieme all'anagrafica.
+  photoUpdatedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
+  photo         EmployeePhoto?
   shiftBlocks   ShiftBlock[]
   leaveEntries  LeaveEntry[]
   leaveBalances LeaveBalance[]
 
   @@index([role])
+}
+
+// Foto profilo del dipendente, tabella separata così i byte non pesano mai
+// sulle query di elenco. Ridimensionata lato client a un quadrato piccolo
+// (vedi lib/photo.ts): sta comodamente in Postgres, nessun servizio esterno.
+model EmployeePhoto {
+  employeeId String   @id
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  data       Bytes
+  mimeType   String
+  updatedAt  DateTime @updatedAt
 }
 
 // Un blocco di presenza in un giorno (orario libero, più blocchi per
@@ -66,7 +82,8 @@ model ShiftBlock {
 enum LeaveType {
   FERIE
   PERMESSO
-  LIBERO // giorno segnato esplicitamente come libero, non conta su ferie/permessi
+  LIBERO // riposo: il locale è aperto ma il dipendente non lavora. Non conta su ferie/permessi.
+  MALATTIA // assenza per malattia: non consuma né ferie né permessi
 }
 
 // Un giorno di ferie, permesso o "libero" pianificato/goduto per un
@@ -85,8 +102,39 @@ model LeaveEntry {
   note       String?
   createdAt  DateTime  @default(now())
 
+  @@unique([employeeId, date])
   @@index([date])
   @@index([employeeId, type, date])
+}
+
+// Giornata in cui il locale non apre affatto. È un fatto della giornata, non
+// del singolo dipendente: per questo vive in una tabella sua e non come
+// LeaveType. "Locale chiuso" e "riposo" sono due concetti diversi — un
+// giorno chiuso non genera riposi, non produce ore e non entra nella
+// copertura. La chiusura vale solo per la data indicata: chiudere domenica
+// 16 agosto non chiude tutte le domeniche.
+//
+// I turni eventualmente già inseriti su una data che viene chiusa NON
+// vengono cancellati: restano nel database ignorati da ogni calcolo e
+// tornano validi se la giornata viene riaperta (vedi closeDay/reopenDay).
+model ClosureDay {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  reason    String? // es. "Ferragosto", "chiusura straordinaria" — solo descrittivo
+  createdAt DateTime @default(now())
+  createdBy String? // username di chi ha chiuso la giornata
+}
+
+// Stato di pubblicazione di una settimana. Assente o publishedAt null =
+// bozza (l'orario si sta ancora preparando); publishedAt valorizzato =
+// orario comunicato al personale. Da non confondere con la verifica delle
+// ore passate, che vive su ShiftBlock.confirmed.
+model WeekPlan {
+  id          String    @id @default(cuid())
+  weekStart   DateTime  @unique @db.Date // sempre un lunedì
+  publishedAt DateTime?
+  publishedBy String? // username di chi ha pubblicato
+  updatedAt   DateTime  @updatedAt
 }
 
 // Saldo di partenza e tasso di maturazione per dipendente/tipo/anno.

@@ -1,36 +1,24 @@
 "use client";
 
-import { formatDayMonth, sumHours, toDateKey, weekRangesInMonth } from "@/lib/week";
-import { orderEmployees, type Block, type Employee } from "./shared";
+import { formatDayMonth, toDateKey, weekRangesInMonth } from "@/lib/week";
+import { formatHours, type buildSchedule } from "@/lib/schedule";
+import { EmployeeAvatar } from "@/components/avatar";
+import { orderEmployees } from "./shared";
 
 export function MonthView({
   monthDateKey,
-  employees,
-  blocks,
+  schedule,
   employeeFilter,
 }: {
   monthDateKey: string;
-  employees: Employee[];
-  blocks: Block[];
+  schedule: ReturnType<typeof buildSchedule>;
   employeeFilter?: string;
 }) {
   const monthDate = new Date(`${monthDateKey}T00:00:00.000Z`);
   const weeks = weekRangesInMonth(monthDate);
   // Il titolare non contribuisce al monte ore: escluso dai riepiloghi mensili.
-  const allOrdered = orderEmployees(employees).filter((e) => e.role !== "OWNER");
+  const allOrdered = orderEmployees(schedule.employees).filter((e) => e.role !== "OWNER");
   const orderedEmployees = employeeFilter ? allOrdered.filter((e) => e.id === employeeFilter) : allOrdered;
-
-  function hoursForEmployeeInRange(employeeId: string, start: Date, end: Date) {
-    const startKey = toDateKey(start);
-    const endKey = toDateKey(end);
-    return sumHours(
-      blocks.filter((b) => b.employeeId === employeeId && b.dateKey >= startKey && b.dateKey <= endKey),
-    );
-  }
-
-  function monthTotal(employeeId: string) {
-    return sumHours(blocks.filter((b) => b.employeeId === employeeId));
-  }
 
   if (orderedEmployees.length === 0) {
     return (
@@ -46,20 +34,13 @@ export function MonthView({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-foreground-muted">
-                Dipendente
-              </th>
+              <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-foreground-muted">Dipendente</th>
               {weeks.map((week, i) => (
-                <th
-                  key={i}
-                  className="border-b border-border px-3 py-3 text-center text-xs font-medium text-foreground-muted"
-                >
+                <th key={i} className="border-b border-border px-3 py-3 text-center text-xs font-medium text-foreground-muted">
                   {formatDayMonth(week.start)}–{formatDayMonth(week.end)}
                 </th>
               ))}
-              <th className="border-b border-border px-4 py-3 text-center text-xs font-medium text-foreground-muted">
-                Totale mese
-              </th>
+              <th className="border-b border-border px-4 py-3 text-center text-xs font-medium text-foreground-muted">Totale mese</th>
             </tr>
           </thead>
           <tbody>
@@ -67,16 +48,17 @@ export function MonthView({
               <tr key={emp.id}>
                 <td className="border-b border-border px-4 py-3">
                   <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <EmployeeAvatar employee={emp} size="sm" />
                     {emp.name}
                   </span>
                 </td>
                 {weeks.map((week, i) => (
                   <td key={i} className="border-b border-border px-3 py-3 text-center text-sm text-foreground-muted">
-                    {hoursForEmployeeInRange(emp.id, week.start, week.end)}h
+                    {formatHours(schedule.hoursInRange(emp.id, toDateKey(week.start), toDateKey(week.end)))}
                   </td>
                 ))}
                 <td className="border-b border-border px-4 py-3 text-center text-sm font-semibold text-foreground">
-                  {monthTotal(emp.id)}h
+                  {formatHours(schedule.employeeHours(emp.id))}
                 </td>
               </tr>
             ))}
@@ -88,15 +70,18 @@ export function MonthView({
         {orderedEmployees.map((emp) => (
           <div key={emp.id} className="px-4 py-4">
             <div className="mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">{emp.name}</span>
-              <span className="text-sm font-semibold text-foreground">{monthTotal(emp.id)}h</span>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <EmployeeAvatar employee={emp} size="sm" />
+                {emp.name}
+              </span>
+              <span className="text-sm font-semibold text-foreground">{formatHours(schedule.employeeHours(emp.id))}</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {weeks.map((week, i) => (
                 <span key={i} className="rounded-full bg-surface-2 px-2 py-1 text-[11px] text-foreground-muted">
                   {formatDayMonth(week.start)}–{formatDayMonth(week.end)}:{" "}
                   <span className="font-medium text-foreground">
-                    {hoursForEmployeeInRange(emp.id, week.start, week.end)}h
+                    {formatHours(schedule.hoursInRange(emp.id, toDateKey(week.start), toDateKey(week.end)))}
                   </span>
                 </span>
               ))}

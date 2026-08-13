@@ -2,94 +2,94 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { coverageCounts, COVERAGE_END_HOUR, COVERAGE_START_HOUR, dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
+import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
+import { useToast, runWithToast } from "@/components/toast";
+import {
+  COVERAGE_END_HOUR,
+  COVERAGE_START_HOUR,
+  entryLabel,
+  type DayEntry,
+  type Employee,
+  type Block,
+  type Leave,
+  type LeaveType,
+} from "@/lib/schedule";
 import { saveDayEntry, type DayLeaveInput } from "./actions";
 
-export type Role = "EMPLOYEE" | "OWNER";
-export type LeaveType = "FERIE" | "PERMESSO" | "LIBERO";
-
-export type Employee = { id: string; name: string; role: Role; sortOrder: number };
-export type Block = {
-  id: string;
-  employeeId: string;
-  dateKey: string;
-  startTime: string;
-  endTime: string;
-  confirmed: boolean;
-};
-export type Leave = { id: string; employeeId: string; dateKey: string; type: LeaveType; quantity: number };
+export type { Employee, Block, Leave, LeaveType };
 
 // L'ordine è quello scelto manualmente dal titolare (es. titolare in cima,
 // poi il personale di sala): vedi la pagina Dipendenti.
-export function orderEmployees(employees: Employee[]): Employee[] {
-  return employees.slice().sort((a, b) => a.sortOrder - b.sortOrder);
+export function orderEmployees<T extends { sortOrder: number; name: string }>(employees: T[]): T[] {
+  return employees.slice().sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 }
 
+const KIND_STYLE: Record<DayEntry["kind"], string> = {
+  TURNO: "",
+  RIPOSO: "bg-surface-2 text-foreground-muted",
+  FERIE: "bg-accent/15 text-accent",
+  PERMESSO: "bg-gold/15 text-gold",
+  MALATTIA: "bg-danger/10 text-danger",
+  CHIUSO: "bg-surface-2 text-foreground-muted",
+  NON_PIANIFICATO: "",
+};
+
 export function DayCellContent({
-  blocks,
-  leave,
+  entry,
   align = "left",
-  isPast = false,
 }: {
-  blocks: Block[];
-  leave: Leave | null;
+  entry: DayEntry;
   align?: "left" | "right";
-  isPast?: boolean;
 }) {
-  if (leave) {
-    const styles: Record<LeaveType, string> = {
-      FERIE: "bg-accent/15 text-accent",
-      PERMESSO: "bg-gold/15 text-gold",
-      LIBERO: "bg-surface-2 text-foreground-muted",
-    };
-    const labels: Record<LeaveType, string> = {
-      FERIE: `Ferie${leave.quantity !== 1 ? ` (${leave.quantity}g)` : ""}`,
-      PERMESSO: `Permesso ${leave.quantity}h`,
-      LIBERO: "Libero",
-    };
+  if (entry.kind === "CHIUSO") {
     return (
-      <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium ${styles[leave.type]}`}>
-        {labels[leave.type]}
+      <span className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 text-xs font-medium text-foreground-muted">
+        <span aria-hidden>🔒</span> Chiuso
       </span>
     );
   }
-  if (blocks.length === 0) {
+
+  if (entry.kind === "NON_PIANIFICATO") {
     return (
       <span className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-border text-xs text-foreground-muted/70">
         +
       </span>
     );
   }
-  const needsConfirm = isPast && blocks.some((b) => !b.confirmed);
+
+  if (entry.kind !== "TURNO") {
+    return (
+      <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium ${KIND_STYLE[entry.kind]}`}>
+        {entryLabel(entry)}
+      </span>
+    );
+  }
+
   return (
     <div className={`flex flex-col gap-0.5 ${align === "right" ? "items-end" : "items-start"}`}>
-      {needsConfirm && (
+      {entry.needsVerification && (
         <span className="flex items-center gap-1 text-[10px] font-medium text-gold">
-          <span className="h-1.5 w-1.5 rounded-full bg-gold" /> da confermare
+          <span className="h-1.5 w-1.5 rounded-full bg-gold" /> da verificare
         </span>
       )}
-      {blocks
-        .slice()
-        .sort((a, b) => a.startTime.localeCompare(b.startTime))
-        .map((b) => (
-          <span key={b.id} className="whitespace-nowrap text-xs font-medium text-foreground">
-            {b.startTime}–{b.endTime}
-          </span>
-        ))}
+      {entry.blocks.map((b) => (
+        <span key={b.id} className="whitespace-nowrap text-xs font-medium text-foreground">
+          {b.startTime}–{b.endTime}
+        </span>
+      ))}
     </div>
   );
 }
 
 export function CoverageHeatmap({
-  blocks,
+  counts,
   compact = false,
   showAxis = false,
 }: {
-  blocks: Block[];
+  counts: number[];
   compact?: boolean;
   showAxis?: boolean;
 }) {
-  const counts = coverageCounts(blocks);
   const max = Math.max(1, ...counts);
   const n = counts.length;
   const H = compact ? 22 : 30;
@@ -172,6 +172,7 @@ function PeriodRowInput({
         max={max}
         value={row.startTime}
         onChange={(e) => onChange({ ...row, startTime: clampTime(e.target.value, min, max) })}
+        aria-label={`${label} — inizio`}
         className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
       />
       <span className="text-foreground-muted">–</span>
@@ -181,34 +182,42 @@ function PeriodRowInput({
         max={max}
         value={row.endTime}
         onChange={(e) => onChange({ ...row, endTime: clampTime(e.target.value, min, max) })}
+        aria-label={`${label} — fine`}
         className="flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
       />
     </div>
   );
 }
 
+type Mode = "WORK" | "FERIE" | "PERMESSO" | "MALATTIA" | "LIBERO";
+
 export function DayEditorModal({
   employee,
   dateKey,
-  initialBlocks,
-  initialLeave,
+  entry,
+  isClosed,
   onClose,
+  onOpenClosureManager,
 }: {
   employee: Employee;
   dateKey: string;
-  initialBlocks: Block[];
-  initialLeave: Leave | null;
+  entry: DayEntry;
+  isClosed: boolean;
   onClose: () => void;
+  /** Se presente, mostra un pulsante che apre la gestione della chiusura giornata. */
+  onOpenClosureManager?: () => void;
 }) {
-  type Mode = "WORK" | "FERIE" | "PERMESSO" | "LIBERO";
+  const initialMode: Mode =
+    entry.kind === "TURNO" || entry.kind === "NON_PIANIFICATO" || entry.kind === "CHIUSO"
+      ? "WORK"
+      : entry.kind === "RIPOSO"
+        ? "LIBERO"
+        : entry.kind;
 
-  const [mode, setMode] = useState<Mode>(initialLeave ? initialLeave.type : "WORK");
+  const [mode, setMode] = useState<Mode>(initialMode);
 
-  // Turni creati prima di questo vincolo potevano avere un blocco unico che
-  // sconfina tra mattina e pomeriggio (es. 09:00–23:00): li dividiamo qui,
-  // così aprendo il giorno non si perde il pezzo di orario oltre le 13:00.
-  const existingMattina = initialBlocks.find((b) => b.startTime < POMERIGGIO_MIN);
-  const existingPomeriggio = initialBlocks.find((b) => b.startTime >= POMERIGGIO_MIN);
+  const existingMattina = entry.blocks.find((b) => b.startTime < POMERIGGIO_MIN);
+  const existingPomeriggio = entry.blocks.find((b) => b.startTime >= POMERIGGIO_MIN);
   const mattinaSpillsOver = existingMattina && existingMattina.endTime > POMERIGGIO_MIN;
 
   const [mattina, setMattina] = useState<Row>(
@@ -232,30 +241,33 @@ export function DayEditorModal({
         : { startTime: POMERIGGIO_MIN, endTime: "20:00", enabled: false },
   );
 
-  const [quantity, setQuantity] = useState(initialLeave?.quantity ?? 1);
+  const [quantity, setQuantity] = useState(entry.leave?.quantity ?? 1);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const toast = useToast();
 
   const date = parseDateKey(dateKey);
 
   function save() {
-    const leave: DayLeaveInput = mode === "WORK" ? null : { type: mode, quantity: mode === "LIBERO" ? 0 : quantity };
-    const blocks =
-      mode === "WORK"
-        ? [mattina, pomeriggio].filter((r) => r.enabled && r.startTime && r.endTime)
-        : [];
+    const leave: DayLeaveInput =
+      mode === "WORK" ? null : { type: mode === "LIBERO" ? "LIBERO" : mode, quantity: mode === "LIBERO" ? 0 : quantity };
+    const blocks = mode === "WORK" ? [mattina, pomeriggio].filter((r) => r.enabled && r.startTime && r.endTime) : [];
     startTransition(async () => {
-      await saveDayEntry(employee.id, dateKey, blocks, leave);
-      router.refresh();
-      onClose();
+      const result = await runWithToast(toast, () => saveDayEntry(employee.id, dateKey, blocks, leave), "Turno salvato");
+      if (result !== null) {
+        router.refresh();
+        onClose();
+      }
     });
   }
 
   function clearDay() {
     startTransition(async () => {
-      await saveDayEntry(employee.id, dateKey, [], null);
-      router.refresh();
-      onClose();
+      const result = await runWithToast(toast, () => saveDayEntry(employee.id, dateKey, [], null), "Giornata svuotata");
+      if (result !== null) {
+        router.refresh();
+        onClose();
+      }
     });
   }
 
@@ -275,88 +287,123 @@ export function DayEditorModal({
           <h2 className="text-base font-semibold text-foreground">{employee.name}</h2>
         </div>
 
-        <div className="mb-4 flex flex-wrap gap-2">
-          <ModeButton label="Turno" active={mode === "WORK"} onClick={() => setMode("WORK")} />
-          <ModeButton label="Libero" active={mode === "LIBERO"} onClick={() => setMode("LIBERO")} />
-          {employee.role === "EMPLOYEE" && (
-            <>
-              <ModeButton label="Ferie" active={mode === "FERIE"} onClick={() => setMode("FERIE")} accent />
-              <ModeButton label="Permesso" active={mode === "PERMESSO"} onClick={() => setMode("PERMESSO")} gold />
-            </>
-          )}
-        </div>
-
-        {mode === "WORK" && (
-          <div className="space-y-2">
-            <PeriodRowInput
-              label="Mattina"
-              row={mattina}
-              min={MATTINA_MIN}
-              max={MATTINA_MAX}
-              onChange={setMattina}
-            />
-            <PeriodRowInput
-              label="Pomeriggio"
-              row={pomeriggio}
-              min={POMERIGGIO_MIN}
-              max={POMERIGGIO_MAX}
-              onChange={setPomeriggio}
-            />
-            <p className="text-xs text-foreground-muted">
-              Mattina 8:00–13:00, pomeriggio 13:00–24:00: due fasce separate, non un orario unico.
-            </p>
+        {isClosed ? (
+          <div>
+            <div className="mb-4 flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-3 text-sm text-foreground">
+              <span aria-hidden>🔒</span>
+              <span>
+                Il locale è chiuso in questa giornata: non è possibile pianificare turni.
+                {entry.suspendedBlocks.length > 0 &&
+                  ` C'è un turno conservato come bozza per ${employee.name} (${entry.suspendedBlocks
+                    .map((b) => `${b.startTime}–${b.endTime}`)
+                    .join(", ")}), tornerà visibile alla riapertura.`}
+              </span>
+            </div>
+            <div className="flex justify-end gap-2">
+              {onOpenClosureManager && (
+                <button
+                  type="button"
+                  onClick={onOpenClosureManager}
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground-muted hover:text-foreground"
+                >
+                  Gestisci chiusura
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+              >
+                Chiudi
+              </button>
+            </div>
           </div>
-        )}
+        ) : (
+          <>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <ModeButton label="Turno" active={mode === "WORK"} onClick={() => setMode("WORK")} />
+              <ModeButton label="Riposo" active={mode === "LIBERO"} onClick={() => setMode("LIBERO")} />
+              {employee.role === "EMPLOYEE" && (
+                <>
+                  <ModeButton label="Ferie" active={mode === "FERIE"} onClick={() => setMode("FERIE")} accent />
+                  <ModeButton label="Permesso" active={mode === "PERMESSO"} onClick={() => setMode("PERMESSO")} gold />
+                  <ModeButton label="Malattia" active={mode === "MALATTIA"} onClick={() => setMode("MALATTIA")} danger />
+                </>
+              )}
+            </div>
 
-        {(mode === "FERIE" || mode === "PERMESSO") && (
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-foreground-muted">
-              Quantità ({mode === "FERIE" ? "giorni" : "ore"})
-            </label>
-            <input
-              type="number"
-              min={0.5}
-              step={0.5}
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-              className="w-20 rounded-lg border border-border bg-surface-2 px-2 py-2 text-center text-sm outline-none focus:border-accent"
-            />
-          </div>
-        )}
+            {mode === "WORK" && (
+              <div className="space-y-2">
+                <PeriodRowInput label="Mattina" row={mattina} min={MATTINA_MIN} max={MATTINA_MAX} onChange={setMattina} />
+                <PeriodRowInput
+                  label="Pomeriggio"
+                  row={pomeriggio}
+                  min={POMERIGGIO_MIN}
+                  max={POMERIGGIO_MAX}
+                  onChange={setPomeriggio}
+                />
+                <p className="text-xs text-foreground-muted">
+                  Mattina 8:00–13:00, pomeriggio 13:00–24:00: due fasce separate, non un orario unico.
+                </p>
+              </div>
+            )}
 
-        {mode === "LIBERO" && (
-          <p className="text-sm text-foreground-muted">
-            Giorno segnato come libero — non conta su ferie o permessi, serve solo a far sapere che è stato deciso.
-          </p>
-        )}
+            {(mode === "FERIE" || mode === "PERMESSO") && (
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-foreground-muted">
+                  Quantità ({mode === "FERIE" ? "giorni" : "ore"})
+                </label>
+                <input
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  value={quantity}
+                  onChange={(e) => setQuantity(Number(e.target.value))}
+                  aria-label={`Quantità in ${mode === "FERIE" ? "giorni" : "ore"}`}
+                  className="w-20 rounded-lg border border-border bg-surface-2 px-2 py-2 text-center text-sm outline-none focus:border-accent"
+                />
+              </div>
+            )}
 
-        <div className="mt-6 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={clearDay}
-            disabled={pending}
-            className="text-xs font-medium text-foreground-muted hover:text-danger disabled:opacity-50"
-          >
-            Svuota giornata
-          </button>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground-muted hover:text-foreground"
-            >
-              Annulla
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={pending}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
-            >
-              Salva
-            </button>
-          </div>
-        </div>
+            {mode === "LIBERO" && (
+              <p className="text-sm text-foreground-muted">
+                Il locale resta aperto: {employee.name} è a riposo. Non conta su ferie o permessi.
+              </p>
+            )}
+
+            {mode === "MALATTIA" && (
+              <p className="text-sm text-foreground-muted">Assenza per malattia — non incide su ferie o permessi.</p>
+            )}
+
+            <div className="mt-6 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={clearDay}
+                disabled={pending}
+                className="text-xs font-medium text-foreground-muted hover:text-danger disabled:opacity-50"
+              >
+                Svuota giornata
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground-muted hover:text-foreground"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  onClick={save}
+                  disabled={pending}
+                  className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
+                >
+                  {pending ? "Salvo…" : "Salva"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -368,18 +415,22 @@ function ModeButton({
   onClick,
   accent,
   gold,
+  danger,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
   accent?: boolean;
   gold?: boolean;
+  danger?: boolean;
 }) {
   const activeClass = accent
     ? "border-accent text-accent bg-accent/10"
     : gold
       ? "border-gold text-gold bg-gold/10"
-      : "border-foreground text-foreground bg-surface-2";
+      : danger
+        ? "border-danger text-danger bg-danger/10"
+        : "border-foreground text-foreground bg-surface-2";
   return (
     <button
       type="button"

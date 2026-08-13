@@ -1,59 +1,142 @@
 "use client";
 
 import { useState } from "react";
-import {
-  addDays,
-  dayLabel,
-  formatDayMonth,
-  isPastDateKey,
-  isToday,
-  parseDateKey,
-  sumHours,
-  timeToMinutes,
-  toDateKey,
-} from "@/lib/week";
-import { DayCellContent, DayEditorModal, orderEmployees, type Block, type Employee, type Leave } from "./shared";
-
-type Period = "mattina" | "pomeriggio";
-
-function periodOf(block: Block): Period {
-  return Math.floor(timeToMinutes(block.startTime) / 60) < 13 ? "mattina" : "pomeriggio";
-}
+import { dayLabel, formatDayMonth, isToday, parseDateKey, toDateKey } from "@/lib/week";
+import { entryForPeriod, formatHours, PERIOD_LABEL, PERIODS, type DayEntry, type Employee, type Period, buildSchedule } from "@/lib/schedule";
+import { DayCellContent, DayEditorModal, orderEmployees } from "./shared";
+import { DayStatusModal } from "./day-status-modal";
+import { EmployeeAvatar } from "@/components/avatar";
+import type { DisplayMode } from "./orari-view";
 
 export function WeekBody({
   weekStartKey,
-  employees,
-  blocks,
-  leaveEntries,
+  schedule,
   employeeFilter,
+  displayMode,
 }: {
   weekStartKey: string;
-  employees: Employee[];
-  blocks: Block[];
-  leaveEntries: Leave[];
+  schedule: ReturnType<typeof buildSchedule>;
   employeeFilter?: string;
+  displayMode: DisplayMode;
 }) {
   const weekStart = parseDateKey(weekStartKey);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setUTCDate(d.getUTCDate() + i);
+    return d;
+  });
 
   const [editingCell, setEditingCell] = useState<{ employeeId: string; dateKey: string } | null>(null);
+  const [managingDate, setManagingDate] = useState<string | null>(null);
 
-  const allOrdered = orderEmployees(employees);
+  const allOrdered = orderEmployees(schedule.employees);
   const orderedEmployees = employeeFilter ? allOrdered.filter((e) => e.id === employeeFilter) : allOrdered;
 
-  function cellData(employeeId: string, dateKey: string) {
-    const dayBlocks = blocks.filter((b) => b.employeeId === employeeId && b.dateKey === dateKey);
-    const leave = leaveEntries.find((l) => l.employeeId === employeeId && l.dateKey === dateKey) ?? null;
-    return { blocks: dayBlocks, leave };
-  }
+  const editingEmployee = editingCell ? orderedEmployees.find((e) => e.id === editingCell.employeeId) : null;
 
-  function periodBlocks(employeeId: string, dateKey: string, period: Period) {
-    return blocks.filter((b) => b.employeeId === employeeId && b.dateKey === dateKey && periodOf(b) === period);
-  }
+  return (
+    <div>
+      {displayMode === "periods" ? (
+        <PeriodsLayout
+          days={days}
+          orderedEmployees={orderedEmployees}
+          schedule={schedule}
+          onEdit={(employeeId, dateKey) => setEditingCell({ employeeId, dateKey })}
+          onManageDay={setManagingDate}
+        />
+      ) : (
+        <EmployeesLayout
+          days={days}
+          orderedEmployees={orderedEmployees}
+          schedule={schedule}
+          onEdit={(employeeId, dateKey) => setEditingCell({ employeeId, dateKey })}
+        />
+      )}
 
+      {editingCell && editingEmployee && (
+        <DayEditorModal
+          employee={editingEmployee}
+          dateKey={editingCell.dateKey}
+          entry={schedule.entry(editingCell.employeeId, editingCell.dateKey)}
+          isClosed={schedule.isClosed(editingCell.dateKey)}
+          onClose={() => setEditingCell(null)}
+          onOpenClosureManager={() => {
+            setManagingDate(editingCell.dateKey);
+            setEditingCell(null);
+          }}
+        />
+      )}
+
+      {managingDate && (
+        <DayStatusModal
+          dateKey={managingDate}
+          isClosed={schedule.isClosed(managingDate)}
+          shiftCount={orderedEmployees.reduce((sum, e) => {
+            const entry = schedule.entry(e.id, managingDate);
+            return sum + entry.blocks.length + entry.suspendedBlocks.length;
+          }, 0)}
+          onClose={() => setManagingDate(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function DayHeaderCell({
+  d,
+  onManageDay,
+  closed,
+}: {
+  d: Date;
+  onManageDay: (dateKey: string) => void;
+  closed: boolean;
+}) {
+  const dateKey = toDateKey(d);
+  const today = isToday(d);
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <button
+        type="button"
+        onClick={() => onManageDay(dateKey)}
+        className={`rounded-lg px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-surface ${
+          closed ? "text-danger" : "text-foreground"
+        }`}
+        title={closed ? "Locale chiuso — clicca per gestire" : "Clicca per chiudere il locale in questa giornata"}
+      >
+        {dayLabel(d)} <span className="font-normal text-foreground-muted">{formatDayMonth(d)}</span>
+      </button>
+      {today && (
+        <span className="rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
+          Oggi
+        </span>
+      )}
+      {closed && <span className="text-[10px] font-medium text-danger">🔒 Chiuso</span>}
+    </div>
+  );
+}
+
+function PeriodsLayout({
+  days,
+  orderedEmployees,
+  schedule,
+  onEdit,
+  onManageDay,
+}: {
+  days: Date[];
+  orderedEmployees: Employee[];
+  schedule: ReturnType<typeof buildSchedule>;
+  onEdit: (employeeId: string, dateKey: string) => void;
+  onManageDay: (dateKey: string) => void;
+}) {
   function weeklyHours(employeeId: string, period?: Period) {
-    return sumHours(
-      blocks.filter((b) => b.employeeId === employeeId && (period === undefined || periodOf(b) === period)),
+    if (period === undefined) return schedule.employeeHours(employeeId);
+    return (
+      Math.round(
+        schedule.openDateKeys.reduce(
+          (sum, d) => sum + entryForPeriod(schedule.entry(employeeId, d), period).hours,
+          0,
+        ) * 100,
+      ) / 100
     );
   }
 
@@ -61,26 +144,19 @@ export function WeekBody({
     <div>
       {/* Desktop */}
       <div className="hidden space-y-4 md:block">
-        <PeriodTable
-          label="Mattina"
-          days={days}
-          orderedEmployees={orderedEmployees}
-          period="mattina"
-          periodBlocks={periodBlocks}
-          leaveEntries={leaveEntries}
-          weeklyHours={weeklyHours}
-          onEdit={(employeeId, dateKey) => setEditingCell({ employeeId, dateKey })}
-        />
-        <PeriodTable
-          label="Pomeriggio"
-          days={days}
-          orderedEmployees={orderedEmployees}
-          period="pomeriggio"
-          periodBlocks={periodBlocks}
-          leaveEntries={leaveEntries}
-          weeklyHours={weeklyHours}
-          onEdit={(employeeId, dateKey) => setEditingCell({ employeeId, dateKey })}
-        />
+        {PERIODS.map((period) => (
+          <PeriodTable
+            key={period}
+            label={PERIOD_LABEL[period]}
+            days={days}
+            orderedEmployees={orderedEmployees}
+            period={period}
+            schedule={schedule}
+            weeklyHours={weeklyHours}
+            onEdit={onEdit}
+            onManageDay={onManageDay}
+          />
+        ))}
       </div>
 
       {/* Mobile */}
@@ -89,10 +165,7 @@ export function WeekBody({
           {orderedEmployees
             .filter((e) => e.role !== "OWNER")
             .map((emp) => (
-              <span
-                key={emp.id}
-                className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground-muted"
-              >
+              <span key={emp.id} className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground-muted">
                 {emp.name}: <span className="font-semibold text-foreground">{weeklyHours(emp.id)}h</span>
               </span>
             ))}
@@ -101,59 +174,60 @@ export function WeekBody({
       <div className="space-y-4 md:hidden">
         {days.map((d) => {
           const dateKey = toDateKey(d);
+          const closed = schedule.isClosed(dateKey);
           return (
-            <div
-              key={dateKey}
-              className={`overflow-hidden rounded-2xl border border-border bg-surface ${
-                isToday(d) ? "ring-1 ring-accent/50" : ""
-              }`}
-            >
-              <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                <div className="text-sm font-semibold">
+            <div key={dateKey} className={`overflow-hidden rounded-2xl border bg-surface ${isToday(d) ? "border-accent/50" : "border-border"}`}>
+              <button
+                type="button"
+                onClick={() => onManageDay(dateKey)}
+                className="flex w-full items-center justify-between border-b border-border px-4 py-3 text-left active:bg-surface-2"
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold">
                   {dayLabel(d, true)} <span className="font-normal text-foreground-muted">{formatDayMonth(d)}</span>
+                  {isToday(d) && (
+                    <span className="rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
+                      Oggi
+                    </span>
+                  )}
                 </div>
-              </div>
-              {(["mattina", "pomeriggio"] as Period[]).map((period) => (
-                <div key={period}>
-                  <p className="border-t border-border bg-surface-2/50 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted">
-                    {period === "mattina" ? "Mattina" : "Pomeriggio"}
-                  </p>
-                  <div className="divide-y divide-border">
-                    {orderedEmployees.map((emp) => {
-                      const { leave } = cellData(emp.id, dateKey);
-                      const empBlocks = periodBlocks(emp.id, dateKey, period);
-                      return (
-                        <button
-                          key={emp.id}
-                          type="button"
-                          onClick={() => setEditingCell({ employeeId: emp.id, dateKey })}
-                          className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left active:bg-surface-2"
-                        >
-                          <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                            {emp.name}
-                            {emp.role === "OWNER" && <span className="text-[10px] text-gold">★</span>}
-                          </span>
-                          <DayCellContent blocks={empBlocks} leave={leave} align="right" isPast={isPastDateKey(dateKey)} />
-                        </button>
-                      );
-                    })}
+                {closed && (
+                  <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[11px] font-medium text-danger">🔒 Locale chiuso</span>
+                )}
+              </button>
+              {closed ? (
+                <p className="px-4 py-4 text-sm text-foreground-muted">Nessun turno: il locale non apre in questa giornata.</p>
+              ) : (
+                PERIODS.map((period) => (
+                  <div key={period}>
+                    <p className="border-t border-border bg-surface-2/50 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted">
+                      {PERIOD_LABEL[period]}
+                    </p>
+                    <div className="divide-y divide-border">
+                      {orderedEmployees.map((emp) => {
+                        const entry = entryForPeriod(schedule.entry(emp.id, dateKey), period);
+                        return (
+                          <button
+                            key={emp.id}
+                            type="button"
+                            onClick={() => onEdit(emp.id, dateKey)}
+                            className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left active:bg-surface-2"
+                          >
+                            <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                              {emp.name}
+                              {emp.role === "OWNER" && <span className="text-[10px] text-gold">★</span>}
+                            </span>
+                            <DayCellContent entry={entry} align="right" />
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           );
         })}
       </div>
-
-      {editingCell && (
-        <DayEditorModal
-          employee={orderedEmployees.find((e) => e.id === editingCell.employeeId)!}
-          dateKey={editingCell.dateKey}
-          initialBlocks={cellData(editingCell.employeeId, editingCell.dateKey).blocks}
-          initialLeave={cellData(editingCell.employeeId, editingCell.dateKey).leave}
-          onClose={() => setEditingCell(null)}
-        />
-      )}
     </div>
   );
 }
@@ -163,19 +237,19 @@ function PeriodTable({
   days,
   orderedEmployees,
   period,
-  periodBlocks,
-  leaveEntries,
+  schedule,
   weeklyHours,
   onEdit,
+  onManageDay,
 }: {
   label: string;
   days: Date[];
   orderedEmployees: Employee[];
   period: Period;
-  periodBlocks: (employeeId: string, dateKey: string, period: Period) => Block[];
-  leaveEntries: Leave[];
+  schedule: ReturnType<typeof buildSchedule>;
   weeklyHours: (employeeId: string, period?: Period) => number;
   onEdit: (employeeId: string, dateKey: string) => void;
+  onManageDay: (dateKey: string) => void;
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
@@ -187,27 +261,9 @@ function PeriodTable({
             </th>
             {days.map((d) => {
               const dateKey = toDateKey(d);
-              const today = isToday(d);
               return (
-                <th
-                  key={dateKey}
-                  className={`border-b px-2 py-2.5 text-center align-top ${
-                    today ? "border-accent bg-accent text-accent-foreground" : "border-border bg-surface-2/60"
-                  }`}
-                >
-                  <div
-                    className={`text-xs font-semibold uppercase tracking-wide ${
-                      today ? "text-accent-foreground" : "text-foreground"
-                    }`}
-                  >
-                    {dayLabel(d)}{" "}
-                    <span className={today ? "font-normal opacity-90" : "font-normal text-foreground-muted"}>
-                      {formatDayMonth(d)}
-                    </span>
-                  </div>
-                  {today && (
-                    <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider opacity-90">Oggi</div>
-                  )}
+                <th key={dateKey} className="border-b border-border bg-surface-2/60 px-2 py-2 text-center align-top">
+                  <DayHeaderCell d={d} onManageDay={onManageDay} closed={schedule.isClosed(dateKey)} />
                 </th>
               );
             })}
@@ -221,36 +277,126 @@ function PeriodTable({
             <tr key={emp.id} className={emp.role === "OWNER" ? "border-t-2 border-t-border" : ""}>
               <td className="border-b border-border px-3 py-2.5 align-top">
                 <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <EmployeeAvatar employee={emp} size="sm" />
                   {emp.name}
                   {emp.role === "OWNER" && (
-                    <span className="rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-medium text-gold">
-                      Titolare
-                    </span>
+                    <span className="rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-medium text-gold">Titolare</span>
                   )}
                 </div>
               </td>
               {days.map((d) => {
                 const dateKey = toDateKey(d);
-                const leave = leaveEntries.find((l) => l.employeeId === emp.id && l.dateKey === dateKey) ?? null;
+                const closed = schedule.isClosed(dateKey);
+                const entry: DayEntry = closed
+                  ? schedule.entry(emp.id, dateKey)
+                  : entryForPeriod(schedule.entry(emp.id, dateKey), period);
                 return (
                   <td
                     key={dateKey}
                     className={`cursor-pointer border-b border-border px-2 py-2 align-top transition-colors hover:bg-surface-2 ${
-                      isToday(d) ? "bg-surface-2/40" : ""
-                    }`}
+                      isToday(d) ? "bg-accent/[0.04]" : ""
+                    } ${closed ? "bg-surface-2/40" : ""}`}
                     onClick={() => onEdit(emp.id, dateKey)}
                   >
-                    <DayCellContent blocks={periodBlocks(emp.id, dateKey, period)} leave={leave} isPast={isPastDateKey(dateKey)} />
+                    <DayCellContent entry={entry} />
                   </td>
                 );
               })}
               <td className="border-b border-border px-3 py-2.5 text-center align-top text-sm font-semibold text-foreground">
-                {emp.role === "OWNER" ? "—" : `${weeklyHours(emp.id, period)}h`}
+                {emp.role === "OWNER" ? "—" : formatHours(weeklyHours(emp.id, period))}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// --- Vista per dipendente ---------------------------------------------------
+
+function EmployeesLayout({
+  days,
+  orderedEmployees,
+  schedule,
+  onEdit,
+}: {
+  days: Date[];
+  orderedEmployees: Employee[];
+  schedule: ReturnType<typeof buildSchedule>;
+  onEdit: (employeeId: string, dateKey: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {orderedEmployees.map((emp) => (
+        <EmployeeWeekCard key={emp.id} employee={emp} days={days} schedule={schedule} onEdit={onEdit} />
+      ))}
+      {orderedEmployees.length === 0 && (
+        <p className="col-span-full rounded-2xl border border-border bg-surface px-5 py-8 text-center text-sm text-foreground-muted">
+          Nessun dipendente da mostrare.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function EmployeeWeekCard({
+  employee,
+  days,
+  schedule,
+  onEdit,
+}: {
+  employee: Employee;
+  days: Date[];
+  schedule: ReturnType<typeof buildSchedule>;
+  onEdit?: (employeeId: string, dateKey: string) => void;
+}) {
+  const totalHours = schedule.employeeHours(employee.id);
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
+        <EmployeeAvatar employee={employee} size="lg" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">
+            {employee.name}
+            {employee.role === "OWNER" && (
+              <span className="ml-1.5 rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-medium text-gold align-middle">
+                Titolare
+              </span>
+            )}
+          </p>
+          {employee.jobTitle && <p className="truncate text-xs text-foreground-muted">{employee.jobTitle}</p>}
+        </div>
+        {employee.role !== "OWNER" && (
+          <div className="shrink-0 text-right">
+            <p className="text-lg font-semibold leading-none text-foreground">{totalHours}</p>
+            <p className="text-[10px] uppercase tracking-wide text-foreground-muted">ore</p>
+          </div>
+        )}
+      </div>
+      <div className="divide-y divide-border">
+        {days.map((d) => {
+          const dateKey = toDateKey(d);
+          const entry = schedule.entry(employee.id, dateKey);
+          return (
+            <button
+              key={dateKey}
+              type="button"
+              onClick={() => onEdit?.(employee.id, dateKey)}
+              disabled={!onEdit}
+              className={`flex w-full items-center justify-between gap-3 px-4 py-2 text-left transition-colors ${
+                onEdit ? "hover:bg-surface-2" : ""
+              } ${isToday(d) ? "bg-accent/[0.04]" : ""}`}
+            >
+              <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-foreground-muted">
+                {dayLabel(d)}
+                {isToday(d) && <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-label="Oggi" />}
+              </span>
+              <DayCellContent entry={entry} align="right" />
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

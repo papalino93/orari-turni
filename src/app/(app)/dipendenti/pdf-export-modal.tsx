@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   addDays,
   addMonths,
@@ -10,9 +10,9 @@ import {
   startOfWeek,
   toDateKey,
 } from "@/lib/week";
+import { useToast } from "@/components/toast";
 import { getEmployeeScheduleRange } from "./actions";
 import { RangeCard } from "./range-card";
-import { shareOrDownloadFile } from "@/lib/share-file";
 
 type RangeType = "week" | "month" | "custom";
 
@@ -20,21 +20,29 @@ export function PdfExportModal({
   employeeId,
   employeeName,
   jobTitle,
+  photoVersion,
   onClose,
 }: {
   employeeId: string;
   employeeName: string;
   jobTitle: string | null;
+  photoVersion: string | null;
   onClose: () => void;
 }) {
   const [rangeType, setRangeType] = useState<RangeType>("week");
   const [anchor, setAnchor] = useState(() => toDateKey(new Date()));
   const [customFrom, setCustomFrom] = useState(() => toDateKey(startOfWeek(new Date())));
   const [customTo, setCustomTo] = useState(() => toDateKey(addDays(startOfWeek(new Date()), 6)));
-  const [data, setData] = useState<Awaited<ReturnType<typeof getEmployeeScheduleRange>> | null>(null);
+  type ScheduleData = {
+    blocks: { dateKey: string; startTime: string; endTime: string }[];
+    leaveEntries: { dateKey: string; type: string; quantity: number }[];
+    closures: { dateKey: string; reason: string | null }[];
+  };
+  const [data, setData] = useState<ScheduleData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
 
   const { fromKey, toKey, dateKeys, rangeLabel } = useMemo(() => {
     const anchorDate = new Date(`${anchor}T00:00:00.000Z`);
@@ -54,23 +62,19 @@ export function PdfExportModal({
       days.push(toDateKey(cursor));
       cursor = addDays(cursor, 1);
     }
-    return {
-      fromKey: customFrom,
-      toKey: customTo,
-      dateKeys: days,
-      rangeLabel: `${customFrom} – ${customTo}`,
-    };
+    return { fromKey: customFrom, toKey: customTo, dateKeys: days, rangeLabel: `${customFrom} – ${customTo}` };
   }, [rangeType, anchor, customFrom, customTo]);
 
   useEffect(() => {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- avvia lo spinner quando cambiano i parametri di fetch, pattern standard data-fetching
     setLoading(true);
+    setError(null);
     getEmployeeScheduleRange(employeeId, fromKey, toKey).then((res) => {
-      if (!cancelled) {
-        setData(res);
-        setLoading(false);
-      }
+      if (cancelled) return;
+      setLoading(false);
+      if (res.ok) setData(res.data);
+      else setError(res.error);
     });
     return () => {
       cancelled = true;
@@ -78,28 +82,23 @@ export function PdfExportModal({
   }, [employeeId, fromKey, toKey]);
 
   async function downloadPdf() {
-    if (!cardRef.current) return;
+    if (!data) return;
     setDownloading(true);
     try {
-      const [{ toPng }, { jsPDF }] = await Promise.all([import("html-to-image"), import("jspdf")]);
-      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2 });
-
-      const img = new Image();
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("Impossibile generare l'immagine"));
-        img.src = dataUrl;
+      const { exportEmployeeRangePdf } = await import("./pdf-export");
+      await exportEmployeeRangePdf({
+        employeeId,
+        employeeName,
+        jobTitle,
+        photoVersion,
+        rangeLabel,
+        dateKeys,
+        blocks: data.blocks,
+        leaveEntries: data.leaveEntries as { dateKey: string; type: "FERIE" | "PERMESSO" | "LIBERO" | "MALATTIA"; quantity: number }[],
+        closures: data.closures,
       });
-
-      const pdf = new jsPDF({ unit: "px", format: [img.width, img.height] });
-      pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
-      const blob = pdf.output("blob");
-      const file = new File(
-        [blob],
-        `orario-${employeeName.replace(/\s+/g, "-").toLowerCase()}-${fromKey}_${toKey}.pdf`,
-        { type: "application/pdf" },
-      );
-      await shareOrDownloadFile(file);
+    } catch {
+      toast.showError("Impossibile generare il PDF. Riprova.");
     } finally {
       setDownloading(false);
     }
@@ -143,6 +142,7 @@ export function PdfExportModal({
                 type="button"
                 onClick={() => stepAnchor(-1)}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+                aria-label="Periodo precedente"
               >
                 ‹
               </button>
@@ -151,6 +151,7 @@ export function PdfExportModal({
                 type="button"
                 onClick={() => stepAnchor(1)}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+                aria-label="Periodo successivo"
               >
                 ›
               </button>
@@ -161,6 +162,7 @@ export function PdfExportModal({
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
+                aria-label="Da"
                 className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs outline-none focus:border-accent"
               />
               <span className="text-foreground-muted">–</span>
@@ -168,6 +170,7 @@ export function PdfExportModal({
                 type="date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
+                aria-label="A"
                 className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs outline-none focus:border-accent"
               />
             </div>
@@ -176,16 +179,18 @@ export function PdfExportModal({
 
         <div className="max-w-full overflow-auto rounded-xl" style={{ maxHeight: "55vh" }}>
           {loading || !data ? (
-            <div className="flex h-40 w-full items-center justify-center text-sm text-foreground-muted">Caricamento…</div>
+            <div className="flex h-40 w-full items-center justify-center text-sm text-foreground-muted">
+              {error ? <span className="text-danger">{error}</span> : "Caricamento…"}
+            </div>
           ) : (
             <RangeCard
-              ref={cardRef}
               employeeName={employeeName}
               jobTitle={jobTitle}
               rangeLabel={rangeLabel}
               dateKeys={dateKeys}
               blocks={data.blocks}
-              leaveEntries={data.leaveEntries}
+              leaveEntries={data.leaveEntries as { dateKey: string; type: "FERIE" | "PERMESSO" | "LIBERO" | "MALATTIA"; quantity: number }[]}
+              closures={data.closures}
             />
           )}
         </div>
@@ -193,10 +198,10 @@ export function PdfExportModal({
         <button
           type="button"
           onClick={downloadPdf}
-          disabled={downloading || loading}
+          disabled={downloading || loading || !data}
           className="mt-4 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
         >
-          {downloading ? "Preparazione…" : "Condividi / Scarica PDF"}
+          {downloading ? "Preparazione…" : "📄 Scarica PDF"}
         </button>
       </div>
     </div>
