@@ -115,6 +115,18 @@ export function monthLabel(monthIndex: number, short = false): string {
   return (short ? MONTH_LABELS_SHORT : MONTH_LABELS)[monthIndex];
 }
 
+// Ultimo mese di calendario concluso rispetto a `today` — dicembre
+// dell'anno precedente se oggi è gennaio, altrimenti il mese prima di
+// quello corrente. Usato sia dal promemoria del dipendente ("Le mie ore")
+// sia dal corrispondente avviso del titolare in Dipendenti: la stessa
+// definizione di "ultimo mese da rivedere" in entrambi i posti.
+export function lastCompletedMonth(today: Date): { year: number; month: number } {
+  return {
+    year: today.getUTCMonth() === 0 ? today.getUTCFullYear() - 1 : today.getUTCFullYear(),
+    month: today.getUTCMonth() === 0 ? 12 : today.getUTCMonth(),
+  };
+}
+
 export function startOfMonth(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
