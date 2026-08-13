@@ -248,14 +248,14 @@ export function OrariView({
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex gap-1 rounded-full border border-border bg-surface p-1 w-fit">
+          <div className="flex flex-wrap gap-1 rounded-full border border-border bg-surface p-1 w-fit">
             {(Object.keys(VIEW_LABELS) as ViewMode[]).map((v) => (
               <button
                 key={v}
                 type="button"
                 onClick={() => navigate({ view: v })}
                 title={VIEW_EDITABLE[v] ? `${VIEW_LABELS[v]} — puoi inserire e modificare i turni` : `${VIEW_LABELS[v]} — sola lettura`}
-                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors ${
                   v === view ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
                 }`}
               >
@@ -270,26 +270,28 @@ export function OrariView({
             // stile) si leggevano come un'unica barra di sei linguette,
             // mentre sono due controlli indipendenti — una sceglie il
             // periodo, l'altra come disporre la stessa settimana.
-            <div className="flex items-center gap-2 border-l border-border pl-3">
+            <div className="flex flex-wrap items-center gap-2 border-l border-border pl-3">
               <span className="text-xs font-medium text-foreground-muted/70">Vista</span>
               <div className="flex gap-1 rounded-full border border-border bg-surface p-1 w-fit" role="group" aria-label="Modalità di visualizzazione">
                 <button
                   type="button"
                   onClick={() => navigate({ mode: "periods" })}
-                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                  title="Fasce orarie"
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors ${
                     displayMode === "periods" ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
                   }`}
                 >
-                  <PeriodsIcon /> Fasce orarie
+                  <PeriodsIcon /> <span className="hidden min-[400px]:inline">Fasce orarie</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate({ mode: "employees" })}
-                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                  title="Dipendenti"
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors ${
                     displayMode === "employees" ? "bg-surface-2 text-foreground" : "text-foreground-muted hover:text-foreground"
                   }`}
                 >
-                  <PersonIcon /> Dipendenti
+                  <PersonIcon /> <span className="hidden min-[400px]:inline">Dipendenti</span>
                 </button>
               </div>
             </div>

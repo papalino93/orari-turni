@@ -1,10 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { formatHours, type buildSchedule } from "@/lib/schedule";
-import { CoverageHeatmap, DayCellContent, DayEditorModal, orderEmployees } from "./shared";
+import { COVERAGE_START_HOUR, formatHours, type buildSchedule } from "@/lib/schedule";
+import { DayCellContent, DayEditorModal, orderEmployees } from "./shared";
 import { DayStatusModal } from "./day-status-modal";
 import { EmployeeAvatar } from "@/components/avatar";
+
+// Un grafico a barre senza numeri né legenda visibile a colpo d'occhio non
+// comunicava nulla di utile ("barre alte" rispetto a cosa?) — lo stesso
+// array orario diventa immediatamente leggibile come testo semplice:
+// "13:00–16:00 (1 persona) · 16:00–20:00 (2 persone)".
+function formatHourLabel(hour: number): string {
+  return `${String(hour).padStart(2, "0")}:00`;
+}
+
+function summarizeCoverage(counts: number[]): string | null {
+  const ranges: { start: number; end: number; count: number }[] = [];
+  let current: { start: number; end: number; count: number } | null = null;
+  counts.forEach((count, i) => {
+    const hour = COVERAGE_START_HOUR + i;
+    if (count > 0 && current && current.count === count && current.end === hour) {
+      current.end = hour + 1;
+    } else {
+      if (current) ranges.push(current);
+      current = count > 0 ? { start: hour, end: hour + 1, count } : null;
+    }
+  });
+  if (current) ranges.push(current);
+  if (ranges.length === 0) return null;
+  return ranges
+    .map((r) => `${formatHourLabel(r.start)}–${formatHourLabel(r.end)} (${r.count} ${r.count === 1 ? "persona" : "persone"})`)
+    .join(" · ");
+}
 
 export function DayView({
   dateKey,
@@ -22,7 +49,7 @@ export function DayView({
 
   const closed = schedule.isClosed(dateKey);
   const totalHours = schedule.dayHours(dateKey);
-  const coverage = schedule.dayCoverage(dateKey);
+  const coverageSummary = closed ? null : summarizeCoverage(schedule.dayCoverage(dateKey));
   const shiftCount = orderedEmployees.reduce((sum, e) => {
     const entry = schedule.entry(e.id, dateKey);
     return sum + entry.blocks.length + entry.suspendedBlocks.length;
@@ -31,15 +58,8 @@ export function DayView({
   return (
     <div>
       <div className="mb-4 overflow-hidden rounded-2xl border border-border bg-surface">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <div>
-            <p className="text-sm font-medium text-foreground-muted">Copertura della giornata</p>
-            {!closed && (
-              <p className="text-xs text-foreground-muted">
-                Ogni barra è un&apos;ora (dalle 8 alle 24): più è alta, più persone sono in turno.
-              </p>
-            )}
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+          <p className="text-sm font-medium text-foreground-muted">Copertura della giornata</p>
           <div className="flex items-center gap-3">
             {!closed && (
               <p className="text-sm">
@@ -58,13 +78,15 @@ export function DayView({
             </button>
           </div>
         </div>
-        <div className="px-4 py-3">
+        <div className="border-t border-border px-4 py-3">
           {closed ? (
-            <p className="py-2 text-center text-sm text-foreground-muted">
+            <p className="text-center text-sm text-foreground-muted">
               🔒 Il locale non apre in questa giornata: nessuna copertura da mostrare.
             </p>
+          ) : coverageSummary ? (
+            <p className="text-sm text-foreground">{coverageSummary}</p>
           ) : (
-            <CoverageHeatmap counts={coverage} showAxis />
+            <p className="text-sm text-foreground-muted">Nessun turno pianificato per questa giornata.</p>
           )}
         </div>
       </div>

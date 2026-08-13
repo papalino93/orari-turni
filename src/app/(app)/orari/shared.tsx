@@ -4,16 +4,7 @@ import { forwardRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
-import {
-  COVERAGE_END_HOUR,
-  COVERAGE_START_HOUR,
-  entryLabel,
-  type DayEntry,
-  type Employee,
-  type Block,
-  type Leave,
-  type LeaveType,
-} from "@/lib/schedule";
+import { entryLabel, type DayEntry, type Employee, type Block, type Leave, type LeaveType } from "@/lib/schedule";
 import { saveDayEntry, type DayLeaveInput } from "./actions";
 
 export type { Employee, Block, Leave, LeaveType };
@@ -81,51 +72,6 @@ export function DayCellContent({
   );
 }
 
-export function CoverageHeatmap({
-  counts,
-  compact = false,
-  showAxis = false,
-}: {
-  counts: number[];
-  compact?: boolean;
-  showAxis?: boolean;
-}) {
-  const max = Math.max(1, ...counts);
-  const n = counts.length;
-  const H = compact ? 22 : 30;
-  const barW = 0.62;
-  const radius = barW / 2;
-
-  return (
-    <div>
-      <svg
-        viewBox={`0 0 ${n} ${H}`}
-        preserveAspectRatio="none"
-        style={{ width: "100%", height: H, display: "block", overflow: "visible" }}
-      >
-        <line x1={0} y1={H - 0.5} x2={n} y2={H - 0.5} stroke="var(--border)" strokeWidth={0.4} />
-        {counts.map((c, i) => {
-          const hour = COVERAGE_START_HOUR + i;
-          const color = c === 0 ? "var(--border)" : "var(--accent)";
-          const barH = c === 0 ? 0.6 : Math.max(2.2, (c / max) * (H - 5));
-          const x = i + (1 - barW) / 2;
-          return (
-            <rect key={hour} x={x} y={H - 1 - barH} width={barW} height={barH} rx={radius} fill={color}>
-              <title>{`ore ${hour}:00 — ${c} in turno`}</title>
-            </rect>
-          );
-        })}
-      </svg>
-      {showAxis && (
-        <div className="mt-1 flex justify-between text-[10px] text-foreground-muted/70">
-          <span>{COVERAGE_START_HOUR}</span>
-          <span>{Math.round((COVERAGE_START_HOUR + COVERAGE_END_HOUR) / 2)}</span>
-          <span>{COVERAGE_END_HOUR}</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // La mattina va dalle 8 alle 13, il pomeriggio dalle 13 alle 24: due fasce
 // fisse, non un orario libero unico che potrebbe coprire tutta la giornata.
@@ -306,6 +252,14 @@ function PeriodRowInput({
   // finiva letteralmente fuori dallo schermo, inutilizzabile al tocco.
   // Sotto "sm" l'orario va a capo su una riga propria, indentato sotto la
   // checkbox invece che schiacciato accanto ad essa.
+  //
+  // Sotto "sm" i campi a cifre con avanzamento automatico lasciano il posto
+  // a due <input type="time"> nativi: sono pensati per una tastiera fisica
+  // che digita in fretta, ma al tocco aprono una tastiera numerica che
+  // "salta" da un campo minuscolo all'altro — confuso e, sui telefoni più
+  // stretti, con dimensioni che sforano il bordo dello schermo. La rotella
+  // di sistema nativa (quella che ogni altra app usa) è più stretta, più
+  // familiare al tocco, e non serve nemmeno una tastiera.
   return (
     <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
       <label className="flex items-center gap-1.5">
@@ -317,12 +271,48 @@ function PeriodRowInput({
         />
         <span className="w-20 shrink-0 text-xs font-medium text-foreground-muted">{label}</span>
       </label>
-      <div className="flex items-center gap-2 pl-6 sm:pl-0">
-        <TimeFieldInput value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
-        <span className="text-foreground-muted">–</span>
-        <TimeFieldInput value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
+      <div className="flex min-w-0 items-center gap-2 pl-6 sm:pl-0">
+        <span className="flex min-w-0 flex-1 items-center gap-2 sm:hidden">
+          <NativeTimeField value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
+          <span className="shrink-0 text-foreground-muted">–</span>
+          <NativeTimeField value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
+        </span>
+        <span className="hidden min-w-0 flex-1 items-center gap-2 sm:flex">
+          <TimeFieldInput value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
+          <span className="text-foreground-muted">–</span>
+          <TimeFieldInput value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
+        </span>
       </div>
     </div>
+  );
+}
+
+function NativeTimeField({
+  value,
+  min,
+  max,
+  onChange,
+  ariaLabel,
+}: {
+  value: string;
+  min: string;
+  max: string;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <input
+      type="time"
+      step={60}
+      value={value}
+      min={min}
+      max={max}
+      onChange={(e) => {
+        if (e.target.value) onChange(clampTime(e.target.value, min, max));
+      }}
+      aria-label={ariaLabel}
+      className="w-full min-w-0 rounded-lg border border-border bg-surface-2 px-2 py-2.5 text-sm outline-none focus:border-accent"
+    />
   );
 }
 
