@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { dayLabel, formatDayMonth, isToday, toDateKey } from "@/lib/week";
-import { formatHours, type buildSchedule, type Role } from "@/lib/schedule";
+import { dayLabel, formatDayMonth, isToday, parseDateKey, toDateKey } from "@/lib/week";
+import { buildSchedule, formatHours, type Block, type Closure, type Leave, type Role } from "@/lib/schedule";
 import { EmployeeAvatar } from "@/components/avatar";
 import { useToast, runWithToast } from "@/components/toast";
 import {
@@ -29,13 +29,34 @@ type EmployeeRow = {
 
 export function EmployeeList({
   employees,
-  weekDays,
-  schedule,
+  dateKeys,
+  blocks,
+  leaveEntries,
+  closures,
 }: {
   employees: EmployeeRow[];
-  weekDays: Date[];
-  schedule: ReturnType<typeof buildSchedule>;
+  dateKeys: string[];
+  blocks: Block[];
+  leaveEntries: Leave[];
+  closures: Closure[];
 }) {
+  // Stessa fonte dati e stessa funzione (buildSchedule) usate da /orari:
+  // costruita qui lato client perché uno Schedule contiene funzioni (entry,
+  // isClosed, ...) che un Server Component non può passare a un componente
+  // client come prop.
+  const schedule = useMemo(
+    () =>
+      buildSchedule({
+        dateKeys,
+        employees: employees.filter((e) => e.active),
+        blocks,
+        leaveEntries,
+        closures,
+      }),
+    [dateKeys, employees, blocks, leaveEntries, closures],
+  );
+  const weekDays = useMemo(() => dateKeys.map((k) => parseDateKey(k)), [dateKeys]);
+
   if (employees.length === 0) {
     return (
       <p className="rounded-2xl border border-border bg-surface px-5 py-8 text-center text-sm text-foreground-muted">

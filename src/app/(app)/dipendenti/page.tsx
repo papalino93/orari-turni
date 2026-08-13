@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { addDays, startOfWeek, toDateKey } from "@/lib/week";
-import { buildSchedule } from "@/lib/schedule";
 import { NewEmployeeForm } from "./new-employee-form";
 import { EmployeeList } from "./employee-list";
 
@@ -26,27 +25,6 @@ export default async function DipendentiPage() {
     photoVersion: e.photoUpdatedAt ? String(e.photoUpdatedAt.getTime()) : null,
   }));
 
-  const schedule = buildSchedule({
-    dateKeys,
-    employees: mapped.filter((e) => e.active),
-    blocks: blocks.map((b) => ({
-      id: b.id,
-      employeeId: b.employeeId,
-      dateKey: toDateKey(b.date),
-      startTime: b.startTime,
-      endTime: b.endTime,
-      confirmed: b.confirmed,
-    })),
-    leaveEntries: leaveEntries.map((l) => ({
-      id: l.id,
-      employeeId: l.employeeId,
-      dateKey: toDateKey(l.date),
-      type: l.type,
-      quantity: l.quantity,
-    })),
-    closures: closures.map((c) => ({ dateKey: toDateKey(c.date), reason: c.reason })),
-  });
-
   return (
     <div className="mx-auto max-w-4xl">
       <h1 className="mb-1 text-xl font-semibold tracking-tight">Dipendenti</h1>
@@ -55,7 +33,26 @@ export default async function DipendentiPage() {
       </p>
 
       <NewEmployeeForm />
-      <EmployeeList employees={mapped} weekDays={dateKeys.map((k) => new Date(`${k}T00:00:00.000Z`))} schedule={schedule} />
+      <EmployeeList
+        employees={mapped}
+        dateKeys={dateKeys}
+        blocks={blocks.map((b) => ({
+          id: b.id,
+          employeeId: b.employeeId,
+          dateKey: toDateKey(b.date),
+          startTime: b.startTime,
+          endTime: b.endTime,
+          confirmed: b.confirmed,
+        }))}
+        leaveEntries={leaveEntries.map((l) => ({
+          id: l.id,
+          employeeId: l.employeeId,
+          dateKey: toDateKey(l.date),
+          type: l.type,
+          quantity: l.quantity,
+        }))}
+        closures={closures.map((c) => ({ dateKey: toDateKey(c.date), reason: c.reason }))}
+      />
     </div>
   );
 }
