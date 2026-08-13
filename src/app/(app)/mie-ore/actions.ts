@@ -12,6 +12,7 @@ import { todayKey } from "@/lib/week";
 export async function submitMonth(year: number, month: number): Promise<ActionResult> {
   return runAction(async () => {
     const employee = await requireEmployee();
+    assert(employee.active, "Il tuo account è disattivato: non puoi più inviare ore per l'approvazione.");
     assert(year >= 2020 && year <= 2100, "Anno non valido.");
     assert(month >= 1 && month <= 12, "Mese non valido.");
 
