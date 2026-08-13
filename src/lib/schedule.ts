@@ -24,6 +24,13 @@ export type Block = {
   startTime: string;
   endTime: string;
   confirmed: boolean;
+  // Presenti solo se un dipendente ha corretto o aggiunto questo turno
+  // durante la revisione mensile (Area Dipendenti) — assenti per i turni
+  // pianificati dal titolare, come sempre. Opzionali apposta: tutti i punti
+  // che già costruiscono un Block senza questi campi restano validi.
+  addedByEmployee?: boolean;
+  originalStartTime?: string | null;
+  originalEndTime?: string | null;
 };
 
 export type Leave = {

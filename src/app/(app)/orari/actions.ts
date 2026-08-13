@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { requireUser } from "@/lib/guard";
+import { requireUser, requireSelfOrAdmin } from "@/lib/guard";
 import {
   assert,
   dateKeyToDate,
@@ -54,6 +54,15 @@ async function unpublishWeeksForDates(dates: Date[]) {
 // Sostituisce lo stato dell'intera giornata per un dipendente: o una lista di
 // blocchi orario, oppure un'unica voce di assenza (ferie, permesso, malattia,
 // riposo). Le due cose sono alternative nello stesso giorno.
+//
+// Usata sia dal titolare (Orari, senza limiti) sia da un dipendente che
+// rivede le proprie ore (Area Dipendenti — solo sui propri giorni passati,
+// e solo finché il mese non è stato inviato per l'approvazione). Il ramo
+// dipendente in più registra cosa è cambiato rispetto a quanto pianificato,
+// confrontando mattina/pomeriggio uno a uno con quello che c'era prima:
+// stessi due riquadri che il dipendente vede nell'editor, non ID di riga da
+// far corrispondere (i blocchi vengono comunque ricreati da zero ad ogni
+// salvataggio, non aggiornati in place).
 export async function saveDayEntry(
   employeeIdInput: string,
   dateKeyInput: string,
@@ -61,19 +70,38 @@ export async function saveDayEntry(
   leaveInput: DayLeaveInput,
 ): Promise<ActionResult> {
   return runAction(async () => {
-    await requireUser();
-
     const employeeId = parseId(employeeIdInput, "dipendente");
+    const auth = await requireSelfOrAdmin(employeeId);
+
     const dateKey = parseDateKey(dateKeyInput);
     const date = dateKeyToDate(dateKey);
 
-    const [employee, closure] = await Promise.all([
+    const [employee, closure, existingBlocks] = await Promise.all([
       prisma.employee.findUnique({ where: { id: employeeId } }),
       prisma.closureDay.findUnique({ where: { date } }),
+      prisma.shiftBlock.findMany({ where: { employeeId, date } }),
     ]);
     assert(employee, "Dipendente non trovato.");
     assert(employee.active, "Il dipendente è disattivato: riattivalo per modificarne gli orari.");
     assert(!closure, "La giornata è impostata come chiusa: riapri il locale per pianificare i turni.");
+
+    // Un dipendente rivede solo giorni già passati (non ha senso registrare
+    // ore per un giorno non ancora accaduto), e solo finché non ha inviato
+    // quel mese per l'approvazione — creando il mese in bozza al primo
+    // tocco, se non esisteva ancora.
+    if (auth.role === "EMPLOYEE") {
+      assert(dateKey <= todayKey(), "Non puoi registrare ore per un giorno futuro.");
+      const [year, month] = dateKey.split("-").map(Number);
+      const submission = await prisma.monthlySubmission.upsert({
+        where: { employeeId_year_month: { employeeId, year, month } },
+        update: {},
+        create: { employeeId, year, month },
+      });
+      assert(
+        submission.status === "DRAFT" || submission.status === "REOPENED",
+        "Questo mese è già stato inviato al titolare: non è più modificabile.",
+      );
+    }
 
     const leave = leaveInput
       ? {
@@ -116,6 +144,13 @@ export async function saveDayEntry(
       maxEndSoFar = Math.max(maxEndSoFar, timeToMinutes(sorted[i].endTime));
     }
 
+    // "Mattina"/"pomeriggio" allo stesso confine delle 13:00 usato
+    // dall'editor (vedi MATTINA_MAX/POMERIGGIO_MIN in orari/shared.tsx): è
+    // il modo in cui il dipendente vede e corregge i due turni, quindi è
+    // anche il modo giusto per confrontare "cosa c'era prima".
+    const oldMorning = existingBlocks.find((b) => b.startTime < "13:00");
+    const oldAfternoon = existingBlocks.find((b) => b.startTime >= "13:00");
+
     const ops: Prisma.PrismaPromise<unknown>[] = [
       prisma.shiftBlock.deleteMany({ where: { employeeId, date } }),
       prisma.leaveEntry.deleteMany({ where: { employeeId, date } }),
@@ -124,13 +159,31 @@ export async function saveDayEntry(
       ops.push(prisma.leaveEntry.create({ data: { employeeId, date, type: leave.type, quantity: leave.quantity } }));
     } else {
       for (const b of blocks) {
-        ops.push(prisma.shiftBlock.create({ data: { employeeId, date, startTime: b.startTime, endTime: b.endTime } }));
+        let audit: { addedByEmployee?: boolean; originalStartTime?: string; originalEndTime?: string; editedByEmployeeAt?: Date } = {};
+        if (auth.role === "EMPLOYEE") {
+          const old = b.startTime < "13:00" ? oldMorning : oldAfternoon;
+          audit = old
+            ? old.startTime !== b.startTime || old.endTime !== b.endTime
+              ? { originalStartTime: old.startTime, originalEndTime: old.endTime, editedByEmployeeAt: new Date() }
+              : {}
+            : { addedByEmployee: true, editedByEmployeeAt: new Date() };
+        }
+        ops.push(
+          prisma.shiftBlock.create({
+            data: { employeeId, date, startTime: b.startTime, endTime: b.endTime, ...audit },
+          }),
+        );
       }
     }
     await prisma.$transaction(ops);
-    await unpublishWeeksForDates([date]);
+
+    // La correzione a posteriori di un dipendente non tocca cosa il
+    // titolare ha comunicato come pianificazione — solo lui che ripianifica
+    // deve far tornare "non condivisa" la settimana.
+    if (auth.role !== "EMPLOYEE") await unpublishWeeksForDates([date]);
 
     revalidateSchedule();
+    revalidatePath("/mie-ore");
   });
 }
 

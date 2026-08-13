@@ -185,6 +185,54 @@ export async function regenerateEmployeePassword(idInput: string): Promise<Actio
   });
 }
 
+// --- Revisione mensile del dipendente (Area Dipendenti) ---------------------
+
+// Inviato → Approvato: le ore di quel mese sono confermate, il dipendente
+// non può più modificarle (vedi saveDayEntry in orari/actions.ts).
+export async function approveMonth(idInput: string, year: number, month: number): Promise<ActionResult> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const employeeId = parseId(idInput, "dipendente");
+
+    const submission = await prisma.monthlySubmission.findUnique({
+      where: { employeeId_year_month: { employeeId, year, month } },
+    });
+    assert(submission, "Nessun invio trovato per questo mese.");
+    assert(submission.status === "SUBMITTED", "Questo mese non è in attesa di approvazione.");
+
+    await prisma.monthlySubmission.update({
+      where: { id: submission.id },
+      data: { status: "APPROVED", approvedAt: new Date(), approvedBy: user.username },
+    });
+    revalidateEmployees();
+    revalidatePath("/mie-ore");
+  });
+}
+
+// Inviato → Riaperto: il titolare ha trovato qualcosa che non torna e
+// rimanda il mese al dipendente per un altro giro (con una nota, se serve).
+// Torna modificabile esattamente come una bozza.
+export async function reopenMonth(idInput: string, year: number, month: number, note: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireUser();
+    const employeeId = parseId(idInput, "dipendente");
+    const reopenNote = parseText(note, "nota", { max: 300 });
+
+    const submission = await prisma.monthlySubmission.findUnique({
+      where: { employeeId_year_month: { employeeId, year, month } },
+    });
+    assert(submission, "Nessun invio trovato per questo mese.");
+    assert(submission.status === "SUBMITTED", "Questo mese non è in attesa di approvazione.");
+
+    await prisma.monthlySubmission.update({
+      where: { id: submission.id },
+      data: { status: "REOPENED", reopenedAt: new Date(), reopenNote: reopenNote || null },
+    });
+    revalidateEmployees();
+    revalidatePath("/mie-ore");
+  });
+}
+
 // Eliminazione definitiva: porta con sé turni, assenze e saldi del
 // dipendente (relazioni onDelete: Cascade). Per chi ha smesso di lavorare qui
 // la strada giusta è la disattivazione, che conserva lo storico.

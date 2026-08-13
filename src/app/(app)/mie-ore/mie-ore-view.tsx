@@ -1,10 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { addDays, formatWeekRange, isToday, parseDateKey, startOfWeek, toDateKey, todayKey } from "@/lib/week";
+import { addDays, formatWeekRange, isToday, monthLabel, parseDateKey, startOfWeek, toDateKey, todayKey } from "@/lib/week";
 import { buildSchedule, type Block, type Closure, type Leave } from "@/lib/schedule";
 import { EmployeeWeekCard } from "../orari/week-grid";
+
+type SubmissionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REOPENED";
 
 export function MieOreView({
   employee,
@@ -14,6 +17,8 @@ export function MieOreView({
   leaveEntries,
   closures,
   deactivatedAtKey,
+  lastCompletedMonth,
+  lastMonthStatus,
 }: {
   employee: { id: string; name: string; jobTitle: string | null; photoVersion: string | null };
   weekStartKey: string;
@@ -23,6 +28,8 @@ export function MieOreView({
   closures: Closure[];
   /** Presente solo per un account disattivato: confine oltre il quale non si va più avanti. */
   deactivatedAtKey: string | null;
+  lastCompletedMonth: { year: number; month: number };
+  lastMonthStatus: SubmissionStatus | null;
 }) {
   const router = useRouter();
   const weekStart = parseDateKey(weekStartKey);
@@ -60,6 +67,8 @@ export function MieOreView({
 
   return (
     <div className="mx-auto max-w-xl">
+      {!deactivatedAtKey && <ReviewReminder lastCompletedMonth={lastCompletedMonth} status={lastMonthStatus} />}
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
@@ -103,9 +112,9 @@ export function MieOreView({
         </div>
       </div>
 
-      {/* Sola lettura per ora: l'orario che vedi qui è quello compilato dal
-          titolare. La correzione delle ore effettive a fine mese arriva in
-          un prossimo passaggio — vedi il piano di progetto "Area Dipendenti". */}
+      {/* Qui sotto è sola lettura: l'orario pianificato dal titolare. Per
+          correggere le ore davvero lavorate (e aggiungerne di mancanti) si
+          passa dalla revisione mensile — vedi il richiamo qui sopra. */}
       <p className="mb-4 text-xs text-foreground-muted">
         {deactivatedAtKey
           ? "Account disattivato: puoi consultare solo lo storico fino alla data di disattivazione."
@@ -114,5 +123,50 @@ export function MieOreView({
 
       <EmployeeWeekCard employee={{ ...employee, role: "EMPLOYEE", sortOrder: 0 }} days={days} schedule={schedule} />
     </div>
+  );
+}
+
+// L'unico promemoria che l'app può permettersi senza email/SMS/push a
+// pagamento: un banner dentro l'app stessa. Compare da solo se l'ultimo
+// mese concluso non è ancora stato inviato — altrimenti resta comunque un
+// link discreto per rivedere le ore quando si vuole, non solo a fine mese.
+function ReviewReminder({
+  lastCompletedMonth,
+  status,
+}: {
+  lastCompletedMonth: { year: number; month: number };
+  status: SubmissionStatus | null;
+}) {
+  const needsAttention = status === null || status === "DRAFT" || status === "REOPENED";
+  const label = `${monthLabel(lastCompletedMonth.month - 1)} ${lastCompletedMonth.year}`;
+  const href = `/mie-ore/revisione?year=${lastCompletedMonth.year}&month=${lastCompletedMonth.month}`;
+
+  if (!needsAttention) {
+    return (
+      <Link
+        href="/mie-ore/revisione"
+        className="mb-4 flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
+      >
+        Rivedi le tue ore
+        <span aria-hidden>›</span>
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-gold transition-colors hover:bg-gold/15"
+    >
+      <span>
+        <span className="font-medium">
+          {status === "REOPENED" ? `${label}: il titolare ha rimandato indietro le ore` : `Rivedi le ore di ${label}`}
+        </span>
+        <span className="mt-0.5 block text-xs opacity-80">
+          {status === "REOPENED" ? "Tocca per controllare e reinviare." : "Controlla che sia tutto giusto e invia."}
+        </span>
+      </span>
+      <span aria-hidden>›</span>
+    </Link>
   );
 }

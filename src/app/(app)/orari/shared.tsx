@@ -64,7 +64,17 @@ export function DayCellContent({
         </span>
       )}
       {entry.blocks.map((b) => (
-        <span key={b.id} className="whitespace-nowrap text-xs font-medium text-foreground">
+        <span key={b.id} className="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-foreground">
+          {(b.addedByEmployee || b.originalStartTime) && (
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-gold"
+              title={
+                b.addedByEmployee
+                  ? "Aggiunto dal dipendente durante la revisione mensile"
+                  : `Corretto dal dipendente — era pianificato ${b.originalStartTime}–${b.originalEndTime}`
+              }
+            />
+          )}
           {b.startTime}–{b.endTime}
         </span>
       ))}
