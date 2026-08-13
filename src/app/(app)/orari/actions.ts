@@ -162,11 +162,26 @@ export async function saveDayEntry(
         let audit: { addedByEmployee?: boolean; originalStartTime?: string; originalEndTime?: string; editedByEmployeeAt?: Date } = {};
         if (auth.role === "EMPLOYEE") {
           const old = b.startTime < "13:00" ? oldMorning : oldAfternoon;
-          audit = old
-            ? old.startTime !== b.startTime || old.endTime !== b.endTime
-              ? { originalStartTime: old.startTime, originalEndTime: old.endTime, editedByEmployeeAt: new Date() }
-              : {}
-            : { addedByEmployee: true, editedByEmployeeAt: new Date() };
+          if (!old || old.addedByEmployee) {
+            // Nessun turno pianificato dal titolare in questa fascia — o non
+            // c'era, o è già un blocco aggiunto dal dipendente in una
+            // revisione precedente: in entrambi i casi non c'è nessun
+            // "originale" del titolare da registrare.
+            audit = { addedByEmployee: true, editedByEmployeeAt: new Date() };
+          } else {
+            // Se questo blocco è già stato corretto in un salvataggio
+            // precedente, il vero orario pianificato dal titolare è quello
+            // già registrato in originalStartTime/originalEndTime — non
+            // old.startTime/endTime, che a questo punto è già la correzione
+            // precedente del dipendente. Confrontarsi con quest'ultima
+            // perderebbe il pianificato vero ad ogni modifica successiva.
+            const trueOriginalStart = old.originalStartTime ?? old.startTime;
+            const trueOriginalEnd = old.originalEndTime ?? old.endTime;
+            audit =
+              trueOriginalStart !== b.startTime || trueOriginalEnd !== b.endTime
+                ? { originalStartTime: trueOriginalStart, originalEndTime: trueOriginalEnd, editedByEmployeeAt: new Date() }
+                : {};
+          }
         }
         ops.push(
           prisma.shiftBlock.create({

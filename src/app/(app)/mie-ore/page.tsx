@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { addDays, parseDateKey, startOfWeek, toDateKey, todayKey } from "@/lib/week";
+import { addDays, endOfMonth, lastCompletedMonth, parseDateKey, startOfWeek, toDateKey, todayKey } from "@/lib/week";
 import { MieOreView } from "./mie-ore-view";
 
 export default async function MieOrePage({
@@ -33,14 +33,19 @@ export default async function MieOrePage({
   // "a fine mese" — vedi il promemoria mostrato qui sotto se non è ancora
   // stato inviato.
   const now = parseDateKey(todayKey());
-  const lastCompletedMonth = { year: now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear(), month: now.getUTCMonth() === 0 ? 12 : now.getUTCMonth() };
+  const reviewMonth = lastCompletedMonth(now);
+  const reviewMonthEnd = endOfMonth(new Date(Date.UTC(reviewMonth.year, reviewMonth.month - 1, 1)));
+  // Se il dipendente è stato assunto dopo la fine di quel mese, non c'è
+  // nulla da rivedere: il promemoria non deve suonare come un mese
+  // dimenticato quando semplicemente non lavorava ancora qui.
+  const wasHiredByReviewMonth = employee.createdAt <= reviewMonthEnd;
 
   const [blocks, leaveEntries, closures, lastMonthSubmission] = await Promise.all([
     prisma.shiftBlock.findMany({ where: { employeeId: employee.id, date: { gte: weekStart, lte: weekEnd } } }),
     prisma.leaveEntry.findMany({ where: { employeeId: employee.id, date: { gte: weekStart, lte: weekEnd } } }),
     prisma.closureDay.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
     prisma.monthlySubmission.findUnique({
-      where: { employeeId_year_month: { employeeId: employee.id, ...lastCompletedMonth } },
+      where: { employeeId_year_month: { employeeId: employee.id, ...reviewMonth } },
     }),
   ]);
 
@@ -53,8 +58,9 @@ export default async function MieOrePage({
         photoVersion: employee.photoUpdatedAt ? String(employee.photoUpdatedAt.getTime()) : null,
       }}
       deactivatedAtKey={employee.deactivatedAt ? toDateKey(employee.deactivatedAt) : null}
-      lastCompletedMonth={lastCompletedMonth}
+      lastCompletedMonth={reviewMonth}
       lastMonthStatus={lastMonthSubmission?.status ?? null}
+      wasHiredByReviewMonth={wasHiredByReviewMonth}
       weekStartKey={toDateKey(weekStart)}
       dateKeys={dateKeys}
       blocks={blocks.map((b) => ({

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { addDays, monthLabel, parseDateKey, startOfWeek, toDateKey, todayKey } from "@/lib/week";
+import { addDays, endOfMonth, lastCompletedMonth, monthLabel, parseDateKey, startOfWeek, toDateKey, todayKey } from "@/lib/week";
 import { NewEmployeeForm } from "./new-employee-form";
 import { EmployeeList } from "./employee-list";
 import {
@@ -51,10 +51,8 @@ export default async function DipendentiPage() {
   // Speculare al promemoria che vede il dipendente in "Le mie ore": qui il
   // titolare vede chi non ha ancora inviato l'ultimo mese concluso.
   const now = parseDateKey(todayKey());
-  const lastCompletedMonth = {
-    year: now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear(),
-    month: now.getUTCMonth() === 0 ? 12 : now.getUTCMonth(),
-  };
+  const reviewMonth = lastCompletedMonth(now);
+  const reviewMonthEnd = endOfMonth(new Date(Date.UTC(reviewMonth.year, reviewMonth.month - 1, 1)));
 
   const [employeesRaw, blocks, leaveEntries, closures, pendingSubmissions, lastMonthSubmissions] = await Promise.all([
     prisma.employee.findMany({ orderBy: [{ active: "desc" }, { sortOrder: "asc" }] }),
@@ -64,15 +62,22 @@ export default async function DipendentiPage() {
     // Solo gli invii "in attesa": è l'unico stato che richiede un'azione del
     // titolare — bozze e mesi già approvati non hanno nulla da mostrare qui.
     prisma.monthlySubmission.findMany({ where: { status: "SUBMITTED" } }),
-    prisma.monthlySubmission.findMany({ where: { ...lastCompletedMonth } }),
+    prisma.monthlySubmission.findMany({ where: { ...reviewMonth } }),
   ]);
   const employees = await ensureEmployeeCredentials(employeesRaw);
 
   const submittedOrApprovedIds = new Set(
     lastMonthSubmissions.filter((s) => s.status === "SUBMITTED" || s.status === "APPROVED").map((s) => s.employeeId),
   );
+  // Assunti dopo la fine del mese in questione restano fuori: non hanno
+  // nulla da inviare per un periodo in cui non lavoravano ancora qui.
   const missingLastMonth = employees.filter(
-    (e) => e.role === "EMPLOYEE" && e.active && e.username && !submittedOrApprovedIds.has(e.id),
+    (e) =>
+      e.role === "EMPLOYEE" &&
+      e.active &&
+      e.username &&
+      e.createdAt <= reviewMonthEnd &&
+      !submittedOrApprovedIds.has(e.id),
   );
 
   const mapped = employees.map((e) => ({
@@ -104,7 +109,7 @@ export default async function DipendentiPage() {
           {missingLastMonth.length === 1
             ? `${missingLastMonth[0].name} non ha ancora inviato le ore di `
             : `${missingLastMonth.length} dipendenti non hanno ancora inviato le ore di `}
-          {monthLabel(lastCompletedMonth.month - 1)} {lastCompletedMonth.year}
+          {monthLabel(reviewMonth.month - 1)} {reviewMonth.year}
           {missingLastMonth.length > 1 && (
             <span className="text-gold/80"> ({missingLastMonth.map((e) => e.name).join(", ")})</span>
           )}

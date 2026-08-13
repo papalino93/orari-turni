@@ -11,6 +11,14 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
   if (!session?.user) return new NextResponse("Non autorizzato", { status: 401 });
 
   const { id } = await context.params;
+  // Titolare/consulente vedono la foto di chiunque; un dipendente solo la
+  // propria. Stesso motivo di role !== "EMPLOYEE" in guard.ts: un token
+  // firmato prima dell'Area Dipendenti non ha ancora questo campo ed è per
+  // forza titolare/consulente.
+  if (session.user.role === "EMPLOYEE" && session.user.employeeId !== id) {
+    return new NextResponse("Non autorizzato", { status: 403 });
+  }
+
   const photo = await prisma.employeePhoto.findUnique({ where: { employeeId: id } });
   if (!photo) return new NextResponse("Non trovata", { status: 404 });
 

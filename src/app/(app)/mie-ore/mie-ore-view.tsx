@@ -19,6 +19,7 @@ export function MieOreView({
   deactivatedAtKey,
   lastCompletedMonth,
   lastMonthStatus,
+  wasHiredByReviewMonth,
 }: {
   employee: { id: string; name: string; jobTitle: string | null; photoVersion: string | null };
   weekStartKey: string;
@@ -30,6 +31,8 @@ export function MieOreView({
   deactivatedAtKey: string | null;
   lastCompletedMonth: { year: number; month: number };
   lastMonthStatus: SubmissionStatus | null;
+  /** False se il dipendente è stato assunto dopo la fine di lastCompletedMonth. */
+  wasHiredByReviewMonth: boolean;
 }) {
   const router = useRouter();
   const weekStart = parseDateKey(weekStartKey);
@@ -67,7 +70,13 @@ export function MieOreView({
 
   return (
     <div className="mx-auto max-w-xl">
-      {!deactivatedAtKey && <ReviewReminder lastCompletedMonth={lastCompletedMonth} status={lastMonthStatus} />}
+      {!deactivatedAtKey && (
+        <ReviewReminder
+          lastCompletedMonth={lastCompletedMonth}
+          status={lastMonthStatus}
+          wasHiredByReviewMonth={wasHiredByReviewMonth}
+        />
+      )}
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -133,11 +142,15 @@ export function MieOreView({
 function ReviewReminder({
   lastCompletedMonth,
   status,
+  wasHiredByReviewMonth,
 }: {
   lastCompletedMonth: { year: number; month: number };
   status: SubmissionStatus | null;
+  wasHiredByReviewMonth: boolean;
 }) {
-  const needsAttention = status === null || status === "DRAFT" || status === "REOPENED";
+  // Assunto dopo la fine di quel mese: nessun mese dimenticato da segnalare,
+  // solo il link discreto sotto per rivedere le ore quando servirà.
+  const needsAttention = wasHiredByReviewMonth && (status === null || status === "DRAFT" || status === "REOPENED");
   const label = `${monthLabel(lastCompletedMonth.month - 1)} ${lastCompletedMonth.year}`;
   const href = `/mie-ore/revisione?year=${lastCompletedMonth.year}&month=${lastCompletedMonth.month}`;
 
