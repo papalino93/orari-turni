@@ -18,6 +18,7 @@ import {
   col,
   drawFooter,
   drawHeader,
+  drawLockIcon,
   ensureSpace,
   initials,
   loadPhotoDataUrl,
@@ -111,10 +112,14 @@ export async function exportEmployeeRangePdf({
     totalHours += hours;
 
     if (closed) {
+      // Niente emoji: i font standard di jsPDF non hanno il glifo del
+      // lucchetto (produce testo illeggibile e sballa la larghezza
+      // misurata). Il lucchetto è disegnato a parte, vettoriale.
+      drawLockIcon(doc, MARGIN + nameColW + 4 + 1.7, y + rowH / 2, 3.4, WINE);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.setTextColor(...WINE);
-      doc.text("🔒 LOCALE CHIUSO", MARGIN + nameColW + 4, y + rowH / 2 + 1, { baseline: "middle" });
+      doc.text("LOCALE CHIUSO", MARGIN + nameColW + 4 + 5, y + rowH / 2 + 1, { baseline: "middle" });
     } else if (leave) {
       const kind = leaveTypeToKind(leave.type);
       const color = col(kind === "FERIE" ? WINE : kind === "PERMESSO" ? GOLD : kind === "MALATTIA" ? DANGER : MUTED);

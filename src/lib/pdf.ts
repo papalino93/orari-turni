@@ -31,6 +31,31 @@ export function col(c: readonly [number, number, number]): readonly [number, num
   return c;
 }
 
+// jsPDF's built-in fonts (Helvetica & friends, the standard 14 PDF fonts)
+// only cover WinAnsi encoding — no emoji. Passing "🔒" to doc.text() doesn't
+// just print a missing-glyph box: it silently produces a garbled run of
+// unrelated WinAnsi characters, AND throws off getTextWidth() for that
+// string (used by truncate() below), which was making "chiuso" cells
+// overflow into neighbouring columns instead of getting cut short. A small
+// vector padlock — a stroked arc with its bottom half covered by a filled
+// body rect — sidesteps the font entirely and looks the same as the web/CSS
+// emoji at a glance.
+export function drawLockIcon(doc: JsPDF, cx: number, cy: number, size: number, color: readonly [number, number, number]) {
+  const bodyW = size * 0.62;
+  const bodyH = size * 0.46;
+  const bodyY = cy - bodyH / 2;
+
+  const shackleRX = bodyW * 0.34;
+  const shackleRY = size * 0.28;
+
+  doc.setDrawColor(...color);
+  doc.setLineWidth(size * 0.11);
+  doc.ellipse(cx, bodyY, shackleRX, shackleRY, "S");
+
+  doc.setFillColor(...color);
+  doc.roundedRect(cx - bodyW / 2, bodyY, bodyW, bodyH, size * 0.06, size * 0.06, "F");
+}
+
 type JsPDF = import("jspdf").jsPDF;
 
 export async function newLandscapeDoc(): Promise<JsPDF> {
