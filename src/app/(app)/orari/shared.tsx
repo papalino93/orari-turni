@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useMemo, useState, useTransition } from "react";
+import { forwardRef, useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
@@ -440,6 +440,15 @@ export function DayEditorModal({
 
   const date = parseDateKey(dateKey);
 
+  // Prima "Salva" era solo un pulsante da cliccare: premere Invio dentro un
+  // campo orario non faceva nulla, un riflesso che chi digita velocemente
+  // si aspetta da qualunque form. Il form sotto rende il pulsante "Salva" il
+  // submit implicito — Invio in un qualsiasi campo lo attiva da solo.
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    save();
+  }
+
   function save() {
     const leave: DayLeaveInput =
       mode === "WORK"
@@ -518,7 +527,7 @@ export function DayEditorModal({
             </div>
           </div>
         ) : (
-          <>
+          <form onSubmit={handleSubmit}>
             <div className="mb-4 flex flex-wrap gap-2">
               <ModeButton label="Turno" active={mode === "WORK"} onClick={() => setMode("WORK")} />
               <ModeButton label="Riposo" active={mode === "LIBERO"} onClick={() => setMode("LIBERO")} />
@@ -592,8 +601,7 @@ export function DayEditorModal({
                   Annulla
                 </button>
                 <button
-                  type="button"
-                  onClick={save}
+                  type="submit"
                   disabled={pending}
                   className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
                 >
@@ -601,7 +609,7 @@ export function DayEditorModal({
                 </button>
               </div>
             </div>
-          </>
+          </form>
         )}
       </div>
     </div>
