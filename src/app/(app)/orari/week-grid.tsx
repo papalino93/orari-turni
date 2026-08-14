@@ -5,6 +5,7 @@ import { dayLabel, formatDayMonth, isToday, parseDateKey, toDateKey } from "@/li
 import { entryForPeriod, formatHours, PERIOD_LABEL, PERIODS, type DayEntry, type Employee, type Period, buildSchedule } from "@/lib/schedule";
 import { DayCellContent, DayEditorModal, orderEmployees } from "./shared";
 import { DayStatusModal } from "./day-status-modal";
+import { ClosureRangeModal } from "./closure-range-modal";
 import { EmployeeAvatar } from "@/components/avatar";
 import { PdfExportModal } from "../dipendenti/pdf-export-modal";
 import type { DisplayMode } from "./orari-view";
@@ -29,6 +30,7 @@ export function WeekBody({
 
   const [editingCell, setEditingCell] = useState<{ employeeId: string; dateKey: string } | null>(null);
   const [managingDate, setManagingDate] = useState<string | null>(null);
+  const [managingRange, setManagingRange] = useState(false);
 
   const allOrdered = orderEmployees(schedule.employees);
   const orderedEmployees = employeeFilter ? allOrdered.filter((e) => e.id === employeeFilter) : allOrdered;
@@ -57,6 +59,7 @@ export function WeekBody({
         days={days}
         schedule={schedule}
         onManageDay={setManagingDate}
+        onManageRange={() => setManagingRange(true)}
         hideOnMobile={displayMode === "periods"}
       />
 
@@ -107,6 +110,8 @@ export function WeekBody({
           onClose={() => setManagingDate(null)}
         />
       )}
+
+      {managingRange && <ClosureRangeModal defaultKey={weekStartKey} onClose={() => setManagingRange(false)} />}
     </div>
   );
 }
@@ -115,11 +120,13 @@ function WeekClosureBar({
   days,
   schedule,
   onManageDay,
+  onManageRange,
   hideOnMobile,
 }: {
   days: Date[];
   schedule: ReturnType<typeof buildSchedule>;
   onManageDay: (dateKey: string) => void;
+  onManageRange: () => void;
   hideOnMobile: boolean;
 }) {
   return (
@@ -149,7 +156,23 @@ function WeekClosureBar({
           </button>
         );
       })}
+      <button
+        type="button"
+        onClick={onManageRange}
+        title="Chiudi più giorni di fila in un colpo solo — es. ferie del locale"
+        className="flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-1 text-[11px] font-medium text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
+      >
+        <PlusIcon /> Periodo
+      </button>
     </div>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
   );
 }
 

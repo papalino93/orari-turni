@@ -307,6 +307,52 @@ export async function closeDay(
   });
 }
 
+// Come closeDay, ma per un intervallo di più giorni consecutivi in un colpo
+// solo — ferie del locale, ristrutturazione: prima andava chiusa una
+// giornata alla volta, ripetendo lo stesso gesto per ognuna.
+export async function closeDateRange(
+  fromKeyInput: string,
+  toKeyInput: string,
+  options: { removeShifts?: boolean; reason?: string } = {},
+): Promise<ActionResult<{ days: number; removedShifts: number; suspendedShifts: number }>> {
+  return runAction(async () => {
+    const user = await requireUser();
+    const fromKey = parseDateKey(fromKeyInput, "data di inizio");
+    const toKey = parseDateKey(toKeyInput, "data di fine");
+    assert(fromKey <= toKey, "La data di inizio deve precedere quella di fine.");
+    const reason = parseText(options.reason, "motivo", { max: 80 });
+
+    const dateKeys: string[] = [];
+    for (let cursor = toDate(fromKey); toDateKey(cursor) <= toKey; cursor = addDays(cursor, 1)) {
+      dateKeys.push(toDateKey(cursor));
+    }
+    assert(dateKeys.length <= 60, "Puoi chiudere al massimo 60 giorni per volta.");
+    const dates = dateKeys.map(dateKeyToDate);
+
+    const existingShifts = await prisma.shiftBlock.count({ where: { date: { in: dates } } });
+
+    await prisma.$transaction([
+      ...dates.map((date) =>
+        prisma.closureDay.upsert({
+          where: { date },
+          update: { reason: reason || null },
+          create: { date, reason: reason || null, createdBy: user.username },
+        }),
+      ),
+      prisma.leaveEntry.deleteMany({ where: { date: { in: dates }, type: "LIBERO" } }),
+      ...(options.removeShifts ? [prisma.shiftBlock.deleteMany({ where: { date: { in: dates } } })] : []),
+    ]);
+    await unpublishWeeksForDates(dates);
+
+    revalidateSchedule();
+    return {
+      days: dateKeys.length,
+      removedShifts: options.removeShifts ? existingShifts : 0,
+      suspendedShifts: options.removeShifts ? 0 : existingShifts,
+    };
+  });
+}
+
 // Riapre una giornata: i turni conservati durante la chiusura tornano validi.
 export async function reopenDay(dateKeyInput: string): Promise<ActionResult<{ restoredShifts: number }>> {
   return runAction(async () => {
