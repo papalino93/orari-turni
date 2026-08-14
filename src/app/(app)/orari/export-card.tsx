@@ -55,10 +55,10 @@ export const ExportCard = forwardRef<
                     fontSize: 12,
                     letterSpacing: 0.4,
                     textTransform: "uppercase",
-                    width: singleEmployee ? 0 : 128,
+                    width: singleEmployee ? 92 : 128,
                   }}
                 >
-                  {singleEmployee ? "" : PERIOD_LABEL[period]}
+                  {PERIOD_LABEL[period]}
                 </th>
                 {days.map((d, i) => (
                   <th
@@ -82,7 +82,11 @@ export const ExportCard = forwardRef<
             <tbody>
               {rows.map((emp, rowIdx) => (
                 <tr key={emp.id} style={{ background: rowIdx % 2 === 0 ? "#fff" : "#fbf1ef", borderBottom: rowIdx === rows.length - 1 ? "none" : "1px solid #f1e2e0" }}>
-                  {!singleEmployee && (
+                  {singleEmployee ? (
+                    // Colonna vuota che tiene le celle allineate sotto
+                    // l'intestazione "Mattina"/"Pomeriggio".
+                    <td />
+                  ) : (
                     <td style={{ padding: "10px 10px", verticalAlign: "middle" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                         <ExportAvatar employee={emp} size={32} />

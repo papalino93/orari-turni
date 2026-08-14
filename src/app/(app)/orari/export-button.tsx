@@ -34,6 +34,10 @@ export function ExportButton({
   // interruttore separato da ricordarsi di premere. Se fallisce, il
   // download è comunque riuscito — non blocchiamo l'utente per questo.
   async function markShared() {
+    // Esportare il foglio di un solo dipendente non è "aver comunicato l'orario
+    // allo staff": marcare la settimana come condivisa farebbe sparire il
+    // promemoria anche per tutti gli altri, che non hanno ricevuto niente.
+    if (employeeFilter) return;
     try {
       await setWeekPublished(weekStartKey, true);
       router.refresh();

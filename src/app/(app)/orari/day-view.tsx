@@ -50,7 +50,10 @@ export function DayView({
   const closed = schedule.isClosed(dateKey);
   const totalHours = schedule.dayHours(dateKey);
   const coverageSummary = closed ? null : summarizeCoverage(schedule.dayCoverage(dateKey));
-  const shiftCount = orderedEmployees.reduce((sum, e) => {
+  // Su tutti i dipendenti, non su quelli filtrati: la chiusura rimuove i turni
+  // di chiunque, quindi un conteggio filtrato farebbe confermare la
+  // cancellazione di turni che non erano stati mostrati.
+  const shiftCount = allOrdered.reduce((sum, e) => {
     const entry = schedule.entry(e.id, dateKey);
     return sum + entry.blocks.length + entry.suspendedBlocks.length;
   }, 0);

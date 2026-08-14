@@ -8,7 +8,7 @@
 // di spazio vuoto.
 
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
-import { DAY_KIND_LABEL, leaveTypeToKind, type LeaveType } from "@/lib/schedule";
+import { leaveLabelFor, leaveTypeToKind, type LeaveType } from "@/lib/schedule";
 import {
   DANGER,
   GOLD,
@@ -160,7 +160,7 @@ export async function exportEmployeeRangePdf({
     } else if (leave) {
       const kind = leaveTypeToKind(leave.type);
       const color = col(kind === "FERIE" ? WINE : kind === "PERMESSO" ? GOLD : kind === "MALATTIA" ? DANGER : MUTED);
-      const label = kind === "PERMESSO" ? `Permesso ${leave.quantity}h` : DAY_KIND_LABEL[kind];
+      const label = leaveLabelFor(leave.type, leave.quantity);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8.5);
       doc.setTextColor(...color);

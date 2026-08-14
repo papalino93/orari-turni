@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatDayMonth, dayLabel, monthLabel, parseDateKey, sumHours, todayKey } from "@/lib/week";
+import { formatDayMonth, dayLabel, monthLabel, parseDateKey, todayKey } from "@/lib/week";
 import { buildSchedule, type Closure, type Leave } from "@/lib/schedule";
 import { DayCellContent, DayEditorModal } from "../../orari/shared";
 import { useToast, runWithToast } from "@/components/toast";
@@ -75,7 +75,10 @@ export function RevisioneView({
   );
 
   const editable = !readOnly && isActive && (status === "DRAFT" || status === "REOPENED");
-  const totalHours = sumHours(blocks);
+  // Dallo schedule, non da sumHours(blocks): quest'ultimo contava anche i turni
+  // rimasti su giorni di chiusura, così il totale inviato in approvazione non
+  // corrispondeva a quello che il titolare vede nel suo riepilogo.
+  const totalHours = schedule.employeeHours(employee.id);
 
   const currentMonthKey = todayKey().slice(0, 7);
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;

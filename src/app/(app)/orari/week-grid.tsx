@@ -103,7 +103,10 @@ export function WeekBody({
         <DayStatusModal
           dateKey={managingDate}
           isClosed={schedule.isClosed(managingDate)}
-          shiftCount={orderedEmployees.reduce((sum, e) => {
+          // Su tutti i dipendenti, non su quelli filtrati: la chiusura rimuove
+          // i turni di chiunque, quindi un conteggio filtrato farebbe
+          // confermare la cancellazione di turni che non erano stati mostrati.
+          shiftCount={allOrdered.reduce((sum, e) => {
             const entry = schedule.entry(e.id, managingDate);
             return sum + entry.blocks.length + entry.suspendedBlocks.length;
           }, 0)}

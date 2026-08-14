@@ -76,10 +76,11 @@ export async function saveDayEntry(
     const dateKey = parseDateKey(dateKeyInput);
     const date = dateKeyToDate(dateKey);
 
-    const [employee, closure, existingBlocks] = await Promise.all([
+    const [employee, closure, existingBlocks, existingLeave] = await Promise.all([
       prisma.employee.findUnique({ where: { id: employeeId } }),
       prisma.closureDay.findUnique({ where: { date } }),
       prisma.shiftBlock.findMany({ where: { employeeId, date } }),
+      prisma.leaveEntry.findUnique({ where: { employeeId_date: { employeeId, date } } }),
     ]);
     assert(employee, "Dipendente non trovato.");
     assert(employee.active, "Il dipendente è disattivato: riattivalo per modificarne gli orari.");
@@ -101,6 +102,23 @@ export async function saveDayEntry(
         submission.status === "DRAFT" || submission.status === "REOPENED",
         "Questo mese è già stato inviato al titolare: non è più modificabile.",
       );
+
+      // Ferie, permessi e malattia incidono sui saldi e li registra il
+      // titolare. Senza questi due controlli il dipendente poteva sia
+      // assegnarsi ore di permesso, sia cancellare un'assenza già registrata
+      // dal titolare salvando un normale turno sullo stesso giorno.
+      if (leaveInput) {
+        assert(
+          leaveInput.type === "LIBERO",
+          "Ferie, permessi e malattia li registra il titolare: segnala a lui la correzione.",
+        );
+      }
+      if (existingLeave && existingLeave.type !== "LIBERO") {
+        assert(
+          false,
+          "Su questo giorno il titolare ha registrato un'assenza: solo lui può modificarla.",
+        );
+      }
     }
 
     const leave = leaveInput
@@ -292,9 +310,6 @@ export async function closeDay(
         update: { reason: reason || null },
         create: { date, reason: reason || null, createdBy: user.username },
       }),
-      // Il riposo esplicito su una giornata chiusa non ha senso: il locale
-      // non apre, non c'è nessun turno da cui riposare.
-      prisma.leaveEntry.deleteMany({ where: { date, type: "LIBERO" } }),
       ...(options.removeShifts ? [prisma.shiftBlock.deleteMany({ where: { date } })] : []),
     ]);
     await unpublishWeeksForDates([date]);
@@ -339,7 +354,6 @@ export async function closeDateRange(
           create: { date, reason: reason || null, createdBy: user.username },
         }),
       ),
-      prisma.leaveEntry.deleteMany({ where: { date: { in: dates }, type: "LIBERO" } }),
       ...(options.removeShifts ? [prisma.shiftBlock.deleteMany({ where: { date: { in: dates } } })] : []),
     ]);
     await unpublishWeeksForDates(dates);

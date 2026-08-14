@@ -84,15 +84,21 @@ export function kindToLeaveType(kind: DayKind): LeaveType | null {
   return null;
 }
 
+// Etichetta di un'assenza a partire dai dati grezzi. Unica fonte per web,
+// PNG e PDF: ricostruirla a mano faceva stampare "Ferie" anche per mezza
+// giornata, cioè un giorno intero di ferie in un documento consegnato.
+export function leaveLabelFor(type: LeaveType, quantity: number): string {
+  if (type === "PERMESSO") return `Permesso ${formatHours(quantity)}`;
+  if (type === "FERIE" && quantity !== 1) return `Ferie (${String(quantity).replace(".", ",")}g)`;
+  return DAY_KIND_LABEL[leaveTypeToKind(type)];
+}
+
 // Etichetta breve di una casella, usata identica in web, export e PDF.
 export function entryLabel(entry: DayEntry): string {
   if (entry.kind === "TURNO") {
     return entry.blocks.map((b) => `${b.startTime}–${b.endTime}`).join(" · ");
   }
-  if (entry.kind === "PERMESSO" && entry.leave) return `Permesso ${formatHours(entry.leave.quantity)}`;
-  if (entry.kind === "FERIE" && entry.leave && entry.leave.quantity !== 1) {
-    return `Ferie (${entry.leave.quantity}g)`;
-  }
+  if (entry.leave) return leaveLabelFor(entry.leave.type, entry.leave.quantity);
   return DAY_KIND_LABEL[entry.kind];
 }
 
@@ -234,9 +240,15 @@ export function buildSchedule({
     );
   }
 
+  // Il titolare compare negli orari per la copertura ma non contribuisce al
+  // monte ore: i totali aggregati devono escluderlo, come già fanno le viste
+  // mese/anno e i PDF. `employeeHours` resta sul singolo dipendente e non
+  // filtra, così la riga del titolare può comunque mostrare le sue ore.
+  const countedForHours = ordered.filter((e) => e.role !== "OWNER");
+
   function dayHours(dateKey: string): number {
     if (closureByDate.has(dateKey)) return 0;
-    return round(ordered.reduce((sum, e) => sum + entry(e.id, dateKey).hours, 0));
+    return round(countedForHours.reduce((sum, e) => sum + entry(e.id, dateKey).hours, 0));
   }
 
   function dayCoverage(dateKey: string): number[] {
@@ -245,7 +257,7 @@ export function buildSchedule({
     return coverageByHour(dayBlocks);
   }
 
-  const totalHours = round(ordered.reduce((sum, e) => sum + employeeHours(e.id), 0));
+  const totalHours = round(countedForHours.reduce((sum, e) => sum + employeeHours(e.id), 0));
 
   let unverifiedPastBlocks = 0;
   for (const emp of ordered) {

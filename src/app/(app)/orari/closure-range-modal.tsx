@@ -14,11 +14,18 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
   const [toKey, setToKey] = useState(defaultKey);
   const [reason, setReason] = useState("");
   const [removeShifts, setRemoveShifts] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const toast = useToast();
 
   function submit() {
+    // Cancellare i turni di tutti su un intervallo è irreversibile: qui serve
+    // un secondo passaggio, come già per la chiusura del singolo giorno.
+    if (removeShifts && !confirmingRemove) {
+      setConfirmingRemove(true);
+      return;
+    }
     startTransition(async () => {
       const result = await runWithToast(
         toast,
@@ -35,7 +42,7 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
-      onClick={onClose}
+      onClick={() => !pending && onClose()}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -84,12 +91,22 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
           <input
             type="checkbox"
             checked={removeShifts}
-            onChange={(e) => setRemoveShifts(e.target.checked)}
+            onChange={(e) => {
+              setRemoveShifts(e.target.checked);
+              setConfirmingRemove(false);
+            }}
             className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
           />
           Rimuovi anche i turni già inseriti in questo periodo — altrimenti restano conservati come bozza e tornano
           visibili se in seguito riapri quei giorni.
         </label>
+
+        {confirmingRemove && (
+          <p className="mb-3 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-medium text-danger">
+            I turni già inseriti in questo periodo verranno eliminati per tutti i dipendenti, senza possibilità di
+            recuperarli. Togli la spunta qui sopra se vuoi solo chiudere il locale conservandoli.
+          </p>
+        )}
 
         <div className="flex justify-end gap-2">
           <button
@@ -103,9 +120,13 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
             type="button"
             disabled={pending}
             onClick={submit}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
+            className={`rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60 ${
+              confirmingRemove
+                ? "bg-danger text-white hover:opacity-90"
+                : "bg-accent text-accent-foreground hover:bg-accent-hover"
+            }`}
           >
-            {pending ? "Chiudo…" : "Chiudi periodo"}
+            {pending ? "Chiudo…" : confirmingRemove ? "Sì, elimina i turni" : "Chiudi periodo"}
           </button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { blockHours, dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { LOGO_DATA_URI } from "@/lib/logo-data-uri";
+import { leaveLabelFor } from "@/lib/schedule";
 
 type RangeBlock = { dateKey: string; startTime: string; endTime: string };
 type RangeLeave = { dateKey: string; type: "FERIE" | "PERMESSO" | "LIBERO" | "MALATTIA"; quantity: number };
@@ -7,11 +8,20 @@ type RangeClosure = { dateKey: string; reason: string | null };
 
 const HEADER_GRADIENT = "linear-gradient(135deg, #9c3050 0%, #7c2138 100%)";
 
+const LEAVE_COLOR: Record<RangeLeave["type"], string> = {
+  FERIE: "#8a2740",
+  PERMESSO: "#93701f",
+  LIBERO: "#6b6468",
+  MALATTIA: "#c23b33",
+};
+
+// Testo preso da leaveLabelFor, non ricostruito qui: altrimenti mezza giornata
+// di ferie veniva esportata come "Ferie", cioè un giorno intero.
 const LEAVE_LABEL: Record<RangeLeave["type"], (q: number) => { text: string; color: string }> = {
-  FERIE: () => ({ text: "Ferie", color: "#8a2740" }),
-  PERMESSO: (q) => ({ text: `Permesso ${q}h`, color: "#93701f" }),
-  LIBERO: () => ({ text: "Riposo", color: "#6b6468" }),
-  MALATTIA: () => ({ text: "Malattia", color: "#c23b33" }),
+  FERIE: (q) => ({ text: leaveLabelFor("FERIE", q), color: LEAVE_COLOR.FERIE }),
+  PERMESSO: (q) => ({ text: leaveLabelFor("PERMESSO", q), color: LEAVE_COLOR.PERMESSO }),
+  LIBERO: (q) => ({ text: leaveLabelFor("LIBERO", q), color: LEAVE_COLOR.LIBERO }),
+  MALATTIA: (q) => ({ text: leaveLabelFor("MALATTIA", q), color: LEAVE_COLOR.MALATTIA }),
 };
 
 // Anteprima a schermo dell'orario del dipendente (il PDF vero è disegnato a
