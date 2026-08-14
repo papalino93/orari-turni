@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDayMonth, dayLabel, monthLabel, parseDateKey, sumHours, todayKey } from "@/lib/week";
 import { buildSchedule, type Closure, type Leave } from "@/lib/schedule";
@@ -40,6 +41,7 @@ export function RevisioneView({
   closures,
   status,
   reopenNote,
+  readOnly = false,
 }: {
   employee: { id: string; name: string; jobTitle: string | null; photoVersion: string | null };
   isActive: boolean;
@@ -51,11 +53,14 @@ export function RevisioneView({
   closures: Closure[];
   status: Status;
   reopenNote: string | null;
+  /** True quando titolare/consulente stanno guardando con "Visualizza come": niente modifiche, niente invio. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const viewAsQuery = readOnly ? `&viewAs=${employee.id}` : "";
 
   const schedule = useMemo(
     () =>
@@ -69,7 +74,7 @@ export function RevisioneView({
     [dateKeys, employee, blocks, leaveEntries, closures],
   );
 
-  const editable = isActive && (status === "DRAFT" || status === "REOPENED");
+  const editable = !readOnly && isActive && (status === "DRAFT" || status === "REOPENED");
   const totalHours = sumHours(blocks);
 
   const currentMonthKey = todayKey().slice(0, 7);
@@ -77,7 +82,7 @@ export function RevisioneView({
   const isFutureMonth = monthKey > currentMonthKey;
 
   function go(y: number, m: number) {
-    router.push(`/mie-ore/revisione?year=${y}&month=${m}`);
+    router.push(`/mie-ore/revisione?year=${y}&month=${m}${viewAsQuery}`);
   }
   function step(direction: 1 | -1) {
     const d = new Date(Date.UTC(year, month - 1 + direction, 1));
@@ -123,6 +128,17 @@ export function RevisioneView({
           </button>
         </div>
       </div>
+
+      {readOnly && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
+          <span>
+            Stai visualizzando come <strong>{employee.name}</strong> — sola lettura.
+          </span>
+          <Link href="/dipendenti" className="shrink-0 rounded-full border border-accent/40 px-3 py-1 text-xs font-medium hover:bg-accent/15">
+            Torna a Dipendenti
+          </Link>
+        </div>
+      )}
 
       <StatusBanner status={status} reopenNote={reopenNote} isActive={isActive} />
 
