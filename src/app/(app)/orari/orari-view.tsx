@@ -177,13 +177,12 @@ export function OrariView({
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="text-sm text-foreground-muted">{subtitle}</p>}
         </div>
-        {/* Su mobile questi controlli non vanno più a capo su 2-3 righe:
-            scorrono in orizzontale su una riga sola. Prima "Tutti/‹/Oggi/›"
-            e "Invia orari/Svuota settimana" finivano su righe separate,
-            aggiungendo altezza prima di arrivare al contenuto vero — con
-            shrink-0 forzato sui figli, il contenitore scorre invece di
-            spremerli o mandarli a capo. */}
-        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto [&>*]:shrink-0 md:flex-wrap md:overflow-visible">
+        {/* Su mobile questi controlli vanno a capo su più righe invece di
+            scorrere in orizzontale: uno scroll nascondeva quasi del tutto
+            "Invia orari" (il bottone bordeaux), che sembrava tagliato per
+            errore anche con una sfumatura a segnalarlo. Andare a capo
+            aggiunge un po' di altezza ma si vede sempre tutto per intero. */}
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={employeeFilter ?? ""}
             onChange={(e) => navigate({ employee: e.target.value || null })}
