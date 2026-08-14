@@ -8,13 +8,27 @@ import { RevisioneView } from "./revisione-view";
 export default async function RevisionePage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; month?: string }>;
+  searchParams: Promise<{ year?: string; month?: string; viewAs?: string }>;
 }) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "EMPLOYEE" || !session.user.employeeId) redirect("/orari");
+  const { viewAs } = await searchParams;
+  const isEmployeeSession = session?.user?.role === "EMPLOYEE";
 
-  const employee = await prisma.employee.findUnique({ where: { id: session.user.employeeId } });
-  if (!employee) redirect("/login");
+  // Stessa eccezione voluta di /mie-ore: titolare/consulente possono aprire
+  // la revisione mensile di un dipendente in sola lettura con ?viewAs=<id>
+  // — mai in scrittura, vedi la prop readOnly passata sotto.
+  let targetEmployeeId: string | null = null;
+  let preview = false;
+  if (isEmployeeSession) {
+    targetEmployeeId = session.user.employeeId ?? null;
+  } else if (session?.user && viewAs) {
+    targetEmployeeId = viewAs;
+    preview = true;
+  }
+  if (!targetEmployeeId) redirect("/orari");
+
+  const employee = await prisma.employee.findUnique({ where: { id: targetEmployeeId } });
+  if (!employee) redirect(preview ? "/dipendenti" : "/login");
 
   const today = todayKey();
   const { year: yearParam, month: monthParam } = await searchParams;
@@ -66,6 +80,7 @@ export default async function RevisionePage({
       closures={closures.map((c) => ({ dateKey: toDateKey(c.date), reason: c.reason }))}
       status={submission?.status ?? "DRAFT"}
       reopenNote={submission?.status === "REOPENED" ? submission.reopenNote : null}
+      readOnly={preview}
     />
   );
 }

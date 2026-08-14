@@ -8,19 +8,34 @@ import { MieOreView } from "./mie-ore-view";
 export default async function MieOrePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; viewAs?: string }>;
 }) {
   // Il Proxy tiene già fuori un login titolare/consulente da questa pagina
   // nella navigazione normale — questo controllo resta comunque necessario:
   // è l'unica cosa che impedisce a un URL digitato a mano, o a una sessione
   // scaduta a metà, di leggere dati che non le competono.
+  //
+  // Eccezione voluta: titolare/consulente possono aprire questa pagina in
+  // sola lettura con ?viewAs=<id> per vedere esattamente cosa vede quel
+  // dipendente ("Visualizza come", dal riquadro Dipendenti) — senza dover
+  // conoscere la sua password. Resta comunque una sessione ADMIN: nessun
+  // cambio di token, nessuna azione di scrittura è raggiungibile da qui.
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "EMPLOYEE" || !session.user.employeeId) redirect("/orari");
+  const { date, viewAs } = await searchParams;
+  const isEmployeeSession = session?.user?.role === "EMPLOYEE";
 
-  const employee = await prisma.employee.findUnique({ where: { id: session.user.employeeId } });
-  if (!employee) redirect("/login");
+  let targetEmployeeId: string | null = null;
+  let preview = false;
+  if (isEmployeeSession) {
+    targetEmployeeId = session.user.employeeId ?? null;
+  } else if (session?.user && viewAs) {
+    targetEmployeeId = viewAs;
+    preview = true;
+  }
+  if (!targetEmployeeId) redirect("/orari");
 
-  const { date } = await searchParams;
+  const employee = await prisma.employee.findUnique({ where: { id: targetEmployeeId } });
+  if (!employee) redirect(preview ? "/dipendenti" : "/login");
   // todayKey() e non new Date(): coerente con lo stesso motivo spiegato in
   // /orari — evita di sbagliare settimana nella finestra fra la mezzanotte
   // UTC e quella italiana.
@@ -57,6 +72,7 @@ export default async function MieOrePage({
         jobTitle: employee.jobTitle,
         photoVersion: employee.photoUpdatedAt ? String(employee.photoUpdatedAt.getTime()) : null,
       }}
+      preview={preview}
       deactivatedAtKey={employee.deactivatedAt ? toDateKey(employee.deactivatedAt) : null}
       lastCompletedMonth={reviewMonth}
       lastMonthStatus={lastMonthSubmission?.status ?? null}

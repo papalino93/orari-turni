@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast, runWithToast } from "@/components/toast";
 import { regenerateEmployeePassword, setEmployeePassword, updateEmployeeUsername } from "./actions";
@@ -71,9 +72,18 @@ export function EmployeeCredentials({
 
   return (
     <div className="border-t border-border bg-surface-2/40 px-4 py-3">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted/70">
-        <LockIcon /> Accesso Area Dipendenti
-      </p>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted/70">
+          <LockIcon /> Accesso Area Dipendenti
+        </p>
+        <Link
+          href={`/mie-ore?viewAs=${employeeId}`}
+          title="Vedi esattamente cosa vede questo dipendente, in sola lettura"
+          className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-foreground-muted hover:text-accent"
+        >
+          <EyeIcon /> Visualizza come
+        </Link>
+      </div>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
         <div className="flex items-center gap-1.5">
           <span className="text-foreground-muted">Username</span>

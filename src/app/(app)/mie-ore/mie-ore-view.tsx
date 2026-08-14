@@ -20,6 +20,7 @@ export function MieOreView({
   lastCompletedMonth,
   lastMonthStatus,
   wasHiredByReviewMonth,
+  preview = false,
 }: {
   employee: { id: string; name: string; jobTitle: string | null; photoVersion: string | null };
   weekStartKey: string;
@@ -33,6 +34,8 @@ export function MieOreView({
   lastMonthStatus: SubmissionStatus | null;
   /** False se il dipendente è stato assunto dopo la fine di lastCompletedMonth. */
   wasHiredByReviewMonth: boolean;
+  /** True quando titolare/consulente stanno guardando con "Visualizza come". */
+  preview?: boolean;
 }) {
   const router = useRouter();
   const weekStart = parseDateKey(weekStartKey);
@@ -42,6 +45,7 @@ export function MieOreView({
   // il pulsante "avanti" verso settimane che comunque non vedrà mai.
   const deactivationWeekKey = deactivatedAtKey ? toDateKey(startOfWeek(parseDateKey(deactivatedAtKey))) : null;
   const atOrPastDeactivation = deactivationWeekKey !== null && weekStartKey >= deactivationWeekKey;
+  const viewAsQuery = preview ? `&viewAs=${employee.id}` : "";
 
   // Stessa ragione di EmployeeList in Dipendenti: uno Schedule contiene
   // funzioni (entry, employeeHours...), che un Server Component non può
@@ -59,7 +63,7 @@ export function MieOreView({
   );
 
   function navigate(date: string) {
-    router.push(`/mie-ore?date=${date}`);
+    router.push(`/mie-ore?date=${date}${viewAsQuery}`);
   }
 
   function step(direction: 1 | -1) {
@@ -70,11 +74,23 @@ export function MieOreView({
 
   return (
     <div className="mx-auto max-w-xl">
+      {preview && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
+          <span>
+            Stai visualizzando come <strong>{employee.name}</strong> — sola lettura.
+          </span>
+          <Link href="/dipendenti" className="shrink-0 rounded-full border border-accent/40 px-3 py-1 text-xs font-medium hover:bg-accent/15">
+            Torna a Dipendenti
+          </Link>
+        </div>
+      )}
+
       {!deactivatedAtKey && (
         <ReviewReminder
           lastCompletedMonth={lastCompletedMonth}
           status={lastMonthStatus}
           wasHiredByReviewMonth={wasHiredByReviewMonth}
+          viewAsQuery={viewAsQuery}
         />
       )}
 
@@ -143,21 +159,23 @@ function ReviewReminder({
   lastCompletedMonth,
   status,
   wasHiredByReviewMonth,
+  viewAsQuery,
 }: {
   lastCompletedMonth: { year: number; month: number };
   status: SubmissionStatus | null;
   wasHiredByReviewMonth: boolean;
+  viewAsQuery: string;
 }) {
   // Assunto dopo la fine di quel mese: nessun mese dimenticato da segnalare,
   // solo il link discreto sotto per rivedere le ore quando servirà.
   const needsAttention = wasHiredByReviewMonth && (status === null || status === "DRAFT" || status === "REOPENED");
   const label = `${monthLabel(lastCompletedMonth.month - 1)} ${lastCompletedMonth.year}`;
-  const href = `/mie-ore/revisione?year=${lastCompletedMonth.year}&month=${lastCompletedMonth.month}`;
+  const href = `/mie-ore/revisione?year=${lastCompletedMonth.year}&month=${lastCompletedMonth.month}${viewAsQuery}`;
 
   if (!needsAttention) {
     return (
       <Link
-        href="/mie-ore/revisione"
+        href={`/mie-ore/revisione${viewAsQuery ? `?${viewAsQuery.slice(1)}` : ""}`}
         className="mb-4 flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
       >
         Rivedi le tue ore
