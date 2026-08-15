@@ -172,16 +172,19 @@ export function OrariView({
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-          {subtitle && <p className="text-sm text-foreground-muted">{subtitle}</p>}
-        </div>
-        {/* Due righe sempre "sicure" (flex-wrap, mai uno scroll che taglia
-            qualcosa a metà) invece di un'unica striscia: navigazione
-            (filtro, ‹/Oggi/›) e azioni (verifica, Invia orari, altro) sono
-            due gruppi indipendenti — su ogni telefono comune ciascuno sta
-            su una riga sola, e se proprio lo spazio non basta va a capo per
+      {/* Il titolo sta sempre da solo sulla sua riga (non più affiancato
+          alla toolbar quando c'è spazio): condividere la riga gli rubava
+          spazio, ed era proprio quello a far scendere la toolbar a due
+          righe anche in casi in cui, da sola, ci sarebbe stata su una
+          sola — es. su tablet/desktop più stretti. */}
+      <div className="mb-3">
+        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        {subtitle && <p className="text-sm text-foreground-muted">{subtitle}</p>}
+      </div>
+      <div className="mb-4">
+        {/* Due gruppi (navigazione a sinistra, azioni a destra) invece di
+            un'unica striscia scorrevole: ciascuno sta su una riga sola nel
+            caso comune, e se proprio lo spazio non basta va a capo per
             intero (mai un pulsante mostrato a metà). Un primo tentativo con
             un'unica riga scorrevole lasciava "Invia orari" tagliato sul
             bordo come per errore; spostare solo "Svuota settimana" in un
@@ -189,7 +192,7 @@ export function OrariView({
             si tagliava quello. "Svuota settimana" resta comunque nel menu
             "⋮": è l'azione più rara e distruttiva, non merita una pillola
             propria. */}
-        <div className="flex flex-col items-end gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={employeeFilter ?? ""}
