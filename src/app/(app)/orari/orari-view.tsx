@@ -177,73 +177,86 @@ export function OrariView({
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="text-sm text-foreground-muted">{subtitle}</p>}
         </div>
-        {/* Su mobile questi controlli vanno a capo su più righe invece di
-            scorrere in orizzontale: uno scroll nascondeva quasi del tutto
-            "Invia orari" (il bottone bordeaux), che sembrava tagliato per
-            errore anche con una sfumatura a segnalarlo. Andare a capo
-            aggiunge un po' di altezza ma si vede sempre tutto per intero. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={employeeFilter ?? ""}
-            onChange={(e) => navigate({ employee: e.target.value || null })}
-            aria-label="Filtra per dipendente"
-            className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground-muted outline-none hover:border-accent hover:text-foreground"
-          >
-            <option value="">Tutti</option>
-            {allEmployees.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => step(-1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
-            aria-label="Precedente"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate({ date: todayKey() })}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-          >
-            Oggi
-          </button>
-          <button
-            type="button"
-            onClick={() => step(1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
-            aria-label="Successivo"
-          >
-            ›
-          </button>
-          {schedule.unverifiedPastBlocks > 0 && (
+        {/* Due righe sempre "sicure" (flex-wrap, mai uno scroll che taglia
+            qualcosa a metà) invece di un'unica striscia: navigazione
+            (filtro, ‹/Oggi/›) e azioni (verifica, Invia orari, altro) sono
+            due gruppi indipendenti — su ogni telefono comune ciascuno sta
+            su una riga sola, e se proprio lo spazio non basta va a capo per
+            intero (mai un pulsante mostrato a metà). Un primo tentativo con
+            un'unica riga scorrevole lasciava "Invia orari" tagliato sul
+            bordo come per errore; spostare solo "Svuota settimana" in un
+            menu non bastava, perché con il badge "da verificare" presente
+            si tagliava quello. "Svuota settimana" resta comunque nel menu
+            "⋮": è l'azione più rara e distruttiva, non merita una pillola
+            propria. */}
+        <div className="flex flex-col items-end gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={employeeFilter ?? ""}
+              onChange={(e) => navigate({ employee: e.target.value || null })}
+              aria-label="Filtra per dipendente"
+              className="max-w-[7.5rem] rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground-muted outline-none hover:border-accent hover:text-foreground"
+            >
+              <option value="">Tutti</option>
+              {allEmployees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
-              disabled={confirming}
-              onClick={verifyPast}
-              className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold hover:bg-gold/20"
-              title="Segna come verificati i turni passati in questo periodo"
+              onClick={() => step(-1)}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+              aria-label="Precedente"
             >
-              {confirming ? "Verifica…" : `⚠️ ${schedule.unverifiedPastBlocks} da verificare`}
+              ‹
             </button>
-          )}
-          {view === "week" && (
-            <>
-              <ExportButton
-                weekStartKey={weekStartKey}
-                employees={employees}
-                blocks={blocks}
-                leaveEntries={leaveEntries}
-                closures={closures}
-                employeeFilter={employeeFilter}
-              />
-              <ClearWeekButton weekStartKey={weekStartKey} />
-            </>
-          )}
-          {view === "month" && <SummaryExportButton monthDateKey={dateKey} employees={employees} blocks={blocks} closures={closures} />}
+            <button
+              type="button"
+              onClick={() => navigate({ date: todayKey() })}
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+            >
+              Oggi
+            </button>
+            <button
+              type="button"
+              onClick={() => step(1)}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+              aria-label="Successivo"
+            >
+              ›
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {schedule.unverifiedPastBlocks > 0 && (
+              <button
+                type="button"
+                disabled={confirming}
+                onClick={verifyPast}
+                className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold hover:bg-gold/20"
+                title="Segna come verificati i turni passati in questo periodo"
+              >
+                {confirming ? "Verifica…" : `⚠️ ${schedule.unverifiedPastBlocks} da verificare`}
+              </button>
+            )}
+            {view === "week" && (
+              <>
+                <ExportButton
+                  weekStartKey={weekStartKey}
+                  employees={employees}
+                  blocks={blocks}
+                  leaveEntries={leaveEntries}
+                  closures={closures}
+                  employeeFilter={employeeFilter}
+                />
+                <MoreActionsMenu>
+                  <ClearWeekButton weekStartKey={weekStartKey} variant="menuitem" />
+                </MoreActionsMenu>
+              </>
+            )}
+            {view === "month" && <SummaryExportButton monthDateKey={dateKey} employees={employees} blocks={blocks} closures={closures} />}
+          </div>
         </div>
       </div>
 
@@ -302,7 +315,7 @@ function WeekSummary({
   const anomalyCount = schedule.anomalies.length;
 
   return (
-    <div className="mb-4 flex flex-nowrap items-center gap-2 overflow-x-auto text-xs [&>*]:shrink-0 md:flex-wrap md:overflow-visible">
+    <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
       {view === "week" &&
         (isPublished ? (
           <InfoPopoverBadge tone="success" label={<>🟢 Condiviso</>}>
@@ -603,5 +616,55 @@ function DisplayModeMenu({ mode, onSelect }: { mode: DisplayMode; onSelect: (m: 
         </div>
       )}
     </div>
+  );
+}
+
+// Contenitore generico per azioni secondarie/rare della toolbar (per ora
+// solo "Svuota settimana", distruttiva e usata di rado): un'icona a puntini
+// invece di un'altra pillola di testo, per tenere corta la riga di
+// controlli su mobile. Allineato a destra (non a sinistra come gli altri
+// menu qui sopra) perché è l'ultimo elemento della riga: aperto a sinistra
+// finirebbe fuori dal bordo dello schermo.
+function MoreActionsMenu({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useClickOutside(ref, () => setOpen(false));
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Altre azioni"
+        title="Altre azioni"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+      >
+        <DotsIcon />
+      </button>
+      {open && (
+        // onClick sul contenitore, non sui singoli figli: chiude il menu
+        // dopo qualsiasi azione al suo interno (i click sui figli risalgono
+        // fin qui) senza dover passare un onClose a ogni voce.
+        <div
+          role="menu"
+          onClick={() => setOpen(false)}
+          className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-xl"
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DotsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="5" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="12" cy="19" r="1.8" />
+    </svg>
   );
 }
