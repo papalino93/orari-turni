@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
+import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { closeDay, reopenDay } from "./actions";
 
 type Status = "OPEN" | "CLOSED";
@@ -26,6 +27,7 @@ export function DayStatusModal({
   const router = useRouter();
   const toast = useToast();
   const date = parseDateKey(dateKey);
+  useEscapeToClose(onClose, !pending);
 
   function applyClose(removeShifts: boolean) {
     startTransition(async () => {
@@ -52,11 +54,16 @@ export function DayStatusModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 shadow-2xl sm:rounded-2xl"
-      >
+    // Vedi lo stesso commento in pdf-export-modal.tsx: scroll sul contenitore
+    // esterno, centratura su quello interno.
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex min-h-full items-end justify-center p-4 sm:items-center">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          // Vedi lo stesso commento in shared.tsx: area sicura del telefono
+          // sul bordo inferiore, solo su mobile.
+          className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
+        >
         <div className="mb-4">
           <p className="text-xs text-foreground-muted">
             {dayLabel(date, true)} {formatDayMonth(date)}
@@ -173,6 +180,7 @@ export function DayStatusModal({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

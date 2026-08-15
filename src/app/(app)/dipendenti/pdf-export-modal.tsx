@@ -15,6 +15,7 @@ import {
 import { useToast } from "@/components/toast";
 import { ExportChoiceButtons } from "@/components/export-choice-buttons";
 import { shareOrDownloadFile } from "@/lib/share-file";
+import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { getEmployeeScheduleRange } from "./actions";
 import { RangeCard } from "./range-card";
 
@@ -51,6 +52,7 @@ export function PdfExportModal({
   const [downloading, setDownloading] = useState<"image" | "pdf" | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
+  useEscapeToClose(onClose);
 
   const { fromKey, toKey, dateKeys, rangeLabel } = useMemo(() => {
     const anchorDate = new Date(`${anchor}T00:00:00.000Z`);
@@ -142,8 +144,17 @@ export function PdfExportModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="max-w-full rounded-2xl border border-border bg-surface p-5 shadow-2xl">
+    // Lo scroll vive qui, non sull'elemento che centra il contenuto: centrare
+    // con "items-center" E scorrere sullo stesso elemento non vanno d'accordo
+    // in CSS — se il contenuto (l'anteprima dell'orario) supera l'altezza
+    // dello schermo, la parte che sporge sopra il centro diventa
+    // irraggiungibile, "Chiudi" compreso, perché la centratura sposta l'inizio
+    // del contenuto a un offset negativo che lo scroll non può mai coprire.
+    // "min-h-full" sull'involucro che centra tiene la struttura identica
+    // quando il contenuto ci sta, e la fa scorrere per intero quando no.
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div onClick={(e) => e.stopPropagation()} className="max-w-full rounded-2xl border border-border bg-surface p-5 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground">Esporta orario — {employeeName}</p>
           <button type="button" onClick={onClose} className="text-xs text-foreground-muted hover:text-foreground">
@@ -208,30 +219,44 @@ export function PdfExportModal({
           )}
         </div>
 
-        <div className="max-w-full overflow-auto rounded-xl" style={{ maxHeight: "55vh" }}>
-          {loading || !data ? (
-            <div className="flex h-40 w-full items-center justify-center text-sm text-foreground-muted">
-              {error ? <span className="text-danger">{error}</span> : "Caricamento…"}
-            </div>
-          ) : (
-            <div ref={cardRef}>
-              <RangeCard
-                employeeId={employeeId}
-                employeeName={employeeName}
-                photoVersion={photoVersion}
-                jobTitle={jobTitle}
-                rangeLabel={rangeLabel}
-                dateKeys={dateKeys}
-                blocks={data.blocks}
-                leaveEntries={data.leaveEntries as { dateKey: string; type: "FERIE" | "PERMESSO" | "LIBERO" | "MALATTIA"; quantity: number }[]}
-                closures={data.closures}
-              />
-            </div>
+        <div className="relative max-w-full rounded-xl">
+          <div className="max-w-full overflow-auto rounded-xl" style={{ maxHeight: "55vh" }}>
+            {loading || !data ? (
+              <div className="flex h-40 w-full items-center justify-center text-sm text-foreground-muted">
+                {error ? <span className="text-danger">{error}</span> : "Caricamento…"}
+              </div>
+            ) : (
+              <div ref={cardRef}>
+                <RangeCard
+                  employeeId={employeeId}
+                  employeeName={employeeName}
+                  photoVersion={photoVersion}
+                  jobTitle={jobTitle}
+                  rangeLabel={rangeLabel}
+                  dateKeys={dateKeys}
+                  blocks={data.blocks}
+                  leaveEntries={data.leaveEntries as { dateKey: string; type: "FERIE" | "PERMESSO" | "LIBERO" | "MALATTIA"; quantity: number }[]}
+                  closures={data.closures}
+                />
+              </div>
+            )}
+          </div>
+          {/* L'anteprima (formato A4, ~700px) è quasi sempre più larga del
+              modal su schermi stretti: una sfumatura basta a segnalare che
+              scorre, senza bisogno di altro — è un'anteprima statica prima
+              del download, non un controllo interattivo da poter tagliare
+              per errore come nella toolbar. */}
+          {data && !loading && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-xl bg-gradient-to-l from-surface to-transparent"
+            />
           )}
         </div>
 
         <div className="mt-4">
           <ExportChoiceButtons downloading={downloading} disabled={loading || !data} onImage={downloadImage} onPdf={downloadPdf} />
+        </div>
         </div>
       </div>
     </div>

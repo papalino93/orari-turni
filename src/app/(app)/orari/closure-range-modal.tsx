@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast, runWithToast } from "@/components/toast";
+import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { closeDateRange } from "./actions";
 
 // Chiudere giorno per giorno va benissimo per un imprevisto isolato, ma per
@@ -18,6 +19,7 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const toast = useToast();
+  useEscapeToClose(onClose, !pending);
 
   function submit() {
     // Cancellare i turni di tutti su un intervallo è irreversibile: qui serve
@@ -40,14 +42,19 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
   }
 
   return (
+    // Vedi lo stesso commento in pdf-export-modal.tsx: scroll sul contenitore
+    // esterno, centratura su quello interno.
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
       onClick={() => !pending && onClose()}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 shadow-2xl sm:rounded-2xl"
-      >
+      <div className="flex min-h-full items-end justify-center p-4 sm:items-center">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          // Vedi lo stesso commento in shared.tsx: area sicura del telefono
+          // sul bordo inferiore, solo su mobile.
+          className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
+        >
         <h2 className="text-base font-semibold text-foreground">Chiudi un periodo</h2>
         <p className="mt-1 mb-4 text-xs text-foreground-muted">
           Es. ferie del locale o ristrutturazione — chiude tutti i giorni dell&apos;intervallo insieme, invece di uno
@@ -128,6 +135,7 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
           >
             {pending ? "Chiudo…" : confirmingRemove ? "Sì, elimina i turni" : "Chiudi periodo"}
           </button>
+        </div>
         </div>
       </div>
     </div>

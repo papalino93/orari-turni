@@ -133,9 +133,15 @@ function WeekClosureBar({
   hideOnMobile: boolean;
 }) {
   return (
+    // flex-wrap, non scroll: su schermi stretti in disposizione "Dipendenti"
+    // (l'unica dove questa barra resta visibile su mobile) 9 elementi a
+    // larghezza fissa non ci stanno mai su una riga sola — uno scroll senza
+    // alcuna indicazione li taglierebbe a metà senza dire che ce n'è altro
+    // (lo stesso identico problema già risolto nella toolbar). Andare a capo
+    // costa un po' di altezza in più ma non taglia mai nulla.
     <div
-      className={`mb-3 items-center gap-1.5 overflow-x-auto rounded-xl border border-border bg-surface px-2.5 py-2 [&>*]:shrink-0 md:flex-wrap md:overflow-visible ${
-        hideOnMobile ? "hidden md:flex" : "flex flex-nowrap"
+      className={`mb-3 flex-wrap items-center gap-1.5 rounded-xl border border-border bg-surface px-2.5 py-2 ${
+        hideOnMobile ? "hidden md:flex" : "flex"
       }`}
     >
       <span className="mr-0.5 text-[11px] font-medium text-foreground-muted">Chiusure settimana</span>
@@ -258,21 +264,39 @@ function PeriodsLayout({
 
   return (
     <div>
-      {/* Desktop */}
-      <div className="hidden space-y-4 md:block">
-        {PERIODS.map((period) => (
-          <PeriodTable
-            key={period}
-            label={PERIOD_LABEL[period]}
-            days={days}
-            orderedEmployees={orderedEmployees}
-            period={period}
-            schedule={schedule}
-            weeklyHours={weeklyHours}
-            onEdit={onEdit}
-            onManageDay={onManageDay}
-          />
-        ))}
+      {/* Desktop. Un solo contenitore scorrevole condiviso tra Mattina e
+          Pomeriggio — non uno scroll indipendente a testa: prima, su uno
+          schermo troppo stretto per mostrare tutta la settimana (tipico di
+          un tablet in verticale), scorrere la tabella Mattina per vedere
+          sabato lasciava Pomeriggio ancora fermo su lunedì, due metà della
+          stessa settimana disallineate tra loro. */}
+      <div className="relative hidden md:block">
+        <div className="overflow-x-auto">
+          <div className="w-max min-w-full space-y-4">
+            {PERIODS.map((period) => (
+              <PeriodTable
+                key={period}
+                label={PERIOD_LABEL[period]}
+                days={days}
+                orderedEmployees={orderedEmployees}
+                period={period}
+                schedule={schedule}
+                weeklyHours={weeklyHours}
+                onEdit={onEdit}
+                onManageDay={onManageDay}
+              />
+            ))}
+          </div>
+        </div>
+        {/* Solo un accenno che c'è altro da scorrere (es. un tablet in
+            verticale, troppo stretto per tutta la settimana): una tabella è
+            un contenuto che ci si aspetta possa scorrere, a differenza dei
+            pulsanti della toolbar — qui la sfumatura basta, senza bisogno
+            di spostare nulla in un menu. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent"
+        />
       </div>
 
       {/* Mobile */}
@@ -368,7 +392,7 @@ function PeriodTable({
   onManageDay: (dateKey: string) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
+    <div className="rounded-2xl border border-border bg-surface">
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr>
