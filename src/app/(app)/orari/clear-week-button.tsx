@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { useToast, runWithToast } from "@/components/toast";
 import { clearWeekData } from "./actions";
 
-export function ClearWeekButton({ weekStartKey }: { weekStartKey: string }) {
+export function ClearWeekButton({
+  weekStartKey,
+  variant = "pill",
+}: {
+  weekStartKey: string;
+  /** "menuitem": stile a riga piena per stare dentro il menu "Altre azioni" invece che come pillola isolata nella toolbar. */
+  variant?: "pill" | "menuitem";
+}) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -26,7 +33,11 @@ export function ClearWeekButton({ weekStartKey }: { weekStartKey: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted hover:border-danger hover:text-danger"
+        className={
+          variant === "menuitem"
+            ? "flex w-full items-center px-3 py-2 text-left text-sm text-foreground-muted transition-colors hover:bg-surface-2 hover:text-danger"
+            : "rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted hover:border-danger hover:text-danger"
+        }
       >
         Svuota settimana
       </button>
