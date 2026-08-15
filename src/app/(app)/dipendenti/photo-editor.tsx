@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { EmployeeAvatar } from "@/components/avatar";
 import { useToast, runWithToast } from "@/components/toast";
 import { loadImageElement, PhotoError } from "@/lib/photo";
+import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { deleteEmployeePhoto, saveEmployeePhoto } from "./actions";
 import { PhotoCropper } from "./photo-cropper";
 
@@ -25,6 +26,7 @@ export function PhotoEditor({
   const fileInput = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const toast = useToast();
+  useEscapeToClose(onClose, !pending);
 
   async function onPick(file: File | undefined) {
     setError(null);
@@ -71,11 +73,18 @@ export function PhotoEditor({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 shadow-2xl sm:rounded-2xl"
-      >
+    // Scroll sul contenitore esterno, centratura su quello interno (vedi lo
+    // stesso commento in pdf-export-modal.tsx): se il ritaglio foto rendesse
+    // il contenuto più alto dello schermo, la parte in eccesso resta comunque
+    // raggiungibile scorrendo, invece di restare tagliata senza via d'uscita.
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex min-h-full items-end justify-center p-4 sm:items-center">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          // Vedi lo stesso commento in shared.tsx: area sicura del telefono
+          // sul bordo inferiore, solo su mobile.
+          className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
+        >
         <h2 className="mb-4 text-base font-semibold text-foreground">Foto di {employee.name}</h2>
 
         {rawImage ? (
@@ -144,6 +153,7 @@ export function PhotoEditor({
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );

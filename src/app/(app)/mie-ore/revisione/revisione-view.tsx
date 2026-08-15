@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDayMonth, dayLabel, monthLabel, parseDateKey, todayKey } from "@/lib/week";
@@ -61,6 +61,14 @@ export function RevisioneView({
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const viewAsQuery = readOnly ? `&viewAs=${employee.id}` : "";
+
+  // Stesso motivo di mie-ore-view.tsx: senza questo, arrivando qui con la
+  // pagina di provenienza già scrollata, il banner "Stai visualizzando
+  // come…" — l'unico modo per tornare a Dipendenti in questa modalità —
+  // può restare fuori vista.
+  useEffect(() => {
+    if (readOnly) window.scrollTo({ top: 0 });
+  }, [readOnly, employee.id]);
 
   const schedule = useMemo(
     () =>

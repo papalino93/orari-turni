@@ -192,15 +192,19 @@ function EmployeeCard({
   return (
     <div className={`overflow-hidden rounded-2xl border bg-surface ${employee.active ? "border-border" : "border-border opacity-70"}`}>
       <div className="flex items-start gap-3 border-b border-border px-4 py-3.5">
-        <div className="flex shrink-0 flex-col pt-1">
+        {/* Prima 16×20px l'uno, appiccicati: quasi impossibile da toccare
+            con precisione su un telefono. Ora un'area di tocco reale
+            (28×28px, avvicinandosi alle linee guida di 44px senza sforare
+            il layout della card), con un piccolo distacco tra i due. */}
+        <div className="flex shrink-0 flex-col gap-0.5 pt-1">
           <button
             type="button"
             disabled={isFirst || pending}
             onClick={() => move("up")}
             aria-label="Sposta su"
-            className="flex h-4 w-5 items-center justify-center text-foreground-muted hover:text-foreground disabled:opacity-20"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-foreground-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-20"
           >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 6l7 9H5z" />
             </svg>
           </button>
@@ -209,9 +213,9 @@ function EmployeeCard({
             disabled={isLast || pending}
             onClick={() => move("down")}
             aria-label="Sposta giù"
-            className="flex h-4 w-5 items-center justify-center text-foreground-muted hover:text-foreground disabled:opacity-20"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-foreground-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-20"
           >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 18l-7-9h14z" />
             </svg>
           </button>

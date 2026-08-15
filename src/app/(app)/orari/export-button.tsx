@@ -6,6 +6,7 @@ import { ExportCard } from "./export-card";
 import { shareOrDownloadFile } from "@/lib/share-file";
 import { useToast } from "@/components/toast";
 import { ExportChoiceButtons } from "@/components/export-choice-buttons";
+import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import type { Block, Closure, Employee, Leave } from "@/lib/schedule";
 import { setWeekPublished } from "./actions";
 
@@ -29,6 +30,7 @@ export function ExportButton({
   const cardRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
   const router = useRouter();
+  useEscapeToClose(() => setOpen(false), open);
 
   // Esportare la settimana È l'atto che conta come "condivisa": non un
   // interruttore separato da ricordarsi di premere. Se fallisce, il
@@ -97,32 +99,46 @@ export function ExportButton({
       </button>
 
       {open && (
+        // Vedi lo stesso commento in pdf-export-modal.tsx: lo scroll vive sul
+        // contenitore esterno, non su quello che centra il contenuto —
+        // altrimenti, se l'anteprima è più alta dello schermo, la parte che
+        // sporge sopra il centro (incluso "Chiudi") diventa irraggiungibile.
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         >
-          <div onClick={(e) => e.stopPropagation()} className="max-w-full rounded-2xl border border-border bg-surface p-4 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-medium text-foreground">Anteprima orario</p>
-              <button type="button" onClick={() => setOpen(false)} className="text-xs text-foreground-muted hover:text-foreground">
-                Chiudi
-              </button>
-            </div>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div onClick={(e) => e.stopPropagation()} className="max-w-full rounded-2xl border border-border bg-surface p-4 shadow-2xl">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">Anteprima orario</p>
+                <button type="button" onClick={() => setOpen(false)} className="text-xs text-foreground-muted hover:text-foreground">
+                  Chiudi
+                </button>
+              </div>
 
-            <div className="max-w-full overflow-auto rounded-xl" style={{ maxHeight: "60vh" }}>
-              <ExportCard
-                ref={cardRef}
-                weekStartKey={weekStartKey}
-                employees={employees}
-                blocks={blocks}
-                leaveEntries={leaveEntries}
-                closures={closures}
-                employeeFilter={employeeFilter}
-              />
-            </div>
+              <div className="relative max-w-full rounded-xl">
+                <div className="max-w-full overflow-auto rounded-xl" style={{ maxHeight: "60vh" }}>
+                  <ExportCard
+                    ref={cardRef}
+                    weekStartKey={weekStartKey}
+                    employees={employees}
+                    blocks={blocks}
+                    leaveEntries={leaveEntries}
+                    closures={closures}
+                    employeeFilter={employeeFilter}
+                  />
+                </div>
+                {/* Vedi lo stesso commento in pdf-export-modal.tsx: solo una
+                    sfumatura, l'anteprima è statica prima del download. */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-xl bg-gradient-to-l from-surface to-transparent"
+                />
+              </div>
 
-            <div className="mt-4">
-              <ExportChoiceButtons downloading={downloading} onImage={downloadImage} onPdf={downloadPdf} />
+              <div className="mt-4">
+                <ExportChoiceButtons downloading={downloading} onImage={downloadImage} onPdf={downloadPdf} />
+              </div>
             </div>
           </div>
         </div>

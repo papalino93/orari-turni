@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
 import { entryLabel, type DayEntry, type Employee, type Block, type Leave, type LeaveType } from "@/lib/schedule";
+import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { saveDayEntry, type DayLeaveInput } from "./actions";
 
 export type { Employee, Block, Leave, LeaveType };
@@ -407,6 +408,7 @@ export function DayEditorModal({
         : entry.kind;
 
   const [mode, setMode] = useState<Mode>(initialMode);
+  useEscapeToClose(onClose);
 
   const existingMattina = entry.blocks.find((b) => b.startTime < POMERIGGIO_MIN);
   const existingPomeriggio = entry.blocks.find((b) => b.startTime >= POMERIGGIO_MIN);
@@ -480,14 +482,22 @@ export function DayEditorModal({
   }
 
   return (
+    // Scroll sul contenitore esterno, centratura/allineamento-a-fondo su
+    // quello interno: se il contenuto (mattina+pomeriggio+messaggi) supera
+    // l'altezza disponibile (es. tastiera aperta su schermo piccolo), resta
+    // comunque raggiungibile scorrendo invece di restare tagliato in alto.
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-t-2xl border border-border bg-surface p-5 shadow-2xl sm:rounded-2xl"
-      >
+      <div className="flex min-h-full items-end justify-center sm:items-center">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          // pb più ampio su mobile, aumentato dell'area sicura del telefono
+          // (tacca/indicatore Home): senza, su un iPhone con Home Indicator
+          // i pulsanti Salva/Annulla finiscono a ridosso del bordo gestuale.
+          className="w-full max-w-md rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
+        >
         <div className="mb-4">
           <p className="text-xs text-foreground-muted">
             {dayLabel(date, true)} {formatDayMonth(date)}
@@ -611,6 +621,7 @@ export function DayEditorModal({
             </div>
           </form>
         )}
+        </div>
       </div>
     </div>
   );

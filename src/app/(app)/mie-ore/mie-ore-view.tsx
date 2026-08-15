@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { addDays, formatWeekRange, isToday, monthLabel, parseDateKey, startOfWeek, toDateKey, todayKey } from "@/lib/week";
@@ -46,6 +46,14 @@ export function MieOreView({
   const deactivationWeekKey = deactivatedAtKey ? toDateKey(startOfWeek(parseDateKey(deactivatedAtKey))) : null;
   const atOrPastDeactivation = deactivationWeekKey !== null && weekStartKey >= deactivationWeekKey;
   const viewAsQuery = preview ? `&viewAs=${employee.id}` : "";
+
+  // Il link "Visualizza come" in Dipendenti sta sotto la piega: si arriva
+  // qui con la pagina già scrollata, e il banner "Stai visualizzando come…"
+  // — l'unico modo per tornare a Dipendenti in questa modalità — resta
+  // fuori vista finché non si scorre di nuovo verso l'alto da soli.
+  useEffect(() => {
+    if (preview) window.scrollTo({ top: 0 });
+  }, [preview, employee.id]);
 
   // Stessa ragione di EmployeeList in Dipendenti: uno Schedule contiene
   // funzioni (entry, employeeHours...), che un Server Component non può
