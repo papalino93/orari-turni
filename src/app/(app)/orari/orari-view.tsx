@@ -25,6 +25,7 @@ import { ExportButton } from "./export-button";
 import { SummaryExportButton } from "./summary-export-button";
 import { ClearWeekButton } from "./clear-week-button";
 import { useToast, runWithToast } from "@/components/toast";
+import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { confirmPastShifts, setWeekPublished } from "./actions";
 
 export type ViewMode = "day" | "week" | "month" | "year";
@@ -76,6 +77,7 @@ export function OrariView({
   const date = parseDateKey(dateKey);
   const [confirming, startConfirming] = useTransition();
   const [publishing, startPublishing] = useTransition();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const toast = useToast();
 
   const rangeDateKeys = useMemo(() => {
@@ -172,123 +174,80 @@ export function OrariView({
 
   return (
     <div>
-      {/* Il titolo sta sempre da solo sulla sua riga (non più affiancato
-          alla toolbar quando c'è spazio): condividere la riga gli rubava
-          spazio, ed era proprio quello a far scendere la toolbar a due
-          righe anche in casi in cui, da sola, ci sarebbe stata su una
-          sola — es. su tablet/desktop più stretti. */}
-      <div className="mb-3">
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        {subtitle && <p className="text-sm text-foreground-muted">{subtitle}</p>}
-      </div>
-      <div className="mb-4">
-        {/* Due gruppi (navigazione a sinistra, azioni a destra) invece di
-            un'unica striscia scorrevole: ciascuno sta su una riga sola nel
-            caso comune, e se proprio lo spazio non basta va a capo per
-            intero (mai un pulsante mostrato a metà). Un primo tentativo con
-            un'unica riga scorrevole lasciava "Invia orari" tagliato sul
-            bordo come per errore; spostare solo "Svuota settimana" in un
-            menu non bastava, perché con il badge "da verificare" presente
-            si tagliava quello. "Svuota settimana" resta comunque nel menu
-            "⋮": è l'azione più rara e distruttiva, non merita una pillola
-            propria. */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={employeeFilter ?? ""}
-              onChange={(e) => navigate({ employee: e.target.value || null })}
-              aria-label="Filtra per dipendente"
-              className="max-w-[7.5rem] rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground-muted outline-none hover:border-accent hover:text-foreground"
-            >
-              <option value="">Tutti</option>
-              {allEmployees.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => step(-1)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
-              aria-label="Precedente"
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate({ date: todayKey() })}
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-            >
-              Oggi
-            </button>
-            <button
-              type="button"
-              onClick={() => step(1)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
-              aria-label="Successivo"
-            >
-              ›
-            </button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {schedule.unverifiedPastBlocks > 0 && (
-              <button
-                type="button"
-                disabled={confirming}
-                onClick={verifyPast}
-                className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold hover:bg-gold/20"
-                title="Segna come verificati i turni passati in questo periodo"
-              >
-                {confirming ? "Verifica…" : `⚠️ ${schedule.unverifiedPastBlocks} da verificare`}
-              </button>
-            )}
-            {view === "week" && (
-              <>
-                <ExportButton
-                  weekStartKey={weekStartKey}
-                  employees={employees}
-                  blocks={blocks}
-                  leaveEntries={leaveEntries}
-                  closures={closures}
-                  employeeFilter={employeeFilter}
-                />
-                <MoreActionsMenu>
-                  <ClearWeekButton weekStartKey={weekStartKey} variant="menuitem" />
-                </MoreActionsMenu>
-              </>
-            )}
-            {view === "month" && <SummaryExportButton monthDateKey={dateKey} employees={employees} blocks={blocks} closures={closures} />}
-          </div>
+      {/* Prima, dal titolo al primo giorno vero si attraversavano fino a 9
+          fasce impilate: toolbar, 5 badge di stato, selettore vista, testo
+          d'aiuto, ore per dipendente. Ora in cima restano solo il titolo e,
+          sotto, una riga con la navigazione (a sinistra) e l'unica azione
+          che si usa ogni volta — Invia orari — (a destra): tutto il resto
+          (filtro dipendente, periodo, disposizione, stato della settimana,
+          svuota settimana) vive in "Impostazioni vista", un pannello unico
+          aperto dal pulsante ☰ accanto al titolo. */}
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+          {subtitle && <p className="text-sm text-foreground-muted">{subtitle}</p>}
         </div>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Impostazioni vista"
+          title="Impostazioni vista"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+        >
+          <MenuIcon />
+        </button>
       </div>
 
-      {(view === "week" || view === "day") && (
-        <WeekSummary schedule={schedule} isPublished={isPublished} view={view} onUnshare={unshare} unsharing={publishing} />
-      )}
-
-      <div className="mb-3 flex flex-col gap-1.5">
-        {/* Prima erano 4+2 linguette identiche affiancate su una riga: si
-            leggevano come un unico gruppo di sei opzioni, non due controlli
-            indipendenti (periodo vs. disposizione). Ora: un menu a tendina
-            per il periodo (mostra subito se quella vista si può modificare)
-            e, solo in Settimana, un piccolo menu ad hamburger per la
-            disposizione — un pulsante compatto e ovviamente "altro menu",
-            non un'altra fila di pillole uguali alle prime. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <ViewSwitcher view={view} onSelect={(v) => navigate({ view: v })} />
-          {view === "week" && <DisplayModeMenu mode={displayMode} onSelect={(m) => navigate({ mode: m })} />}
-        </div>
-        <p className="flex items-center gap-1 text-[11px] text-foreground-muted/80">
-          {view === "day" || view === "week" ? (
-            <>
-              <EditPencilIcon className="shrink-0 text-accent" /> Tocca una casella per inserire o modificare un turno,
-              riposo, ferie o permesso.
-            </>
-          ) : (
-            "Sola lettura — riepiloga i totali. Passa a Giorno o Settimana (nel menu qui sopra) per modificare gli orari."
+          <button
+            type="button"
+            onClick={() => step(-1)}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+            aria-label="Precedente"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate({ date: todayKey() })}
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          >
+            Oggi
+          </button>
+          <button
+            type="button"
+            onClick={() => step(1)}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+            aria-label="Successivo"
+          >
+            ›
+          </button>
+          {schedule.unverifiedPastBlocks > 0 && (
+            <button
+              type="button"
+              disabled={confirming}
+              onClick={verifyPast}
+              className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold hover:bg-gold/20"
+              title="Segna come verificati i turni passati in questo periodo"
+            >
+              {confirming ? "Verifica…" : `⚠️ ${schedule.unverifiedPastBlocks} da verificare`}
+            </button>
           )}
-        </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {view === "week" && (
+            <ExportButton
+              weekStartKey={weekStartKey}
+              employees={employees}
+              blocks={blocks}
+              leaveEntries={leaveEntries}
+              closures={closures}
+              employeeFilter={employeeFilter}
+            />
+          )}
+          {view === "month" && <SummaryExportButton monthDateKey={dateKey} employees={employees} blocks={blocks} closures={closures} />}
+        </div>
       </div>
 
       {view === "day" && <DayView dateKey={dateKey} schedule={schedule} employeeFilter={employeeFilter} />}
@@ -297,6 +256,121 @@ export function OrariView({
       )}
       {view === "month" && <MonthView monthDateKey={dateKey} schedule={schedule} employeeFilter={employeeFilter} />}
       {view === "year" && <YearView year={date.getUTCFullYear()} schedule={schedule} employeeFilter={employeeFilter} />}
+
+      {settingsOpen && (
+        <SettingsSheet
+          view={view}
+          displayMode={displayMode}
+          employeeFilter={employeeFilter}
+          allEmployees={allEmployees}
+          schedule={schedule}
+          isPublished={isPublished}
+          onUnshare={unshare}
+          unsharing={publishing}
+          weekStartKey={weekStartKey}
+          onNavigate={navigate}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Tutto ciò che riguarda "come sto guardando questa settimana" invece di
+// "cosa ci faccio sopra" (che resta in cima, sempre visibile): filtro
+// dipendente, periodo (Giorno/Settimana/Mese/Anno), disposizione (solo in
+// Settimana), stato della settimana (condiviso/ore/chiusure/anomalie) e,
+// in fondo, Svuota settimana — la sola azione qui dentro, deliberatamente
+// isolata dal resto perché distruttiva.
+function SettingsSheet({
+  view,
+  displayMode,
+  employeeFilter,
+  allEmployees,
+  schedule,
+  isPublished,
+  onUnshare,
+  unsharing,
+  weekStartKey,
+  onNavigate,
+  onClose,
+}: {
+  view: ViewMode;
+  displayMode: DisplayMode;
+  employeeFilter?: string;
+  allEmployees: Employee[];
+  schedule: ReturnType<typeof buildSchedule>;
+  isPublished: boolean;
+  onUnshare: () => void;
+  unsharing: boolean;
+  weekStartKey: string;
+  onNavigate: (params: { view?: ViewMode; date?: string; employee?: string | null; mode?: DisplayMode }) => void;
+  onClose: () => void;
+}) {
+  useEscapeToClose(onClose);
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex min-h-full items-end justify-center sm:items-center">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground">Impostazioni vista</h2>
+            <button type="button" onClick={onClose} className="text-xs text-foreground-muted hover:text-foreground">
+              Chiudi
+            </button>
+          </div>
+
+          <SheetSection label="Dipendente">
+            <select
+              value={employeeFilter ?? ""}
+              onChange={(e) => onNavigate({ employee: e.target.value || null })}
+              aria-label="Filtra per dipendente"
+              className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+            >
+              <option value="">Tutti</option>
+              {allEmployees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
+          </SheetSection>
+
+          <SheetSection label="Periodo">
+            <ViewSwitcher view={view} onSelect={(v) => onNavigate({ view: v })} />
+          </SheetSection>
+
+          {view === "week" && (
+            <SheetSection label="Disposizione">
+              <DisplayModeMenu mode={displayMode} onSelect={(m) => onNavigate({ mode: m })} />
+            </SheetSection>
+          )}
+
+          {(view === "week" || view === "day") && (
+            <SheetSection label="Stato settimana">
+              <WeekSummary schedule={schedule} isPublished={isPublished} view={view} onUnshare={onUnshare} unsharing={unsharing} />
+            </SheetSection>
+          )}
+
+          {view === "week" && (
+            <SheetSection label="Azioni">
+              <ClearWeekButton weekStartKey={weekStartKey} variant="menuitem" />
+            </SheetSection>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SheetSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-4 last:mb-0">
+      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted/70">{label}</p>
+      {children}
     </div>
   );
 }
@@ -622,52 +696,12 @@ function DisplayModeMenu({ mode, onSelect }: { mode: DisplayMode; onSelect: (m: 
   );
 }
 
-// Contenitore generico per azioni secondarie/rare della toolbar (per ora
-// solo "Svuota settimana", distruttiva e usata di rado): un'icona a puntini
-// invece di un'altra pillola di testo, per tenere corta la riga di
-// controlli su mobile. Allineato a destra (non a sinistra come gli altri
-// menu qui sopra) perché è l'ultimo elemento della riga: aperto a sinistra
-// finirebbe fuori dal bordo dello schermo.
-function MoreActionsMenu({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useClickOutside(ref, () => setOpen(false));
-
+function MenuIcon() {
   return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="Altre azioni"
-        title="Altre azioni"
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
-      >
-        <DotsIcon />
-      </button>
-      {open && (
-        // onClick sul contenitore, non sui singoli figli: chiude il menu
-        // dopo qualsiasi azione al suo interno (i click sui figli risalgono
-        // fin qui) senza dover passare un onClose a ogni voce.
-        <div
-          role="menu"
-          onClick={() => setOpen(false)}
-          className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-xl"
-        >
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DotsIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="12" cy="5" r="1.8" />
-      <circle cx="12" cy="12" r="1.8" />
-      <circle cx="12" cy="19" r="1.8" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
     </svg>
   );
 }
