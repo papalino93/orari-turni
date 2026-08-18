@@ -313,10 +313,15 @@ export async function clearWeekData(weekStartKeyInput: string): Promise<ActionRe
 // sì, perché fa parte a tutti gli effetti della rotazione settimanale.
 export async function copyPreviousWeek(
   targetWeekStartKeyInput: string,
+  // Se valorizzato, si ricopia la rotazione del solo dipendente indicato
+  // invece che di tutti: serve quando cambia il giro di una persona sola e
+  // non si vuole toccare quello che è già stato deciso per gli altri.
+  employeeIdInput?: string,
 ): Promise<ActionResult<{ filledSlots: number; skippedOccupied: number; closedDays: number; sourceEmpty: boolean }>> {
   return runAction(async () => {
     await requireUser();
     const targetWeekStartKey = parseDateKey(targetWeekStartKeyInput, "settimana");
+    const onlyEmployeeId = employeeIdInput ? parseId(employeeIdInput, "dipendente") : null;
     const targetStart = toDate(targetWeekStartKey);
     const sourceStart = addDays(targetStart, -7);
 
@@ -328,15 +333,29 @@ export async function copyPreviousWeek(
     const sourceDates = dayPairs.map((p) => dateKeyToDate(p.sourceKey));
     const targetDates = dayPairs.map((p) => dateKeyToDate(p.targetKey));
 
+    // Il filtro per dipendente si applica già in lettura: così i conteggi
+    // restituiti (e quindi il messaggio finale) parlano solo della persona
+    // scelta, non di tutta la squadra.
+    const employeeWhere = onlyEmployeeId ? { employeeId: onlyEmployeeId } : {};
+
     const [employees, sourceBlocks, sourceRest, sourceClosures, targetClosures, targetBlocks, targetLeave] =
       await Promise.all([
-        prisma.employee.findMany({ where: { active: true }, select: { id: true } }),
-        prisma.shiftBlock.findMany({ where: { date: { in: sourceDates } } }),
-        prisma.leaveEntry.findMany({ where: { date: { in: sourceDates }, type: "LIBERO" } }),
+        prisma.employee.findMany({
+          where: { active: true, ...(onlyEmployeeId ? { id: onlyEmployeeId } : {}) },
+          select: { id: true },
+        }),
+        prisma.shiftBlock.findMany({ where: { date: { in: sourceDates }, ...employeeWhere } }),
+        prisma.leaveEntry.findMany({ where: { date: { in: sourceDates }, type: "LIBERO", ...employeeWhere } }),
         prisma.closureDay.findMany({ where: { date: { in: sourceDates } }, select: { date: true } }),
         prisma.closureDay.findMany({ where: { date: { in: targetDates } }, select: { date: true } }),
-        prisma.shiftBlock.findMany({ where: { date: { in: targetDates } }, select: { employeeId: true, date: true } }),
-        prisma.leaveEntry.findMany({ where: { date: { in: targetDates } }, select: { employeeId: true, date: true } }),
+        prisma.shiftBlock.findMany({
+          where: { date: { in: targetDates }, ...employeeWhere },
+          select: { employeeId: true, date: true },
+        }),
+        prisma.leaveEntry.findMany({
+          where: { date: { in: targetDates }, ...employeeWhere },
+          select: { employeeId: true, date: true },
+        }),
       ]);
 
     const activeIds = new Set(employees.map((e) => e.id));

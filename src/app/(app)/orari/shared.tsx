@@ -512,6 +512,22 @@ export function DayEditorModal({
 
   function clearDay() {
     startTransition(async () => {
+      // Con più giorni selezionati lo svuotamento li segue: è lo stesso
+      // elenco usato per estendere il salvataggio, quindi "togli il turno a
+      // Andrea da lunedì a venerdì" si fa una volta sola invece di cinque.
+      if (extraDays.length > 0) {
+        const allDays = [dateKey, ...extraDays];
+        const result = await runWithToast(toast, () => applyDayEntryToDays(employee.id, allDays, [], null), undefined);
+        if (result) {
+          toast.showSuccess(
+            result.applied === 1 ? "Giornata svuotata" : `${result.applied} giornate svuotate`,
+          );
+          router.refresh();
+          onClose();
+        }
+        return;
+      }
+
       const result = await runWithToast(toast, () => saveDayEntry(employee.id, dateKey, [], null), "Giornata svuotata");
       if (result !== null) {
         router.refresh();
@@ -642,7 +658,24 @@ export function DayEditorModal({
                 ogni volta gli stessi orari. */}
             {selectableDays.length > 0 && (
               <div className="mt-5 border-t border-border pt-4">
-                <p className="mb-2 text-xs font-medium text-foreground-muted">Applica anche a</p>
+                <div className="mb-2 flex items-baseline justify-between gap-2">
+                  <p className="text-xs font-medium text-foreground-muted">Anche in questi giorni</p>
+                  {/* Selezionare i 6 giorni uno a uno per "tutta la settimana"
+                      (caso tipico sia per assegnare una rotazione fissa sia
+                      per togliere una persona dall'intera settimana) era il
+                      gesto più ripetitivo rimasto in questo riquadro. */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExtraDays((prev) =>
+                        prev.length === selectableDays.length ? [] : selectableDays.map((d) => d.dateKey),
+                      )
+                    }
+                    className="text-xs font-medium text-accent hover:underline"
+                  >
+                    {extraDays.length === selectableDays.length ? "Deseleziona tutti" : "Tutta la settimana"}
+                  </button>
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   {selectableDays.map((d) => {
                     const selected = extraDays.includes(d.dateKey);
@@ -669,7 +702,8 @@ export function DayEditorModal({
                 </div>
                 {extraDays.length > 0 && (
                   <p className="mt-2 text-xs text-foreground-muted">
-                    Lo stesso contenuto sostituirà quanto presente in {extraDays.length + 1} giornate.
+                    Salvando, {extraDays.length + 1} giornate avranno lo stesso contenuto. &ldquo;Svuota&rdquo; le
+                    libera tutte.
                   </p>
                 )}
               </div>
@@ -681,7 +715,9 @@ export function DayEditorModal({
                 // click solo): come le altre azioni distruttive dell'app, va
                 // confermata con un secondo passaggio esplicito prima di eseguirla.
                 <span className="flex items-center gap-2 text-xs">
-                  <span className="text-foreground-muted">Confermi?</span>
+                  <span className="text-foreground-muted">
+                    {extraDays.length > 0 ? `Svuotare ${extraDays.length + 1} giornate?` : "Confermi?"}
+                  </span>
                   <button
                     type="button"
                     onClick={clearDay}
@@ -706,7 +742,7 @@ export function DayEditorModal({
                   disabled={pending}
                   className="text-xs font-medium text-foreground-muted hover:text-danger disabled:opacity-50"
                 >
-                  Svuota giornata
+                  {extraDays.length > 0 ? `Svuota ${extraDays.length + 1} giornate` : "Svuota giornata"}
                 </button>
               )}
               <div className="flex gap-2">

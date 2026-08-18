@@ -241,7 +241,15 @@ export function OrariView({
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {view === "week" && <CopyWeekButton weekStartKey={weekStartKey} />}
+          {view === "week" && (
+            <CopyWeekButton
+              weekStartKey={weekStartKey}
+              // Solo i dipendenti veri: il titolare non ha una rotazione da
+              // ripetere separatamente (è già incluso in "tutti").
+              employees={allEmployees.filter((e) => e.role !== "OWNER").map((e) => ({ id: e.id, name: e.name, role: e.role }))}
+              employeeFilter={employeeFilter}
+            />
+          )}
           {view === "week" && (
             <ExportButton
               weekStartKey={weekStartKey}
