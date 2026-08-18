@@ -80,6 +80,16 @@ export function MieOreView({
 
   const thisWeek = toDateKey(startOfWeek(parseDateKey(todayKey()))) === weekStartKey;
 
+  // Mese a cui punta il collegamento "correggi" in fondo. Una settimana può
+  // stare a cavallo di due mesi: se contiene oggi vale il mese corrente
+  // (quello che si sta vivendo), altrimenti quello in cui cade il lunedì
+  // della settimana mostrata.
+  const correctionAnchor = days.find((d) => isToday(d)) ?? weekStart;
+  const correctionMonth = {
+    year: correctionAnchor.getUTCFullYear(),
+    month: correctionAnchor.getUTCMonth() + 1,
+  };
+
   return (
     <div className="mx-auto max-w-xl">
       {preview && (
@@ -114,11 +124,14 @@ export function MieOreView({
           </h1>
           <p className="text-sm text-foreground-muted">{formatWeekRange(weekStart)}</p>
         </div>
+        {/* h-11 (44px): stessa dimensione già adottata per la navigazione di
+            /orari. Qui conta anche di più — l'Area Dipendenti si consulta
+            quasi solo dal telefono, spesso con una mano sola. */}
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => step(-1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
             aria-label="Settimana precedente"
           >
             ‹
@@ -127,7 +140,7 @@ export function MieOreView({
             <button
               type="button"
               onClick={() => navigate(toDateKey(startOfWeek(parseDateKey(todayKey()))))}
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+              className="flex h-11 items-center rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground"
             >
               Questa settimana
             </button>
@@ -137,7 +150,7 @@ export function MieOreView({
             onClick={() => step(1)}
             disabled={atOrPastDeactivation}
             title={atOrPastDeactivation ? "Nessuna settimana successiva: l'account è disattivato da qui in poi" : undefined}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-30 disabled:hover:border-border disabled:hover:text-foreground-muted"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-30 disabled:hover:border-border disabled:hover:text-foreground-muted"
             aria-label="Settimana successiva"
           >
             ›
@@ -155,6 +168,27 @@ export function MieOreView({
       </p>
 
       <EmployeeWeekCard employee={{ ...employee, role: "EMPLOYEE", sortOrder: 0 }} days={days} schedule={schedule} />
+
+      {/* Vedere un orario sbagliato qui e non sapere dove correggerlo era il
+          punto morto del percorso: la correzione vive in una sezione con un
+          altro nome ("Rivedi le tue ore"), raggiungibile solo dal richiamo
+          in cima, che parla dell'ultimo mese concluso e non della settimana
+          che si sta effettivamente guardando. Questo collegamento porta
+          direttamente al mese giusto, con davanti le ore di questi giorni. */}
+      {!deactivatedAtKey && (
+        <Link
+          href={`/mie-ore/revisione?year=${correctionMonth.year}&month=${correctionMonth.month}${viewAsQuery}`}
+          className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
+        >
+          <span>
+            <span className="font-medium text-foreground">Qualcosa non torna in questi giorni?</span>
+            <span className="mt-0.5 block text-xs">
+              Correggi le tue ore di {monthLabel(correctionMonth.month - 1).toLowerCase()}
+            </span>
+          </span>
+          <span aria-hidden>›</span>
+        </Link>
+      )}
     </div>
   );
 }

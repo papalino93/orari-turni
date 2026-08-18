@@ -24,6 +24,7 @@ import { YearView } from "./year-view";
 import { ExportButton } from "./export-button";
 import { SummaryExportButton } from "./summary-export-button";
 import { ClearWeekButton } from "./clear-week-button";
+import { CopyWeekButton } from "./copy-week-button";
 import { useToast, runWithToast } from "@/components/toast";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { confirmPastShifts, setWeekPublished } from "./actions";
@@ -240,6 +241,7 @@ export function OrariView({
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {view === "week" && <CopyWeekButton weekStartKey={weekStartKey} />}
           {view === "week" && (
             <ExportButton
               weekStartKey={weekStartKey}

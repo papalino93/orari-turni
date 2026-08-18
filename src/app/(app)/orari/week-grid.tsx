@@ -91,6 +91,14 @@ export function WeekBody({
           dateKey={editingCell.dateKey}
           entry={schedule.entry(editingCell.employeeId, editingCell.dateKey)}
           isClosed={schedule.isClosed(editingCell.dateKey)}
+          // Gli altri giorni della settimana mostrata: permettono di
+          // assegnare lo stesso turno a più giornate senza riaprire ogni
+          // volta questo riquadro.
+          applyToDays={days.map((d) => ({
+            dateKey: toDateKey(d),
+            label: dayLabel(d),
+            isClosed: schedule.isClosed(toDateKey(d)),
+          }))}
           onClose={() => setEditingCell(null)}
           onOpenClosureManager={() => {
             setManagingDate(editingCell.dateKey);

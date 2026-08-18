@@ -6,7 +6,7 @@ import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
 import { entryLabel, type DayEntry, type Employee, type Block, type Leave, type LeaveType } from "@/lib/schedule";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
-import { saveDayEntry, type DayLeaveInput } from "./actions";
+import { applyDayEntryToDays, saveDayEntry, type DayLeaveInput } from "./actions";
 
 export type { Employee, Block, Leave, LeaveType };
 
@@ -394,6 +394,7 @@ export function DayEditorModal({
   isClosed,
   onClose,
   onOpenClosureManager,
+  applyToDays,
 }: {
   employee: Employee;
   dateKey: string;
@@ -402,6 +403,14 @@ export function DayEditorModal({
   onClose: () => void;
   /** Se presente, mostra un pulsante che apre la gestione della chiusura giornata. */
   onOpenClosureManager?: () => void;
+  /**
+   * Gli altri giorni su cui si può replicare lo stesso turno in un colpo
+   * solo (tipicamente il resto della settimana mostrata). Passato solo
+   * dall'area del titolare: nell'Area Dipendenti la revisione delle proprie
+   * ore resta volutamente giorno per giorno, perché ogni salvataggio
+   * registra cosa è cambiato rispetto al pianificato.
+   */
+  applyToDays?: { dateKey: string; label: string; isClosed: boolean }[];
 }) {
   const initialMode: Mode =
     entry.kind === "TURNO" || entry.kind === "NON_PIANIFICATO" || entry.kind === "CHIUSO"
@@ -440,10 +449,15 @@ export function DayEditorModal({
 
   const [quantity, setQuantity] = useState(entry.leave?.quantity ?? 1);
   const [confirmingClear, setConfirmingClear] = useState(false);
+  // Altri giorni su cui replicare lo stesso contenuto al salvataggio. Le
+  // giornate chiuse non sono selezionabili: il locale non apre, non c'è
+  // turno da assegnare.
+  const [extraDays, setExtraDays] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const toast = useToast();
 
+  const selectableDays = (applyToDays ?? []).filter((d) => d.dateKey !== dateKey && !d.isClosed);
   const date = parseDateKey(dateKey);
 
   // Prima "Salva" era solo un pulsante da cliccare: premere Invio dentro un
@@ -467,6 +481,27 @@ export function DayEditorModal({
           };
     const blocks = mode === "WORK" ? [mattina, pomeriggio].filter((r) => r.enabled && r.startTime && r.endTime) : [];
     startTransition(async () => {
+      // Con più giorni selezionati si passa dall'azione dedicata, che li
+      // scrive tutti in un'unica transazione: un ciclo di chiamate separate
+      // potrebbe fallire a metà e lasciare la settimana compilata solo in
+      // parte, senza che l'utente sappia dove si è fermata.
+      if (extraDays.length > 0) {
+        const allDays = [dateKey, ...extraDays];
+        const result = await runWithToast(
+          toast,
+          () => applyDayEntryToDays(employee.id, allDays, blocks, leave),
+          undefined,
+        );
+        if (result) {
+          toast.showSuccess(
+            result.applied === 1 ? "Turno salvato" : `Turno salvato su ${result.applied} giornate`,
+          );
+          router.refresh();
+          onClose();
+        }
+        return;
+      }
+
       const result = await runWithToast(toast, () => saveDayEntry(employee.id, dateKey, blocks, leave), "Turno salvato");
       if (result !== null) {
         router.refresh();
@@ -600,6 +635,44 @@ export function DayEditorModal({
 
             {mode === "MALATTIA" && (
               <p className="text-sm text-foreground-muted">Assenza per malattia — non incide su ferie o permessi.</p>
+            )}
+
+            {/* "Lun-Ven 9-13 per Alessia" in un colpo solo, invece di
+                riaprire cinque volte questo stesso riquadro e ridigitare
+                ogni volta gli stessi orari. */}
+            {selectableDays.length > 0 && (
+              <div className="mt-5 border-t border-border pt-4">
+                <p className="mb-2 text-xs font-medium text-foreground-muted">Applica anche a</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectableDays.map((d) => {
+                    const selected = extraDays.includes(d.dateKey);
+                    return (
+                      <button
+                        key={d.dateKey}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() =>
+                          setExtraDays((prev) =>
+                            prev.includes(d.dateKey) ? prev.filter((k) => k !== d.dateKey) : [...prev, d.dateKey],
+                          )
+                        }
+                        className={`flex h-10 min-w-[3rem] items-center justify-center rounded-lg border px-3 text-xs font-medium transition-colors ${
+                          selected
+                            ? "border-accent bg-accent/15 text-foreground"
+                            : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
+                        }`}
+                      >
+                        {d.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {extraDays.length > 0 && (
+                  <p className="mt-2 text-xs text-foreground-muted">
+                    Lo stesso contenuto sostituirà quanto presente in {extraDays.length + 1} giornate.
+                  </p>
+                )}
+              </div>
             )}
 
             <div className="mt-6 flex items-center justify-between">

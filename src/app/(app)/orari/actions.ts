@@ -299,6 +299,211 @@ export async function clearWeekData(weekStartKeyInput: string): Promise<ActionRe
   });
 }
 
+// Ricopia la rotazione della settimana precedente su quella indicata, per
+// tutti i dipendenti attivi.
+//
+// Volutamente NON distruttiva: riempie solo le caselle (dipendente, giorno)
+// ancora vuote. Un turno o un'assenza già inseriti nella settimana di
+// destinazione restano intatti — chi ha già segnato "Alessia in ferie
+// mercoledì" non se lo vede cancellare da un click su "Ripeti settimana", e
+// premere il pulsante due volte non cambia nulla la seconda.
+//
+// Ferie, permessi e malattia NON si ricopiano: sono fatti accaduti in quei
+// giorni precisi, non uno schema che si ripete. Il riposo (LIBERO) invece
+// sì, perché fa parte a tutti gli effetti della rotazione settimanale.
+export async function copyPreviousWeek(
+  targetWeekStartKeyInput: string,
+): Promise<ActionResult<{ filledSlots: number; skippedOccupied: number; closedDays: number; sourceEmpty: boolean }>> {
+  return runAction(async () => {
+    await requireUser();
+    const targetWeekStartKey = parseDateKey(targetWeekStartKeyInput, "settimana");
+    const targetStart = toDate(targetWeekStartKey);
+    const sourceStart = addDays(targetStart, -7);
+
+    // i-esimo giorno della settimana di origine → i-esimo di destinazione.
+    const dayPairs = Array.from({ length: 7 }, (_, i) => ({
+      sourceKey: toDateKey(addDays(sourceStart, i)),
+      targetKey: toDateKey(addDays(targetStart, i)),
+    }));
+    const sourceDates = dayPairs.map((p) => dateKeyToDate(p.sourceKey));
+    const targetDates = dayPairs.map((p) => dateKeyToDate(p.targetKey));
+
+    const [employees, sourceBlocks, sourceRest, sourceClosures, targetClosures, targetBlocks, targetLeave] =
+      await Promise.all([
+        prisma.employee.findMany({ where: { active: true }, select: { id: true } }),
+        prisma.shiftBlock.findMany({ where: { date: { in: sourceDates } } }),
+        prisma.leaveEntry.findMany({ where: { date: { in: sourceDates }, type: "LIBERO" } }),
+        prisma.closureDay.findMany({ where: { date: { in: sourceDates } }, select: { date: true } }),
+        prisma.closureDay.findMany({ where: { date: { in: targetDates } }, select: { date: true } }),
+        prisma.shiftBlock.findMany({ where: { date: { in: targetDates } }, select: { employeeId: true, date: true } }),
+        prisma.leaveEntry.findMany({ where: { date: { in: targetDates } }, select: { employeeId: true, date: true } }),
+      ]);
+
+    const activeIds = new Set(employees.map((e) => e.id));
+    const sourceClosedKeys = new Set(sourceClosures.map((c) => toDateKey(c.date)));
+    const targetClosedKeys = new Set(targetClosures.map((c) => toDateKey(c.date)));
+    // Una casella è "occupata" se in quel giorno il dipendente ha già un
+    // turno oppure un'assenza di qualunque tipo: in entrambi i casi c'è già
+    // una decisione presa, e non va sovrascritta.
+    const occupied = new Set([
+      ...targetBlocks.map((b) => `${b.employeeId}|${toDateKey(b.date)}`),
+      ...targetLeave.map((l) => `${l.employeeId}|${toDateKey(l.date)}`),
+    ]);
+    const targetKeyFor = new Map(dayPairs.map((p) => [p.sourceKey, p.targetKey]));
+
+    const ops: Prisma.PrismaPromise<unknown>[] = [];
+    const filledCells = new Set<string>();
+    let skippedOccupied = 0;
+
+    function canFill(employeeId: string, sourceKey: string): string | null {
+      // Un giorno chiuso nella settimana di origine non ha turni davvero
+      // lavorati (solo bozze sospese): non è una rotazione da ripetere.
+      if (sourceClosedKeys.has(sourceKey)) return null;
+      if (!activeIds.has(employeeId)) return null;
+      const targetKey = targetKeyFor.get(sourceKey);
+      if (!targetKey || targetClosedKeys.has(targetKey)) return null;
+      const cell = `${employeeId}|${targetKey}`;
+      if (occupied.has(cell)) {
+        skippedOccupied += 1;
+        return null;
+      }
+      return targetKey;
+    }
+
+    for (const b of sourceBlocks) {
+      const targetKey = canFill(b.employeeId, toDateKey(b.date));
+      if (!targetKey) continue;
+      filledCells.add(`${b.employeeId}|${targetKey}`);
+      ops.push(
+        prisma.shiftBlock.create({
+          data: { employeeId: b.employeeId, date: dateKeyToDate(targetKey), startTime: b.startTime, endTime: b.endTime },
+        }),
+      );
+    }
+
+    for (const r of sourceRest) {
+      const targetKey = canFill(r.employeeId, toDateKey(r.date));
+      if (!targetKey) continue;
+      filledCells.add(`${r.employeeId}|${targetKey}`);
+      ops.push(
+        prisma.leaveEntry.create({
+          data: { employeeId: r.employeeId, date: dateKeyToDate(targetKey), type: "LIBERO", quantity: 0 },
+        }),
+      );
+    }
+
+    if (ops.length > 0) {
+      await prisma.$transaction(ops);
+      await unpublishWeeksForDates([dateKeyToDate(targetWeekStartKey)]);
+      revalidateSchedule();
+      revalidatePath("/mie-ore");
+    }
+
+    return {
+      filledSlots: filledCells.size,
+      skippedOccupied,
+      closedDays: targetClosedKeys.size,
+      // Distingue "non ho copiato nulla perché era già tutto pieno" da "non
+      // c'era proprio nulla da copiare": due messaggi diversi lato UI.
+      sourceEmpty: sourceBlocks.length === 0 && sourceRest.length === 0,
+    };
+  });
+}
+
+// Applica lo stesso turno/assenza a più giorni in un colpo solo — "Lun-Ven
+// 9-13 per Alessia" invece di riaprire cinque volte lo stesso riquadro con
+// gli stessi orari.
+//
+// Riservata al titolare (requireUser, non requireSelfOrAdmin): un dipendente
+// corregge le proprie ore un giorno alla volta, e solo tramite saveDayEntry,
+// che è l'unica strada che registra cosa è cambiato rispetto al pianificato.
+export async function applyDayEntryToDays(
+  employeeIdInput: string,
+  dateKeysInput: string[],
+  blocksInput: DayBlockInput[],
+  leaveInput: DayLeaveInput,
+): Promise<ActionResult<{ applied: number; skippedClosed: number }>> {
+  return runAction(async () => {
+    await requireUser();
+    const employeeId = parseId(employeeIdInput, "dipendente");
+
+    assert(Array.isArray(dateKeysInput) && dateKeysInput.length > 0, "Nessun giorno selezionato.");
+    assert(dateKeysInput.length <= 31, "Puoi applicare al massimo 31 giorni per volta.");
+    const dateKeys = Array.from(new Set(dateKeysInput.map((k) => parseDateKey(k))));
+
+    const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
+    assert(employee, "Dipendente non trovato.");
+    assert(employee.active, "Il dipendente è disattivato: riattivalo per modificarne gli orari.");
+
+    const leave: { type: LeaveType; quantity: number } | null = leaveInput
+      ? {
+          type: parseEnum(leaveInput.type, LEAVE_TYPES, "tipo assenza"),
+          quantity: parseNumber(leaveInput.quantity, "quantità", { min: 0, max: 24 }),
+        }
+      : null;
+
+    if (leave && (leave.type === "FERIE" || leave.type === "PERMESSO")) {
+      assert(employee.role !== "OWNER", "Il titolare non rientra nella gestione di ferie e permessi.");
+      assert(leave.quantity > 0, "Indica una quantità maggiore di zero.");
+      if (leave.type === "FERIE") {
+        assert(leave.quantity <= 1, "Le ferie si contano in giorni: al massimo 1 per giornata.");
+      }
+    }
+
+    // Stessa validazione di saveDayEntry: orari sensati e fasce che non si
+    // sovrappongono, verificate una volta sola visto che il contenuto è
+    // identico per tutti i giorni selezionati.
+    const blocks = leave
+      ? []
+      : blocksInput.slice(0, 4).map((b) => {
+          const startTime = parseTime(b.startTime, "orario di inizio");
+          const endTime = parseTime(b.endTime, "orario di fine");
+          assert(
+            timeToMinutes(endTime) > timeToMinutes(startTime),
+            "L'orario di fine deve essere successivo a quello di inizio.",
+          );
+          return { startTime, endTime };
+        });
+
+    const sorted = blocks.slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
+    let maxEndSoFar = sorted.length > 0 ? timeToMinutes(sorted[0].endTime) : 0;
+    for (let i = 1; i < sorted.length; i++) {
+      assert(timeToMinutes(sorted[i].startTime) >= maxEndSoFar, "I due turni della giornata si sovrappongono.");
+      maxEndSoFar = Math.max(maxEndSoFar, timeToMinutes(sorted[i].endTime));
+    }
+
+    // I giorni con il locale chiuso vengono saltati invece di far fallire
+    // tutta l'operazione: chi seleziona "Lun-Ven" non deve sapere a memoria
+    // quale giorno era chiuso, e il conteggio restituito glielo dice.
+    const dates = dateKeys.map(dateKeyToDate);
+    const closures = await prisma.closureDay.findMany({ where: { date: { in: dates } }, select: { date: true } });
+    const closedKeys = new Set(closures.map((c) => toDateKey(c.date)));
+    const applicableKeys = dateKeys.filter((k) => !closedKeys.has(k));
+    assert(applicableKeys.length > 0, "Tutte le giornate selezionate risultano chiuse.");
+    const applicableDates = applicableKeys.map(dateKeyToDate);
+
+    const ops: Prisma.PrismaPromise<unknown>[] = [
+      prisma.shiftBlock.deleteMany({ where: { employeeId, date: { in: applicableDates } } }),
+      prisma.leaveEntry.deleteMany({ where: { employeeId, date: { in: applicableDates } } }),
+    ];
+    for (const date of applicableDates) {
+      if (leave) {
+        ops.push(prisma.leaveEntry.create({ data: { employeeId, date, type: leave.type, quantity: leave.quantity } }));
+      } else {
+        for (const b of blocks) {
+          ops.push(prisma.shiftBlock.create({ data: { employeeId, date, startTime: b.startTime, endTime: b.endTime } }));
+        }
+      }
+    }
+    await prisma.$transaction(ops);
+    await unpublishWeeksForDates(applicableDates);
+
+    revalidateSchedule();
+    revalidatePath("/mie-ore");
+    return { applied: applicableKeys.length, skippedClosed: dateKeys.length - applicableKeys.length };
+  });
+}
+
 // --- Giornate di chiusura del locale ---------------------------------------
 
 // Chiude il locale per una singola data. I turni già presenti non vengono
