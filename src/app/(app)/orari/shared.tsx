@@ -696,11 +696,15 @@ export function DayEditorModal({
                             prev.includes(d.dateKey) ? prev.filter((k) => k !== d.dateKey) : [...prev, d.dateKey],
                           )
                         }
-                        title={d.hasContent ? `${d.label}: c'è già un turno o un'assenza, verrà sostituito` : d.label}
-                        className={`flex h-10 min-w-[3rem] items-center justify-center gap-1 rounded-lg border px-3 text-xs font-medium transition-colors ${
+                        title={d.hasContent ? `${d.label}: c'è già un turno o un'assenza, verrà sostituito` : undefined}
+                        // Selezionato = pieno bordeaux con testo bianco. Prima
+                        // era un velo al 15% di accento: su tema chiaro un
+                        // giorno selezionato era praticamente indistinguibile
+                        // da uno non selezionato.
+                        className={`flex h-10 min-w-[3rem] items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-colors ${
                           selected
-                            ? "border-accent bg-accent/15 text-foreground"
-                            : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
+                            ? "border-accent bg-accent text-accent-foreground"
+                            : "border-border font-medium text-foreground-muted hover:border-accent hover:text-foreground"
                         }`}
                       >
                         {d.label}
@@ -710,7 +714,9 @@ export function DayEditorModal({
                         {d.hasContent && (
                           <span
                             aria-hidden
-                            className={`h-1.5 w-1.5 rounded-full ${selected ? "bg-accent" : "bg-foreground-muted/50"}`}
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              selected ? "bg-accent-foreground/70" : "bg-foreground-muted/50"
+                            }`}
                           />
                         )}
                       </button>
@@ -772,7 +778,11 @@ export function DayEditorModal({
                   type="button"
                   onClick={() => setConfirmingClear(true)}
                   disabled={pending}
-                  className="text-xs font-medium text-foreground-muted hover:text-danger disabled:opacity-50"
+                  // Era testo semplice accanto a due pulsanti veri: non si
+                  // capiva che fosse cliccabile, né che fosse l'altra azione
+                  // possibile insieme a Salva. Ora è un pulsante con contorno
+                  // in rosso, distinto ma non invadente come un pieno.
+                  className="rounded-lg border border-danger/40 px-3 py-2 text-xs font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
                 >
                   {extraDays.length > 0 ? `Svuota ${extraDays.length + 1} giornate` : "Svuota giornata"}
                 </button>
