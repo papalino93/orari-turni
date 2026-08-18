@@ -6,6 +6,7 @@ import { dayLabel, formatDayMonth, isToday, parseDateKey, toDateKey } from "@/li
 import { buildSchedule, formatHours, type Block, type Closure, type Leave, type Role } from "@/lib/schedule";
 import { EmployeeAvatar } from "@/components/avatar";
 import { useToast, runWithToast } from "@/components/toast";
+import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import {
   deleteEmployee,
   getEmployeeDeletionImpact,
@@ -126,6 +127,7 @@ function EmployeeCard({
   const [name, setName] = useState(employee.name);
   const [editingTitle, setEditingTitle] = useState(false);
   const [jobTitle, setJobTitleValue] = useState(employee.jobTitle ?? "");
+  const [showRoleChange, setShowRoleChange] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletionImpact, setDeletionImpact] = useState<{ shifts: number; leaves: number; balances: number } | null>(null);
   const [showPdfExport, setShowPdfExport] = useState(false);
@@ -175,6 +177,21 @@ function EmployeeCard({
     startTransition(async () => {
       const result = await runWithToast(toast, () => moveEmployee(employee.id, direction), undefined);
       if (result !== null) router.refresh();
+    });
+  }
+
+  function changeRole() {
+    const nextRole = employee.role === "OWNER" ? "EMPLOYEE" : "OWNER";
+    startTransition(async () => {
+      const result = await runWithToast(
+        toast,
+        () => updateEmployee(employee.id, { role: nextRole }),
+        nextRole === "OWNER" ? `${employee.name} è ora titolare` : `${employee.name} è ora dipendente`,
+      );
+      if (result !== null) {
+        setShowRoleChange(false);
+        router.refresh();
+      }
     });
   }
 
@@ -241,9 +258,23 @@ function EmployeeCard({
                 {employee.name}
               </button>
             )}
-            {employee.role === "OWNER" && (
-              <span className="shrink-0 rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-medium text-gold">Titolare</span>
-            )}
+            {/* Il ruolo non era modificabile dopo la creazione: sbagliarlo
+                per errore alla creazione (o doverlo cambiare più avanti)
+                significava eliminare e ricreare il dipendente, perdendo
+                turni/ferie storici collegati. Ora il badge/pulsante apre la
+                spiegazione delle conseguenze prima di cambiarlo. */}
+            <button
+              type="button"
+              onClick={() => setShowRoleChange(true)}
+              title={employee.role === "OWNER" ? "Cambia in Dipendente" : "Cambia in Titolare"}
+              className={
+                employee.role === "OWNER"
+                  ? "shrink-0 rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-medium text-gold hover:bg-gold/25"
+                  : "shrink-0 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+              }
+            >
+              {employee.role === "OWNER" ? "Titolare" : "Rendi titolare"}
+            </button>
             {!employee.active && (
               <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-foreground-muted">Disattivato</span>
             )}
@@ -365,6 +396,73 @@ function EmployeeCard({
         />
       )}
       {showPhotoEditor && <PhotoEditor employee={employee} onClose={() => setShowPhotoEditor(false)} />}
+      {showRoleChange && (
+        <RoleChangeModal
+          employeeName={employee.name}
+          currentRole={employee.role}
+          pending={pending}
+          onConfirm={changeRole}
+          onClose={() => setShowRoleChange(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Le conseguenze delle due direzioni non sono simmetriche (una crea
+// credenziali, l'altra le cancella) — vengono spiegate per esteso qui invece
+// che in un badge/tooltip poco visibile, prima di far confermare la scelta.
+function RoleChangeModal({
+  employeeName,
+  currentRole,
+  pending,
+  onConfirm,
+  onClose,
+}: {
+  employeeName: string;
+  currentRole: Role;
+  pending: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const toOwner = currentRole === "EMPLOYEE";
+  useEscapeToClose(onClose, !pending);
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={() => !pending && onClose()}>
+      <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-4">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
+        >
+          <h2 className="text-base font-semibold text-foreground">
+            {toOwner ? `Rendere ${employeeName} titolare?` : `Rendere ${employeeName} un dipendente?`}
+          </h2>
+          <p className="mt-2 text-sm text-foreground-muted">
+            {toOwner
+              ? "Perderà l'accesso all'Area Dipendenti: username e password attuali verranno eliminati. Uscirà anche dalla gestione ferie/permessi e dal totale ore, come il titolare."
+              : "Riceverà un nuovo username e password per l'Area Dipendenti (visibili nella sua scheda dopo la conferma) ed entrerà nella gestione ferie/permessi e nel totale ore."}
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={pending}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground-muted hover:text-foreground disabled:opacity-50"
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={pending}
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
+            >
+              {pending ? "Confermo…" : "Sì, cambia ruolo"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

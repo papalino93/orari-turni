@@ -105,12 +105,34 @@ export async function updateEmployee(
     const employee = await prisma.employee.findUnique({ where: { id } });
     assert(employee, "Dipendente non trovato.");
 
-    const data: { name?: string; jobTitle?: string | null; role?: "EMPLOYEE" | "OWNER" } = {};
+    const data: {
+      name?: string;
+      jobTitle?: string | null;
+      role?: "EMPLOYEE" | "OWNER";
+      username?: string | null;
+      password?: string | null;
+    } = {};
     if (fields.name !== undefined) data.name = parseText(fields.name, "nome", { max: 80, required: true });
     if (fields.jobTitle !== undefined) {
       data.jobTitle = parseText(fields.jobTitle, "mansione", { max: 60 }) || null;
     }
-    if (fields.role !== undefined) data.role = parseEnum(fields.role, ROLES, "ruolo");
+    if (fields.role !== undefined) {
+      const role = parseEnum(fields.role, ROLES, "ruolo");
+      data.role = role;
+      // Titolare → Dipendente: le credenziali dell'Area Dipendenti vengono
+      // create automaticamente al prossimo caricamento di /dipendenti (vedi
+      // ensureEmployeeCredentials), stessa strada già presa per chi viene
+      // creato senza username — nulla da fare qui.
+      //
+      // Dipendente → Titolare: il titolare ha già un account pieno nella
+      // tabella User (vedi createEmployee), quindi le credenziali attuali
+      // vanno revocate qui, non lasciate valide "per errore" con un ruolo
+      // che secondo lo schema non dovrebbe più poterle usare.
+      if (role === "OWNER" && role !== employee.role) {
+        data.username = null;
+        data.password = null;
+      }
+    }
 
     if (Object.keys(data).length === 0) return;
     await prisma.employee.update({ where: { id }, data });
