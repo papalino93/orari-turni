@@ -92,6 +92,7 @@ export default async function OrariPage({
         sortOrder: e.sortOrder,
         photoVersion: e.photoUpdatedAt ? String(e.photoUpdatedAt.getTime()) : null,
       }))}
+      activeEmployeeIds={employees.filter((e) => e.active).map((e) => e.id)}
       blocks={blocks.map((b) => ({
         id: b.id,
         employeeId: b.employeeId,

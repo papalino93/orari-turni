@@ -267,10 +267,13 @@ function EmployeeCard({
               type="button"
               onClick={() => setShowRoleChange(true)}
               title={employee.role === "OWNER" ? "Cambia in Dipendente" : "Cambia in Titolare"}
+              // py-1, non più py-0.5: era un badge puramente decorativo,
+              // ora è un'azione con conseguenze reali (revoca/crea
+              // credenziali) — merita qualche px in più di area di tocco.
               className={
                 employee.role === "OWNER"
-                  ? "shrink-0 rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-medium text-gold hover:bg-gold/25"
-                  : "shrink-0 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+                  ? "shrink-0 rounded-full bg-gold/15 px-2 py-1 text-[11px] font-medium text-gold hover:bg-gold/25"
+                  : "shrink-0 rounded-full border border-dashed border-border px-2 py-1 text-[11px] font-medium text-foreground-muted hover:border-accent hover:text-foreground"
               }
             >
               {employee.role === "OWNER" ? "Titolare" : "Rendi titolare"}

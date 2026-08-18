@@ -57,6 +57,7 @@ export function OrariView({
   rangeEndKey,
   employeeFilter,
   employees,
+  activeEmployeeIds,
   blocks,
   leaveEntries,
   closures,
@@ -69,6 +70,13 @@ export function OrariView({
   rangeEndKey: string;
   employeeFilter?: string;
   employees: Employee[];
+  /**
+   * `employees` può includere disattivati con dati nel periodo mostrato
+   * (per non far sparire le loro ore passate — vedi page.tsx). Questo elenco
+   * separato serve a filtrarli via dove non ha senso includerli: non si
+   * "ripete la rotazione" di chi non lavora più qui.
+   */
+  activeEmployeeIds: string[];
   blocks: Block[];
   leaveEntries: Leave[];
   closures: Closure[];
@@ -146,6 +154,10 @@ export function OrariView({
           : String(date.getUTCFullYear());
 
   const allEmployees = orderEmployees(employees);
+  // "employees" può contenere disattivati con dati storici nel periodo
+  // mostrato (vedi la prop qui sopra): questo sottoinsieme è quello davvero
+  // selezionabile per ripetere una rotazione futura.
+  const activeEmployees = allEmployees.filter((e) => activeEmployeeIds.includes(e.id));
   const weekStartKey = toDateKey(startOfWeek(date));
   // "Condiviso" non è più un interruttore manuale: si accende da solo
   // quando l'orario viene davvero esportato (PDF o immagine), e si spegne
@@ -244,11 +256,11 @@ export function OrariView({
           {view === "week" && (
             <CopyWeekButton
               weekStartKey={weekStartKey}
-              // Anche il titolare compare: lavora turni come chiunque altro
-              // (è escluso solo dai conteggi ferie/permessi, non dal giro
-              // settimanale), quindi ha una rotazione da poter ripetere
-              // separatamente come tutti gli altri.
-              employees={allEmployees.map((e) => ({ id: e.id, name: e.name, role: e.role }))}
+              // Anche il titolare compare (lavora turni come chiunque
+              // altro), ma solo se attivo: chi è disattivato non ha una
+              // rotazione futura da ripetere, anche se resta visibile altrove
+              // in questa vista per i suoi dati storici.
+              employees={activeEmployees.map((e) => ({ id: e.id, name: e.name, role: e.role }))}
               employeeFilter={employeeFilter}
             />
           )}

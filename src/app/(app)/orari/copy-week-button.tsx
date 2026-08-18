@@ -24,7 +24,14 @@ export function CopyWeekButton({
   // "" = tutti. Parte dal dipendente gia filtrato nella vista, se c'e: chi
   // sta guardando la settimana di una persona sola quasi sempre vuole
   // ripetere quella, non quella di tutti.
-  const [target, setTarget] = useState<string>(employeeFilter ?? "");
+  // employeeFilter può puntare a un disattivato (il filtro "Dipendente"
+  // della vista lo ammette, per consultare i suoi dati storici) — non è
+  // però tra le opzioni selezionabili qui, quindi non va usato come scelta
+  // iniziale: si tornerebbe a "Tutti" solo alla riapertura del pannello,
+  // ma con quell'id già impostato "in silenzio".
+  const [target, setTarget] = useState<string>(
+    employeeFilter && employees.some((e) => e.id === employeeFilter) ? employeeFilter : "",
+  );
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const toast = useToast();
