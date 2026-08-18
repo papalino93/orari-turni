@@ -89,10 +89,11 @@ export function CopyWeekButton({
                   disabled={pending}
                   className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm text-foreground outline-none focus:border-accent disabled:opacity-50"
                 >
-                  <option value="">Tutti i dipendenti</option>
+                  <option value="">Tutti</option>
                   {employees.map((e) => (
                     <option key={e.id} value={e.id}>
                       Solo {e.name}
+                      {e.role === "OWNER" ? " (titolare)" : ""}
                     </option>
                   ))}
                 </select>

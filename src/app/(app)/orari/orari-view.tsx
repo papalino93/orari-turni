@@ -244,9 +244,11 @@ export function OrariView({
           {view === "week" && (
             <CopyWeekButton
               weekStartKey={weekStartKey}
-              // Solo i dipendenti veri: il titolare non ha una rotazione da
-              // ripetere separatamente (è già incluso in "tutti").
-              employees={allEmployees.filter((e) => e.role !== "OWNER").map((e) => ({ id: e.id, name: e.name, role: e.role }))}
+              // Anche il titolare compare: lavora turni come chiunque altro
+              // (è escluso solo dai conteggi ferie/permessi, non dal giro
+              // settimanale), quindi ha una rotazione da poter ripetere
+              // separatamente come tutti gli altri.
+              employees={allEmployees.map((e) => ({ id: e.id, name: e.name, role: e.role }))}
               employeeFilter={employeeFilter}
             />
           )}
