@@ -317,7 +317,20 @@ export async function copyPreviousWeek(
   // invece che di tutti: serve quando cambia il giro di una persona sola e
   // non si vuole toccare quello che è già stato deciso per gli altri.
   employeeIdInput?: string,
-): Promise<ActionResult<{ filledSlots: number; skippedOccupied: number; closedDays: number; sourceEmpty: boolean }>> {
+): Promise<
+  ActionResult<{
+    filledSlots: number;
+    skippedOccupied: number;
+    closedDays: number;
+    sourceEmpty: boolean;
+    // Id di ciò che è stato creato — non delle caselle "lasciate come
+    // stavano". Bastano per un annulla mirato: cancellano esattamente
+    // quello che questa chiamata ha aggiunto, mai altro (vedi
+    // undoCopyPreviousWeek più sotto).
+    createdBlockIds: string[];
+    createdLeaveIds: string[];
+  }>
+> {
   return runAction(async () => {
     await requireUser();
     const targetWeekStartKey = parseDateKey(targetWeekStartKeyInput, "settimana");
@@ -370,7 +383,11 @@ export async function copyPreviousWeek(
     ]);
     const targetKeyFor = new Map(dayPairs.map((p) => [p.sourceKey, p.targetKey]));
 
-    const ops: Prisma.PrismaPromise<unknown>[] = [];
+    // Ops tipizzate { id: string } (non "unknown" come nel resto del file):
+    // servono gli id restituiti dalla transazione per poter annullare in
+    // modo mirato — vedi opKinds e undoCopyPreviousWeek più sotto.
+    const ops: Prisma.PrismaPromise<{ id: string }>[] = [];
+    const opKinds: ("block" | "leave")[] = [];
     const filledCells = new Set<string>();
     let skippedOccupied = 0;
 
@@ -396,8 +413,10 @@ export async function copyPreviousWeek(
       ops.push(
         prisma.shiftBlock.create({
           data: { employeeId: b.employeeId, date: dateKeyToDate(targetKey), startTime: b.startTime, endTime: b.endTime },
+          select: { id: true },
         }),
       );
+      opKinds.push("block");
     }
 
     for (const r of sourceRest) {
@@ -407,12 +426,17 @@ export async function copyPreviousWeek(
       ops.push(
         prisma.leaveEntry.create({
           data: { employeeId: r.employeeId, date: dateKeyToDate(targetKey), type: "LIBERO", quantity: 0 },
+          select: { id: true },
         }),
       );
+      opKinds.push("leave");
     }
 
+    const createdBlockIds: string[] = [];
+    const createdLeaveIds: string[] = [];
     if (ops.length > 0) {
-      await prisma.$transaction(ops);
+      const results = await prisma.$transaction(ops);
+      results.forEach((r, i) => (opKinds[i] === "block" ? createdBlockIds : createdLeaveIds).push(r.id));
       await unpublishWeeksForDates([dateKeyToDate(targetWeekStartKey)]);
       revalidateSchedule();
       revalidatePath("/mie-ore");
@@ -425,7 +449,40 @@ export async function copyPreviousWeek(
       // Distingue "non ho copiato nulla perché era già tutto pieno" da "non
       // c'era proprio nulla da copiare": due messaggi diversi lato UI.
       sourceEmpty: sourceBlocks.length === 0 && sourceRest.length === 0,
+      createdBlockIds,
+      createdLeaveIds,
     };
+  });
+}
+
+// Annulla mirato di una copyPreviousWeek: cancella per id esattamente i
+// record creati da quella chiamata, mai altro. Se nel frattempo uno di quei
+// giorni è già stato modificato a mano (saveDayEntry cancella e ricrea i
+// blocchi del giorno, quindi con un id nuovo), l'id copiato non esiste già
+// più — deleteMany su un id inesistente è un no-op, quindi quella casella
+// semplicemente non viene toccata: la correzione più recente dell'utente
+// resta quella valida, mai sovrascritta da un annulla tardivo.
+export async function undoCopyPreviousWeek(
+  blockIdsInput: string[],
+  leaveIdsInput: string[],
+): Promise<ActionResult<{ removed: number }>> {
+  return runAction(async () => {
+    await requireUser();
+    assert(
+      Array.isArray(blockIdsInput) && Array.isArray(leaveIdsInput) && blockIdsInput.length + leaveIdsInput.length <= 500,
+      "Elenco da annullare non valido.",
+    );
+    const blockIds = blockIdsInput.map((id) => parseId(id, "turno"));
+    const leaveIds = leaveIdsInput.map((id) => parseId(id, "assenza"));
+
+    const [{ count: removedBlocks }, { count: removedLeave }] = await prisma.$transaction([
+      prisma.shiftBlock.deleteMany({ where: { id: { in: blockIds } } }),
+      prisma.leaveEntry.deleteMany({ where: { id: { in: leaveIds } } }),
+    ]);
+
+    revalidateSchedule();
+    revalidatePath("/mie-ore");
+    return { removed: removedBlocks + removedLeave };
   });
 }
 

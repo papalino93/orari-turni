@@ -41,7 +41,15 @@ export default async function MieOrePage({
     targetEmployeeId = viewAs;
     preview = true;
   }
-  if (!targetEmployeeId) redirect("/orari");
+  // "/orari" solo se davvero c'è una sessione admin (senza ?viewAs): senza
+  // sessione — anche una revocata da un cambio password altrove, che il
+  // Proxy da solo non può ancora sapere (vedi lib/auth.ts) — si va a
+  // "/login". Altrimenti un dipendente con la sessione appena revocata
+  // finirebbe in un rimbalzo infinito: il Proxy lo rimanda ancora qui
+  // pensando sia un EMPLOYEE (legge il JWT grezzo, non rivede la revoca),
+  // e questa pagina lo rimanderebbe di nuovo a "/orari", che il Proxy
+  // rispedisce di nuovo a "/mie-ore".
+  if (!targetEmployeeId) redirect(session?.user ? "/orari" : "/login");
 
   const employee = await prisma.employee.findUnique({ where: { id: targetEmployeeId } });
   if (!employee) redirect(preview ? "/dipendenti" : "/login");

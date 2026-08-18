@@ -25,7 +25,11 @@ export default async function RevisionePage({
     targetEmployeeId = viewAs;
     preview = true;
   }
-  if (!targetEmployeeId) redirect("/orari");
+  // Stesso motivo di /mie-ore: senza sessione (anche una revocata da un
+  // cambio password altrove) si va a "/login", non "/orari" — altrimenti il
+  // Proxy (che legge il JWT grezzo, senza rivedere la revoca) rimbalzerebbe
+  // all'infinito tra questa pagina e "/mie-ore".
+  if (!targetEmployeeId) redirect(session?.user ? "/orari" : "/login");
 
   const employee = await prisma.employee.findUnique({ where: { id: targetEmployeeId } });
   if (!employee) redirect(preview ? "/dipendenti" : "/login");

@@ -29,7 +29,12 @@ export async function setPassword(userIdInput: string, newPassword: string): Pro
     assert(target, "Utente non trovato.");
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+    // tokenVersion incrementato: chiunque abbia già una sessione aperta con
+    // questo account (compreso chi sta cambiando la password da un altro
+    // dispositivo) viene disconnesso al prossimo controllo — vedi
+    // lib/auth.ts. Prima un cambio password non toglieva l'accesso a chi
+    // aveva già un token valido, fino alla sua scadenza naturale.
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash, tokenVersion: { increment: 1 } } });
     revalidatePath("/account");
   });
 }

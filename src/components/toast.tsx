@@ -8,10 +8,11 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
 
 type ToastKind = "success" | "error";
-type Toast = { id: number; kind: ToastKind; message: string };
+type ToastAction = { label: string; onClick: () => void };
+type Toast = { id: number; kind: ToastKind; message: string; action?: ToastAction };
 
 type ToastContextValue = {
-  showSuccess: (message: string) => void;
+  showSuccess: (message: string, action?: ToastAction) => void;
   showError: (message: string) => void;
 };
 
@@ -21,14 +22,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(0);
 
-  const push = useCallback((kind: ToastKind, message: string) => {
+  const push = useCallback((kind: ToastKind, message: string, action?: ToastAction) => {
     const id = nextId.current++;
-    setToasts((prev) => [...prev, { id, kind, message }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), kind === "error" ? 5000 : 3000);
+    setToasts((prev) => [...prev, { id, kind, message, action }]);
+    // Un toast con un'azione (es. "Annulla") resta un po' di più: 3s bastano
+    // per leggere una conferma, ma sono pochi per accorgersi del pulsante,
+    // decidere di premerlo e farlo in tempo.
+    const duration = action ? 8000 : kind === "error" ? 5000 : 3000;
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), duration);
   }, []);
 
   const value: ToastContextValue = {
-    showSuccess: (message) => push("success", message),
+    showSuccess: (message, action) => push("success", message, action),
     showError: (message) => push("error", message),
   };
 
@@ -50,7 +55,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             }`}
           >
             <span aria-hidden>{t.kind === "success" ? "✓" : "⚠"}</span>
-            {t.message}
+            <span className="min-w-0">{t.message}</span>
+            {t.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  t.action!.onClick();
+                  setToasts((prev) => prev.filter((x) => x.id !== t.id));
+                }}
+                className="shrink-0 rounded-full px-2 py-0.5 font-semibold underline decoration-dotted underline-offset-2 hover:decoration-solid"
+              >
+                {t.action.label}
+              </button>
+            )}
           </div>
         ))}
       </div>

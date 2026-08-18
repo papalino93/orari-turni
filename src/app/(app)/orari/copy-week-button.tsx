@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast, runWithToast } from "@/components/toast";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
-import { copyPreviousWeek } from "./actions";
+import { copyPreviousWeek, undoCopyPreviousWeek } from "./actions";
 
 // La rotazione di un negozio è quasi sempre la stessa di settimana in
 // settimana: prima ogni turno andava reinserito casella per casella anche
@@ -54,10 +54,23 @@ export function CopyWeekButton({
         toast.showSuccess(`Questa settimana è già compilata${who}: nessuna casella libera da riempire.`);
       } else {
         const extra = result.skippedOccupied > 0 ? " (le caselle già compilate sono state lasciate come stavano)" : "";
-        toast.showSuccess(`${result.filledSlots} giornate ricopiate dalla settimana precedente${extra}`);
+        // "Annulla" nel toast: cancella per id esattamente ciò che questa
+        // chiamata ha appena creato, mai altro — vedi il commento su
+        // undoCopyPreviousWeek in actions.ts.
+        toast.showSuccess(`${result.filledSlots} giornate ricopiate dalla settimana precedente${extra}`, {
+          label: "Annulla",
+          onClick: () => undo(result.createdBlockIds, result.createdLeaveIds),
+        });
       }
       router.refresh();
       setOpen(false);
+    });
+  }
+
+  function undo(blockIds: string[], leaveIds: string[]) {
+    startTransition(async () => {
+      const result = await runWithToast(toast, () => undoCopyPreviousWeek(blockIds, leaveIds), "Annullato");
+      if (result !== null) router.refresh();
     });
   }
 

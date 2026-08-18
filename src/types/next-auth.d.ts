@@ -17,6 +17,8 @@ declare module "next-auth" {
     username: string;
     role: "ADMIN" | "EMPLOYEE";
     employeeId?: string;
+    // Versione delle credenziali vista al login — vedi lib/auth.ts.
+    tokenVersion: number;
   }
 }
 
@@ -25,5 +27,10 @@ declare module "next-auth/jwt" {
     username: string;
     role: "ADMIN" | "EMPLOYEE";
     employeeId?: string;
+    tokenVersion?: number;
+    // Impostato dal callback jwt() quando la versione non corrisponde più a
+    // quella in User/Employee (password cambiata altrove): il callback
+    // session() lo usa per svuotare session.user.
+    revoked?: boolean;
   }
 }

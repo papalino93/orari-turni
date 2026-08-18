@@ -111,6 +111,7 @@ export async function updateEmployee(
       role?: "EMPLOYEE" | "OWNER";
       username?: string | null;
       password?: string | null;
+      tokenVersion?: { increment: number };
     } = {};
     if (fields.name !== undefined) data.name = parseText(fields.name, "nome", { max: 80, required: true });
     if (fields.jobTitle !== undefined) {
@@ -131,6 +132,10 @@ export async function updateEmployee(
       if (role === "OWNER" && role !== employee.role) {
         data.username = null;
         data.password = null;
+        // Anche una sessione dell'Area Dipendenti già aperta va chiusa: le
+        // credenziali sono appena state revocate, non deve restare dentro
+        // fino alla scadenza naturale del token.
+        data.tokenVersion = { increment: 1 };
       }
     }
 
@@ -188,7 +193,14 @@ export async function setEmployeePassword(idInput: string, passwordInput: string
     const employee = await prisma.employee.findUnique({ where: { id } });
     assert(employee, "Dipendente non trovato.");
 
-    await prisma.employee.update({ where: { id }, data: { password: encryptEmployeePassword(password) } });
+    // tokenVersion incrementato: una sessione dell'Area Dipendenti già
+    // aperta con la password precedente viene disconnessa al prossimo
+    // controllo — vedi lib/auth.ts. Utile in particolare quando si sospetta
+    // che la password vecchia fosse nota a qualcun altro.
+    await prisma.employee.update({
+      where: { id },
+      data: { password: encryptEmployeePassword(password), tokenVersion: { increment: 1 } },
+    });
     revalidateEmployees();
   });
 }
@@ -203,7 +215,10 @@ export async function regenerateEmployeePassword(idInput: string): Promise<Actio
     assert(employee, "Dipendente non trovato.");
 
     const password = generateEmployeePassword();
-    await prisma.employee.update({ where: { id }, data: { password: encryptEmployeePassword(password) } });
+    await prisma.employee.update({
+      where: { id },
+      data: { password: encryptEmployeePassword(password), tokenVersion: { increment: 1 } },
+    });
     revalidateEmployees();
     return { password };
   });

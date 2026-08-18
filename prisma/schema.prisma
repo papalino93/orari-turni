@@ -19,6 +19,13 @@ model User {
   username     String   @unique
   name         String
   passwordHash String
+  // Incrementata ad ogni cambio password (vedi account/actions.ts). Il JWT
+  // di una sessione già aperta porta con sé la versione vista al login: se
+  // non corrisponde più a questa, lib/auth.ts tratta quella sessione come
+  // scaduta — è così che cambiare password toglie davvero l'accesso a chi
+  // ha già una sessione valida, invece di lasciarlo dentro fino alla
+  // scadenza naturale del token (fino a 30 giorni).
+  tokenVersion Int      @default(0)
   createdAt    DateTime @default(now())
 }
 
@@ -51,6 +58,11 @@ model Employee {
   // smette di vedere/compilare (resta in lettura fino a quella data compresa).
   username      String?   @unique
   password      String?
+  // Stessa logica di User.tokenVersion: incrementata ad ogni cambio o
+  // rigenerazione della password del dipendente (e quando il ruolo passa a
+  // OWNER, che revoca le credenziali) — invalida qualunque sessione
+  // dell'Area Dipendenti già aperta con la versione precedente.
+  tokenVersion  Int       @default(0)
   deactivatedAt DateTime?
 
   photo               EmployeePhoto?
