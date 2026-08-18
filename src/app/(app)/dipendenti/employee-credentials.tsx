@@ -113,6 +113,11 @@ export function EmployeeCredentials({
           {editingPassword ? (
             <input
               autoFocus
+              // type segue "reveal": senza, aprire la modifica mostrava
+              // sempre la password in chiaro anche a "Nascondi" attivo,
+              // bypassando di fatto il pulsante mostra/nascondi accanto —
+              // scomodo durante una condivisione di schermo.
+              type={reveal ? "text" : "password"}
               value={passwordValue}
               onChange={(e) => setPasswordValue(e.target.value)}
               onBlur={savePassword}
@@ -134,7 +139,7 @@ export function EmployeeCredentials({
             onClick={() => setReveal((r) => !r)}
             aria-label={reveal ? "Nascondi password" : "Mostra password"}
             title={reveal ? "Nascondi password" : "Mostra password"}
-            className="text-foreground-muted hover:text-foreground"
+            className="p-1.5 text-foreground-muted hover:text-foreground"
           >
             {reveal ? <EyeOffIcon /> : <EyeIcon />}
           </button>
@@ -142,7 +147,7 @@ export function EmployeeCredentials({
             type="button"
             disabled={pending}
             onClick={regenerate}
-            className="text-foreground-muted underline decoration-dotted hover:text-foreground disabled:opacity-50"
+            className="px-1 py-1.5 text-foreground-muted underline decoration-dotted hover:text-foreground disabled:opacity-50"
           >
             Rigenera
           </button>

@@ -123,6 +123,20 @@ body {
   color: var(--accent-foreground);
 }
 
+/* Safari su iOS zooma automaticamente la pagina quando l'utente mette a
+   fuoco un campo con font-size calcolato sotto i 16px — quasi tutti i campi
+   di testo dell'app usano text-xs/text-sm (12-14px) per motivi di spazio.
+   Sotto i 640px (dove il touch/iOS è la norma) si riporta la dimensione
+   reale del testo digitato a 16px, senza toccare le classi Tailwind di ogni
+   singolo campo in ogni file. Il valore *visivo* del campo non cambia su
+   desktop/tablet più larghi, dove lo zoom automatico non si applica. */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* scrollbar minimale, coerente col tema */
 ::-webkit-scrollbar {
   width: 10px;

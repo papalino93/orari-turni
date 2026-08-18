@@ -319,13 +319,16 @@ function PeriodRowInput({
   // Sotto "sm" l'orario va a capo su una riga propria, indentato sotto la
   // checkbox invece che schiacciato accanto ad essa.
   //
-  // Sotto "sm" i campi a cifre con avanzamento automatico lasciano il posto
+  // Sotto "lg" i campi a cifre con avanzamento automatico lasciano il posto
   // a due <input type="time"> nativi: sono pensati per una tastiera fisica
   // che digita in fretta, ma al tocco aprono una tastiera numerica che
   // "salta" da un campo minuscolo all'altro — confuso e, sui telefoni più
   // stretti, con dimensioni che sforano il bordo dello schermo. La rotella
   // di sistema nativa (quella che ogni altra app usa) è più stretta, più
-  // familiare al tocco, e non serve nemmeno una tastiera.
+  // familiare al tocco, e non serve nemmeno una tastiera. Soglia a "lg"
+  // (1024px) e non "sm" (640px): ogni tablet, sia in verticale che in
+  // orizzontale, è comunque touch e supera abbondantemente 640px — con la
+  // soglia bassa riceveva l'interfaccia pensata per mouse/tastiera fisica.
   return (
     <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
       <label className="flex items-center gap-1.5">
@@ -338,12 +341,12 @@ function PeriodRowInput({
         <span className="w-20 shrink-0 text-xs font-medium text-foreground-muted">{label}</span>
       </label>
       <div className="flex min-w-0 items-center gap-2 pl-6 sm:pl-0">
-        <span className="flex min-w-0 flex-1 items-center gap-2 sm:hidden">
+        <span className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
           <NativeTimeField value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
           <span className="shrink-0 text-foreground-muted">–</span>
           <NativeTimeField value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
         </span>
-        <span className="hidden min-w-0 flex-1 items-center gap-2 sm:flex">
+        <span className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
           <TimeFieldInput value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
           <span className="text-foreground-muted">–</span>
           <TimeFieldInput value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
@@ -436,6 +439,7 @@ export function DayEditorModal({
   );
 
   const [quantity, setQuantity] = useState(entry.leave?.quantity ?? 1);
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const toast = useToast();
@@ -574,6 +578,11 @@ export function DayEditorModal({
                 <input
                   type="number"
                   min={0.5}
+                  // Le ferie si contano in giorni interi di negozio: il
+                  // server rifiuta comunque oltre 1 (vedi actions.ts), ma
+                  // senza il max qui l'utente scopriva il limite solo dopo
+                  // aver premuto Salva.
+                  max={mode === "FERIE" ? 1 : undefined}
                   step={0.5}
                   value={quantity}
                   onChange={(e) => setQuantity(Number(e.target.value))}
@@ -594,14 +603,39 @@ export function DayEditorModal({
             )}
 
             <div className="mt-6 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={clearDay}
-                disabled={pending}
-                className="text-xs font-medium text-foreground-muted hover:text-danger disabled:opacity-50"
-              >
-                Svuota giornata
-              </button>
+              {confirmingClear ? (
+                // Azione distruttiva (cancella turno/assenza del giorno con un
+                // click solo): come le altre azioni distruttive dell'app, va
+                // confermata con un secondo passaggio esplicito prima di eseguirla.
+                <span className="flex items-center gap-2 text-xs">
+                  <span className="text-foreground-muted">Confermi?</span>
+                  <button
+                    type="button"
+                    onClick={clearDay}
+                    disabled={pending}
+                    className="font-semibold text-danger hover:underline disabled:opacity-50"
+                  >
+                    {pending ? "Svuoto…" : "Sì, svuota"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingClear(false)}
+                    disabled={pending}
+                    className="text-foreground-muted hover:text-foreground disabled:opacity-50"
+                  >
+                    Annulla
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingClear(true)}
+                  disabled={pending}
+                  className="text-xs font-medium text-foreground-muted hover:text-danger disabled:opacity-50"
+                >
+                  Svuota giornata
+                </button>
+              )}
               <div className="flex gap-2">
                 <button
                   type="button"

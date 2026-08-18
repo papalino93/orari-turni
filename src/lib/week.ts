@@ -18,6 +18,21 @@ export function parseDateKey(key: string): Date {
   return new Date(Date.UTC(y, m - 1, d));
 }
 
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Vero solo per chiavi in formato YYYY-MM-DD che rappresentano una data
+// calendario reale (es. "2026-02-30" viene scartata). A differenza di
+// parseDateKey qui sopra, che si fida sempre dell'input, questa serve alle
+// pagine per validare un `?date=` letto dall'URL prima di passarlo a
+// parseDateKey: un valore malformato o troncato produrrebbe altrimenti un
+// Invalid Date che fa esplodere toISOString() più a valle.
+export function isValidDateKey(key: string): boolean {
+  if (!DATE_KEY_RE.test(key)) return false;
+  const [y, m, d] = key.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
 // Lunedì della settimana contenente `date`.
 export function startOfWeek(date: Date): Date {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));

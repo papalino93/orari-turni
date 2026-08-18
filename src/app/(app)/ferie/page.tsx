@@ -19,11 +19,21 @@ export default async function FeriePage() {
     const balanceFor = (type: "FERIE" | "PERMESSO") => balances.find((b) => b.employeeId === emp.id && b.leaveType === type) ?? null;
     const entriesFor = (type: "FERIE" | "PERMESSO") =>
       entries.filter((e) => e.employeeId === emp.id && e.type === type).map((e) => ({ dateKey: toDateKey(e.date), quantity: e.quantity }));
+    // Un dipendente disattivato non matura più ferie/permessi dopo la fine
+    // del rapporto: senza questo, "Maturato" e "Residui al 31/12" di un ex
+    // dipendente continuerebbero a proiettare mesi mai lavorati.
+    const deactivatedAtKey = emp.deactivatedAt ? toDateKey(emp.deactivatedAt) : null;
 
     return {
       employee: { id: emp.id, name: emp.name, active: emp.active },
-      ferie: { summary: computeLeaveSummary(balanceFor("FERIE"), entriesFor("FERIE"), year, today), balance: balanceFor("FERIE") },
-      permesso: { summary: computeLeaveSummary(balanceFor("PERMESSO"), entriesFor("PERMESSO"), year, today), balance: balanceFor("PERMESSO") },
+      ferie: {
+        summary: computeLeaveSummary(balanceFor("FERIE"), entriesFor("FERIE"), year, today, deactivatedAtKey),
+        balance: balanceFor("FERIE"),
+      },
+      permesso: {
+        summary: computeLeaveSummary(balanceFor("PERMESSO"), entriesFor("PERMESSO"), year, today, deactivatedAtKey),
+        balance: balanceFor("PERMESSO"),
+      },
     };
   }
 

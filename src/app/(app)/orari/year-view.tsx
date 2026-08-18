@@ -35,40 +35,49 @@ export function YearView({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-      <div className="hidden overflow-x-auto md:block">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr>
-              <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-foreground-muted">Dipendente</th>
-              {months.map((m) => (
-                <th key={m} className="border-b border-border px-2 py-3 text-center text-xs font-medium text-foreground-muted">
-                  {monthLabel(m, true)}
-                </th>
-              ))}
-              <th className="border-b border-border px-4 py-3 text-center text-xs font-medium text-foreground-muted">Totale anno</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orderedEmployees.map((emp) => (
-              <tr key={emp.id}>
-                <td className="border-b border-border px-4 py-3">
-                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <EmployeeAvatar employee={emp} size="sm" />
-                    {emp.name}
-                  </span>
-                </td>
+      <div className="relative hidden md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-foreground-muted">Dipendente</th>
                 {months.map((m) => (
-                  <td key={m} className="border-b border-border px-2 py-3 text-center text-sm text-foreground-muted">
-                    {hoursForMonth(emp.id, m) || "–"}
-                  </td>
+                  <th key={m} className="border-b border-border px-2 py-3 text-center text-xs font-medium text-foreground-muted">
+                    {monthLabel(m, true)}
+                  </th>
                 ))}
-                <td className="border-b border-border px-4 py-3 text-center text-sm font-semibold text-foreground">
-                  {formatHours(schedule.employeeHours(emp.id))}
-                </td>
+                <th className="border-b border-border px-4 py-3 text-center text-xs font-medium text-foreground-muted">Totale anno</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {orderedEmployees.map((emp) => (
+                <tr key={emp.id}>
+                  <td className="border-b border-border px-4 py-3">
+                    <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <EmployeeAvatar employee={emp} size="sm" />
+                      {emp.name}
+                    </span>
+                  </td>
+                  {months.map((m) => (
+                    <td key={m} className="border-b border-border px-2 py-3 text-center text-sm text-foreground-muted">
+                      {hoursForMonth(emp.id, m) || "–"}
+                    </td>
+                  ))}
+                  <td className="border-b border-border px-4 py-3 text-center text-sm font-semibold text-foreground">
+                    {formatHours(schedule.employeeHours(emp.id))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {/* Su un tablet in verticale (768px) 12 colonne mese + dipendente +
+            totale non ci stanno mai: solo un accenno che c'è altro da
+            scorrere, stesso pattern già usato nella tabella settimanale. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface to-transparent"
+        />
       </div>
 
       <div className="divide-y divide-border md:hidden">

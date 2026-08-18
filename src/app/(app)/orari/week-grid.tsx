@@ -154,7 +154,7 @@ function WeekClosureBar({
             type="button"
             onClick={() => onManageDay(dateKey)}
             title={closed ? "Locale chiuso — clicca per riaprire o gestire" : "Clicca per chiudere il locale in questa giornata"}
-            className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-colors ${
+            className={`flex items-center gap-1 rounded-full border px-2.5 py-2 text-xs font-medium transition-colors ${
               closed
                 ? "border-danger/40 bg-danger/10 text-danger"
                 : "border-border text-foreground-muted hover:border-accent hover:text-foreground"

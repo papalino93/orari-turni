@@ -275,9 +275,21 @@ export async function clearWeekData(weekStartKeyInput: string): Promise<ActionRe
     const start = dateKeyToDate(weekStartKey);
     const end = dateKeyToDate(toDateKey(addDays(toDate(weekStartKey), 6)));
 
+    // Le giornate chiuse non vanno toccate (come dichiarato nel testo di
+    // conferma in UI): i turni conservati come bozza sotto una chiusura
+    // devono restare intatti fino alla riapertura, non sparire insieme al
+    // resto della settimana.
+    const closures = await prisma.closureDay.findMany({
+      where: { date: { gte: start, lte: end } },
+      select: { date: true },
+    });
+    const closedDates = closures.map((c) => c.date);
+    const dateFilter =
+      closedDates.length > 0 ? { gte: start, lte: end, notIn: closedDates } : { gte: start, lte: end };
+
     await prisma.$transaction([
-      prisma.shiftBlock.deleteMany({ where: { date: { gte: start, lte: end } } }),
-      prisma.leaveEntry.deleteMany({ where: { date: { gte: start, lte: end } } }),
+      prisma.shiftBlock.deleteMany({ where: { date: dateFilter } }),
+      prisma.leaveEntry.deleteMany({ where: { date: dateFilter } }),
     ]);
     // Svuotare una settimana pubblicata la riporta in bozza: quello che è
     // stato comunicato al personale non esiste più.

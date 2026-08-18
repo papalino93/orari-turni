@@ -159,7 +159,9 @@ export async function setEmployeePassword(idInput: string, passwordInput: string
     await requireUser();
     const id = parseId(idInput, "dipendente");
     const password = parseText(passwordInput, "password", { max: 60, required: true });
-    assert(password.length >= 4, "La password deve avere almeno 4 caratteri.");
+    // Stesso minimo richiesto per la password degli admin (account/actions.ts):
+    // 4 caratteri erano troppo pochi per un account con accesso a dati reali.
+    assert(password.length >= 8, "La password deve avere almeno 8 caratteri.");
 
     const employee = await prisma.employee.findUnique({ where: { id } });
     assert(employee, "Dipendente non trovato.");

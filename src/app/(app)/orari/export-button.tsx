@@ -107,8 +107,16 @@ export function ExportButton({
           className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         >
-          <div className="flex min-h-full items-center justify-center p-4">
-            <div onClick={(e) => e.stopPropagation()} className="max-w-full rounded-2xl border border-border bg-surface p-4 shadow-2xl">
+          {/* Bottom-sheet su mobile (come gli altri modali dell'app), non un
+              box sempre centrato: su un telefono con Home Indicator gestuale
+              i pulsanti Immagine/PDF in fondo altrimenti finiscono a ridosso
+              del bordo, senza lo stesso margine di sicurezza già applicato
+              ovunque nel resto dell'app. */}
+          <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-4">
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-full rounded-t-2xl border border-border bg-surface p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-4"
+            >
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-sm font-medium text-foreground">Anteprima orario</p>
                 <button type="button" onClick={() => setOpen(false)} className="text-xs text-foreground-muted hover:text-foreground">

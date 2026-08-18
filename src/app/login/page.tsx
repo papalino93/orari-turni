@@ -37,7 +37,12 @@ export default function LoginPage() {
     // legato al tema chiaro/scuro): la pagina di accesso è il primo
     // contatto con l'app, deve sembrare la stessa identità visiva, non un
     // tema scuro generico con un accento diverso.
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0c0b0d] px-4">
+    // overflow-hidden qui bloccherebbe anche lo scroll della pagina, non solo
+    // il gradiente decorativo sotto: su schermi bassi con la tastiera aperta
+    // il pulsante "Accedi" resterebbe irraggiungibile. Il gradiente è
+    // `absolute inset-0`, quindi non esce comunque dai bordi del contenitore
+    // anche senza overflow-hidden.
+    <div className="relative flex min-h-screen items-center justify-center bg-[#0c0b0d] px-4">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"

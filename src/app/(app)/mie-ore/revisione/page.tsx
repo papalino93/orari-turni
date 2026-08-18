@@ -32,8 +32,16 @@ export default async function RevisionePage({
 
   const today = todayKey();
   const { year: yearParam, month: monthParam } = await searchParams;
-  const year = yearParam ? Number(yearParam) : Number(today.slice(0, 4));
-  const month = monthParam ? Number(monthParam) : Number(today.slice(5, 7));
+  // Un ?year=/?month= mancante o non numerico (link malformato, parametro
+  // modificato a mano) non deve produrre un NaN silenzioso: si torna al
+  // mese corrente, come già fa parseDateKey delle Server Action per lo
+  // stesso genere di input.
+  const parsedYear = yearParam ? Number(yearParam) : NaN;
+  const parsedMonth = monthParam ? Number(monthParam) : NaN;
+  const validYear = Number.isInteger(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100;
+  const validMonth = Number.isInteger(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12;
+  const year = validYear ? parsedYear : Number(today.slice(0, 4));
+  const month = validMonth ? parsedMonth : Number(today.slice(5, 7));
   const anchor = new Date(Date.UTC(year, month - 1, 1));
 
   const dateKeys = daysInMonth(anchor).map(toDateKey);

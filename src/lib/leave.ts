@@ -18,6 +18,11 @@ export function computeLeaveSummary(
   entries: { dateKey: string; quantity: number }[],
   year: number,
   todayKey: string,
+  // Data di fine rapporto del dipendente (YYYY-MM-DD), se disattivato. Senza
+  // questo limite un dipendente uscito a marzo continuerebbe a "maturare"
+  // ferie/permessi fino a oggi (o fino al 31/12 nella proiezione di fine
+  // anno) come se avesse continuato a lavorare.
+  deactivatedAtKey: string | null = null,
 ): LeaveSummary {
   const opening = balance?.openingBalance ?? 0;
   const rate = balance?.monthlyAccrualRate ?? 0;
@@ -25,10 +30,23 @@ export function computeLeaveSummary(
   const todayYear = Number(todayKey.slice(0, 4));
   const todayMonth = Number(todayKey.slice(5, 7)); // 1-12
   const isCurrentYear = todayYear === year;
-  const monthsElapsed = isCurrentYear ? todayMonth : year < todayYear ? 12 : 0;
+
+  // Non oltre il mese di fine rapporto, se cade nell'anno in questione; zero
+  // mesi maturati se il rapporto è finito in un anno precedente a `year`.
+  function capAtDeactivation(months: number): number {
+    if (!deactivatedAtKey) return months;
+    const deactivatedYear = Number(deactivatedAtKey.slice(0, 4));
+    const deactivatedMonth = Number(deactivatedAtKey.slice(5, 7));
+    if (deactivatedYear < year) return 0;
+    if (deactivatedYear > year) return months;
+    return Math.min(months, deactivatedMonth);
+  }
+
+  const monthsElapsed = capAtDeactivation(isCurrentYear ? todayMonth : year < todayYear ? 12 : 0);
+  const monthsFineAnno = capAtDeactivation(12);
 
   const maturato = opening + rate * monthsElapsed;
-  const maturatoFineAnno = opening + rate * 12;
+  const maturatoFineAnno = opening + rate * monthsFineAnno;
 
   let goduto = 0;
   let programmato = 0;

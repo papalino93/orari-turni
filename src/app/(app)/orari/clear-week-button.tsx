@@ -51,8 +51,15 @@ export function ClearWeekButton({
           className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
           onClick={() => !pending && setOpen(false)}
         >
-          <div className="flex min-h-full items-center justify-center p-4">
-            <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5 shadow-2xl">
+          {/* Bottom-sheet su mobile + margine per l'area sicura (Home
+              Indicator), come gli altri modali dell'app — questo era rimasto
+              sempre centrato, unica incoerenza per un modale di conferma
+              distruttiva raggiungibile anche da mobile. */}
+          <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-4">
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
+            >
               <h2 className="text-base font-semibold text-foreground">Svuotare questa settimana?</h2>
               <p className="mt-2 text-sm text-foreground-muted">
                 Verranno eliminati tutti i turni, ferie, permessi e riposi inseriti in questa settimana, per tutti i

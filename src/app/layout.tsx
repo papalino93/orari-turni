@@ -53,6 +53,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#560101",
+  // Senza viewport-fit=cover, su iOS ogni env(safe-area-inset-*) usato nei
+  // modali/nella barra di navigazione (vedi app-shell.tsx e i vari modali a
+  // foglio) risolve sempre a 0: il padding pensato per la tacca/Home
+  // Indicator non avrebbe alcun effetto reale una volta installata come PWA.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

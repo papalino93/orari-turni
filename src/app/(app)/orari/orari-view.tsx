@@ -192,7 +192,7 @@ export function OrariView({
           onClick={() => setSettingsOpen(true)}
           aria-label="Impostazioni vista"
           title="Impostazioni vista"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
         >
           <MenuIcon />
         </button>
@@ -200,10 +200,14 @@ export function OrariView({
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
+          {/* h-11 (44px): le azioni di navigazione periodo sono tra i
+              controlli più toccati in assoluto in tutta la sezione Orari, a
+              differenza dei precedenti h-9 (36px) — troppo piccoli per un
+              uso frequente a una mano su mobile. */}
           <button
             type="button"
             onClick={() => step(-1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
             aria-label="Precedente"
           >
             ‹
@@ -211,14 +215,14 @@ export function OrariView({
           <button
             type="button"
             onClick={() => navigate({ date: todayKey() })}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+            className="flex h-11 items-center rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground"
           >
             Oggi
           </button>
           <button
             type="button"
             onClick={() => step(1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
             aria-label="Successivo"
           >
             ›

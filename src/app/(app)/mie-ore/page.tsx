@@ -2,7 +2,16 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { addDays, endOfMonth, lastCompletedMonth, parseDateKey, startOfWeek, toDateKey, todayKey } from "@/lib/week";
+import {
+  addDays,
+  endOfMonth,
+  isValidDateKey,
+  lastCompletedMonth,
+  parseDateKey,
+  startOfWeek,
+  toDateKey,
+  todayKey,
+} from "@/lib/week";
 import { MieOreView } from "./mie-ore-view";
 
 export default async function MieOrePage({
@@ -38,8 +47,9 @@ export default async function MieOrePage({
   if (!employee) redirect(preview ? "/dipendenti" : "/login");
   // todayKey() e non new Date(): coerente con lo stesso motivo spiegato in
   // /orari — evita di sbagliare settimana nella finestra fra la mezzanotte
-  // UTC e quella italiana.
-  const anchor = date ? parseDateKey(date) : parseDateKey(todayKey());
+  // UTC e quella italiana. isValidDateKey scarta un `?date=` malformato
+  // invece di far esplodere parseDateKey più sotto.
+  const anchor = date && isValidDateKey(date) ? parseDateKey(date) : parseDateKey(todayKey());
   const weekStart = startOfWeek(anchor);
   const weekEnd = addDays(weekStart, 6);
   const dateKeys = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i)));

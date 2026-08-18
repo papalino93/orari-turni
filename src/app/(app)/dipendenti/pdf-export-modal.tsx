@@ -153,8 +153,15 @@ export function PdfExportModal({
     // "min-h-full" sull'involucro che centra tiene la struttura identica
     // quando il contenuto ci sta, e la fa scorrere per intero quando no.
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div onClick={(e) => e.stopPropagation()} className="max-w-full rounded-2xl border border-border bg-surface p-5 shadow-2xl">
+      {/* Bottom-sheet su mobile + margine per l'area sicura (Home Indicator),
+          come gli altri modali dell'app — questo restava sempre centrato,
+          l'unica incoerenza su un modale spesso più alto dello schermo su
+          mobile (anteprima + selettore periodo). */}
+      <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-4">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-full rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
+        >
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground">Esporta orario — {employeeName}</p>
           <button type="button" onClick={onClose} className="text-xs text-foreground-muted hover:text-foreground">

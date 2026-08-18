@@ -3,6 +3,7 @@ import {
   addDays,
   endOfMonth,
   endOfYear,
+  isValidDateKey,
   parseDateKey,
   startOfMonth,
   startOfWeek,
@@ -22,7 +23,9 @@ export default async function OrariPage({
   // todayKey() e non toDateKey(new Date()): quest'ultima legge il giorno in
   // UTC, sbagliando la vista di default nella finestra tra mezzanotte UTC e
   // quella italiana (l'utente aprirebbe /orari e vedrebbe ancora ieri).
-  const refDate = params.date ? parseDateKey(params.date) : parseDateKey(todayKey());
+  // isValidDateKey scarta un `?date=` malformato (link troncato, vecchio
+  // segnalibro) invece di far esplodere parseDateKey più sotto.
+  const refDate = params.date && isValidDateKey(params.date) ? parseDateKey(params.date) : parseDateKey(todayKey());
   const employeeFilter = params.employee || undefined;
   const displayMode = params.mode === "employees" ? "employees" : "periods";
 
@@ -43,11 +46,6 @@ export default async function OrariPage({
           ? endOfMonth(refDate)
           : endOfYear(refDate);
 
-  const employees = await prisma.employee.findMany({
-    where: { active: true },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-  });
-
   const needsLeave = view === "day" || view === "week";
   const weekStart = view === "week" ? startOfWeek(refDate) : null;
 
@@ -59,6 +57,19 @@ export default async function OrariPage({
     prisma.closureDay.findMany({ where: { date: { gte: rangeStart, lte: rangeEnd } } }),
     weekStart ? prisma.weekPlan.findUnique({ where: { weekStart } }) : Promise.resolve(null),
   ]);
+
+  // Oltre agli attivi, includiamo chi è stato disattivato ma ha comunque
+  // turni/assenze registrati nel periodo mostrato: altrimenti un dipendente
+  // uscito sparisce, con le sue ore, anche dai periodi passati in cui ha
+  // davvero lavorato (verifiche retrospettive, controlli su buste paga).
+  const employeeIdsWithData = Array.from(
+    new Set([...blocks.map((b) => b.employeeId), ...leaveEntries.map((l) => l.employeeId)]),
+  );
+
+  const employees = await prisma.employee.findMany({
+    where: employeeIdsWithData.length > 0 ? { OR: [{ active: true }, { id: { in: employeeIdsWithData } }] } : { active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
 
   return (
     <OrariView
