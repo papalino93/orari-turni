@@ -46,14 +46,19 @@ export default async function OrariPage({
           ? endOfMonth(refDate)
           : endOfYear(refDate);
 
-  const needsLeave = view === "day" || view === "week";
   const weekStart = view === "week" ? startOfWeek(refDate) : null;
 
+  // leaveEntries va sempre interrogato, anche per Mese/Anno: schedule.ts
+  // dichiara esplicitamente "una sola fonte dati, nessuna vista ricalcola
+  // nulla per conto suo" — saltarlo per Mese/Anno (come prima, quando
+  // "serviva" solo a Giorno/Settimana) faceva sì che schedule.entry() e le
+  // anomalie mentissero in silenzio su ferie/permessi/malattia per quelle
+  // due viste, viste come "non pianificato". L'intervallo più ampio (fino a
+  // un anno) resta comunque poco costoso per il volume di dati di un
+  // singolo negozio.
   const [blocks, leaveEntries, closures, weekPlan] = await Promise.all([
     prisma.shiftBlock.findMany({ where: { date: { gte: rangeStart, lte: rangeEnd } } }),
-    needsLeave
-      ? prisma.leaveEntry.findMany({ where: { date: { gte: rangeStart, lte: rangeEnd } } })
-      : Promise.resolve([]),
+    prisma.leaveEntry.findMany({ where: { date: { gte: rangeStart, lte: rangeEnd } } }),
     prisma.closureDay.findMany({ where: { date: { gte: rangeStart, lte: rangeEnd } } }),
     weekStart ? prisma.weekPlan.findUnique({ where: { weekStart } }) : Promise.resolve(null),
   ]);

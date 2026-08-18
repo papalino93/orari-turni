@@ -33,8 +33,25 @@ async function ensureEmployeeCredentials(employees: Employee[]): Promise<Employe
   for (const emp of missing) {
     const username = await generateEmployeeUsername(emp.name);
     const password = encryptEmployeePassword(generateEmployeePassword());
-    const updated = await prisma.employee.update({ where: { id: emp.id }, data: { username, password } });
-    byId.set(emp.id, updated);
+    // updateMany con where username:null, non update semplice: due richieste
+    // quasi simultanee a questa pagina (doppia scheda, refresh rapido, un
+    // prefetch di Next.js più la navigazione reale) possono trovare
+    // entrambe lo stesso dipendente senza credenziali — con un update
+    // incondizionato la seconda sovrascriveva silenziosamente username e
+    // password già scritti dalla prima, lasciando al titolare una coppia
+    // che comunica a voce ma che nel frattempo non è più quella salvata.
+    // Qui solo la prima scrittura va a buon fine (count === 1); chi perde
+    // la corsa rilegge il valore davvero persistito invece di sovrascriverlo.
+    const { count } = await prisma.employee.updateMany({
+      where: { id: emp.id, username: null },
+      data: { username, password },
+    });
+    if (count === 1) {
+      byId.set(emp.id, { ...emp, username, password });
+    } else {
+      const updated = await prisma.employee.findUnique({ where: { id: emp.id } });
+      if (updated) byId.set(emp.id, updated);
+    }
   }
   return employees.map((e) => byId.get(e.id)!);
 }
