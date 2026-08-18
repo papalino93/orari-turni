@@ -8,7 +8,10 @@ import { InstallBanner, EmployeeInstallPrompt } from "@/components/install-banne
 
 const ADMIN_NAV_ITEMS = [
   { href: "/orari", label: "Orari", icon: CalendarIcon },
-  { href: "/ferie", label: "Ferie & Permessi", icon: PalmIcon },
+  // Ferie & Permessi nascosta temporaneamente su richiesta: la sezione non è
+  // ancora in uso e genera confusione. La pagina resta funzionante, va solo
+  // riaggiunta qui (con la sua PalmIcon, rimossa sotto) quando la riattiviamo.
+  // { href: "/ferie", label: "Ferie & Permessi", icon: PalmIcon },
   { href: "/dipendenti", label: "Dipendenti", icon: PeopleIcon },
 ];
 
@@ -122,14 +125,6 @@ function CalendarIcon({ active }: { active: boolean }) {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2}>
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path d="M3 10h18M8 3v4M16 3v4" />
-    </svg>
-  );
-}
-
-function PalmIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2}>
-      <path d="M12 21V10M12 10c0-4-3-7-7-7 0 4 3 6 7 6M12 10c0-4 3-7 7-7 0 4-3 6-7 6M12 12c0-3-2.5-5-6-5 0 3 2 5 6 5M12 12c0-3 2.5-5 6-5 0 3-2 5-6 5" />
     </svg>
   );
 }
