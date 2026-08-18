@@ -410,7 +410,7 @@ export function DayEditorModal({
    * ore resta volutamente giorno per giorno, perché ogni salvataggio
    * registra cosa è cambiato rispetto al pianificato.
    */
-  applyToDays?: { dateKey: string; label: string; isClosed: boolean }[];
+  applyToDays?: { dateKey: string; label: string; isClosed: boolean; hasContent: boolean }[];
 }) {
   const initialMode: Mode =
     entry.kind === "TURNO" || entry.kind === "NON_PIANIFICATO" || entry.kind === "CHIUSO"
@@ -458,6 +458,11 @@ export function DayEditorModal({
   const toast = useToast();
 
   const selectableDays = (applyToDays ?? []).filter((d) => d.dateKey !== dateKey && !d.isClosed);
+  // Derivati per il messaggio sotto ai giorni selezionati: elenco per nome
+  // (non un numero) e quanti di quei giorni verrebbero sovrascritti.
+  const selectedExtraDays = selectableDays.filter((d) => extraDays.includes(d.dateKey));
+  const selectedDaysLabel = selectedExtraDays.map((d) => d.label).join(", ");
+  const overwritingCount = selectedExtraDays.filter((d) => d.hasContent).length;
   const date = parseDateKey(dateKey);
 
   // Prima "Salva" era solo un pulsante da cliccare: premere Invio dentro un
@@ -659,7 +664,9 @@ export function DayEditorModal({
             {selectableDays.length > 0 && (
               <div className="mt-5 border-t border-border pt-4">
                 <div className="mb-2 flex items-baseline justify-between gap-2">
-                  <p className="text-xs font-medium text-foreground-muted">Anche in questi giorni</p>
+                  {/* "Anche in questi giorni" non diceva ANCHE COSA: il
+                      titolo ora nomina l'azione, non il contenitore. */}
+                  <p className="text-sm font-semibold text-foreground">Ripeti su altri giorni</p>
                   {/* Selezionare i 6 giorni uno a uno per "tutta la settimana"
                       (caso tipico sia per assegnare una rotazione fissa sia
                       per togliere una persona dall'intera settimana) era il
@@ -689,22 +696,47 @@ export function DayEditorModal({
                             prev.includes(d.dateKey) ? prev.filter((k) => k !== d.dateKey) : [...prev, d.dateKey],
                           )
                         }
-                        className={`flex h-10 min-w-[3rem] items-center justify-center rounded-lg border px-3 text-xs font-medium transition-colors ${
+                        title={d.hasContent ? `${d.label}: c'è già un turno o un'assenza, verrà sostituito` : d.label}
+                        className={`flex h-10 min-w-[3rem] items-center justify-center gap-1 rounded-lg border px-3 text-xs font-medium transition-colors ${
                           selected
                             ? "border-accent bg-accent/15 text-foreground"
                             : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
                         }`}
                       >
                         {d.label}
+                        {/* Pallino sui giorni che hanno già qualcosa dentro:
+                            senza, si sovrascriveva un turno già inserito
+                            senza il minimo segnale che stava succedendo. */}
+                        {d.hasContent && (
+                          <span
+                            aria-hidden
+                            className={`h-1.5 w-1.5 rounded-full ${selected ? "bg-accent" : "bg-foreground-muted/50"}`}
+                          />
+                        )}
                       </button>
                     );
                   })}
                 </div>
-                {extraDays.length > 0 && (
+                {/* Prima qui c'era una frase generica ("3 giornate avranno lo
+                    stesso contenuto") che non diceva né quali giorni né cosa
+                    ci sarebbe finito: ora si nominano i giorni per esteso. */}
+                {extraDays.length === 0 ? (
                   <p className="mt-2 text-xs text-foreground-muted">
-                    Salvando, {extraDays.length + 1} giornate avranno lo stesso contenuto. &ldquo;Svuota&rdquo; le
-                    libera tutte.
+                    Seleziona i giorni che devono avere lo stesso contenuto di questo.
                   </p>
+                ) : (
+                  <div className="mt-2 space-y-1 text-xs text-foreground-muted">
+                    <p>
+                      Salvando, anche <span className="font-medium text-foreground">{selectedDaysLabel}</span> avranno
+                      lo stesso contenuto di questa giornata.
+                    </p>
+                    {overwritingCount > 0 && (
+                      <p>
+                        <span aria-hidden>•</span> {overwritingCount === 1 ? "Un giorno selezionato ha" : `${overwritingCount} giorni selezionati hanno`}{" "}
+                        già un turno o un&apos;assenza: verrà sostituito.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )}

@@ -94,11 +94,17 @@ export function WeekBody({
           // Gli altri giorni della settimana mostrata: permettono di
           // assegnare lo stesso turno a più giornate senza riaprire ogni
           // volta questo riquadro.
-          applyToDays={days.map((d) => ({
-            dateKey: toDateKey(d),
-            label: dayLabel(d),
-            isClosed: schedule.isClosed(toDateKey(d)),
-          }))}
+          applyToDays={days.map((d) => {
+            const dk = toDateKey(d);
+            return {
+              dateKey: dk,
+              label: dayLabel(d),
+              isClosed: schedule.isClosed(dk),
+              // Turno o assenza già presenti per QUESTO dipendente in quel
+              // giorno: segnala che selezionandolo verrebbe sostituito.
+              hasContent: schedule.entry(editingCell.employeeId, dk).kind !== "NON_PIANIFICATO",
+            };
+          })}
           onClose={() => setEditingCell(null)}
           onOpenClosureManager={() => {
             setManagingDate(editingCell.dateKey);
