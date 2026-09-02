@@ -79,29 +79,35 @@ export function EmployeeInstallPrompt() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-6 text-center shadow-2xl">
-        {/* eslint-disable-next-line @next/next/no-img-element -- icona statica, non serve l'ottimizzazione di next/image */}
-        <img src="/icons/icon-192.png" alt="" width={64} height={64} className="mx-auto mb-4 rounded-2xl" />
-        <h2 className="text-base font-semibold text-foreground">Installa l&apos;app sul telefono</h2>
-        <p className="mt-2 text-sm text-foreground-muted">
-          Per ricevere gli orari e i promemoria delle ore in modo affidabile, aggiungi l&apos;app alla schermata
-          Home — bastano una decina di secondi, ti mostriamo tutti i passaggi.
-        </p>
-        <Link
-          href="/installa"
-          onClick={dismissForSession}
-          className="mt-5 block w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-hover"
-        >
-          Installa ora
-        </Link>
-        <button
-          type="button"
-          onClick={dismissForSession}
-          className="mt-3 text-xs font-medium text-foreground-muted hover:text-foreground"
-        >
-          Ricordamelo più tardi
-        </button>
+    // overflow-y-auto sul contenitore esterno, come tutti gli altri modali
+    // dell'app: senza, in orizzontale su un telefono basso il pannello
+    // (icona + testo + due pulsanti) può superare l'altezza dello schermo e
+    // restare tagliato in fondo, senza alcun modo di raggiungere il resto.
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 p-4 backdrop-blur-sm">
+      <div className="flex min-h-full items-center justify-center">
+        <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-6 text-center shadow-2xl">
+          {/* eslint-disable-next-line @next/next/no-img-element -- icona statica, non serve l'ottimizzazione di next/image */}
+          <img src="/icons/icon-192.png" alt="" width={64} height={64} className="mx-auto mb-4 rounded-2xl" />
+          <h2 className="text-base font-semibold text-foreground">Installa l&apos;app sul telefono</h2>
+          <p className="mt-2 text-sm text-foreground-muted">
+            Per ricevere gli orari e i promemoria delle ore in modo affidabile, aggiungi l&apos;app alla schermata
+            Home — bastano una decina di secondi, ti mostriamo tutti i passaggi.
+          </p>
+          <Link
+            href="/installa"
+            onClick={dismissForSession}
+            className="mt-5 block w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-hover"
+          >
+            Installa ora
+          </Link>
+          <button
+            type="button"
+            onClick={dismissForSession}
+            className="mt-3 text-xs font-medium text-foreground-muted hover:text-foreground"
+          >
+            Ricordamelo più tardi
+          </button>
+        </div>
       </div>
     </div>
   );
