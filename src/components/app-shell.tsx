@@ -39,7 +39,15 @@ export function AppShell({
           bianchi, indipendentemente dal tema chiaro/scuro scelto per il
           resto della pagina: è la fascia di marca fissa, non un elemento
           che segue il tema come tutto il resto. */}
-      <header className="sticky top-0 z-30 bg-brand-band shadow-[0_1px_0_rgba(0,0,0,0.18)] backdrop-blur">
+      {/* pt-safe: su iOS, "black-translucent" (vedi layout.tsx) fa scorrere
+          il contenuto web dietro la barra di stato invece che sotto —
+          l'aspetto voluto di un'app vera, non di una scheda del browser.
+          Ma "dietro" richiede che sia il contenuto a lasciare lo spazio
+          giusto da solo, altrimenti logo/orologio/pulsante Esci finiscono
+          letteralmente sotto l'orologio e la batteria del telefono. Lo
+          sfondo bordeaux resta esteso fin sotto la barra di stato (l'effetto
+          voluto); solo il contenuto vero scende sotto di essa. */}
+      <header className="sticky top-0 z-30 bg-brand-band pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(0,0,0,0.18)] backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element -- logo statico, non serve l'ottimizzazione di next/image */}
