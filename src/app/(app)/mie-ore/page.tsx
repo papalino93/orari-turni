@@ -94,6 +94,7 @@ export default async function MieOrePage({
       deactivatedAtKey={employee.deactivatedAt ? toDateKey(employee.deactivatedAt) : null}
       lastCompletedMonth={reviewMonth}
       lastMonthStatus={lastMonthSubmission?.status ?? null}
+      lastMonthReopenNote={lastMonthSubmission?.status === "REOPENED" ? lastMonthSubmission.reopenNote : null}
       wasHiredByReviewMonth={wasHiredByReviewMonth}
       weekStartKey={toDateKey(weekStart)}
       dateKeys={dateKeys}
