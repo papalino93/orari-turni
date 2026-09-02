@@ -210,13 +210,20 @@ export function PdfExportModal({
               <input
                 type="date"
                 value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
+                onChange={(e) => {
+                  setCustomFrom(e.target.value);
+                  // Come nel selettore di chiusura periodo: se "Da" supera
+                  // "A", si sposta anche "A" invece di lasciare un intervallo
+                  // invertito che il server rifiuterebbe solo dopo il fetch.
+                  if (e.target.value > customTo) setCustomTo(e.target.value);
+                }}
                 aria-label="Da"
                 className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs outline-none focus:border-accent"
               />
               <span className="text-foreground-muted">–</span>
               <input
                 type="date"
+                min={customFrom}
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
                 aria-label="A"

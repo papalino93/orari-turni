@@ -93,7 +93,12 @@ export function EmployeeCredentials({
               value={usernameValue}
               onChange={(e) => setUsernameValue(e.target.value)}
               onBlur={saveUsername}
-              onKeyDown={(e) => e.key === "Enter" && saveUsername()}
+              // Solo blur, non anche saveUsername(): smontare qui il campo
+              // (via saveUsername -> setEditingUsername(false)) fa comunque
+              // scattare un blur nativo un istante dopo, che richiamerebbe
+              // saveUsername() una seconda volta — doppia richiesta al
+              // server e doppio toast per un singolo Invio.
+              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
               className="w-32 rounded border border-accent bg-surface px-1.5 py-0.5 font-mono text-xs outline-none"
             />
           ) : (
@@ -121,7 +126,8 @@ export function EmployeeCredentials({
               value={passwordValue}
               onChange={(e) => setPasswordValue(e.target.value)}
               onBlur={savePassword}
-              onKeyDown={(e) => e.key === "Enter" && savePassword()}
+              // Vedi lo stesso commento sul campo username qui sopra.
+              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
               className="w-32 rounded border border-accent bg-surface px-1.5 py-0.5 font-mono text-xs outline-none"
             />
           ) : (

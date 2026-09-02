@@ -250,7 +250,12 @@ function EmployeeCard({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onBlur={saveName}
-                onKeyDown={(e) => e.key === "Enter" && saveName()}
+                // Solo blur, non anche saveName(): smontare qui il campo (via
+                // saveName -> setEditingName(false)) fa comunque scattare un
+                // blur nativo un istante dopo, che richiamerebbe saveName()
+                // una seconda volta con lo stesso valore — doppia richiesta
+                // al server e doppio toast per un singolo Invio.
+                onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
                 className="w-full max-w-[12rem] rounded-lg border border-accent bg-surface-2 px-2 py-1 text-sm text-foreground outline-none"
               />
             ) : (
@@ -289,7 +294,8 @@ function EmployeeCard({
               value={jobTitle}
               onChange={(e) => setJobTitleValue(e.target.value)}
               onBlur={saveJobTitle}
-              onKeyDown={(e) => e.key === "Enter" && saveJobTitle()}
+              // Vedi lo stesso commento sul campo nome qui sopra.
+              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
               placeholder="es. Responsabile sala"
               className="mt-0.5 w-full max-w-[12rem] rounded border border-accent bg-surface-2 px-1.5 py-0.5 text-xs outline-none"
             />
