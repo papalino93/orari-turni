@@ -19,6 +19,7 @@ export function MieOreView({
   deactivatedAtKey,
   lastCompletedMonth,
   lastMonthStatus,
+  lastMonthReopenNote,
   wasHiredByReviewMonth,
   preview = false,
 }: {
@@ -32,6 +33,8 @@ export function MieOreView({
   deactivatedAtKey: string | null;
   lastCompletedMonth: { year: number; month: number };
   lastMonthStatus: SubmissionStatus | null;
+  /** Il motivo scritto dal titolare quando ha riaperto il mese — non tutti lo compilano. */
+  lastMonthReopenNote: string | null;
   /** False se il dipendente è stato assunto dopo la fine di lastCompletedMonth. */
   wasHiredByReviewMonth: boolean;
   /** True quando titolare/consulente stanno guardando con "Visualizza come". */
@@ -107,6 +110,7 @@ export function MieOreView({
         <ReviewReminder
           lastCompletedMonth={lastCompletedMonth}
           status={lastMonthStatus}
+          reopenNote={lastMonthReopenNote}
           wasHiredByReviewMonth={wasHiredByReviewMonth}
           viewAsQuery={viewAsQuery}
         />
@@ -200,11 +204,13 @@ export function MieOreView({
 function ReviewReminder({
   lastCompletedMonth,
   status,
+  reopenNote,
   wasHiredByReviewMonth,
   viewAsQuery,
 }: {
   lastCompletedMonth: { year: number; month: number };
   status: SubmissionStatus | null;
+  reopenNote: string | null;
   wasHiredByReviewMonth: boolean;
   viewAsQuery: string;
 }) {
@@ -233,10 +239,18 @@ function ReviewReminder({
     >
       <span>
         <span className="font-medium">
-          {status === "REOPENED" ? `${label}: il titolare ha rimandato indietro le ore` : `Rivedi le ore di ${label}`}
+          {status === "REOPENED" ? `${label}: da correggere e reinviare` : `Rivedi le ore di ${label}`}
         </span>
-        <span className="mt-0.5 block text-xs opacity-80">
-          {status === "REOPENED" ? "Tocca per controllare e reinviare." : "Controlla che sia tutto giusto e invia."}
+        {/* Il motivo scritto dal titolare in Dipendenti è facoltativo: se
+            manca, il generico "controlla e reinvia" resta l'unica indicazione
+            possibile. Quando c'è, mostrarlo già qui evita al dipendente un
+            passaggio a vuoto solo per scoprire cosa non andava. */}
+        <span className="mt-0.5 line-clamp-2 block text-xs opacity-80">
+          {status === "REOPENED"
+            ? reopenNote
+              ? `“${reopenNote}” — tocca per correggere e reinviare.`
+              : "Tocca per controllare e reinviare."
+            : "Controlla che sia tutto giusto e invia."}
         </span>
       </span>
       <span aria-hidden>›</span>
