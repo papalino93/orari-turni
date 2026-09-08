@@ -15,6 +15,7 @@ export type CurrentEmployee = {
   username: string;
   active: boolean;
   deactivatedAt: Date | null;
+  createdAt: Date;
 };
 
 export class AuthError extends Error {
@@ -89,5 +90,6 @@ export async function requireEmployee(): Promise<CurrentEmployee> {
     username: employee.username,
     active: employee.active,
     deactivatedAt: employee.deactivatedAt,
+    createdAt: employee.createdAt,
   };
 }

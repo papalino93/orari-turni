@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireEmployee } from "@/lib/guard";
 import { assert, runAction, type ActionResult } from "@/lib/validation";
-import { todayKey } from "@/lib/week";
+import { todayKey, toDateKey } from "@/lib/week";
 
 // Bozza → Inviato: il dipendente segnala "ho finito, controlla tu". Da qui
 // in poi saveDayEntry (orari/actions.ts) rifiuta ulteriori modifiche finché
@@ -21,6 +21,11 @@ export async function submitMonth(year: number, month: number): Promise<ActionRe
     const monthKey = `${year}-${String(month).padStart(2, "0")}`;
     const currentMonthKey = todayKey().slice(0, 7);
     assert(monthKey <= currentMonthKey, "Non puoi inviare un mese futuro.");
+    // Stesso limite di saveDayEntry (orari/actions.ts): niente mesi
+    // precedenti all'assunzione, altrimenti si potrebbe inviare per
+    // approvazione un mese fatto di sole voci inventate.
+    const hireMonthKey = toDateKey(employee.createdAt).slice(0, 7);
+    assert(monthKey >= hireMonthKey, "Non puoi inviare un mese precedente alla tua data di assunzione.");
 
     const submission = await prisma.monthlySubmission.upsert({
       where: { employeeId_year_month: { employeeId: employee.id, year, month } },

@@ -92,6 +92,12 @@ export async function saveDayEntry(
     // tocco, se non esisteva ancora.
     if (auth.role === "EMPLOYEE") {
       assert(dateKey <= todayKey(), "Non puoi registrare ore per un giorno futuro.");
+      // Stesso motivo del limite futuro, sul lato opposto: la revisione
+      // corregge ore davvero lavorate, e prima dell'assunzione non ce ne
+      // sono — senza questo controllo un dipendente potrebbe (anche solo
+      // scorrendo "mese precedente" più volte) inventare turni per un
+      // periodo in cui non lavorava ancora qui.
+      assert(dateKey >= toDateKey(employee.createdAt), "Non puoi registrare ore precedenti alla tua data di assunzione.");
       const [year, month] = dateKey.split("-").map(Number);
       const submission = await prisma.monthlySubmission.upsert({
         where: { employeeId_year_month: { employeeId, year, month } },

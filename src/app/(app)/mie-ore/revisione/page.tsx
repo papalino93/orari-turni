@@ -93,6 +93,7 @@ export default async function RevisionePage({
       status={submission?.status ?? "DRAFT"}
       reopenNote={submission?.status === "REOPENED" ? submission.reopenNote : null}
       readOnly={preview}
+      hireMonthKey={toDateKey(employee.createdAt).slice(0, 7)}
     />
   );
 }

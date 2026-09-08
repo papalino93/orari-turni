@@ -42,6 +42,7 @@ export function RevisioneView({
   status,
   reopenNote,
   readOnly = false,
+  hireMonthKey,
 }: {
   employee: { id: string; name: string; jobTitle: string | null; photoVersion: string | null };
   isActive: boolean;
@@ -55,6 +56,8 @@ export function RevisioneView({
   reopenNote: string | null;
   /** True quando titolare/consulente stanno guardando con "Visualizza come": niente modifiche, niente invio. */
   readOnly?: boolean;
+  /** "AAAA-MM" del mese di assunzione: prima di qui non c'è nulla da rivedere. */
+  hireMonthKey: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -91,6 +94,7 @@ export function RevisioneView({
   const currentMonthKey = todayKey().slice(0, 7);
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
   const isFutureMonth = monthKey > currentMonthKey;
+  const isBeforeHire = monthKey <= hireMonthKey;
 
   function go(y: number, m: number) {
     router.push(`/mie-ore/revisione?year=${y}&month=${m}${viewAsQuery}`);
@@ -122,7 +126,9 @@ export function RevisioneView({
           <button
             type="button"
             onClick={() => step(-1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+            disabled={isBeforeHire}
+            title={isBeforeHire ? "Non lavoravi ancora qui prima di questo mese" : undefined}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-30"
             aria-label="Mese precedente"
           >
             ‹
