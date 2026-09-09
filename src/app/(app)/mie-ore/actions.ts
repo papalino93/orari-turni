@@ -17,10 +17,14 @@ export async function submitMonth(year: number, month: number): Promise<ActionRe
     assert(month >= 1 && month <= 12, "Mese non valido.");
 
     // Non ha senso inviare un mese non ancora concluso: si rivedono ore
-    // già lavorate, non si anticipano quelle future.
+    // già lavorate, non si anticipano quelle future. Il confronto è
+    // rigorosamente "<", non "<=": il mese corrente (in corso) non è
+    // ancora finito, quindi non è ancora inviabile — un dipendente lo ha
+    // inviato per sbaglio a metà mese e si è bloccato da solo la scheda
+    // finché il titolare non l'ha riaperta.
     const monthKey = `${year}-${String(month).padStart(2, "0")}`;
     const currentMonthKey = todayKey().slice(0, 7);
-    assert(monthKey <= currentMonthKey, "Non puoi inviare un mese futuro.");
+    assert(monthKey < currentMonthKey, "Non puoi ancora inviare questo mese: aspetta che sia finito.");
     // Stesso limite di saveDayEntry (orari/actions.ts): niente mesi
     // precedenti all'assunzione, altrimenti si potrebbe inviare per
     // approvazione un mese fatto di sole voci inventate.
