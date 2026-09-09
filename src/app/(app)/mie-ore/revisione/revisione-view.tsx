@@ -95,6 +95,10 @@ export function RevisioneView({
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
   const isFutureMonth = monthKey > currentMonthKey;
   const isBeforeHire = monthKey <= hireMonthKey;
+  // Il mese in corso non è ancora finito: si possono comunque correggere i
+  // giorni già passati (utile a metà mese), ma non "chiudere" ancora tutto
+  // il mese — vedi lo stesso limite, quello vero, in submitMonth.
+  const monthNotYetOver = monthKey === currentMonthKey;
 
   function go(y: number, m: number) {
     router.push(`/mie-ore/revisione?year=${y}&month=${m}${viewAsQuery}`);
@@ -157,7 +161,7 @@ export function RevisioneView({
         </div>
       )}
 
-      <StatusBanner status={status} reopenNote={reopenNote} isActive={isActive} />
+      <StatusBanner status={status} reopenNote={reopenNote} isActive={isActive} monthNotYetOver={monthNotYetOver} />
 
       <div className="my-4 overflow-hidden rounded-2xl border border-border bg-surface">
         <div className="divide-y divide-border">
@@ -202,7 +206,7 @@ export function RevisioneView({
         </div>
       </div>
 
-      {editable && (
+      {editable && !monthNotYetOver && (
         <button
           type="button"
           disabled={pending}
@@ -233,7 +237,18 @@ export function RevisioneView({
   );
 }
 
-function StatusBanner({ status, reopenNote, isActive }: { status: Status; reopenNote: string | null; isActive: boolean }) {
+function StatusBanner({
+  status,
+  reopenNote,
+  isActive,
+  monthNotYetOver,
+}: {
+  status: Status;
+  reopenNote: string | null;
+  isActive: boolean;
+  /** Il mese visualizzato è quello in corso: si corregge già, ma non si invia finché non finisce. */
+  monthNotYetOver: boolean;
+}) {
   if (!isActive) {
     return (
       <p className="rounded-xl border border-border bg-surface-2/50 px-4 py-3 text-xs text-foreground-muted">
@@ -259,7 +274,9 @@ function StatusBanner({ status, reopenNote, isActive }: { status: Status; reopen
       )}
       {status === "DRAFT" && (
         <p className="mt-1 font-normal text-foreground-muted">
-          Tocca un giorno per correggere l&apos;orario o aggiungerne uno mancante, poi invia il mese quando hai finito.
+          {monthNotYetOver
+            ? "Tocca un giorno per correggere l'orario o aggiungerne uno mancante. Il mese è ancora in corso: potrai inviarlo al titolare solo dopo che sarà finito."
+            : "Tocca un giorno per correggere l'orario o aggiungerne uno mancante, poi invia il mese quando hai finito."}
         </p>
       )}
     </div>
