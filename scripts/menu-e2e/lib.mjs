@@ -39,3 +39,12 @@ export function resetBlocks() {
   DB(`update "MenuBlock" set label='Coperto', "priceCents"=100, kind='PRICE', "sortOrder"=1 where id='blk_cover'`);
   DB(`update "MenuBlock" set kind='TEXT', "sortOrder"=0 where id='blk_kitchen_note'`);
 }
+
+// I riquadri «Informazioni del menù» e «Il locale» sono chiusi di default: i test
+// che li usano li aprono.
+export async function expandPanels(page) {
+  for (const name of ["Informazioni del menù", "Il locale"]) {
+    const toggle = page.locator('button[aria-expanded="false"]', { hasText: name });
+    if (await toggle.count()) await toggle.first().click();
+  }
+}

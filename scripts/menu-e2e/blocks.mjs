@@ -1,6 +1,6 @@
 // Blocchi informativi: creazione dei tre tipi, i tre punti del menù, più sezioni,
 // date, nascondi, ordine, eliminazione e annullamento, eventi, permessi.
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels } from "./lib.mjs";
 
 const biz = (offset = 0) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(
@@ -20,6 +20,7 @@ const page = await ctx.newPage();
 page.setDefaultTimeout(60000);
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
+await expandPanels(page);
 const dialog = () => page.locator('[role="dialog"]');
 const settle = (ms = 1500) => page.waitForTimeout(ms);
 const pub = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
@@ -250,6 +251,7 @@ check("evento duplicato: la copia mostra gli stessi blocchi (solo il coperto)", 
 for (const [label, w, h] of [["390", 390, 844], ["768", 768, 1024], ["1280", 1280, 900]]) {
   await page.setViewportSize({ width: w, height: h });
   await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 120000 });
+await expandPanels(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check(`pannello @${label}: nessun overflow orizzontale`, overflow <= 0, `delta ${overflow}`);
   await panel().getByRole("button", { name: "+ Aggiungi" }).click();

@@ -1,6 +1,6 @@
 // Copertina, orari («Aperto ora»), contatti: modifica dalla gestione e effetto
 // sul menù pubblico. Richiede `npm i --no-save sharp` (foto di prova).
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW } from "./lib.mjs";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, expandPanels } from "./lib.mjs";
 import { execFileSync } from "node:child_process";
 import sharp from "sharp";
 import { mkdtempSync } from "node:fs";
@@ -63,6 +63,7 @@ const page = await ctx.newPage();
 page.setDefaultTimeout(60000);
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
+await expandPanels(page);
 const dialog = () => page.locator('[role="dialog"]');
 const settle = (ms = 1500) => page.waitForTimeout(ms);
 const panel = () => page.locator('section[aria-label="Il locale"]');
@@ -127,6 +128,7 @@ check("eccezione: salvata (1)", JSON.parse(DB(`select value from "MenuSetting" w
 
 // Spengo «Aperto ora»
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await expandPanels(page);
 await page.getByRole("button", { name: "Modifica gli orari" }).click();
 await dialog().waitFor();
 await dialog().getByLabel("Mostra «Aperto ora / Chiuso» in copertina").uncheck();
@@ -138,6 +140,7 @@ check("«Aperto ora» spento: l'indicazione non compare", (await pub.locator("he
 
 // Copertina: titolo a 3 righe e foto
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await expandPanels(page);
 await page.getByRole("button", { name: "Modifica la copertina" }).click();
 await dialog().waitFor();
 await dialog().locator("textarea").fill("Vendemmia 2026\nCarta dei vini\ne Menù");
@@ -156,6 +159,7 @@ if (SHOTS) await pub.screenshot({ path: `${SHOTS}/copertina-390.png` });
 
 // Torno alla foto predefinita
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await expandPanels(page);
 await page.getByRole("button", { name: "Modifica la copertina" }).click();
 await dialog().waitFor();
 await dialog().getByRole("button", { name: "Torna alla foto predefinita" }).click();
@@ -168,6 +172,7 @@ check("copertina: foto rimossa dal database", DB(`select count(*) from "MenuHero
 
 // Storico e annulla: l'ultima modifica agli orari si annulla
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await expandPanels(page);
 await page.getByRole("button", { name: "Storico" }).click();
 await dialog().waitFor();
 const hist = (await dialog().innerText()).replace(/ /g, " ");

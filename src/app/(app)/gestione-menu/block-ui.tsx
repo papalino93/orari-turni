@@ -52,6 +52,8 @@ export function BlocksPanel({
   onAdd: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  // Chiuso di default: il riquadro serve di rado, la lista del menù resta più in alto.
+  const [open, setOpen] = useState(false);
 
   async function move(id: string, direction: "up" | "down") {
     setBusy(true);
@@ -62,10 +64,24 @@ export function BlocksPanel({
   return (
     <section aria-label="Informazioni del menù" className="mb-5 rounded-2xl border border-border bg-surface px-4 py-3">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Informazioni del menù</h2>
-          <p className="mt-0.5 text-xs text-foreground-muted">Coperto, chiusura cucina, avvisi e note: scegli cosa dire e dove compare.</p>
-        </div>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="flex min-h-10 min-w-0 flex-1 items-start gap-2 text-left"
+        >
+          <span aria-hidden="true" className="mt-0.5 text-foreground-muted">
+            <Chevron up={open} />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Informazioni del menù</span>
+            <span className="mt-0.5 block truncate text-xs text-foreground-muted">
+              {blocks.length === 0
+                ? "Coperto, chiusura cucina, avvisi: nessuna ancora."
+                : `${blocks.length} ${blocks.length === 1 ? "informazione" : "informazioni"}: ${blocks.map((b) => blockSummary(b)).join(" · ")}`}
+            </span>
+          </span>
+        </button>
         <button
           type="button"
           onClick={onAdd}
@@ -75,7 +91,7 @@ export function BlocksPanel({
         </button>
       </div>
 
-      {blocks.length === 0 && (
+      {open && blocks.length === 0 && (
         <p className="mt-3 rounded-xl border border-dashed border-border px-3 py-3 text-sm text-foreground-muted">
           Nessuna informazione. Aggiungi, per esempio, il coperto o un avviso sulla cucina.
         </p>
@@ -83,7 +99,7 @@ export function BlocksPanel({
 
       {PLACEMENT_ORDER.map((placement) => {
         const group = blocks.filter((b) => b.placement === placement);
-        if (group.length === 0) return null;
+        if (!open || group.length === 0) return null;
         return (
           <div key={placement} className="mt-3">
             <p className="mb-1 text-[11px] font-medium text-foreground-muted">{PLACEMENT_TITLES[placement]}</p>
