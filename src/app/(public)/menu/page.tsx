@@ -1,8 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
-import { businessDayKey, formatPrice, isSoldOut, nb } from "@/lib/menu-format";
-import { loadCover, loadMenu } from "@/lib/menu";
+import { businessDayKey, formatPrice, isSoldOut, nb, parseVariants, promoStatus } from "@/lib/menu-format";
+import { loadCover, loadMenu, loadVisiblePromos } from "@/lib/menu";
+import { InEvidenza } from "./in-evidenza";
+import { Variants } from "./item-prices";
 import { MenuNav } from "./menu-nav";
+import { PromoContent } from "./promo-content";
 import { Ornament } from "./ornament";
 
 // Pagina in cache, rigenerata ogni minuto e a ogni modifica del menù (vedi
@@ -34,7 +37,7 @@ function BottleIcon() {
 
 export default async function MenuPage() {
   const dayKey = businessDayKey();
-  const [loaded, cover] = await Promise.all([loadMenu(), loadCover()]);
+  const [loaded, cover, promos] = await Promise.all([loadMenu(), loadCover(), loadVisiblePromos(dayKey)]);
 
   // Vini esauriti: spariscono. Piatti esauriti: restano, sbiaditi. Un gruppo
   // o una sezione senza nulla da mostrare non compare (né il suo chip).
@@ -53,6 +56,10 @@ export default async function MenuPage() {
     .filter((section) => section.groups.length > 0);
 
   const chips = sections.map((s) => ({ id: s.slug, label: s.label }));
+  // Evento in corso: si apre da solo a pagina piena subito dopo la copertina.
+  // Negli altri casi (annunciato, o un annuncio) resta una scheda in «In evidenza».
+  const liveEvents = promos.filter((p) => p.kind === "EVENT" && promoStatus(p, dayKey) === "live");
+  const stripPromos = promos.filter((p) => !liveEvents.includes(p));
 
   return (
     <>
@@ -102,6 +109,15 @@ export default async function MenuPage() {
         )}
       </header>
 
+      {liveEvents.map((promo) => (
+        <section key={promo.id} id={`evento-${promo.slug}`} aria-label={promo.title} className="mx-auto max-w-[720px] px-6 pb-4 pt-8">
+          <PromoContent promo={promo} cover={cover} dayKey={dayKey} inline />
+        </section>
+      ))}
+
+      <InEvidenza promos={stripPromos} dayKey={dayKey} />
+
+      <div id="carta" className="scroll-mt-0" />
       {chips.length > 0 && <MenuNav chips={chips} />}
 
       <main className="mx-auto max-w-[720px] px-6 pb-[72px]">
@@ -154,6 +170,7 @@ export default async function MenuPage() {
 
                 {group.items.map((item) => {
                   const price = section.kind === "WINE" ? item.priceBottleCents : item.priceCents;
+                  const variants = parseVariants(item.variants);
                   return (
                     <div
                       key={item.id}
@@ -186,11 +203,15 @@ export default async function MenuPage() {
                           {formatPrice(item.priceGlassCents)}
                         </div>
                       )}
-                      <div
-                        className={`menu-sans w-10 flex-none text-right text-base font-medium text-[#6B1020] ${item.soldOut ? "line-through" : ""}`}
-                      >
-                        {price === null || price === undefined ? (group.columns ? "—" : "") : formatPrice(price)}
-                      </div>
+                      {variants ? (
+                        <Variants variants={variants} soldOut={item.soldOut} />
+                      ) : (
+                        <div
+                          className={`menu-sans w-10 flex-none text-right text-base font-medium text-[#6B1020] ${item.soldOut ? "line-through" : ""}`}
+                        >
+                          {price === null || price === undefined ? (group.columns ? "—" : "") : formatPrice(price)}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

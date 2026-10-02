@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
 import { formatPrice } from "@/lib/menu-format";
@@ -8,6 +8,7 @@ import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setSold
 import type { ChangeResult } from "./actions";
 import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
+import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
 import { CoverSheet, HistorySheet, SectionTextsSheet } from "./side-sheets";
 
 export type EditorItem = {
@@ -21,6 +22,7 @@ export type EditorItem = {
   priceBottleCents: number | null;
   priceCents: number | null;
   enomatic: boolean;
+  variants: { label: string; cents: number }[] | null;
   allergens: string[];
   allergensReviewed: boolean;
   soldOut: boolean;
@@ -33,12 +35,29 @@ export type EditorSection = {
   slug: string;
   label: string;
   title: string;
+  promoId: string | null;
   kind: "WINE" | "FOOD";
   note: string | null;
   coverApplies: boolean;
   addonTitle: string | null;
   addon: string | null;
   groups: EditorGroup[];
+};
+
+// Pagina promozionale (evento o annuncio); per gli eventi `section` è il menù speciale.
+export type EditorPromo = {
+  id: string;
+  kind: "NOTICE" | "EVENT";
+  slug: string;
+  title: string;
+  label: string | null;
+  body: string | null;
+  showFrom: string;
+  startDate: string;
+  endDate: string;
+  hidden: boolean;
+  imageVersion: number | null;
+  section: EditorSection | null;
 };
 
 export type HistoryEntry = {
@@ -65,11 +84,14 @@ type SheetState =
   | { type: "texts" }
   | { type: "cover" }
   | { type: "history" }
+  | { type: "promo"; id: string | null }
+  | { type: "promo-duplicate"; id: string }
   | null;
 
 const EMPTY: Record<string, boolean> = {};
 
 function priceSummary(item: EditorItem, kind: "WINE" | "FOOD"): string {
+  if (item.variants) return item.variants.map((v) => `${v.label} ${formatPrice(v.cents)}`).join(" · ");
   if (kind === "FOOD") return item.priceCents === null ? "" : `€ ${formatPrice(item.priceCents)}`;
   const parts: string[] = [];
   if (item.priceGlassCents !== null) parts.push(`Calice ${formatPrice(item.priceGlassCents)}`);
@@ -79,10 +101,14 @@ function priceSummary(item: EditorItem, kind: "WINE" | "FOOD"): string {
 
 export function MenuEditor({
   sections,
+  promos,
+  today,
   cover,
   history,
 }: {
   sections: EditorSection[];
+  promos: EditorPromo[];
+  today: string;
   cover: string | null;
   history: HistoryEntry[];
 }) {
@@ -91,6 +117,7 @@ export function MenuEditor({
   const [, startTransition] = useTransition();
   const [activeSlug, setActiveSlug] = useState(sections[0]?.slug ?? "");
   const [sheet, setSheet] = useState<SheetState>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [pendingOpenId, setPendingOpenId] = useState<string | null>(null);
   // Stato "esaurito" mostrato subito, in attesa della risposta del server: vale
   // solo finché i dati ricaricati non lo sostituiscono (si confronta l'identità
@@ -101,15 +128,26 @@ export function MenuEditor({
   });
   const localSold = local.base === sections ? local.map : EMPTY;
 
-  const section = sections.find((s) => s.slug === activeSlug) ?? sections[0];
+  // Sezioni fisse + menù speciali degli eventi: per cercare voci e gruppi servono tutte.
+  const eventSections = promos.flatMap((p) => (p.section ? [p.section] : []));
+  const allSections = [...sections, ...eventSections];
+  // Selezione: o una sezione fissa (slug) o una pagina promozionale ("promo:<id>").
+  const promoSelected = activeSlug.startsWith("promo:");
+  const activePromo = promoSelected ? (promos.find((p) => `promo:${p.id}` === activeSlug) ?? null) : null;
+  const section: EditorSection | null = promoSelected
+    ? (activePromo?.section ?? null)
+    : (sections.find((s) => s.slug === activeSlug) ?? sections[0] ?? null);
   // Piatti con allergeni "da compilare": sul menù dei clienti risultano "da
-  // verificare con il personale".
-  const missingAllergens = sections.reduce(
+  // verificare con il personale". Gli eventi già conclusi non contano.
+  const liveEventSections = promos.flatMap((p) =>
+    p.section && effectiveStatus(p, today) !== "past" ? [p.section] : [],
+  );
+  const missingAllergens = [...sections, ...liveEventSections].reduce(
     (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed).length, 0) : 0),
     0,
   );
   const isSold = (item: EditorItem) => localSold[item.id] ?? item.soldOut;
-  const soldOutCount = sections.reduce(
+  const soldOutCount = allSections.reduce(
     (n, s) => n + s.groups.reduce((m, g) => m + g.items.filter(isSold).length, 0),
     0,
   );
@@ -117,13 +155,22 @@ export function MenuEditor({
   // Dopo "Duplica": la copia compare coi dati ricaricati, e solo allora si
   // apre per la modifica.
   if (pendingOpenId) {
-    const found = sections.some((s) => s.groups.some((g) => g.items.some((i) => i.id === pendingOpenId)));
+    const found = allSections.some((s) => s.groups.some((g) => g.items.some((i) => i.id === pendingOpenId)));
     if (found) {
-      const group = sections.flatMap((s) => s.groups).find((g) => g.items.some((i) => i.id === pendingOpenId));
+      const group = allSections.flatMap((s) => s.groups).find((g) => g.items.some((i) => i.id === pendingOpenId));
       if (group) {
         setSheet({ type: "item", itemId: pendingOpenId, groupId: group.id });
         setPendingOpenId(null);
       }
+    }
+  }
+
+  // Sul telefono l'elenco delle sezioni è sopra al contenuto: scegliendone una,
+  // la pagina scorre da sola al contenuto invece di lasciarlo fuori schermo.
+  function select(key: string) {
+    setActiveSlug(key);
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      requestAnimationFrame(() => contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     }
   }
 
@@ -166,7 +213,7 @@ export function MenuEditor({
 
   function reactivateAll() {
     const map: Record<string, boolean> = { ...localSold };
-    for (const s of sections) for (const g of s.groups) for (const i of g.items) map[i.id] = false;
+    for (const s of allSections) for (const g of s.groups) for (const i of g.items) map[i.id] = false;
     setLocal({ base: sections, map });
     startTransition(async () => {
       const result = await run(() => resetSoldOut(), "Tutte le voci sono di nuovo disponibili");
@@ -176,20 +223,45 @@ export function MenuEditor({
 
   const editingItem =
     sheet?.type === "item" && sheet.itemId
-      ? sections.flatMap((s) => s.groups.flatMap((g) => g.items)).find((i) => i.id === sheet.itemId) ?? null
+      ? allSections.flatMap((s) => s.groups.flatMap((g) => g.items)).find((i) => i.id === sheet.itemId) ?? null
       : null;
   const itemSheetGroup =
     sheet?.type === "item"
-      ? sections.flatMap((s) => s.groups).find((g) => g.id === (editingItem?.groupId ?? sheet.groupId))
+      ? allSections.flatMap((s) => s.groups).find((g) => g.id === (editingItem?.groupId ?? sheet.groupId))
       : undefined;
   const itemSheetSection = itemSheetGroup
-    ? sections.find((s) => s.groups.some((g) => g.id === itemSheetGroup.id))
+    ? allSections.find((s) => s.groups.some((g) => g.id === itemSheetGroup.id))
     : undefined;
   const itemIndex = itemSheetGroup && editingItem ? itemSheetGroup.items.findIndex((i) => i.id === editingItem.id) : -1;
 
-  if (!section) {
+  if (!section && !promoSelected) {
     return <p className="text-sm text-foreground-muted">Il menù non è ancora stato caricato.</p>;
   }
+  // Eventi conclusi → archivio (restano con locandina, menù e formati, e si possono duplicare).
+  const archivePromos = promos.filter((p) => effectiveStatus(p, today) === "past" || (p.hidden && p.endDate < today));
+  const currentPromos = promos.filter((p) => !archivePromos.includes(p));
+  const promoButton = (p: EditorPromo) => {
+    const active = activeSlug === `promo:${p.id}`;
+    const status = effectiveStatus(p, today);
+    return (
+      <button
+        key={p.id}
+        type="button"
+        onClick={() => select(`promo:${p.id}`)}
+        aria-current={active ? "true" : undefined}
+        className={`flex min-h-10 max-w-full items-center justify-between gap-2 rounded-full px-3.5 text-sm font-medium transition-colors lg:rounded-xl ${
+          active
+            ? "bg-accent text-accent-foreground"
+            : "border border-border text-foreground-muted hover:border-accent hover:text-foreground lg:border-transparent"
+        }`}
+      >
+        <span className="truncate">{p.title}</span>
+        {!active && (status === "past" ? <span className="shrink-0 text-[10px] text-foreground-muted/80">{p.endDate.slice(0, 4)}</span> : <StatusChip status={status} />)}
+      </button>
+    );
+  };
+  const promoToEdit = sheet?.type === "promo" && sheet.id ? (promos.find((p) => p.id === sheet.id) ?? null) : null;
+  const promoToDuplicate = sheet?.type === "promo-duplicate" ? (promos.find((p) => p.id === sheet.id) ?? null) : null;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -210,6 +282,13 @@ export function MenuEditor({
               Riattiva tutto ({soldOutCount})
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setSheet({ type: "promo", id: null })}
+            className="min-h-10 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover"
+          >
+            + Evento o annuncio
+          </button>
           <button
             type="button"
             onClick={() => setSheet({ type: "history" })}
@@ -261,65 +340,111 @@ export function MenuEditor({
       )}
 
       <div className="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)]">
-        <nav aria-label="Sezioni" className="flex flex-wrap gap-2 lg:sticky lg:top-24 lg:h-fit lg:flex-col lg:gap-1">
-          {sections.map((s) => {
-            const count = s.groups.reduce((n, g) => n + g.items.length, 0);
-            const active = s.slug === section.slug;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setActiveSlug(s.slug)}
-                aria-current={active ? "true" : undefined}
-                className={`flex min-h-10 items-center justify-between gap-3 rounded-full px-3.5 text-sm font-medium transition-colors lg:rounded-xl ${
-                  active
-                    ? "bg-accent text-accent-foreground"
-                    : "border border-border text-foreground-muted hover:border-accent hover:text-foreground lg:border-transparent"
-                }`}
-              >
-                <span>{s.label}</span>
-                <span className={`text-xs ${active ? "text-accent-foreground/80" : "text-foreground-muted/70"}`}>{count}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <div className="space-y-5 lg:sticky lg:top-24 lg:h-fit">
+          <nav aria-label="Sezioni" className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
+            {sections.map((s) => {
+              const count = s.groups.reduce((n, g) => n + g.items.length, 0);
+              const active = !promoSelected && s.slug === section?.slug;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => select(s.slug)}
+                  aria-current={active ? "true" : undefined}
+                  className={`flex min-h-10 items-center justify-between gap-3 rounded-full px-3.5 text-sm font-medium transition-colors lg:rounded-xl ${
+                    active
+                      ? "bg-accent text-accent-foreground"
+                      : "border border-border text-foreground-muted hover:border-accent hover:text-foreground lg:border-transparent"
+                  }`}
+                >
+                  <span>{s.label}</span>
+                  <span className={`text-xs ${active ? "text-accent-foreground/80" : "text-foreground-muted/70"}`}>{count}</span>
+                </button>
+              );
+            })}
+          </nav>
 
-        <div className="min-w-0 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-semibold text-foreground">{section.title}</h2>
-            <button
-              type="button"
-              onClick={() => setSheet({ type: "texts" })}
-              className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-            >
-              Testi della sezione
-            </button>
+          <div>
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Eventi e annunci</p>
+            {currentPromos.length === 0 && <p className="text-xs text-foreground-muted">Nessun evento in programma.</p>}
+            {currentPromos.length > 0 && (
+              <nav aria-label="Eventi e annunci" className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
+                {currentPromos.map((p) => promoButton(p))}
+              </nav>
+            )}
+            {archivePromos.length > 0 && (
+              <details className="mt-3" open={archivePromos.some((p) => activeSlug === `promo:${p.id}`) || undefined}>
+                <summary className="flex min-h-10 cursor-pointer items-center text-xs font-medium uppercase tracking-wide text-foreground-muted hover:text-foreground">
+                  Archivio ({archivePromos.length})
+                </summary>
+                <nav aria-label="Archivio eventi" className="mt-2 flex flex-wrap gap-2 lg:flex-col lg:gap-1">
+                  {archivePromos.map((p) => promoButton(p))}
+                </nav>
+              </details>
+            )}
           </div>
+        </div>
 
-          {section.groups.map((group, index) => (
-            <GroupCard
-              key={group.id}
-              group={group}
-              kind={section.kind}
-              isFirst={index === 0}
-              isLast={index === section.groups.length - 1}
-              isSold={isSold}
+        <div ref={contentRef} className="min-w-0 scroll-mt-20 space-y-4">
+          {promoSelected && !activePromo && <p className="py-6 text-sm text-foreground-muted">Carico la pagina…</p>}
+
+          {activePromo && (
+            <PromoCard
+              promo={activePromo}
+              today={today}
               run={run}
-              onToggleSold={toggleSold}
-              onEdit={(item) => setSheet({ type: "item", itemId: item.id, groupId: group.id })}
-              onAdd={() => setSheet({ type: "item", itemId: null, groupId: group.id })}
-              onImport={() => setSheet({ type: "import", groupId: group.id })}
+              onEdit={() => setSheet({ type: "promo", id: activePromo.id })}
+              onDuplicate={() => setSheet({ type: "promo-duplicate", id: activePromo.id })}
             />
-          ))}
+          )}
 
-          <NewGroupForm sectionId={section.id} run={run} />
+          {activePromo && activePromo.kind === "NOTICE" && (
+            <p className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-foreground-muted">
+              Un annuncio ha testo e foto, senza menù. Per aggiungere un menù speciale con voci e prezzi crea un «Evento con menù speciale».
+            </p>
+          )}
+
+          {section && (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
+                {!activePromo && (
+                  <button
+                    type="button"
+                    onClick={() => setSheet({ type: "texts" })}
+                    className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+                  >
+                    Testi della sezione
+                  </button>
+                )}
+              </div>
+
+              {section.groups.map((group, index) => (
+                <GroupCard
+                  key={group.id}
+                  group={group}
+                  kind={section.kind}
+                  isFirst={index === 0}
+                  isLast={index === section.groups.length - 1}
+                  isSold={isSold}
+                  run={run}
+                  onToggleSold={toggleSold}
+                  onEdit={(item) => setSheet({ type: "item", itemId: item.id, groupId: group.id })}
+                  onAdd={() => setSheet({ type: "item", itemId: null, groupId: group.id })}
+                  onImport={() => setSheet({ type: "import", groupId: group.id })}
+                />
+              ))}
+
+              <NewGroupForm sectionId={section.id} run={run} />
+            </>
+          )}
         </div>
       </div>
 
       {sheet?.type === "item" && itemSheetGroup && itemSheetSection && (sheet.itemId === null || editingItem) && (
         <ItemSheet
           key={sheet.itemId ?? `new-${sheet.groupId}`}
-          sections={sections}
+          sections={itemSheetSection.promoId ? [itemSheetSection] : sections}
           section={itemSheetSection}
           groupId={itemSheetGroup.id}
           item={editingItem}
@@ -330,11 +455,30 @@ export function MenuEditor({
           onDuplicated={(newId) => setPendingOpenId(newId)}
         />
       )}
-      {sheet?.type === "import" && (
+      {sheet?.type === "import" && section && (
         <ImportSheet key={sheet.groupId} section={section} groupId={sheet.groupId} run={run} onClose={() => setSheet(null)} />
       )}
       {sheet?.type === "cover" && <CoverSheet cover={cover} run={run} onClose={() => setSheet(null)} />}
-      {sheet?.type === "texts" && <SectionTextsSheet section={section} run={run} onClose={() => setSheet(null)} />}
+      {sheet?.type === "promo" && (sheet.id === null || promoToEdit) && (
+        <PromoSheet
+          key={sheet.id ?? "new"}
+          promo={promoToEdit}
+          today={today}
+          run={run}
+          onSaved={(id) => setActiveSlug(`promo:${id}`)}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet?.type === "promo-duplicate" && promoToDuplicate && (
+        <DuplicatePromoSheet
+          promo={promoToDuplicate}
+          today={today}
+          run={run}
+          onSaved={(id) => setActiveSlug(`promo:${id}`)}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet?.type === "texts" && section && <SectionTextsSheet section={section} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "history" && <HistorySheet history={history} onUndo={undo} onClose={() => setSheet(null)} />}
     </div>
   );

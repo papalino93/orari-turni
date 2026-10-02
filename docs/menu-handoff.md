@@ -6,7 +6,7 @@ Il titolare (L'Angolo del Vino, enoteca a Scandicci) parla italiano: risposte br
 
 ## Cosa è già in produzione
 
-PR #30 e #31 sono unite su `main` e deployate.
+PR #30, #31 (menù, allergeni, incolla in blocco, coperto) e #32 (questo documento) sono su `main`; il passo 1 (eventi) è nella PR indicata più sotto.
 
 - **`/menu`** (pubblico, senza login, non indicizzato): copertina, barra sezioni, 7 sezioni e 71 voci, vini esauriti nascosti, piatti esauriti sbiaditi, coperto unico mostrato in tutte le sezioni di cucina, link a `/menu/allergeni`. Cache con `revalidate = 60` più `revalidateMenu()` a ogni modifica.
 - **`/menu/allergeni`** (pubblico): 14 allergeni UE, filtro "devi evitare qualcosa?", nota solfiti per i vini, piatti non compilati = "Da verificare con il personale".
@@ -24,36 +24,19 @@ PR #30 e #31 sono unite su `main` e deployate.
 
 ## Da fare, in quest'ordine (piano completo: vedi sotto)
 
-### Passo 1: eventi e annunci (urgente: Oktoberfest la settimana dopo il 2 ottobre 2026)
-Decisioni del titolare:
-- Due tipi: **annuncio** (titolo, testo, foto, date) ed **evento con menù speciale** (come l'annuncio, più gruppi e voci dedicati).
-- Sotto la copertina una striscia **«In evidenza»** di schede scorrevoli (locandina piccola, titolo, date); toccando si apre la pagina completa su un indirizzo proprio e condivisibile `/menu/p/<slug>` con «← Torna al menù».
-- Date: locandina visibile da `showFrom` a `endDate`; menù speciale solo da `startDate` a `endDate`; poi sparisce da solo e resta in archivio; interruttore «Nascondi»; «Duplica» per riusarlo.
-- Le voci di un evento possono avere più **formati con prezzo** (birra 0,2 l · 0,4 l · Maß 1 l).
-- Tutto configurabile dalla gestione, anche da telefono, con gli stessi permessi.
+### Passo 1: eventi e annunci — FATTO (PR «Eventi e annunci con locandina e menù speciale»)
+Cosa fa, come voluto dal titolare:
+- Area generica «Eventi e annunci» nella gestione (non solo Oktoberfest): due tipi, **annuncio** (titolo, testo, foto, date) ed **evento con menù speciale** (gruppi e voci dedicati, anche con più formati e prezzi, es. birra 0,2 l · 0,4 l · Maß 1 l). Tipo libero facoltativo (degustazione, cena a tema, serata a tema…) mostrato sopra al titolo. Tutto configurabile dalla gestione, anche da telefono, con gli stessi permessi.
+- **Date**: «Mostra la locandina dal» (di default 7 giorni prima dell'inizio, si aggiorna da sola se non la tocchi), inizio, fine. Finita la data sparisce da sola. «Nascondi» forza lo stato. Giorno commerciale con cambio alle 5:00.
+- **Sul menù dei clienti**: prima dell'evento una scheda nella striscia «In evidenza» sotto la copertina, che apre la pagina `/menu/p/<slug>` (condivisibile, con anteprima social e locandina); **nei giorni dell'evento si apre da sola a pagina piena subito dopo la copertina** con «Vai al menù ↓». Gli annunci restano nella striscia. Il menù speciale compare solo dall'inizio alla fine e il suo cibo entra nella pagina allergeni mentre l'evento è in corso. Link condiviso di un evento concluso = «concluso»; nascosto o eliminato = 404.
+- **Memoria storica**: gli eventi conclusi vanno nell'«Archivio» della gestione con locandina, menù e formati; si possono rileggere e **duplicare** («Duplica per una nuova edizione»: copia testo, foto, gruppi, voci, formati e allergeni, si scelgono titolo e date). Eliminazione recuperabile dallo storico con «Annulla».
+- Foto: scelta dal telefono, ridimensionata sul dispositivo (max 1200×1600 JPEG, sotto ~800 KB), salvata in Postgres (`MenuPromoImage`), servita da `/menu/p/<slug>/immagine` con cache lunga.
 
-Progetto tecnico scelto (schema da aggiungere a `prisma/schema.prisma` + migrazione):
-```prisma
-enum MenuPromoKind { NOTICE EVENT }
-model MenuPromo {
-  id String @id @default(cuid()); kind MenuPromoKind; slug String @unique
-  title String; body String?
-  showFrom String; startDate String; endDate String   // giorni commerciali YYYY-MM-DD
-  hidden Boolean @default(false)
-  imageUpdatedAt DateTime?; imageWidth Int?; imageHeight Int?
-  deletedAt DateTime?; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt
-  image MenuPromoImage?; section MenuSection?
-}
-model MenuPromoImage { promoId String @id; promo MenuPromo @relation(fields:[promoId], references:[id], onDelete: Cascade); data Bytes; mimeType String; updatedAt DateTime @updatedAt }
-// MenuSection: + promoId String? @unique, promo MenuPromo? (relation, onDelete: Cascade)   -> il menù speciale è una MenuSection collegata
-// MenuItem: + variants Json?   // [{ "label": "0,4 l", "cents": 600 }], alternativo a priceCents
-```
-- Il menù speciale riusa gruppi, voci, esaurito, allergeni e incolla in blocco già esistenti: la sezione dell'evento (`promoId` valorizzato) NON va tra le sezioni fisse di `/menu`; si mostra nella pagina dell'evento solo mentre è attivo. Nella pagina allergeni compare mentre l'evento è attivo.
-- Titolo dell'evento = `MenuPromo.title` (ignorare title/label della sezione collegata, per non doverli sincronizzare).
-- Editor: stessa pagina `/gestione-menu`; sotto le sezioni fisse un blocco «Eventi e annunci» con elenco (stato: in corso, annunciato, concluso, nascosto), «+ Nuovo», scheda dell'evento (modifica, duplica, nascondi, elimina) e, per gli eventi, l'editor dei gruppi riusato. Foto: scelta dal telefono, ridimensionata sul dispositivo (max 1200×1600, JPEG, tentativi a qualità decrescente sotto ~800 KB), salvata nel database; rotta pubblica `/menu/p/<slug>/immagine` con cache lunga e `?v=`.
-- Annulla: nuova entità `promo` nello storico (`RESTORABLE.promo = title, body, showFrom, startDate, endDate, hidden, deletedAt`), come già per item, group, section e setting in `actions.ts`.
-- Aggiornare `revalidateMenu()` per includere `/menu/p/[slug]`.
-- Prezzi: `variants` e `priceCents` si escludono; con formati il prezzo singolo non è richiesto.
+Dove sta nel codice:
+- Modelli: `MenuPromo` (kind NOTICE|EVENT, slug, title, label, body, showFrom/startDate/endDate come giorni `YYYY-MM-DD`, hidden, deletedAt, dati foto), `MenuPromoImage`, `MenuSection.promoId` (il menù speciale è una sezione collegata, NON compare tra le sezioni fisse), `MenuItem.variants` (JSON `[{label, cents}]`, alternativo a `priceCents`). Migrazione `20261003100000_menu_promo`.
+- Pubblico: `src/app/(public)/menu/in-evidenza.tsx` (striscia), `promo-content.tsx` (contenuto condiviso tra pagina dedicata e blocco aperto in `/menu`), `p/[slug]/page.tsx` e `p/[slug]/immagine/route.ts`, `item-prices.tsx` (formati).
+- Gestione: `gestione-menu/promo-actions.ts` (crea, modifica, nascondi, elimina, duplica, foto), `promo-ui.tsx` (scheda, foglio di creazione/modifica, duplicazione), `menu-editor.tsx` (selezione sezione o pagina, elenco corrente e archivio), `item-sheet.tsx` (formati). Registro modifiche condiviso in `src/lib/menu-log.ts`; ridimensionamento foto in `src/lib/image-resize.ts`; helper date e stato in `src/lib/menu-format.ts` (`promoStatus`, `formatPromoDates`…).
+- L'annullamento dello storico copre anche l'entità `promo` (campi in `RESTORABLE.promo`).
 
 ### Passo 2: copertina, orari, contatti
 - Copertina più bassa (circa metà schermo); foto e righe del titolo modificabili dalla gestione.
@@ -67,7 +50,9 @@ Sezione «Oggi fuori menù» in cima, che si azzera alle 5:00; «Riproponi» rip
 Ricerca (nome, zona, uvaggio, ingredienti), filtri «Al calice» ed «Enomatic», «Torna su», «A+» per il testo grande (ricordato nel dispositivo).
 
 ### Passo 5: comodità per chi gestisce
-Ricerca di una voce con interruttore Esaurito, anteprima in cornice da telefono (affiancata sul PC), **modalità servizio** (solo Esaurito, interruttori grandi), riquadro «Da fare» (allergeni da compilare, esauriti da ieri, eventi in scadenza, orari straordinari mancanti).
+Ricerca di una voce con interruttore Esaurito, anteprima in cornice da telefono (affiancata sul PC), riquadro «Da fare» (allergeni da compilare, esauriti da ieri, eventi in scadenza, orari straordinari mancanti).
+
+**Modalità servizio (elenco unico solo per l'Esaurito, interruttori grandi, niente modifica per sbaglio): il titolare vuole che venga solo PROGETTATA e discussa, NON implementata finché non lo conferma.**
 
 ### Generatore del QR code (quando serve)
 Pagina in gestione con download SVG e PNG verso `/menu` (libreria `qrcode`). Non cambia il QR attuale.
@@ -104,7 +89,9 @@ Regole già decise per gli allergeni: nel dubbio, in più. Il primo elenco è ne
    node scripts/menu-e2e/public-menu.mjs                 # pagine pubbliche e accessi (22 controlli)
    node scripts/menu-e2e/editor.mjs                      # gestione, permessi, storico (53 controlli)
    node scripts/menu-e2e/allergens-import-cover.mjs      # allergeni, incolla in blocco, coperto (50 controlli)
+   node scripts/menu-e2e/events.mjs                      # eventi, annunci, formati, archivio, permessi (40 controlli; richiede `npm i --no-save sharp` se manca)
    ```
+   Contro `next start` (build di produzione) esporta anche `E2E_PROD=1`: la suite degli allergeni aspetta 62 secondi perché le pagine pubbliche sono in cache. Esegui `events.mjs` per ultima: lascia un evento in corso che altera le altre suite.
    `SHOTS=<cartella>` salva le schermate. Gli script ripuliscono i dati di prova all'inizio (usano `psql` con `orari/orari`).
 5. Prima di ogni PR: `npx tsc --noEmit`, `npm run lint`, `npm run build` in locale. Poi rimuovere `.env.local` e fermare dev server e Postgres.
 
@@ -116,3 +103,6 @@ Regole già decise per gli allergeni: nel dubbio, in più. Il primo elenco è ne
 - Nel test, il login richiede `waitUntil: "networkidle"` (idratazione) e `waitForURL(..., { waitUntil: "commit" })`. Il primo accesso di un dipendente mostra un modale «Installa l'app» che copre i clic: chiuderlo con «Ricordamelo più tardi».
 - Un `next dev` rimasto su una porta occupata serve file vecchi: `fuser -k 3100/tcp` e riavviare.
 - `revalidatePath` serve per ogni pagina pubblica nuova (vedi `revalidateMenu()` in `src/lib/menu.ts`).
+- Nei test usare `getByLabel(..., { exact: true })` e `getByRole("button", { name, exact: true })`: i testi di aiuto e i pulsanti simili («+ Aggiungi un formato») rendono ambigue le ricerche per sottostringa.
+- Un toast con «Annulla» dura 8 secondi: nei test lenti usare l'annullamento dallo storico.
+- Gli interventi diretti sul database non rigenerano le pagine in cache (60 s) quando si prova con `next start`.

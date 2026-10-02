@@ -246,6 +246,10 @@ model MenuSection {
   addonTitle   String? // titoletto dell'avviso (es. "Novità · Oli aromatizzati")
   addon        String? // testo dell'avviso a fondo sezione
   sortOrder    Int             @default(0)
+  // Se valorizzato, è il menù speciale di un evento: non compare tra le sezioni
+  // fisse del menù ma dentro la pagina dell'evento (vedi MenuPromo).
+  promoId      String?         @unique
+  promo        MenuPromo?      @relation(fields: [promoId], references: [id], onDelete: Cascade)
   // Predisposizione per una versione in altre lingue: oggi non usato.
   translations Json?
 
@@ -281,6 +285,9 @@ model MenuItem {
   priceGlassCents  Int?
   priceBottleCents Int?
   priceCents       Int?
+  // Più formati con il loro prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l):
+  // [{ "label": "0,4 l", "cents": 600 }]. Alternativo a priceCents.
+  variants         Json?
   enomatic         Boolean   @default(false)
   // Codici dei 14 allergeni UE; allergensReviewed distingue "nessun
   // allergene" da "non ancora compilato" (vedi pagina /menu/allergeni).
@@ -297,6 +304,48 @@ model MenuItem {
   updatedAt        DateTime  @updatedAt
 
   @@index([groupId, sortOrder])
+}
+
+enum MenuPromoKind {
+  NOTICE // annuncio: titolo, testo, foto, date
+  EVENT // come l'annuncio, più un menù speciale (una MenuSection collegata)
+}
+
+// Pagina promozionale ("In evidenza"): eventi e annunci a tempo. Le date sono
+// giorni commerciali (YYYY-MM-DD, vedi lib/menu-format.ts): la locandina si
+// vede da showFrom a endDate, il menù speciale solo da startDate a endDate.
+model MenuPromo {
+  id             String        @id @default(cuid())
+  kind           MenuPromoKind
+  slug           String        @unique // indirizzo della pagina: /menu/p/<slug>
+  title          String
+  label          String? // tipo libero mostrato sopra al titolo (es. "Degustazione", "Serata a tema")
+  body           String?
+  showFrom       String
+  startDate      String
+  endDate        String
+  hidden         Boolean       @default(false) // forza "nascosto", qualunque sia la data
+  imageUpdatedAt DateTime?
+  imageWidth     Int?
+  imageHeight    Int?
+  deletedAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  image   MenuPromoImage?
+  section MenuSection?
+
+  @@index([endDate])
+}
+
+// Locandina: tabella separata, così i byte non pesano sulle liste (stessa idea
+// di EmployeePhoto). Ridimensionata sul dispositivo prima del caricamento.
+model MenuPromoImage {
+  promoId   String    @id
+  promo     MenuPromo @relation(fields: [promoId], references: [id], onDelete: Cascade)
+  data      Bytes
+  mimeType  String
+  updatedAt DateTime  @updatedAt
 }
 
 // Impostazioni uniche del menù, chiave → testo. Oggi solo "cover" (il testo del
@@ -323,7 +372,7 @@ model MenuChange {
   at        DateTime         @default(now())
   actorName String
   action    MenuChangeAction
-  entity    String // "item" | "group" | "section" | "setting"
+  entity    String // "item" | "group" | "section" | "setting" | "promo"
   entityId  String
   label     String // nome leggibile della voce/gruppo al momento
   before    Json?

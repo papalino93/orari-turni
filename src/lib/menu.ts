@@ -18,6 +18,9 @@ export function parsePrice(value: unknown, field: string): number | null {
 // Le voci esaurite sono incluse: spetta a chi mostra decidere cosa farne.
 export async function loadMenu() {
   return prisma.menuSection.findMany({
+    // Le sezioni collegate a un evento (promoId) non sono sezioni fisse del menù:
+    // stanno nella pagina dell'evento (vedi loadVisiblePromos / loadPromoBySlug).
+    where: { promoId: null },
     orderBy: { sortOrder: "asc" },
     include: {
       groups: {
@@ -36,11 +39,46 @@ export async function loadCover(): Promise<string | null> {
   return setting?.value.trim() ? setting.value : null;
 }
 
+const promoInclude = {
+  section: {
+    include: {
+      groups: {
+        where: { deletedAt: null },
+        orderBy: { sortOrder: "asc" as const },
+        include: { items: { where: { deletedAt: null }, orderBy: { sortOrder: "asc" as const } } },
+      },
+    },
+  },
+};
+
+// Pagine promozionali con la locandina visibile oggi (giorno commerciale).
+export async function loadVisiblePromos(dayKey: string) {
+  return prisma.menuPromo.findMany({
+    where: { deletedAt: null, hidden: false, showFrom: { lte: dayKey }, endDate: { gte: dayKey } },
+    orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
+    include: promoInclude,
+  });
+}
+
+export async function loadPromoBySlug(slug: string) {
+  return prisma.menuPromo.findUnique({ where: { slug }, include: promoInclude });
+}
+
+// Per la gestione: tutte le pagine non eliminate, comprese concluse e nascoste.
+export async function loadPromosForEditor() {
+  return prisma.menuPromo.findMany({
+    where: { deletedAt: null },
+    orderBy: [{ endDate: "desc" }, { createdAt: "desc" }],
+    include: promoInclude,
+  });
+}
+
 export type LoadedMenu = Awaited<ReturnType<typeof loadMenu>>;
 
 // Dopo ogni modifica: le pagine pubbliche sono in cache e vanno rigenerate.
 export function revalidateMenu() {
   revalidatePath("/menu");
   revalidatePath("/menu/allergeni");
+  revalidatePath("/menu/p/[slug]", "page");
   revalidatePath("/gestione-menu");
 }

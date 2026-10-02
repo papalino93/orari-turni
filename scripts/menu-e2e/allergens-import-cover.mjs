@@ -3,13 +3,19 @@ import { execFileSync } from "node:child_process";
 
 const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
 // stato pulito (i dati della migrazione restano com'erano)
+DB(`delete from "MenuPromo"`);
 DB(`delete from "MenuChange"`);
+DB(`update "MenuSetting" set value='Coperto € 1,00' where id='cover'`);
 DB(`delete from "MenuItem" where id not like 'menu_itm_%'`);
 DB(`delete from "MenuGroup" where id not like 'menu_grp_%'`);
 DB(`update "MenuItem" set "soldOutDay"=null, "deletedAt"=null`);
 DB(`update "MenuGroup" set "deletedAt"=null`);
 DB(`update "MenuItem" set allergens='{}', "allergensReviewed"=false where id in ('menu_itm_066','menu_itm_067')`);
 DB(`update "MenuItem" set allergens='{}', "allergensReviewed"=true where id = 'menu_itm_065'`);
+
+// Contro `next start` le pagine pubbliche sono in cache per 60 secondi: i
+// ripristini diretti sul database non le rigenerano, quindi si aspetta.
+if (process.env.E2E_PROD) await new Promise((resolve) => setTimeout(resolve, 62_000));
 
 const browser = await launch();
 
@@ -128,8 +134,18 @@ t = await publicAllergens();
 check("Acqua → Solfiti sul pubblico", /Acqua[\s\S]{0,80}Solfiti/.test(t));
 check("DB: Acqua salvata come [SOLFITI] verificata", DB(`select array_to_string(allergens, ','), "allergensReviewed" from "MenuItem" where id='menu_itm_065'`) === "SOLFITI|t");
 
-// Annulla dal toast
-await page.locator('[role="status"] button:has-text("Annulla")').last().click();
+// Annulla dal toast; se nel frattempo è scaduto (8 secondi), dallo storico.
+const undoToast = page.locator('[role="status"] button:has-text("Annulla")').last();
+if (await undoToast.count()) {
+  await undoToast.click();
+} else {
+  await page.locator("button", { hasText: "Storico" }).click();
+  await dialog().waitFor();
+  await dialog().locator("li", { hasText: /Modificato: Acqua/ }).first().locator("button", { hasText: "Ripristina" }).click();
+  await settle(1000);
+  await dialog().getByRole("button", { name: "Chiudi" }).click();
+  await dialog().waitFor({ state: "detached" });
+}
 await settle(1500);
 check("annulla: Acqua torna 'Nessuno' (lista allergeni riportata)", DB(`select array_to_string(allergens, ','), "allergensReviewed" from "MenuItem" where id='menu_itm_065'`) === "|t");
 
@@ -139,7 +155,7 @@ await page.locator("section", { has: page.locator("h3:has-text('Tartare di manzo
 await dialog().waitFor();
 await dialog().getByLabel("Nome", { exact: true }).fill("Piatto Prova");
 await dialog().getByLabel("Prezzo (€)").fill("9");
-await dialog().getByRole("button", { name: "Aggiungi" }).click();
+await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
 await dialog().waitFor({ state: "detached" });
 await settle();
 check("nuovo piatto: default 'da compilare' (banner a 2)", /2 piatti hanno gli allergeni da compilare/.test(await banner().innerText()));

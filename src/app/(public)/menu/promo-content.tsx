@@ -1,0 +1,156 @@
+import Link from "next/link";
+import {
+  formatPrice,
+  formatPromoDates,
+  formatPromoDay,
+  isPromoMenuVisible,
+  nb,
+  parseVariants,
+  promoStatus,
+} from "@/lib/menu-format";
+import type { loadPromoBySlug } from "@/lib/menu";
+import { Variants } from "./item-prices";
+import { Ornament } from "./ornament";
+
+export type PromoWithSection = NonNullable<Awaited<ReturnType<typeof loadPromoBySlug>>>;
+
+// Contenuto di una pagina promozionale: locandina, titolo, date, testo e, per un
+// evento in corso, il menù speciale. Usato sia nella pagina dedicata
+// (/menu/p/<slug>) sia, già aperto, subito dopo la copertina di /menu nei
+// giorni dell'evento (inline).
+export function PromoContent({
+  promo,
+  cover,
+  dayKey,
+  inline = false,
+}: {
+  promo: PromoWithSection;
+  cover: string | null;
+  dayKey: string;
+  inline?: boolean;
+}) {
+  const Heading = inline ? "h2" : "h1";
+  const status = promoStatus(promo, dayKey);
+  const showMenu = promo.kind === "EVENT" && promo.section && isPromoMenuVisible(promo, dayKey);
+  const groups = showMenu ? (promo.section?.groups ?? []).filter((g) => g.items.length > 0) : [];
+
+  return (
+    <div>
+      {inline && (
+        <div className="mb-5 flex justify-end">
+          <a
+            href="#carta"
+            className="menu-sans flex min-h-11 items-center text-[11px] font-medium uppercase tracking-[0.22em] underline underline-offset-4"
+          >
+            Vai al menù ↓
+          </a>
+        </div>
+      )}
+
+      {promo.imageUpdatedAt && (
+        // eslint-disable-next-line @next/next/no-img-element -- locandina servita dalla nostra rotta con cache lunga
+        <img
+          src={`/menu/p/${promo.slug}/immagine?v=${promo.imageUpdatedAt.getTime()}`}
+          alt={`Locandina: ${promo.title}`}
+          width={promo.imageWidth ?? undefined}
+          height={promo.imageHeight ?? undefined}
+          className="mx-auto h-auto max-h-[78svh] w-auto max-w-full rounded-[14px] object-contain shadow-[0_6px_28px_rgba(40,8,14,0.18)]"
+        />
+      )}
+
+      <div className="mt-8 flex flex-col items-center gap-2 text-center">
+        <div className="menu-sans text-[11px] uppercase tracking-[0.34em] text-[#5B605A]">
+          {status === "past" ? "Concluso" : promo.label || (promo.kind === "EVENT" ? "Evento" : "Annuncio")}
+        </div>
+        <Heading className="menu-serif m-0 mb-1 text-balance text-[42px] font-medium leading-[1.05] text-[#6B1020]">{promo.title}</Heading>
+        <div className="menu-sans text-[13px] font-medium uppercase tracking-[0.14em] text-[#4A504B]">
+          {formatPromoDates(promo.startDate, promo.endDate)}
+        </div>
+        <Ornament color="#9C7A45" />
+      </div>
+
+      {promo.body && (
+        <p className="mx-auto mt-7 max-w-[520px] whitespace-pre-line text-pretty text-center text-[17px] leading-normal text-[#3F4540]">
+          {promo.body}
+        </p>
+      )}
+
+      {status === "past" && (
+        <p className="mt-7 text-center text-[16.5px] italic text-[#5B605A]">Questo appuntamento si è concluso. Grazie a chi c&apos;era!</p>
+      )}
+
+      {promo.kind === "EVENT" && status !== "live" && status !== "past" && (
+        <p className="mx-auto mt-7 max-w-[420px] border-y px-1 py-3.5 text-center text-[16.5px] italic text-[#3F4540]">
+          Il menù speciale sarà disponibile dal {formatPromoDay(promo.startDate)}.
+        </p>
+      )}
+
+      {showMenu && (
+        <section className="mt-12">
+          <h2 className="menu-serif m-0 text-center text-[34px] font-medium leading-[1.1] text-[#6B1020]">Menù speciale</h2>
+          {promo.section?.coverApplies && cover && (
+            <div className="menu-sans mt-3 text-center text-[11px] font-medium uppercase tracking-[0.22em] text-[#6B1020]">{cover}</div>
+          )}
+          {groups.length === 0 && <p className="mt-6 text-center italic text-[#5B605A]">Il menù sarà pubblicato a breve.</p>}
+          {groups.map((group) => (
+            <div key={group.id} className="mt-9">
+              <div className="flex items-end gap-2.5 pb-2.5">
+                <div className="menu-sans flex-initial text-xs font-medium uppercase leading-normal tracking-[0.2em] text-[#1F2621]">
+                  {group.title}
+                </div>
+                <div className="mb-2 h-px min-w-3 flex-1 bg-[#D9CEBC]" />
+              </div>
+              {group.items.map((item) => {
+                const soldOut = item.soldOutDay === dayKey;
+                const variants = parseVariants(item.variants);
+                return (
+                  <div key={item.id} className={`menu-rule-soft flex items-baseline gap-2.5 border-b py-3.5 ${soldOut ? "opacity-50" : ""}`}>
+                    <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                      <div className="text-pretty text-[19px] font-medium leading-tight text-[#1F2621]">
+                        {nb(item.name)}
+                        {soldOut && (
+                          <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#5B605A]">
+                            Esaurito
+                          </span>
+                        )}
+                      </div>
+                      {item.description && (
+                        <div className="text-pretty text-[16.5px] leading-[1.45] text-[#3F4540]">{nb(item.description)}</div>
+                      )}
+                    </div>
+                    {variants ? (
+                      <Variants variants={variants} soldOut={soldOut} />
+                    ) : (
+                      <div className={`menu-sans w-12 flex-none text-right text-base font-medium text-[#6B1020] ${soldOut ? "line-through" : ""}`}>
+                        {item.priceCents === null ? "" : formatPrice(item.priceCents)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          <div className="mt-8 text-center">
+            <Link
+              href="/menu/allergeni"
+              className="menu-sans inline-flex min-h-11 items-center text-[11px] font-medium uppercase tracking-[0.22em] underline underline-offset-4"
+            >
+              Allergeni e intolleranze
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {inline && (
+        <div className="mt-10 flex justify-center">
+          <a
+            href="#carta"
+            className="menu-sans flex min-h-12 items-center rounded-full border border-[#6B1020] px-7 text-[12px] font-medium uppercase tracking-[0.22em] no-underline"
+          >
+            Vai al menù ↓
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
