@@ -6,12 +6,12 @@ Il titolare (L'Angolo del Vino, enoteca a Scandicci) parla italiano: risposte br
 
 ## Cosa è già in produzione
 
-PR #30, #31 (menù, allergeni, incolla in blocco, coperto) e #32 (questo documento) sono su `main`; il passo 1 (eventi) è nella PR indicata più sotto.
+PR #30, #31 (menù, allergeni, incolla in blocco, coperto), #32 (questo documento), #33 (eventi), #34 (numeri allergeni, chiusura cucina) e #35 (vista allergeni da compilare, campi data dei fogli evento, progetto dei blocchi) sono su `main`.
 
 - **`/menu`** (pubblico, senza login, non indicizzato): copertina, barra sezioni, 7 sezioni e 71 voci, vini esauriti nascosti, piatti esauriti sbiaditi, **coperto e "chiusura cucina" unici** (impostazioni `cover` e `kitchenNote` in `MenuSetting`) mostrati insieme in tutte le sezioni di cucina (flag `coverApplies`), link a `/menu/allergeni`. Cache con `revalidate = 60` più `revalidateMenu()` a ogni modifica.
 - **Allergeni sul menù** (numerazione ufficiale 1–14): accanto a ogni piatto i numeri degli allergeni (es. "Allergeni 7 · 12"); in fondo al menù e al menù speciale degli eventi la **legenda numerata**; un piatto da compilare dice "Allergeni da verificare con il personale" (mai una riga vuota che sembri sicura); i vini non hanno numeri (nota "I vini contengono solfiti" nella legenda).
 - **`/menu/allergeni`** (pubblico): stessi dati con filtro "devi evitare qualcosa?" e legenda; si raggiunge da "Cerca per allergene".
-- **`/gestione-menu`** (login + permesso): in alto il riquadro "Coperto e chiusura cucina" (testi leggibili + Modifica); ogni sezione mostra subito i suoi testi ("Testi di questa sezione" + Modifica, senza aprire fogli); l'avviso "N piatti hanno gli allergeni da compilare" è un pulsante che apre solo quei piatti ("Prossima sezione", "Mostra tutto"); voci (aggiungi, modifica, duplica, elimina, sposta, "Esaurito", "Riattiva tutto"), gruppi, testi di sezione, coperto unico, allergeni per piatto, "Incolla più voci" con anteprima, storico con annulla e ripristina.
+- **`/gestione-menu`** (login + permesso): in alto il riquadro "Coperto e chiusura cucina" (testi leggibili + Modifica); ogni sezione mostra subito i suoi testi ("Testi di questa sezione" + Modifica, senza aprire fogli); l'avviso "N piatti hanno gli allergeni da compilare" è un pulsante («Vedi i piatti →») che apre la vista «da compilare»: pannello fisso in alto con avanzamento («19 di 21 piatti compilati · 2 da fare», barra `role=progressbar`), «Prossima sezione →», «Mostra tutto»; sulle righe «Compila» al posto di «Esaurito»; nel foglio del piatto «Salva e vai a «…»» passa al prossimo da compilare; voci (aggiungi, modifica, duplica, elimina, sposta, "Esaurito", "Riattiva tutto"), gruppi, testi di sezione, coperto unico, allergeni per piatto, "Incolla più voci" con anteprima, storico con annulla e ripristina.
 - **Permessi**: titolare e consulente sempre; un dipendente solo con l'interruttore "Può modificare il menù" in Dipendenti (`Employee.canEditMenu`, letto dal database a ogni richiesta). Ogni Server Action chiama `requireMenuEditor()` (`src/lib/guard.ts`).
 - **Proxy** (`src/proxy.ts`): apre al pubblico solo `menu(?:/|$)`. L'elenco esclude per prefisso: l'area di gestione sta sotto `/gestione-menu` apposta.
 - Il link del QR stampato (qrco.de/bes4Ad, QR Code Generator) **non va toccato**: lo ripunta il titolare quando vuole.
@@ -70,6 +70,9 @@ model MenuBlock {
 - Pubblico: un componente `MenuBlocks` per i tre punti (sostituisce la logica di `coverApplies` in `page.tsx` e `promo-content.tsx`); blocchi scaduti o nascosti non compaiono; cache da rigenerare (`revalidateMenu`).
 - Test: nuova suite `scripts/menu-e2e/blocks.mjs` (creazione dei tre tipi, i tre punti, sezioni multiple, date, nascondi, ordine, migrazione coperto/chiusura cucina invariata, permessi).
 
+### Dubbio del titolare sulla vista «allergeni da compilare» (da risolvere)
+Il titolare ha detto che la barra fissa con avanzamento «non lo convince tantissimo». Mia analisi: a 390 px occupa circa 80 px e copre le chip delle sezioni; il filtro è un modo in più da capire; la parte davvero utile è «Salva e vai al prossimo». **Proposta fatta, non ancora confermata**: sostituire barra e filtro con un solo pulsante «Compila allergeni (N da fare)» che apre il foglio del primo piatto mancante con contatore «1 di N» e «Salva e passa al successivo», lista normale senza barra fissa. Se il titolare conferma, farla (`menu-editor.tsx`: `foodSections`, `missingItems`, `nextMissing`, `compileMode`; `item-sheet.tsx`: `nextMissing`, `onNext`) e aggiornare `scripts/menu-e2e/compile-flow.mjs`; se indica un punto preciso, partire da quello.
+
 ### Passo 2: copertina, orari, contatti
 - Copertina più bassa (circa metà schermo); foto e righe del titolo modificabili dalla gestione.
 - Orari per giorno (anche spezzati) + eccezioni per data (aperture/chiusure straordinarie) + indicazione automatica «Aperto ora · chiude alle 22:00» / «Chiuso · riapre domani alle 16:30»; non compare se mancano gli orari. Dalla scheda Google: lun e mar 17–21:30; mer, ven, sab 10–13 e 16:30–22; gio 10–13 e 16:30–22:30; dom 16:30–21.
@@ -120,6 +123,7 @@ Regole già decise per gli allergeni: nel dubbio, in più. Il primo elenco è ne
    node scripts/menu-e2e/public-menu.mjs                 # pagine pubbliche e accessi (22 controlli)
    node scripts/menu-e2e/editor.mjs                      # gestione, permessi, storico (53 controlli)
    node scripts/menu-e2e/allergens-import-cover.mjs      # allergeni, numeri e legenda, incolla in blocco, coperto e chiusura cucina (56 controlli)
+   node scripts/menu-e2e/compile-flow.mjs               # vista allergeni da compilare, «Compila», «Salva e vai a…» (12 controlli; azzera lo stato: tutto il cibo compilato tranne i due kombucha)
    node scripts/menu-e2e/events.mjs                      # eventi, annunci, formati, archivio, permessi (40 controlli; richiede `npm i --no-save sharp` se manca)
    ```
    Contro `next start` (build di produzione) esporta anche `E2E_PROD=1`: la suite degli allergeni aspetta 62 secondi perché le pagine pubbliche sono in cache. Esegui `events.mjs` per ultima: lascia un evento in corso che altera le altre suite.
@@ -136,4 +140,5 @@ Regole già decise per gli allergeni: nel dubbio, in più. Il primo elenco è ne
 - `revalidatePath` serve per ogni pagina pubblica nuova (vedi `revalidateMenu()` in `src/lib/menu.ts`).
 - Nei test usare `getByLabel(..., { exact: true })` e `getByRole("button", { name, exact: true })`: i testi di aiuto e i pulsanti simili («+ Aggiungi un formato») rendono ambigue le ricerche per sottostringa.
 - Un toast con «Annulla» dura 8 secondi: nei test lenti usare l'annullamento dallo storico.
+- Campi data (`type="date"`) nei fogli: usare `dateInputClass` (`sheet.tsx`), con `min-w-0`; tre colonne in un foglio da 512 px tagliano la data. Locandina su riga intera, inizio/fine affiancati.
 - Gli interventi diretti sul database non rigenerano le pagine in cache (60 s) quando si prova con `next start`.
