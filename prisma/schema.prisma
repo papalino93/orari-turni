@@ -246,6 +246,8 @@ model MenuSection {
   // Se valorizzato, è il menù speciale di un evento: non compare tra le sezioni
   // fisse del menù ma dentro la pagina dell'evento (vedi MenuPromo).
   promoId      String?         @unique
+  // Sezioni «Oggi fuori menù»: le voci valgono solo per il giorno in onlyDay.
+  dailyOnly    Boolean         @default(false)
   promo        MenuPromo?      @relation(fields: [promoId], references: [id], onDelete: Cascade)
   // Predisposizione per una versione in altre lingue: oggi non usato.
   translations Json?
@@ -278,6 +280,9 @@ model MenuItem {
   name             String
   sub              String?
   grapes           String?
+  // Solo vini, facoltativi: dove nasce (es. «Toscana», «Italia»).
+  region           String?
+  country          String?
   description      String?
   priceGlassCents  Int?
   priceBottleCents Int?
@@ -294,6 +299,8 @@ model MenuItem {
   // segnata esaurita: vale solo per quel giorno, così il ripristino è
   // automatico senza bisogno di un cron.
   soldOutDay       String?
+  // Voci «oggi fuori menù»: giorno commerciale per cui valgono (null = sempre).
+  onlyDay          String?
   sortOrder        Int       @default(0)
   deletedAt        DateTime?
   translations     Json?
@@ -301,6 +308,7 @@ model MenuItem {
   updatedAt        DateTime  @updatedAt
 
   @@index([groupId, sortOrder])
+  @@index([onlyDay])
 }
 
 enum MenuPromoKind {

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { businessDayKey, formatPrice, isSoldOut, nb, parseVariants, promoStatus } from "@/lib/menu-format";
-import { loadMenu, loadVenue, loadVisibleBlocks, loadVisiblePromos } from "@/lib/menu";
+import { loadDaily, loadMenu, loadVenue, loadVisibleBlocks, loadVisiblePromos } from "@/lib/menu";
 import { VERSION_LABEL } from "@/lib/version";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
 import { InEvidenza } from "./in-evidenza";
@@ -42,19 +42,27 @@ function BottleIcon() {
 
 export default async function MenuPage() {
   const dayKey = businessDayKey();
-  const [loaded, blocks, promos, venue] = await Promise.all([loadMenu(), loadVisibleBlocks(dayKey), loadVisiblePromos(dayKey), loadVenue()]);
+  const [loaded, blocks, promos, venue, dailyRows] = await Promise.all([
+    loadMenu(),
+    loadVisibleBlocks(dayKey),
+    loadVisiblePromos(dayKey),
+    loadVenue(),
+    loadDaily(dayKey),
+  ]);
   const heroLines = venue.hero.title.split("\n");
   const topBlocks = blocks.filter((b) => b.placement === "TOP");
   const bottomBlocks = blocks.filter((b) => b.placement === "BOTTOM");
 
   // Vini esauriti: spariscono. Piatti esauriti: restano, sbiaditi. Un gruppo
   // o una sezione senza nulla da mostrare non compare (né il suo chip).
-  const sections = loaded
+  const regular = loaded
     .map((section) => ({
       ...section,
+      daily: false,
       groups: section.groups
         .map((group) => ({
           ...group,
+          kind: section.kind,
           items: group.items
             .map((item) => ({ ...item, soldOut: isSoldOut(item, dayKey) }))
             .filter((item) => !(section.kind === "WINE" && item.soldOut)),
@@ -62,6 +70,24 @@ export default async function MenuPage() {
         .filter((group) => group.items.length > 0),
     }))
     .filter((section) => section.groups.length > 0);
+
+  // «Oggi fuori menù»: piatti e vini valgono solo oggi, in cima al menù. Ogni gruppo
+  // ricorda se è di vini o di piatti (prezzi e allergeni cambiano di conseguenza).
+  const dailyGroups = dailyRows.flatMap((s) =>
+    s.groups
+      .filter((g) => g.items.length > 0)
+      .map((g) => ({ ...g, kind: s.kind, items: g.items.map((item) => ({ ...item, soldOut: false })) })),
+  );
+  const first = dailyRows[0];
+  const sections = [
+    ...(dailyGroups.length > 0 && first
+      ? [{ ...first, id: "oggi", slug: "oggi", label: "Oggi", daily: true, kind: "FOOD" as const, note: null, addon: null, addonTitle: null, groups: dailyGroups }]
+      : []),
+    ...regular,
+  ];
+  // Numeri romani solo per le sezioni fisse: «Oggi fuori menù» non ne ha.
+  let romanIndex = 0;
+  const numerals = new Map(sections.map((s) => [s.id, s.daily ? "" : (ROMAN[romanIndex++] ?? "")]));
 
   const chips = sections.map((s) => ({ id: s.slug, label: s.label }));
   // Evento in corso: si apre da solo a pagina piena subito dopo la copertina.
@@ -161,10 +187,10 @@ export default async function MenuPage() {
           <p className="pt-20 text-center text-lg italic text-[#5B605A]">Il menù è in aggiornamento. Torna tra poco.</p>
         )}
 
-        {sections.map((section, index) => (
+        {sections.map((section) => (
           <section key={section.id} id={section.slug} className="menu-fade-up scroll-mt-[50px] pt-[72px]">
             <div className="flex flex-col items-center gap-2 text-center">
-              <div className="menu-serif text-xl font-medium italic text-[#9C7A45]">{ROMAN[index] ?? ""}</div>
+              <div className="menu-serif text-xl font-medium italic text-[#9C7A45]">{numerals.get(section.id) ?? ""}</div>
               <div className="menu-sans text-[11px] uppercase tracking-[0.34em] text-[#5B605A]">{section.kicker}</div>
               <h2 className="menu-serif mx-0 mb-2.5 mt-0.5 text-balance text-[46px] font-medium leading-[1.05] tracking-[0.005em] text-[#6B1020]">
                 {section.title}
@@ -203,7 +229,7 @@ export default async function MenuPage() {
                 </div>
 
                 {group.items.map((item) => {
-                  const price = section.kind === "WINE" ? item.priceBottleCents : item.priceCents;
+                  const price = group.kind === "WINE" ? item.priceBottleCents : item.priceCents;
                   const variants = parseVariants(item.variants);
                   return (
                     <div
@@ -225,13 +251,18 @@ export default async function MenuPage() {
                           )}
                         </div>
                         {item.sub && <div className="menu-sans text-sm leading-[1.45] text-[#4A504B]">{item.sub}</div>}
+                        {(item.region || item.country) && (
+                          <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.16em] text-[#5B605A]">
+                            {[item.region, item.country].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
                         {item.grapes && (
                           <div className="text-pretty text-[15.5px] italic leading-[1.4] text-[#5B605A]">{nb(item.grapes)}</div>
                         )}
                         {item.description && (
                           <div className="text-pretty text-[16.5px] leading-[1.45] text-[#3F4540]">{nb(item.description)}</div>
                         )}
-                        {section.kind === "FOOD" && <AllergenMarks item={item} />}
+                        {group.kind === "FOOD" && <AllergenMarks item={item} />}
                       </div>
                       {group.columns && (
                         <div className="menu-sans min-w-9 flex-none whitespace-nowrap text-right text-base text-[#1F2621]">

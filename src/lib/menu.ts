@@ -21,7 +21,7 @@ export async function loadMenu() {
   return prisma.menuSection.findMany({
     // Le sezioni collegate a un evento (promoId) non sono sezioni fisse del menù:
     // stanno nella pagina dell'evento (vedi loadVisiblePromos / loadPromoBySlug).
-    where: { promoId: null },
+    where: { promoId: null, dailyOnly: false },
     orderBy: { sortOrder: "asc" },
     include: {
       groups: {
@@ -57,6 +57,47 @@ export async function loadBlocks(): Promise<MenuBlockView[]> {
 // Quelli da mostrare oggi sul menù dei clienti.
 export async function loadVisibleBlocks(dayKey: string): Promise<MenuBlockView[]> {
   return (await loadBlocks()).filter((b) => blockStatus(b, dayKey) === "live");
+}
+
+// «Oggi fuori menù»: sezioni speciali (piatti e vini) con le sole voci valide nel
+// giorno commerciale indicato. Le sezioni senza voci di oggi tornano vuote.
+export async function loadDaily(dayKey: string) {
+  return prisma.menuSection.findMany({
+    where: { dailyOnly: true },
+    orderBy: { sortOrder: "asc" },
+    include: {
+      groups: {
+        where: { deletedAt: null },
+        orderBy: { sortOrder: "asc" },
+        include: { items: { where: { deletedAt: null, onlyDay: dayKey }, orderBy: { sortOrder: "asc" } } },
+      },
+    },
+  });
+}
+
+// Voci proposte negli ultimi giorni e non ancora riproposte oggi, la più recente
+// per nome: servono a «Riproponi». Le più vecchie di 60 giorni si eliminano.
+export async function loadDailyRecent(dayKey: string) {
+  const cutoff = new Date(`${dayKey}T12:00:00Z`);
+  cutoff.setUTCDate(cutoff.getUTCDate() - 14);
+  const since = cutoff.toISOString().slice(0, 10);
+  const rows = await prisma.menuItem.findMany({
+    where: { deletedAt: null, onlyDay: { not: null, gte: since, lt: dayKey }, group: { section: { dailyOnly: true } } },
+    orderBy: [{ onlyDay: "desc" }, { sortOrder: "asc" }],
+    include: { group: { select: { id: true, section: { select: { kind: true } } } } },
+  });
+  const today = await prisma.menuItem.findMany({
+    where: { deletedAt: null, onlyDay: dayKey, group: { section: { dailyOnly: true } } },
+    select: { name: true },
+  });
+  const taken = new Set(today.map((i) => i.name.toLowerCase()));
+  const seen = new Set<string>();
+  return rows.filter((r) => {
+    const key = r.name.toLowerCase();
+    if (taken.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // Copertina, orari e contatti (impostazioni JSON); se mancano valgono i valori

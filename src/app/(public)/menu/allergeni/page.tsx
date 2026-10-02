@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ALLERGENS, allergenState } from "@/lib/allergens";
 import { businessDayKey, isPromoMenuVisible } from "@/lib/menu-format";
-import { loadMenu, loadVisiblePromos } from "@/lib/menu";
+import { loadDaily, loadMenu, loadVisiblePromos } from "@/lib/menu";
 import { Ornament } from "../ornament";
 import { AllergenExplorer, type ExplorerSection } from "./allergen-explorer";
 
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default async function AllergeniPage() {
   const dayKey = businessDayKey();
-  const [menu, promos] = await Promise.all([loadMenu(), loadVisiblePromos(dayKey)]);
+  const [menu, promos, daily] = await Promise.all([loadMenu(), loadVisiblePromos(dayKey), loadDaily(dayKey)]);
   // Il menù speciale di un evento conta finché l'evento è in corso.
   const eventSections = promos.flatMap((p) =>
     p.kind === "EVENT" && p.section && isPromoMenuVisible(p, dayKey) ? [{ ...p.section, title: p.title }] : [],
@@ -24,7 +24,7 @@ export default async function AllergeniPage() {
 
   // Solo i piatti: per i vini vale la nota unica sui solfiti. Un gruppo senza
   // voci non compare.
-  const sections: ExplorerSection[] = [...menu.filter((s) => s.kind === "FOOD"), ...eventSections]
+  const sections: ExplorerSection[] = [...daily.filter((s) => s.kind === "FOOD"), ...menu.filter((s) => s.kind === "FOOD"), ...eventSections]
     .map((s) => ({
       id: s.id,
       title: s.title,

@@ -7,6 +7,7 @@ import { blockStatus, formatPrice, priceLine, type MenuBlockView } from "@/lib/m
 import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
 import { BlockSheet, BlocksPanel, type SectionChoice } from "./block-ui";
+import { DailyPanel, type DailyData } from "./daily-ui";
 import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
 import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
@@ -19,6 +20,8 @@ export type EditorItem = {
   name: string;
   sub: string | null;
   grapes: string | null;
+  region: string | null;
+  country: string | null;
   description: string | null;
   priceGlassCents: number | null;
   priceBottleCents: number | null;
@@ -38,6 +41,7 @@ export type EditorSection = {
   label: string;
   title: string;
   promoId: string | null;
+  dailyOnly: boolean;
   kind: "WINE" | "FOOD";
   note: string | null;
   addonTitle: string | null;
@@ -106,6 +110,7 @@ function priceSummary(item: EditorItem, kind: "WINE" | "FOOD"): string {
 
 export function MenuEditor({
   sections,
+  daily,
   promos,
   today,
   blocks,
@@ -113,6 +118,7 @@ export function MenuEditor({
   history,
 }: {
   sections: EditorSection[];
+  daily: DailyData;
   promos: EditorPromo[];
   today: string;
   blocks: MenuBlockView[];
@@ -137,7 +143,7 @@ export function MenuEditor({
 
   // Sezioni fisse + menù speciali degli eventi: per cercare voci e gruppi servono tutte.
   const eventSections = promos.flatMap((p) => (p.section ? [p.section] : []));
-  const allSections = [...sections, ...eventSections];
+  const allSections = [...sections, ...eventSections, ...daily.sections];
   // Sezioni in cui si può scegliere di mostrare un'informazione: quelle fisse e i menù speciali non conclusi.
   const sectionChoices: SectionChoice[] = [
     ...sections.map((s) => ({ id: s.id, label: s.title, event: false })),
@@ -344,6 +350,13 @@ export function MenuEditor({
         </div>
       </div>
 
+      <DailyPanel
+        daily={daily}
+        run={run}
+        onAdd={(groupId) => setSheet({ type: "item", itemId: null, groupId })}
+        onEdit={(item, groupId) => setSheet({ type: "item", itemId: item.id, groupId })}
+      />
+
       <BlocksPanel
         blocks={blocks}
         choices={sectionChoices}
@@ -514,7 +527,7 @@ export function MenuEditor({
       {sheet?.type === "item" && itemSheetGroup && itemSheetSection && (sheet.itemId === null || editingItem) && (
         <ItemSheet
           key={sheet.itemId ?? `new-${sheet.groupId}`}
-          sections={itemSheetSection.promoId ? [itemSheetSection] : sections}
+          sections={itemSheetSection.promoId || itemSheetSection.dailyOnly ? [itemSheetSection] : sections}
           section={itemSheetSection}
           groupId={itemSheetGroup.id}
           item={editingItem}
