@@ -153,7 +153,7 @@ function itemSnapshot(item: Fields): Fields {
 
 // --- Voci --------------------------------------------------------------------
 
-export async function saveItem(idInput: string | null, input: ItemInput): Promise<ActionResult<ChangeResult>> {
+export async function saveItem(idInput: string | null, input: ItemInput): Promise<ActionResult<ChangeResult & { id?: string }>> {
   return runAction(async () => {
     const editor = await requireMenuEditor();
     const groupId = parseId(input.groupId, "gruppo");
@@ -181,7 +181,7 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
         where: { groupId, deletedAt: null },
         orderBy: { sortOrder: "desc" },
       });
-      const changeId = await prisma.$transaction(async (tx) => {
+      const { changeId, created } = await prisma.$transaction(async (tx) => {
         const created = await tx.menuItem.create({
           data: {
             ...toItemData(data),
@@ -191,7 +191,7 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
             ...(group.section.dailyOnly ? { onlyDay: businessDayKey() } : {}),
           },
         });
-        return logChange(tx, {
+        const changeId = await logChange(tx, {
           actorName: editor.name,
           action: "CREATE",
           entity: "item",
@@ -199,9 +199,10 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
           label: created.name,
           after: itemSnapshot(created),
         });
+        return { changeId, created };
       });
       revalidateMenu();
-      return { changeId };
+      return { changeId, id: created.id };
     }
 
     const id = parseId(idInput, "voce");

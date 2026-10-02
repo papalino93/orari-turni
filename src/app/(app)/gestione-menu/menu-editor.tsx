@@ -99,7 +99,8 @@ type SheetState =
   | { type: "promo-duplicate"; id: string }
   | null;
 
-type QueueItem = { itemId: string; groupId: string; name: string; key: string };
+// key: dove portare la gestione per mostrare il piatto (null = resta dove sei, es. «Oggi fuori menù»).
+type QueueItem = { itemId: string; groupId: string; name: string; key: string | null };
 
 const EMPTY: Record<string, boolean> = {};
 
@@ -139,6 +140,8 @@ export function MenuEditor({
   const [sheet, setSheet] = useState<SheetState>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [pendingOpenId, setPendingOpenId] = useState<string | null>(null);
+  // «Compila ora» dopo aver aggiunto un piatto senza allergeni: la scheda si apre già sugli allergeni.
+  const [focusAllergens, setFocusAllergens] = useState<string | null>(null);
   // Stato "esaurito" mostrato subito, in attesa della risposta del server: vale
   // solo finché i dati ricaricati non lo sostituiscono (si confronta l'identità
   // dei dati, così non serve nessun effetto per "ripulirlo").
@@ -169,13 +172,15 @@ export function MenuEditor({
   const liveEventSections = promos.flatMap((p) =>
     p.section && effectiveStatus(p, today) !== "past" ? [p.section] : [],
   );
-  const missingAllergens = [...sections, ...liveEventSections].reduce(
+  const missingAllergens = [...daily.sections, ...sections, ...liveEventSections].reduce(
     (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed).length, 0) : 0),
     0,
   );
   // Piatti con allergeni da compilare, nell'ordine in cui si vedono (sezioni fisse, poi eventi non conclusi):
   // servono al percorso «Compila allergeni».
   const missingQueue: QueueItem[] = [
+    // «Oggi fuori menù» è in cima alla gestione e del menù: si comincia da lì.
+    ...daily.sections.map((s) => ({ key: null, section: s })),
     ...sections.map((s) => ({ key: s.slug, section: s })),
     ...promos.flatMap((p) => (p.section && effectiveStatus(p, today) !== "past" ? [{ key: `promo:${p.id}`, section: p.section }] : [])),
   ].flatMap((target) =>
@@ -215,7 +220,8 @@ export function MenuEditor({
 
   // Sul telefono l'elenco delle sezioni è sopra al contenuto: scegliendone una,
   // la pagina scorre da sola al contenuto invece di lasciarlo fuori schermo.
-  function select(key: string) {
+  function select(key: string | null) {
+    if (key === null) return;
     setActiveSlug(key);
     if (window.matchMedia("(max-width: 1023px)").matches) {
       requestAnimationFrame(() => contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -575,6 +581,16 @@ export function MenuEditor({
           run={run}
           onClose={() => setSheet(null)}
           onDuplicated={(newId) => setPendingOpenId(newId)}
+          focusAllergens={focusAllergens === sheet.itemId}
+          onMissingAllergens={(newId, name) =>
+            toast.showSuccess(`«${name}» aggiunta · mancano gli allergeni`, {
+              label: "Compila ora",
+              onClick: () => {
+                setFocusAllergens(newId);
+                setPendingOpenId(newId);
+              },
+            })
+          }
           nextMissing={nextMissing}
           progress={queue && queueIndex >= 0 ? { position: queueIndex + 1, total: queue.length } : null}
           onNext={(n) => {

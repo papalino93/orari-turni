@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ALLERGENS, allergenState, type AllergenState } from "@/lib/allergens";
 import { formatPrice } from "@/lib/menu-format";
 import { deleteItem, duplicateItem, moveItem, saveItem } from "./actions";
@@ -22,6 +22,8 @@ export function ItemSheet({
   run,
   onClose,
   onDuplicated,
+  focusAllergens = false,
+  onMissingAllergens,
   nextMissing,
   progress,
   onNext,
@@ -37,11 +39,15 @@ export function ItemSheet({
   run: RunFn;
   onClose: () => void;
   onDuplicated: (newId: string) => void;
+  // Apre la scheda già sulla parte degli allergeni («Compila ora»).
+  focusAllergens?: boolean;
+  // Piatto nuovo salvato con gli allergeni «Da compilare»: la gestione propone «Compila ora».
+  onMissingAllergens?: (newId: string, name: string) => void;
   // Nella vista "allergeni da compilare": il piatto successivo da compilare.
-  nextMissing?: { itemId: string; groupId: string; name: string; key: string } | null;
+  nextMissing?: { itemId: string; groupId: string; name: string; key: string | null } | null;
   // «Piatto 2 di 5» nel percorso «Compila allergeni».
   progress?: { position: number; total: number } | null;
-  onNext?: (next: { itemId: string; groupId: string; name: string; key: string }) => void;
+  onNext?: (next: { itemId: string; groupId: string; name: string; key: string | null }) => void;
 }) {
   const isWine = section.kind === "WINE";
   const [name, setName] = useState(item?.name ?? "");
@@ -66,6 +72,10 @@ export function ItemSheet({
   const [allergenMode, setAllergenMode] = useState<AllergenState>(item ? allergenState(item) : "unknown");
   const [allergens, setAllergens] = useState<string[]>(item?.allergens ?? []);
   const [targetGroup, setTargetGroup] = useState(groupId);
+  const allergensRef = useRef<HTMLFieldSetElement>(null);
+  useEffect(() => {
+    if (focusAllergens) allergensRef.current?.scrollIntoView({ block: "center" });
+  }, [focusAllergens]);
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
@@ -95,10 +105,12 @@ export function ItemSheet({
           allergensReviewed: allergenMode !== "unknown",
           variants: variants.filter((v) => v.label.trim() || v.price.trim()),
         }),
-      item ? "Voce salvata" : "Voce aggiunta",
+      // Piatto nuovo senza allergeni: il messaggio lo dice e propone «Compila ora».
+      item || isWine || allergenMode !== "unknown" ? (item ? "Voce salvata" : "Voce aggiunta") : "",
     );
     setBusy(false);
     if (result) {
+      if (!item && !isWine && allergenMode === "unknown" && result.id) onMissingAllergens?.(result.id, name.trim());
       onClose();
       if (goNext && nextMissing) onNext?.(nextMissing);
     }
@@ -257,7 +269,7 @@ export function ItemSheet({
 
             {canPair && <PairPicker wines={wines} value={pairWineId} onChange={setPairWineId} lost={pairLost} />}
 
-            <fieldset>
+            <fieldset ref={allergensRef} className="scroll-mt-4">
               <legend className="mb-1 text-xs font-medium text-foreground-muted">Allergeni</legend>
               <div role="radiogroup" aria-label="Allergeni" className="grid grid-cols-3 gap-2">
                 {(
