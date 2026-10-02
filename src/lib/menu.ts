@@ -4,7 +4,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { tryParsePrice, type CoverInfo } from "@/lib/menu-format";
+import { blockStatus, tryParsePrice, type MenuBlockView } from "@/lib/menu-format";
 import { ValidationError } from "@/lib/validation";
 
 // Come tryParsePrice, ma lancia un errore leggibile se non è un prezzo.
@@ -32,15 +32,30 @@ export async function loadMenu() {
   });
 }
 
-// Coperto (es. "Coperto € 1,00") e avviso della cucina, uguali per tutte le
-// sezioni di cucina; null se non ci sono.
-export async function loadCoverInfo(): Promise<CoverInfo> {
-  const rows = await prisma.menuSetting.findMany({ where: { id: { in: ["cover", "kitchenNote"] } } });
-  const get = (id: string) => {
-    const value = rows.find((r) => r.id === id)?.value.trim();
-    return value ? value : null;
-  };
-  return { cover: get("cover"), kitchenNote: get("kitchenNote") };
+// Blocchi informativi (coperto, chiusura cucina, avvisi…) non eliminati, nell'ordine
+// in cui compaiono. Chi li mostra filtra quelli scaduti o nascosti (blockStatus).
+export async function loadBlocks(): Promise<MenuBlockView[]> {
+  const rows = await prisma.menuBlock.findMany({
+    where: { deletedAt: null },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map((b) => ({
+    id: b.id,
+    kind: b.kind,
+    label: b.label,
+    text: b.text,
+    priceCents: b.priceCents,
+    placement: b.placement,
+    sectionIds: b.sectionIds,
+    startDate: b.startDate,
+    endDate: b.endDate,
+    hidden: b.hidden,
+  }));
+}
+
+// Quelli da mostrare oggi sul menù dei clienti.
+export async function loadVisibleBlocks(dayKey: string): Promise<MenuBlockView[]> {
+  return (await loadBlocks()).filter((b) => blockStatus(b, dayKey) === "live");
 }
 
 const promoInclude = {

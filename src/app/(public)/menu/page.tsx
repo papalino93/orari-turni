@@ -1,11 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { businessDayKey, formatPrice, isSoldOut, nb, parseVariants, promoStatus } from "@/lib/menu-format";
-import { loadCoverInfo, loadMenu, loadVisiblePromos } from "@/lib/menu";
+import { loadMenu, loadVisibleBlocks, loadVisiblePromos } from "@/lib/menu";
 import { VERSION_LABEL } from "@/lib/version";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
 import { InEvidenza } from "./in-evidenza";
 import { Variants } from "./item-prices";
+import { MenuBlocks } from "./menu-blocks";
 import { MenuNav } from "./menu-nav";
 import { PromoContent } from "./promo-content";
 import { Ornament } from "./ornament";
@@ -39,7 +40,9 @@ function BottleIcon() {
 
 export default async function MenuPage() {
   const dayKey = businessDayKey();
-  const [loaded, coverInfo, promos] = await Promise.all([loadMenu(), loadCoverInfo(), loadVisiblePromos(dayKey)]);
+  const [loaded, blocks, promos] = await Promise.all([loadMenu(), loadVisibleBlocks(dayKey), loadVisiblePromos(dayKey)]);
+  const topBlocks = blocks.filter((b) => b.placement === "TOP");
+  const bottomBlocks = blocks.filter((b) => b.placement === "BOTTOM");
 
   // Vini esauriti: spariscono. Piatti esauriti: restano, sbiaditi. Un gruppo
   // o una sezione senza nulla da mostrare non compare (né il suo chip).
@@ -98,7 +101,7 @@ export default async function MenuPage() {
         </div>
         {chips.length > 0 ? (
           <a
-            href={`#${chips[0].id}`}
+            href={topBlocks.length > 0 ? "#carta" : `#${chips[0].id}`}
             className="menu-sans relative flex min-h-11 flex-col items-center gap-2 px-4 py-2 text-[10px] uppercase tracking-[0.3em] !text-[#E3D4BC] no-underline"
           >
             Sfoglia
@@ -113,13 +116,18 @@ export default async function MenuPage() {
 
       {liveEvents.map((promo) => (
         <section key={promo.id} id={`evento-${promo.slug}`} aria-label={promo.title} className="mx-auto max-w-[720px] px-6 pb-4 pt-8">
-          <PromoContent promo={promo} info={coverInfo} dayKey={dayKey} inline />
+          <PromoContent promo={promo} blocks={blocks} dayKey={dayKey} inline />
         </section>
       ))}
 
       <InEvidenza promos={stripPromos} dayKey={dayKey} />
 
       <div id="carta" className="scroll-mt-0" />
+      {topBlocks.length > 0 && (
+        <div className="px-6 pb-2 pt-10">
+          <MenuBlocks blocks={topBlocks} />
+        </div>
+      )}
       {chips.length > 0 && <MenuNav chips={chips} />}
 
       <main className="mx-auto max-w-[720px] px-6 pb-[72px]">
@@ -138,21 +146,16 @@ export default async function MenuPage() {
               <Ornament color="#9C7A45" />
             </div>
 
-            {(section.note || (section.coverApplies && (coverInfo.cover || coverInfo.kitchenNote))) && (
-              <div className="mx-auto mt-8 flex max-w-[400px] flex-col items-center gap-2 border-y px-1 py-[18px] text-center">
-                {section.note && (
-                  <p className="m-0 text-balance text-[16.5px] italic leading-normal text-[#3F4540]">{section.note}</p>
-                )}
-                {section.coverApplies && coverInfo.kitchenNote && (
-                  <p className="m-0 text-balance text-[16.5px] italic leading-normal text-[#3F4540]">{coverInfo.kitchenNote}</p>
-                )}
-                {section.coverApplies && coverInfo.cover && (
-                  <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.22em] text-[#6B1020]">
-                    {coverInfo.cover}
-                  </div>
-                )}
-              </div>
-            )}
+            {(() => {
+              const sectionBlocks = blocks.filter((b) => b.placement === "SECTIONS" && b.sectionIds.includes(section.id));
+              return (
+                <MenuBlocks
+                  blocks={sectionBlocks}
+                  className="mt-8"
+                  lead={section.note ? <p className="m-0 text-balance text-[16.5px] italic leading-normal text-[#3F4540]">{section.note}</p> : undefined}
+                />
+              );
+            })()}
 
             {section.groups.map((group) => (
               <div key={group.id} className="mt-11">
@@ -236,6 +239,8 @@ export default async function MenuPage() {
             )}
           </section>
         ))}
+
+        {bottomBlocks.length > 0 && <MenuBlocks blocks={bottomBlocks} className="mt-[72px]" />}
 
         {sections.some((s) => s.kind === "FOOD") && <AllergenLegend />}
 

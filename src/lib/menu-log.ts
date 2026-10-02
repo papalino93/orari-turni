@@ -11,7 +11,7 @@ export async function logChange(
   entry: {
     actorName: string;
     action: MenuChangeAction;
-    entity: "item" | "group" | "section" | "setting" | "promo";
+    entity: "item" | "group" | "section" | "setting" | "promo" | "block";
     entityId: string;
     label: string;
     before?: Fields | null;

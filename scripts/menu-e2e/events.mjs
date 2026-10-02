@@ -1,10 +1,9 @@
-import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW } from "./lib.mjs";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
 
-const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
+resetBlocks();
 // giorno commerciale (cambia alle 5:00 ora italiana)
 const biz = (offset = 0) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(

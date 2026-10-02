@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getMenuEditor } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
 import { businessDayKey, isSoldOut, parseVariants } from "@/lib/menu-format";
-import { loadCoverInfo, loadMenu, loadPromosForEditor } from "@/lib/menu";
+import { loadBlocks, loadMenu, loadPromosForEditor } from "@/lib/menu";
 import { MenuEditor, type EditorPromo, type EditorSection, type HistoryEntry } from "./menu-editor";
 
 type LoadedSection = Awaited<ReturnType<typeof loadMenu>>[number];
@@ -16,7 +16,6 @@ function toEditorSection(s: LoadedSection, dayKey: string): EditorSection {
     promoId: s.promoId,
     kind: s.kind,
     note: s.note,
-    coverApplies: s.coverApplies,
     addonTitle: s.addonTitle,
     addon: s.addon,
     groups: s.groups.map((g) => ({
@@ -51,10 +50,10 @@ export default async function GestioneMenuPage() {
   if (!editor) redirect("/mie-ore");
 
   const dayKey = businessDayKey();
-  const [menu, promoRows, coverInfo, history] = await Promise.all([
+  const [menu, promoRows, blocks, history] = await Promise.all([
     loadMenu(),
     loadPromosForEditor(),
-    loadCoverInfo(),
+    loadBlocks(),
     prisma.menuChange.findMany({ orderBy: { at: "desc" }, take: 60 }),
   ]);
 
@@ -85,5 +84,5 @@ export default async function GestioneMenuPage() {
     undone: h.undoneById !== null,
   }));
 
-  return <MenuEditor sections={sections} promos={promos} today={dayKey} coverInfo={coverInfo} history={entries} />;
+  return <MenuEditor sections={sections} promos={promos} today={dayKey} blocks={blocks} history={entries} />;
 }

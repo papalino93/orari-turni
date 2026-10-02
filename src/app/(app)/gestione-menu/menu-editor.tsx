@@ -3,13 +3,14 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
-import { formatPrice, type CoverInfo } from "@/lib/menu-format";
+import { blockStatus, formatPrice, priceLine, type MenuBlockView } from "@/lib/menu-format";
 import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
+import { BlockSheet, BlocksPanel, type SectionChoice } from "./block-ui";
 import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
 import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
-import { CoverSheet, HistorySheet, SectionTextsSheet } from "./side-sheets";
+import { HistorySheet, SectionTextsSheet } from "./side-sheets";
 
 export type EditorItem = {
   id: string;
@@ -38,7 +39,6 @@ export type EditorSection = {
   promoId: string | null;
   kind: "WINE" | "FOOD";
   note: string | null;
-  coverApplies: boolean;
   addonTitle: string | null;
   addon: string | null;
   groups: EditorGroup[];
@@ -82,7 +82,7 @@ type SheetState =
   | { type: "item"; itemId: string | null; groupId: string }
   | { type: "import"; groupId: string }
   | { type: "texts" }
-  | { type: "cover" }
+  | { type: "block"; id: string | null }
   | { type: "history" }
   | { type: "promo"; id: string | null }
   | { type: "promo-duplicate"; id: string }
@@ -103,13 +103,13 @@ export function MenuEditor({
   sections,
   promos,
   today,
-  coverInfo,
+  blocks,
   history,
 }: {
   sections: EditorSection[];
   promos: EditorPromo[];
   today: string;
-  coverInfo: CoverInfo;
+  blocks: MenuBlockView[];
   history: HistoryEntry[];
 }) {
   const router = useRouter();
@@ -133,12 +133,19 @@ export function MenuEditor({
   // Sezioni fisse + menù speciali degli eventi: per cercare voci e gruppi servono tutte.
   const eventSections = promos.flatMap((p) => (p.section ? [p.section] : []));
   const allSections = [...sections, ...eventSections];
+  // Sezioni in cui si può scegliere di mostrare un'informazione: quelle fisse e i menù speciali non conclusi.
+  const sectionChoices: SectionChoice[] = [
+    ...sections.map((s) => ({ id: s.id, label: s.title, event: false })),
+    ...promos.flatMap((p) => (p.section && effectiveStatus(p, today) !== "past" ? [{ id: p.section.id, label: p.title, event: true }] : [])),
+  ];
+  const blockToEdit = sheet?.type === "block" && sheet.id ? (blocks.find((b) => b.id === sheet.id) ?? null) : null;
   // Selezione: o una sezione fissa (slug) o una pagina promozionale ("promo:<id>").
   const promoSelected = activeSlug.startsWith("promo:");
   const activePromo = promoSelected ? (promos.find((p) => `promo:${p.id}` === activeSlug) ?? null) : null;
   const section: EditorSection | null = promoSelected
     ? (activePromo?.section ?? null)
     : (sections.find((s) => s.slug === activeSlug) ?? sections[0] ?? null);
+  const sectionBlocks = section ? blocks.filter((b) => b.placement === "SECTIONS" && b.sectionIds.includes(section.id)) : [];
   // Piatti con allergeni "da compilare": sul menù dei clienti risultano "da
   // verificare con il personale". Gli eventi già conclusi non contano.
   const liveEventSections = promos.flatMap((p) =>
@@ -339,36 +346,14 @@ export function MenuEditor({
         </div>
       </div>
 
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Coperto e chiusura cucina</p>
-          <p className="mt-1 text-sm text-foreground">
-            <span className="text-foreground-muted">Coperto: </span>
-            <span className="font-medium">{coverInfo.cover || "nessuno"}</span>
-          </p>
-          <p className="mt-0.5 text-sm text-foreground">
-            <span className="text-foreground-muted">Chiusura cucina: </span>
-            {coverInfo.kitchenNote ? <span>{coverInfo.kitchenNote}</span> : <span className="font-medium">nessun avviso</span>}
-          </p>
-          <p className="text-[11px] text-foreground-muted">
-            Vale per tutta la cucina
-            {sections.some((s) => s.coverApplies)
-              ? `: compare in ${sections
-                  .filter((s) => s.coverApplies)
-                  .map((s) => s.title)
-                  .join(" e ")}.`
-              : "."}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setSheet({ type: "cover" })}
-          aria-label="Modifica coperto e chiusura cucina"
-          className="min-h-10 shrink-0 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-        >
-          Modifica
-        </button>
-      </div>
+      <BlocksPanel
+        blocks={blocks}
+        choices={sectionChoices}
+        today={today}
+        run={run}
+        onEdit={(id) => setSheet({ type: "block", id })}
+        onAdd={() => setSheet({ type: "block", id: null })}
+      />
 
       {filterOn && (
         <div className="sticky top-[calc(4.25rem+env(safe-area-inset-top))] z-20 mb-5 rounded-2xl border border-gold/40 bg-surface/95 p-3.5 shadow-lg backdrop-blur">
@@ -513,20 +498,23 @@ export function MenuEditor({
                         {section.addon}
                       </p>
                     )}
-                    {section.coverApplies && (
-                      <>
-                        <p className="text-foreground">
-                          <span className="text-foreground-muted">Chiusura cucina: </span>
-                          {coverInfo.kitchenNote || "nessun avviso"}
-                        </p>
-                        <p className="text-foreground">
-                          <span className="text-foreground-muted">Coperto: </span>
-                          {coverInfo.cover || "nessuno"}
-                        </p>
-                        <p className="text-[11px] text-foreground-muted">Valgono per tutta la cucina: si cambiano nel riquadro in alto.</p>
-                      </>
-                    )}
-                    {!section.note && !section.addon && !section.coverApplies && (
+                    {sectionBlocks.map((b) => (
+                      <p key={b.id} className="flex items-baseline gap-2 text-foreground">
+                        <span className="min-w-0 flex-1">
+                          <span className="text-foreground-muted">{b.kind === "PRICE" ? "Prezzo: " : b.kind === "NOTICE" ? "Avviso: " : "Informazione: "}</span>
+                          {b.kind === "PRICE" ? priceLine(b) : b.text}
+                          {blockStatus(b, today) !== "live" && <span className="text-foreground-muted"> (non visibile oggi)</span>}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSheet({ type: "block", id: b.id })}
+                          className="shrink-0 text-[11px] font-medium text-accent hover:underline"
+                        >
+                          Modifica
+                        </button>
+                      </p>
+                    ))}
+                    {!section.note && !section.addon && sectionBlocks.length === 0 && (
                       <p className="text-foreground-muted">Nessun testo: compaiono solo titolo e voci.</p>
                     )}
                   </div>
@@ -601,12 +589,16 @@ export function MenuEditor({
       {sheet?.type === "import" && section && (
         <ImportSheet key={sheet.groupId} section={section} groupId={sheet.groupId} run={run} onClose={() => setSheet(null)} />
       )}
-      {sheet?.type === "cover" && <CoverSheet info={coverInfo} run={run} onClose={() => setSheet(null)} />}
+      {sheet?.type === "block" && (sheet.id === null || blockToEdit) && (
+        <BlockSheet key={sheet.id ?? "new"} block={blockToEdit} choices={sectionChoices} run={run} onClose={() => setSheet(null)} />
+      )}
       {sheet?.type === "promo" && (sheet.id === null || promoToEdit) && (
         <PromoSheet
           key={sheet.id ?? "new"}
           promo={promoToEdit}
           today={today}
+          blocks={blocks}
+          fixedFoodSectionIds={sections.filter((s) => s.kind === "FOOD").map((s) => s.id)}
           run={run}
           onSaved={(id) => setActiveSlug(`promo:${id}`)}
           onClose={() => setSheet(null)}

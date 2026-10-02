@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
-import { formatPromoDates, promoStatus, type PromoStatus } from "@/lib/menu-format";
+import { blockSummary, formatPromoDates, promoStatus, type MenuBlockView, type PromoStatus } from "@/lib/menu-format";
 import { resizeToJpeg } from "@/lib/image-resize";
 import { createPromo, deletePromo, duplicatePromo, removePromoImage, savePromoImage, setPromoHidden, updatePromo } from "./promo-actions";
 import { Field, Sheet, dateInputClass, inputClass } from "./sheet";
@@ -157,12 +157,17 @@ export function PromoCard({
 export function PromoSheet({
   promo,
   today,
+  blocks,
+  fixedFoodSectionIds,
   run,
   onSaved,
   onClose,
 }: {
   promo: EditorPromo | null;
   today: string;
+  // Informazioni del menù: si sceglie quali mostrare anche nel menù speciale dell'evento.
+  blocks: MenuBlockView[];
+  fixedFoodSectionIds: string[];
   run: RunFn;
   onSaved: (id: string) => void;
   onClose: () => void;
@@ -180,7 +185,13 @@ export function PromoSheet({
   const [startDate, setStartDate] = useState(promo?.startDate ?? defaultStart);
   const [endDate, setEndDate] = useState(promo?.endDate ?? defaultStart);
   const [showFromTouched, setShowFromTouched] = useState(promo !== null);
-  const [coverApplies, setCoverApplies] = useState(promo?.section?.coverApplies ?? true);
+  // Un nuovo evento parte con le stesse informazioni della cucina (coperto, chiusura…).
+  const sectionBlocks = blocks.filter((b) => b.placement === "SECTIONS");
+  const [blockIds, setBlockIds] = useState<string[]>(
+    sectionBlocks
+      .filter((b) => (promo?.section ? b.sectionIds.includes(promo.section.id) : b.sectionIds.some((id) => fixedFoodSectionIds.includes(id))))
+      .map((b) => b.id),
+  );
   const [file, setFile] = useState<File | null>(null);
   const [removeImage, setRemoveImage] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -200,7 +211,7 @@ export function PromoSheet({
       showFrom: isEvent ? showFrom : startDate,
       startDate,
       endDate,
-      coverApplies: isEvent ? coverApplies : undefined,
+      blockIds: isEvent ? blockIds : undefined,
     };
     const result = promo
       ? await run(() => updatePromo(promo.id, input), "Pagina aggiornata")
@@ -384,11 +395,21 @@ export function PromoSheet({
           </p>
         )}
 
-        {isEvent && (promo === null || promo.section !== null) && (
-          <label className="flex min-h-11 items-center gap-3 text-sm text-foreground">
-            <input type="checkbox" checked={coverApplies} onChange={(e) => setCoverApplies(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
-            Mostra il coperto nel menù speciale
-          </label>
+        {isEvent && (promo === null || promo.section !== null) && sectionBlocks.length > 0 && (
+          <fieldset className="rounded-xl border border-border px-3 py-1.5">
+            <legend className="px-1 text-[11px] text-foreground-muted">Nel menù speciale mostra anche</legend>
+            {sectionBlocks.map((b) => (
+              <label key={b.id} className="flex min-h-11 items-center gap-3 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={blockIds.includes(b.id)}
+                  onChange={() => setBlockIds((prev) => (prev.includes(b.id) ? prev.filter((x) => x !== b.id) : [...prev, b.id]))}
+                  className="h-5 w-5 accent-[var(--accent)]"
+                />
+                <span className="min-w-0 flex-1 truncate">{blockSummary(b)}</span>
+              </label>
+            ))}
+          </fieldset>
         )}
 
         <button

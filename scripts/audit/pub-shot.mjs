@@ -1,0 +1,13 @@
+import fs from "node:fs";
+import { launch, BASE } from "../menu-e2e/lib.mjs";
+const [path = "/menu", anchor = "taglieri", name = "pub"] = process.argv.slice(2);
+const OUT = process.env.SHOTS ?? "/tmp/claude-0/shots/blocks";
+fs.mkdirSync(OUT, { recursive: true });
+const b = await launch();
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: "it-IT" });
+const p = await ctx.newPage();
+await p.goto(BASE + path, { waitUntil: "networkidle" });
+if (anchor) await p.evaluate((a) => document.getElementById(a)?.scrollIntoView(), anchor);
+await p.waitForTimeout(900);
+await p.screenshot({ path: `${OUT}/${name}.png` });
+await b.close();

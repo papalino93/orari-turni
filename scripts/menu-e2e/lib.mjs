@@ -1,4 +1,5 @@
 import { chromium } from "playwright-core";
+import { execFileSync } from "node:child_process";
 const need = (name) => {
   const value = process.env[name];
   if (!value) throw new Error(`Imposta la variabile d'ambiente ${name} (vedi docs/menu-handoff.md).`);
@@ -22,4 +23,19 @@ export const results = [];
 export function check(name, ok, extra = "") {
   results.push({ name, ok });
   console.log(`${ok ? "OK  " : "FAIL"} ${name}${extra ? " — " + extra : ""}`);
+}
+
+// Accesso diretto al database di prova (psql, utente orari/orari).
+export const DB = (sql) =>
+  execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } })
+    .toString()
+    .trim();
+
+// Riporta i blocchi informativi allo stato della migrazione: solo «Chiusura cucina»
+// (testo) e «Coperto € 1,00» (voce con prezzo), sotto Taglieri & Pinse e Tartare.
+export function resetBlocks() {
+  DB(`delete from "MenuBlock" where id not in ('blk_kitchen_note','blk_cover')`);
+  DB(`update "MenuBlock" set "deletedAt"=null, hidden=false, "startDate"=null, "endDate"=null, placement='SECTIONS', "sectionIds"='{menu_sec_taglieri,menu_sec_tartare}' where id in ('blk_kitchen_note','blk_cover')`);
+  DB(`update "MenuBlock" set label='Coperto', "priceCents"=100, kind='PRICE', "sortOrder"=1 where id='blk_cover'`);
+  DB(`update "MenuBlock" set kind='TEXT', "sortOrder"=0 where id='blk_kitchen_note'`);
 }

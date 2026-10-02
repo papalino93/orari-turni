@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMenuEditor } from "@/lib/guard";
 import { diff, logChange } from "@/lib/menu-log";
 import { revalidateMenu } from "@/lib/menu";
+import { copySectionBlocks, setSectionBlocks } from "@/lib/menu-block-sync";
 import { assert, parseDateKey, parseEnum, parseId, parseText, runAction, type ActionResult } from "@/lib/validation";
 import type { ChangeResult } from "./actions";
 
@@ -19,8 +20,8 @@ export type PromoInput = {
   showFrom: string;
   startDate: string;
   endDate: string;
-  // Solo eventi: il coperto vale anche per il menù speciale.
-  coverApplies?: boolean;
+  // Solo eventi: quali blocchi del menù (coperto, chiusura cucina…) compaiono anche nel menù speciale.
+  blockIds?: string[];
 };
 
 const MAX_IMAGE_BYTES = 900 * 1024;
@@ -55,6 +56,11 @@ async function uniqueSlug(title: string): Promise<string> {
   return `${base}-${Date.now().toString(36)}`;
 }
 
+function parseBlockIds(value: unknown): string[] {
+  const list = Array.isArray(value) ? value : [];
+  return list.slice(0, 60).map((id) => parseId(id, "blocco"));
+}
+
 function snapshot(p: {
   title: string;
   label: string | null;
@@ -77,18 +83,18 @@ export async function createPromo(input: PromoInput): Promise<ActionResult<Chang
     const result = await prisma.$transaction(async (tx) => {
       const promo = await tx.menuPromo.create({ data: { kind, slug, ...fields } });
       if (kind === "EVENT") {
-        await tx.menuSection.create({
+        const section = await tx.menuSection.create({
           data: {
             slug: `evento-${promo.id}`,
             label: fields.title,
             kicker: "Evento",
             title: fields.title,
             kind: "FOOD",
-            coverApplies: input.coverApplies ?? true,
             sortOrder: 100,
             promoId: promo.id,
           },
         });
+        await setSectionBlocks(tx, section.id, parseBlockIds(input.blockIds), editor.name);
       }
       const changeId = await logChange(tx, {
         actorName: editor.name,
@@ -114,15 +120,18 @@ export async function updatePromo(idInput: string, input: PromoInput): Promise<A
     const fields = parsePromoFields(input);
 
     const changed = diff(snapshot(promo), fields);
-    const coverApplies = input.coverApplies;
-    const coverChanged = promo.section !== null && coverApplies !== undefined && promo.section.coverApplies !== coverApplies;
-    if (!changed && !coverChanged) return { changeId: null };
+    const blockIds = promo.section && input.blockIds !== undefined ? parseBlockIds(input.blockIds) : null;
+    const blocksChanged =
+      blockIds !== null &&
+      promo.section !== null &&
+      (await prisma.menuBlock.findMany({ where: { deletedAt: null, placement: "SECTIONS" } })).some(
+        (b) => b.sectionIds.includes(promo.section!.id) !== blockIds.includes(b.id),
+      );
+    if (!changed && !blocksChanged) return { changeId: null };
 
     const changeId = await prisma.$transaction(async (tx) => {
       if (changed) await tx.menuPromo.update({ where: { id }, data: fields });
-      if (coverChanged && promo.section) {
-        await tx.menuSection.update({ where: { id: promo.section.id }, data: { coverApplies } });
-      }
+      if (blocksChanged && promo.section && blockIds) await setSectionBlocks(tx, promo.section.id, blockIds, editor.name);
       if (!changed) return null;
       return logChange(tx, {
         actorName: editor.name,
@@ -243,13 +252,13 @@ export async function duplicatePromo(
             title: fields.title,
             kind: source.section.kind,
             note: source.section.note,
-            coverApplies: source.section.coverApplies,
             addonTitle: source.section.addonTitle,
             addon: source.section.addon,
             sortOrder: source.section.sortOrder,
             promoId: copy.id,
           },
         });
+        await copySectionBlocks(tx, source.section.id, section.id, editor.name);
         for (const group of source.section.groups) {
           const newGroup = await tx.menuGroup.create({
             data: { sectionId: section.id, title: group.title, columns: group.columns, sortOrder: group.sortOrder },

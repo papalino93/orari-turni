@@ -47,9 +47,6 @@ export function nb(text: string | null | undefined): string {
 
 // --- Formati e prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l) -------------------
 
-// Informazioni valide per tutta la cucina, mostrate nelle sezioni di cucina.
-export type CoverInfo = { cover: string | null; kitchenNote: string | null };
-
 export type MenuVariant = { label: string; cents: number };
 
 // Il campo è JSON nel database: si rilegge in modo difensivo.
@@ -119,4 +116,72 @@ export function isPosterVisible(p: PromoDates & { hidden: boolean; deletedAt: Da
 
 export function isPromoMenuVisible(p: PromoDates & { hidden: boolean; deletedAt: Date | null }, today: string): boolean {
   return !p.hidden && !p.deletedAt && today >= p.startDate && today <= p.endDate;
+}
+
+
+// --- Blocchi informativi (coperto, chiusura cucina, avvisi…) -----------------
+
+export type BlockKind = "TEXT" | "PRICE" | "NOTICE";
+export type BlockPlacement = "TOP" | "BOTTOM" | "SECTIONS";
+
+export type MenuBlockView = {
+  id: string;
+  kind: BlockKind;
+  label: string | null;
+  text: string | null;
+  priceCents: number | null;
+  placement: BlockPlacement;
+  sectionIds: string[];
+  startDate: string | null;
+  endDate: string | null;
+  hidden: boolean;
+};
+
+// live = si vede oggi; scheduled = parte più avanti; expired = finito; hidden = nascosto a mano.
+export type BlockStatus = "live" | "scheduled" | "expired" | "hidden";
+
+export function blockStatus(b: Pick<MenuBlockView, "startDate" | "endDate" | "hidden">, today: string): BlockStatus {
+  if (b.hidden) return "hidden";
+  if (b.endDate && today > b.endDate) return "expired";
+  if (b.startDate && today < b.startDate) return "scheduled";
+  return "live";
+}
+
+// "1,00": per i prezzi dei blocchi (coperto, servizio) si scrivono sempre i centesimi.
+export function formatMoney(cents: number): string {
+  return (cents / 100).toFixed(2).replace(".", ",");
+}
+
+// Come si legge una voce con prezzo: «Coperto € 1,00».
+export function priceLine(b: Pick<MenuBlockView, "label" | "priceCents">): string {
+  const money = b.priceCents === null ? "" : `\u20AC\u00A0${formatMoney(b.priceCents)}`;
+  return [b.label, money].filter(Boolean).join(" ");
+}
+
+export const PLACEMENT_LABELS: Record<BlockPlacement, string> = {
+  TOP: "In cima al menù",
+  BOTTOM: "In fondo al menù",
+  SECTIONS: "Sotto il titolo delle sezioni",
+};
+
+export const BLOCK_KIND_LABELS: Record<BlockKind, string> = {
+  TEXT: "Testo",
+  PRICE: "Voce con prezzo",
+  NOTICE: "Avviso",
+};
+
+// Riassunto di una riga: la voce con prezzo, oppure il testo accorciato.
+export function blockSummary(b: MenuBlockView): string {
+  if (b.kind === "PRICE") return priceLine(b);
+  const text = (b.text ?? "").replace(/\s+/g, " ").trim();
+  const head = b.label ? `${b.label}: ` : "";
+  const full = `${head}${text}`;
+  return full.length > 90 ? `${full.slice(0, 87)}…` : full;
+}
+
+export function formatBlockDates(startKey: string | null, endKey: string | null): string | null {
+  if (!startKey && !endKey) return null;
+  if (startKey && endKey) return startKey === endKey ? `solo il ${formatPromoDay(startKey)}` : `dal ${formatPromoDay(startKey)} al ${formatPromoDay(endKey)}`;
+  if (startKey) return `dal ${formatPromoDay(startKey)}`;
+  return `fino al ${formatPromoDay(endKey as string)}`;
 }

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { updateCoverInfo, updateSectionTexts } from "./actions";
-import type { CoverInfo } from "@/lib/menu-format";
+import { updateSectionTexts } from "./actions";
 import { Field, Sheet, inputClass } from "./sheet";
 import type { EditorSection, HistoryEntry, RunFn } from "./menu-editor";
 
@@ -91,7 +90,6 @@ export function SectionTextsSheet({
   onClose: () => void;
 }) {
   const [note, setNote] = useState(section.note ?? "");
-  const [coverApplies, setCoverApplies] = useState(section.coverApplies);
   const [addonTitle, setAddonTitle] = useState(section.addonTitle ?? "");
   const [addon, setAddon] = useState(section.addon ?? "");
   const [busy, setBusy] = useState(false);
@@ -99,7 +97,7 @@ export function SectionTextsSheet({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const result = await run(() => updateSectionTexts(section.id, { note, coverApplies, addonTitle, addon }), "Testi aggiornati");
+    const result = await run(() => updateSectionTexts(section.id, { note, addonTitle, addon }), "Testi aggiornati");
     setBusy(false);
     if (result) onClose();
   }
@@ -110,56 +108,11 @@ export function SectionTextsSheet({
         <Field label="Nota sotto il titolo" hint="es. orario di chiusura della cucina. Vuoto = nessuna nota.">
           <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={3} className={inputClass} />
         </Field>
-        <label className="flex min-h-11 items-center gap-3 text-sm text-foreground">
-          <input
-            type="checkbox"
-            checked={coverApplies}
-            onChange={(e) => setCoverApplies(e.target.checked)}
-            className="h-5 w-5 accent-[var(--accent)]"
-          />
-          Mostra il coperto in questa sezione
-        </label>
         <Field label="Titolo dell'avviso a fondo sezione">
           <input value={addonTitle} onChange={(e) => setAddonTitle(e.target.value)} maxLength={120} className={inputClass} />
         </Field>
         <Field label="Testo dell'avviso a fondo sezione">
           <textarea value={addon} onChange={(e) => setAddon(e.target.value)} maxLength={500} rows={4} className={inputClass} />
-        </Field>
-        <button
-          type="submit"
-          disabled={busy}
-          className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
-        >
-          {busy ? "Salvo…" : "Salva"}
-        </button>
-      </form>
-    </Sheet>
-  );
-}
-
-// Coperto e avviso della cucina: valgono per tutta la cucina e si modificano qui,
-// non sezione per sezione.
-export function CoverSheet({ info, run, onClose }: { info: CoverInfo; run: RunFn; onClose: () => void }) {
-  const [cover, setCover] = useState(info.cover ?? "");
-  const [kitchenNote, setKitchenNote] = useState(info.kitchenNote ?? "");
-  const [busy, setBusy] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    const result = await run(() => updateCoverInfo({ cover, kitchenNote }), "Coperto e chiusura cucina aggiornati");
-    setBusy(false);
-    if (result) onClose();
-  }
-
-  return (
-    <Sheet title="Coperto e chiusura della cucina" onClose={onClose}>
-      <form onSubmit={submit} className="space-y-3.5">
-        <Field label="Coperto" hint="Vale per tutta la cucina. Lascia vuoto se non c'è coperto.">
-          <input autoFocus value={cover} onChange={(e) => setCover(e.target.value)} maxLength={80} className={inputClass} placeholder="es. Coperto € 1,00" />
-        </Field>
-        <Field label="Chiusura della cucina" hint="Compare sopra al coperto in ogni sezione di cucina, es. «La cucina chiude circa 40–50 minuti prima della chiusura del locale». Vuoto = nessun avviso.">
-          <textarea value={kitchenNote} onChange={(e) => setKitchenNote(e.target.value)} maxLength={300} rows={4} className={inputClass} />
         </Field>
         <button
           type="submit"

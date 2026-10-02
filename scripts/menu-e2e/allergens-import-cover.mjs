@@ -1,11 +1,9 @@
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW } from "./lib.mjs";
-import { execFileSync } from "node:child_process";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
 
-const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
 // stato pulito (i dati della migrazione restano com'erano)
 DB(`delete from "MenuPromo"`);
 DB(`delete from "MenuChange"`);
-DB(`update "MenuSetting" set value='Coperto € 1,00' where id='cover'`);
+resetBlocks();
 DB(`delete from "MenuItem" where id not like 'menu_itm_%'`);
 DB(`delete from "MenuGroup" where id not like 'menu_grp_%'`);
 DB(`update "MenuItem" set "soldOutDay"=null, "deletedAt"=null`);
