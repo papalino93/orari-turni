@@ -28,7 +28,7 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
     check("sfondo chiaro del menù (non tema scuro)", info.bg === "rgb(244, 238, 227)", info.bg);
     const text = await page.locator("main").innerText();
     check("voci importate presenti (Henriot, Tartare, Spoma)", ["Henriot", "Classica", "Spoma", "Cantonaux"].every((t) => text.includes(t)));
-    check("prezzo bottiglia — mostrato per Chapoutier", await page.locator("text=Rouge Clair, Francia").count() > 0);
+    check("Chapoutier: nome del vino e denominazione", (await page.locator("text=Rouge Clair").count()) > 0 && (await page.locator("text=Vin de France").count()) > 0);
   }
   if (SHOTS) {
     await page.screenshot({ path: `${SHOTS}/public-${label}-top.png` });

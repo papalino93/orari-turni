@@ -7,13 +7,15 @@ export const contentType = "image/png";
 export const alt = "Carta dei vini e Menù — L'Angolo del Vino";
 
 // Anteprima del menù quando il link viene condiviso (WhatsApp, Instagram…):
-// la foto della copertina velata di bordeaux, il logo chiaro e il calice con il
-// baffo, come la copertina del menù.
+// la foto della copertina velata di bordeaux e il logo chiaro, come la
+// copertina del menù.
 export default async function Image() {
-  const [hero, logo, icon] = await Promise.all([
+  const [hero, logo, serif, sans] = await Promise.all([
     readFile(join(process.cwd(), "public/menu/hero.jpg")),
     readFile(join(process.cwd(), "public/menu/logo-light.png")),
-    readFile(join(process.cwd(), "public/icons/icon-192.png")),
+    // Stessi caratteri della copertina del menù (Cormorant Garamond corsivo e Jost).
+    readFile(join(process.cwd(), "public/menu/fonts/cormorant-italic-500.woff")),
+    readFile(join(process.cwd(), "public/menu/fonts/jost-400.woff")),
   ]);
   const src = (b: Buffer, type: string) => `data:${type};base64,${b.toString("base64")}`;
 
@@ -24,16 +26,21 @@ export default async function Image() {
         <div style={{ position: "absolute", top: 0, left: 0, width: 1200, height: 630, display: "flex", background: "linear-gradient(180deg, rgba(58,10,18,0.72) 0%, rgba(74,10,21,0.78) 55%, rgba(38,4,10,0.95) 100%)" }} />
         <div style={{ position: "absolute", top: 28, left: 28, width: 1144, height: 574, display: "flex", border: "2px solid rgba(201,169,110,0.55)", borderRadius: 18 }} />
         <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
-          <img src={src(icon, "image/png")} width={104} height={104} alt="" style={{ borderRadius: 24, marginBottom: 30 }} />
           <img src={src(logo, "image/png")} width={640} height={183} alt="" />
           <div style={{ width: 140, height: 2, background: "#C9A96E", margin: "30px 0 24px" }} />
-          <div style={{ display: "flex", fontSize: 40, color: "#F4EDE1", letterSpacing: 1 }}>Carta dei vini e Menù</div>
-          <div style={{ display: "flex", fontSize: 22, color: "#E3D4BC", letterSpacing: 6, marginTop: 14, textTransform: "uppercase" }}>
+          <div style={{ display: "flex", fontFamily: "Cormorant", fontStyle: "italic", fontSize: 54, color: "#F4EDE1", letterSpacing: 0.5 }}>Carta dei vini e Menù</div>
+          <div style={{ display: "flex", fontFamily: "Jost", fontSize: 21, color: "#E3D4BC", letterSpacing: 7, marginTop: 14, textTransform: "uppercase" }}>
             Enoteca · Scandicci
           </div>
         </div>
       </div>
     ),
-    { ...size },
+    {
+      ...size,
+      fonts: [
+        { name: "Cormorant", data: serif, style: "italic", weight: 500 },
+        { name: "Jost", data: sans, style: "normal", weight: 400 },
+      ],
+    },
   );
 }
