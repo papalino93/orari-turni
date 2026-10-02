@@ -40,7 +40,7 @@ await box.fill("aquila");
 await settle(300);
 await list.first().getByRole("button", { name: /^Modifica/ }).click();
 await page.locator('[role="dialog"]').waitFor();
-check("ricerca: toccando il nome si apre la modifica", (await page.locator('[role="dialog"]').getByLabel("Nome", { exact: true }).inputValue()).length > 0);
+check("ricerca: toccando il nome si apre la modifica", (await page.locator('[role="dialog"]').getByLabel(/^(Nome|Azienda)$/).inputValue()).length > 0);
 await page.keyboard.press("Escape");
 const ov = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 check("gestione @390: nessun overflow orizzontale", ov <= 0, String(ov));

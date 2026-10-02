@@ -53,6 +53,9 @@ export function ItemSheet({
   const isWine = section.kind === "WINE";
   const [name, setName] = useState(item?.name ?? "");
   const [sub, setSub] = useState(item?.sub ?? "");
+  const [wineName, setWineName] = useState(item?.wineName ?? "");
+  const [denomination, setDenomination] = useState(item?.denomination ?? "");
+  const [vintage, setVintage] = useState(item?.vintage ?? "");
   const [grapes, setGrapes] = useState(item?.grapes ?? "");
   const [region, setRegion] = useState(item?.region ?? "");
   const [country, setCountry] = useState(item?.country ?? "");
@@ -94,6 +97,9 @@ export function ItemSheet({
           name,
           groupId: targetGroup,
           sub,
+          wineName,
+          denomination,
+          vintage,
           grapes,
           region,
           country,
@@ -148,7 +154,7 @@ export function ItemSheet({
   return (
     <Sheet title={progress ? `Allergeni · ${progress.position} di ${progress.total}` : item ? "Modifica voce" : isWine ? "Nuovo vino" : "Nuova voce"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3.5">
-        <Field label="Nome">
+        <Field label={isWine ? "Azienda" : "Nome"}>
           <input
             autoFocus={!item}
             value={name}
@@ -156,15 +162,28 @@ export function ItemSheet({
             maxLength={120}
             required
             className={inputClass}
-            placeholder={isWine ? "es. Aquila del Torre" : "es. Tagliere Classico"}
+            placeholder={isWine ? "es. Avignonesi" : "es. Tagliere Classico"}
           />
         </Field>
 
         {isWine ? (
           <>
-            <Field label="Sottotitolo" hint="Denominazione, annata, zona…">
-              <input value={sub} onChange={(e) => setSub(e.target.value)} maxLength={160} className={inputClass} placeholder="es. Torre Bianco" />
+            <Field label="Nome del vino (facoltativo)" hint="Se il vino non ha un nome proprio, lascia vuoto.">
+              <input value={wineName} onChange={(e) => setWineName(e.target.value)} maxLength={120} className={inputClass} placeholder="es. Da-Di" />
             </Field>
+            <div className="grid grid-cols-[1.6fr_1fr] gap-3">
+              <Field label="Denominazione">
+                <input value={denomination} onChange={(e) => setDenomination(e.target.value)} maxLength={120} className={inputClass} placeholder="es. Toscana Igt" />
+              </Field>
+              <Field label="Annata">
+                <input value={vintage} onChange={(e) => setVintage(e.target.value)} maxLength={20} inputMode="numeric" className={inputClass} placeholder="es. 2022" />
+              </Field>
+            </div>
+            {sub && (
+              <Field label="Vecchio sottotitolo" hint="Spostalo nei campi qui sopra, poi svuota questo: sul menù si usano i campi nuovi.">
+                <input value={sub} onChange={(e) => setSub(e.target.value)} maxLength={160} className={inputClass} />
+              </Field>
+            )}
             <Field label="Uvaggio">
               <input
                 value={grapes}

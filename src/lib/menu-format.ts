@@ -50,6 +50,13 @@ export function nb(text: string | null | undefined): string {
 export type MenuVariant = { label: string; cents: number };
 
 // Il campo è JSON nel database: si rilegge in modo difensivo.
+// Riga sotto il nome del vino: «denominazione · annata». Per i vini non ancora
+// divisi nei campi nuovi resta il vecchio sottotitolo libero.
+export function wineDetail(item: { denomination?: string | null; vintage?: string | null; sub?: string | null }): string {
+  const parts = [item.denomination, item.vintage].filter((x): x is string => Boolean(x && x.trim()));
+  return parts.length > 0 ? parts.join(" · ") : (item.sub ?? "");
+}
+
 // Provenienza di un vino da mostrare: la regione, e il paese solo se non è
 // l'Italia (in un'enoteca italiana «Italia» non aggiunge nulla).
 export function originLabel(item: { region: string | null; country: string | null }, sep = " · "): string {

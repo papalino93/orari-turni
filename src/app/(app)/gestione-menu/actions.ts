@@ -23,6 +23,10 @@ export type ItemInput = {
   name: string;
   groupId: string;
   sub?: string;
+  // Solo vini: nome proprio, denominazione, annata (il nome della voce è l'azienda).
+  wineName?: string;
+  denomination?: string;
+  vintage?: string;
   grapes?: string;
   // Solo vini, facoltativi.
   region?: string;
@@ -45,6 +49,9 @@ export type ItemInput = {
 
 const ITEM_KEYS = [
   "name",
+  "wineName",
+  "denomination",
+  "vintage",
   "sub",
   "grapes",
   "region",
@@ -107,7 +114,12 @@ function toItemData<T extends { variants: MenuVariant[] | null }>(data: T) {
 function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
   const name = parseText(input.name, "nome", { max: 120, required: true });
   if (kind === "WINE") {
-    const sub = parseText(input.sub, "sottotitolo", { max: 160 }) || null;
+    const wineName = parseText(input.wineName, "nome del vino", { max: 120 }) || null;
+    const vintage = parseText(input.vintage, "annata", { max: 20 }) || null;
+    // «Incolla più voci» manda la seconda colonna come `sub`: diventa la denominazione.
+    const denomination = parseText(input.denomination ?? (input.wineName === undefined ? input.sub : undefined), "denominazione", { max: 120 }) || null;
+    // Il vecchio sottotitolo resta solo se la scheda lo rimanda (vini non ancora divisi).
+    const sub = input.wineName === undefined ? null : parseText(input.sub, "sottotitolo", { max: 160 }) || null;
     const grapes = parseText(input.grapes, "uvaggio", { max: 200 }) || null;
     const region = parseText(input.region, "regione", { max: 60 }) || null;
     const country = parseText(input.country, "nazione", { max: 60 }) || null;
@@ -116,6 +128,9 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
     assert(priceGlassCents !== null || priceBottleCents !== null, "Inserisci almeno un prezzo (calice o bottiglia).");
     return {
       name,
+      wineName,
+      denomination,
+      vintage,
       sub,
       grapes,
       region,
@@ -140,6 +155,9 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
   assert(variants !== null || priceCents !== null, "Inserisci il prezzo, oppure almeno un formato con il suo prezzo.");
   return {
     name,
+    wineName: null,
+    denomination: null,
+    vintage: null,
     sub: null,
     grapes: null,
     region: null,
@@ -357,6 +375,9 @@ export async function duplicateItem(idInput: string): Promise<ActionResult<Chang
         data: {
           groupId: source.groupId,
           name: source.name,
+          wineName: source.wineName,
+          denomination: source.denomination,
+          vintage: source.vintage,
           sub: source.sub,
           grapes: source.grapes,
           region: source.region,
@@ -408,6 +429,9 @@ export async function reproposeItem(idInput: string): Promise<ActionResult<Chang
         data: {
           groupId: source.groupId,
           name: source.name,
+          wineName: source.wineName,
+          denomination: source.denomination,
+          vintage: source.vintage,
           sub: source.sub,
           grapes: source.grapes,
           region: source.region,

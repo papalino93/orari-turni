@@ -268,6 +268,9 @@ export async function duplicatePromo(
               data: group.items.map((item) => ({
                 groupId: newGroup.id,
                 name: item.name,
+                wineName: item.wineName,
+                denomination: item.denomination,
+                vintage: item.vintage,
                 sub: item.sub,
                 grapes: item.grapes,
                 region: item.region,

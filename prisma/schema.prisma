@@ -277,7 +277,14 @@ model MenuItem {
   id               String    @id @default(cuid())
   groupId          String
   group            MenuGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  // Per i vini è l'azienda (il produttore).
   name             String
+  // Solo vini: nome proprio del vino (es. «Da-Di»), denominazione (es. «Toscana
+  // Igt»), annata (es. «2022»). Tutti facoltativi. `sub` è il vecchio sottotitolo
+  // libero: resta solo per i vini non ancora divisi nei tre campi.
+  wineName         String?
+  denomination     String?
+  vintage          String?
   sub              String?
   grapes           String?
   // Solo vini, facoltativi: dove nasce (es. «Toscana», «Italia»).

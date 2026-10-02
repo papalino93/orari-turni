@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { businessDayKey, formatPrice, isSoldOut, nb, originLabel, parseVariants, promoStatus } from "@/lib/menu-format";
+import { businessDayKey, formatPrice, isSoldOut, nb, originLabel, parseVariants, promoStatus, wineDetail } from "@/lib/menu-format";
 import { loadDaily, loadMenu, loadVenue, loadVisibleBlocks, loadVisiblePromos } from "@/lib/menu";
 import { VERSION_LABEL } from "@/lib/version";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
@@ -81,7 +81,7 @@ export default async function MenuPage() {
       .filter((s) => s.kind === "WINE")
       .flatMap((s) =>
         s.groups.flatMap((g) =>
-          g.items.map((w) => [w.id, { name: w.name, zone: w.sub || (originLabel(w) ? "" : s.label), origin: originLabel(w), traits: w.traits, glass: w.priceGlassCents, bottle: w.priceBottleCents }] as const),
+          g.items.map((w) => [w.id, { name: w.name, zone: [w.wineName, wineDetail(w)].filter(Boolean).join(" · ") || (originLabel(w) ? "" : s.label), origin: originLabel(w), traits: w.traits, glass: w.priceGlassCents, bottle: w.priceBottleCents }] as const),
         ),
       ),
   );
@@ -123,7 +123,7 @@ export default async function MenuPage() {
         return {
           id: item.id,
           name: item.name,
-          sub: item.sub,
+          sub: group.kind === "WINE" ? [item.wineName, wineDetail(item)].filter(Boolean).join(" · ") || null : item.sub,
           grapes: item.grapes,
           region: item.region,
           country: item.country,
@@ -305,7 +305,12 @@ export default async function MenuPage() {
                             </span>
                           )}
                         </div>
-                        {item.sub && <div className="menu-sans text-sm leading-[1.45] text-[#4A504B]">{item.sub}</div>}
+                        {group.kind === "WINE" && item.wineName && (
+                          <div className="text-pretty text-[17px] font-medium italic leading-tight text-[#6B1020]">{nb(item.wineName)}</div>
+                        )}
+                        {group.kind === "WINE"
+                          ? wineDetail(item) && <div className="menu-sans text-sm leading-[1.45] text-[#4A504B]">{wineDetail(item)}</div>
+                          : item.sub && <div className="menu-sans text-sm leading-[1.45] text-[#4A504B]">{item.sub}</div>}
                         {originLabel(item) && (
                           <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.16em] text-[#5B605A]">{originLabel(item)}</div>
                         )}

@@ -50,8 +50,8 @@ check("piatto: compare nel pannello", /Risotto ai porcini/.test(await panel().in
 // Vino
 await panel().getByRole("button", { name: "+ Vino" }).click();
 await dialog().waitFor();
-await dialog().getByLabel("Nome", { exact: true }).fill("Vermentino di Gallura");
-await dialog().getByPlaceholder("es. Torre Bianco").fill("Superiore 2023");
+await dialog().getByLabel("Azienda", { exact: true }).fill("Vermentino di Gallura");
+await dialog().getByLabel("Denominazione").fill("Vermentino di Gallura Docg");
 await dialog().getByLabel("Calice (€)").fill("8");
 await dialog().getByLabel("Bottiglia (€)").fill("35");
 await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
