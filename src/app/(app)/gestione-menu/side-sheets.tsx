@@ -242,7 +242,7 @@ export function QrSheet({ onClose }: { onClose: () => void }) {
             type="button"
             disabled={!svg}
             onClick={downloadPng}
-            className="min-h-11 rounded-xl border border-accent px-3 text-sm font-semibold text-accent hover:bg-accent/10 disabled:opacity-50"
+            className="min-h-11 rounded-xl border border-accent px-3 text-sm font-semibold text-foreground hover:bg-accent/10 disabled:opacity-50"
           >
             Scarica PNG
           </button>
