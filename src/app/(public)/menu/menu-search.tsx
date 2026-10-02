@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { originLabel } from "@/lib/menu-format";
+import { track } from "./stats";
 import { WINE_TRAITS, traitLabel } from "@/lib/wine-traits";
 
 export type SearchItem = {
@@ -47,18 +48,13 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
 
   useEffect(() => {
     input.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
     // Il menù dietro non scorre mentre la ricerca è aperta.
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      window.removeEventListener("keydown", onKey);
       document.body.style.overflow = previous;
     };
-  }, [onClose]);
+  }, []);
 
   const tokens = norm(query).split(/\s+/).filter(Boolean);
   const active = tokens.length > 0 || glass || enomatic || trait.size > 0;
@@ -68,7 +64,30 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
         .map(({ item }) => item)
     : [];
 
+  // Statistiche: la parola cercata (una volta, alla fine) e il risultato scelto.
+  const sentQuery = useRef(false);
+  function sendQuery() {
+    const q = query.trim();
+    if (sentQuery.current || q.length < 2) return;
+    sentQuery.current = true;
+    track(results.length > 0 ? "search" : "search_empty", q);
+  }
+  const close = () => {
+    sendQuery();
+    onClose();
+  };
+  // Esc chiude (inviando anche la parola cercata): si riaggancia a ogni modifica.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   function go(item: SearchItem) {
+    sendQuery();
+    track("pick", item.name, item.id);
     onClose();
     // Dopo la chiusura il menù torna a scorrere: si attende il frame successivo.
     requestAnimationFrame(() => {
@@ -102,7 +121,7 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
         />
         <button
           type="button"
-          onClick={onClose}
+          onClick={close}
           className="menu-sans flex min-h-12 items-center px-1 text-[11px] font-medium uppercase tracking-[0.2em] !text-[#6B1020]"
         >
           Chiudi

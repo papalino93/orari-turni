@@ -37,6 +37,8 @@ export function VenueInfo({ hours, contacts }: { hours: Hours; contacts: Contact
             <a
               key={b.label}
               href={b.href}
+              data-stat-k="contact"
+              data-stat-l={b.label}
               {...(b.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
               className="menu-sans flex min-h-11 items-center rounded-full border border-[#C9A96E]/60 px-4 text-[11px] font-medium uppercase tracking-[0.16em] !text-[#F4EEE3] no-underline"
             >

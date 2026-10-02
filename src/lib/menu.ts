@@ -116,6 +116,19 @@ export async function loadVenue() {
   };
 }
 
+// Statistiche: «Inizia a contare» (acceso/spento) e da che giorno.
+export type StatsSetting = { enabled: boolean; since: string | null };
+
+export async function loadStatsSetting(): Promise<StatsSetting> {
+  const row = await prisma.menuSetting.findUnique({ where: { id: "stats" } });
+  try {
+    const v = row ? (JSON.parse(row.value) as Partial<StatsSetting>) : null;
+    return { enabled: Boolean(v?.enabled), since: typeof v?.since === "string" ? v.since : null };
+  } catch {
+    return { enabled: false, since: null };
+  }
+}
+
 const promoInclude = {
   section: {
     include: {

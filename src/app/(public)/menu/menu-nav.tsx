@@ -84,6 +84,8 @@ export function MenuNav({ chips, items }: { chips: Chip[]; items: SearchItem[] }
                 key={chip.id}
                 href={`#${chip.id}`}
                 data-chip={chip.id}
+                data-stat-k="section"
+                data-stat-l={chip.label}
                 aria-current={isActive ? "true" : undefined}
                 className={`menu-sans flex min-h-12 flex-none items-center whitespace-nowrap border-b pb-[15px] pt-[17px] text-xs font-medium uppercase tracking-[0.16em] no-underline transition-colors ${
                   isActive ? "menu-chip-active !text-[#6B1020]" : "menu-chip-idle !text-[#5B605A]"

@@ -144,7 +144,7 @@ export function ItemSheet({
     if (result) onClose();
   }
 
-  async function move(direction: "up" | "down") {
+  async function move(direction: "up" | "down" | "top" | "bottom") {
     if (!item) return;
     setBusy(true);
     await run(() => moveItem(item.id, direction), "");
@@ -432,6 +432,22 @@ export function ItemSheet({
                 className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30"
               >
                 ↓ Sposta giù
+              </button>
+              <button
+                type="button"
+                disabled={busy || isFirst}
+                onClick={() => move("top")}
+                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30"
+              >
+                ⤒ In cima
+              </button>
+              <button
+                type="button"
+                disabled={busy || isLast}
+                onClick={() => move("bottom")}
+                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30"
+              >
+                ⤓ In fondo
               </button>
               <button
                 type="button"
