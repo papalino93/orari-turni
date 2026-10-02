@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
-import { WEEKDAY_LABELS, WEEKDAY_NAMES } from "@/lib/menu-stats";
+import { MONTH_NAMES, WEEKDAY_LABELS, WEEKDAY_NAMES } from "@/lib/menu-stats";
 import { PERIODS, type Period, type StatsData } from "@/lib/stats-queries";
 import type { StatsSetting } from "@/lib/menu";
 import { setStatsEnabled } from "./actions";
@@ -50,6 +50,31 @@ function RankedList({ rows, empty }: { rows: { label: string; count: number }[];
 }
 
 // Griglia giorni × ore: più scuro = più aperture (una sola tinta, chiaro → scuro).
+// Classifica dal migliore al peggiore: aperture del menù e media per giorno.
+function Ranking({ rows }: { rows: { key: string; label: string; total: number; average: number; days: number }[] }) {
+  if (rows.length === 0) return <Empty />;
+  const max = Math.max(1, rows[0].total);
+  return (
+    <ol className="space-y-1.5">
+      {rows.map((d, i) => (
+        <li key={d.key} className="relative overflow-hidden rounded-lg px-2.5 py-2" title={`${d.label}: ${n(d.total)} aperture in ${d.days} giorni`}>
+          <span aria-hidden className="absolute inset-y-0 left-0 rounded-lg bg-accent/15" style={{ width: `${(d.total / max) * 100}%` }} />
+          <span className="relative flex items-baseline gap-3 text-sm">
+            <span className="w-5 shrink-0 tabular-nums text-foreground-muted">{i + 1}.</span>
+            <span className="min-w-0 flex-1 truncate capitalize text-foreground">{d.label}</span>
+            <span className="shrink-0 tabular-nums font-medium text-foreground">
+              {n(d.total)} <span className="text-xs font-normal text-foreground-muted">apertur{d.total === 1 ? "a" : "e"}</span>
+            </span>
+            <span className="w-20 shrink-0 text-right text-xs tabular-nums text-foreground-muted">
+              {d.days ? `${d.average.toLocaleString("it-IT", { maximumFractionDigits: 1 })} al giorno` : "—"}
+            </span>
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function Heatmap({ heat }: { heat: number[][] }) {
   const max = Math.max(1, ...heat.flat());
   // Solo le ore in cui il menù viene aperto almeno una volta (più le vicine), per non sprecare spazio.
@@ -138,7 +163,17 @@ function Bars({ data, label, height = 120, edges }: { data: { key: string; count
   );
 }
 
-export function StatsView({ period, setting, data }: { period: Period; setting: StatsSetting; data: StatsData }) {
+export function StatsView({
+  period,
+  setting,
+  data,
+  custom,
+}: {
+  period: Period;
+  setting: StatsSetting;
+  data: StatsData;
+  custom: { from: string | null; to: string | null };
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -194,8 +229,8 @@ export function StatsView({ period, setting, data }: { period: Period; setting: 
         </button>
       </section>
 
-      <nav aria-label="Periodo" className="flex flex-wrap gap-2">
-        {PERIODS.map((p) => (
+      <nav aria-label="Periodo" className="flex flex-wrap items-center gap-2">
+        {PERIODS.filter((p) => p.value !== "custom").map((p) => (
           <Link
             key={p.value}
             href={`/statistiche?p=${p.value}`}
@@ -207,7 +242,26 @@ export function StatsView({ period, setting, data }: { period: Period; setting: 
             {p.label}
           </Link>
         ))}
+        {/* Periodo a scelta: un normale modulo con le due date (funziona anche senza JavaScript). */}
+        <form action="/statistiche" className={`flex flex-wrap items-center gap-2 rounded-full border px-3 py-1 ${period === "custom" ? "border-accent" : "border-border"}`}>
+          <label className="flex items-center gap-1.5 text-sm text-foreground-muted">
+            Dal
+            <input type="date" name="dal" defaultValue={custom.from ?? setting.since ?? ""} max={data.today} className="min-h-9 rounded-lg border border-border bg-surface px-2 text-sm text-foreground" />
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-foreground-muted">
+            al
+            <input type="date" name="al" defaultValue={custom.to ?? data.today} max={data.today} className="min-h-9 rounded-lg border border-border bg-surface px-2 text-sm text-foreground" />
+          </label>
+          <button type="submit" className="min-h-9 rounded-full bg-surface-2 px-3 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground">
+            Mostra
+          </button>
+        </form>
       </nav>
+      {period === "custom" && data.from && (
+        <p className="-mt-2 text-xs text-foreground-muted">
+          Periodo: dal {fmtDay(data.from)} al {fmtDay(data.to)}.
+        </p>
+      )}
 
       {!hasData ? (
         <Card title="Ancora niente da mostrare">
@@ -236,6 +290,14 @@ export function StatsView({ period, setting, data }: { period: Period; setting: 
               <p className="mt-1 text-xs text-foreground-muted">{data.best.count ? `${n(data.best.count)} aperture` : ""}</p>
             </div>
           </div>
+
+          <Card title="Classifica dei giorni della settimana" hint="Dal giorno con più aperture del menù a quello con meno, nel periodo scelto. A fianco la media per singolo giorno.">
+            <Ranking rows={data.dayRanking.map((d) => ({ key: String(d.weekday), label: WEEKDAY_NAMES[d.weekday], total: d.total, average: d.average, days: d.days }))} />
+          </Card>
+
+          <Card title="Classifica dei mesi" hint="Dal mese con più aperture del menù a quello con meno, nel periodo scelto (lo stesso mese di anni diversi conta insieme).">
+            <Ranking rows={data.monthRanking.map((m) => ({ key: String(m.month), label: MONTH_NAMES[m.month], total: m.total, average: m.average, days: m.days }))} />
+          </Card>
 
           <Card title="Giorni e orari" hint="Quando viene aperto il menù: più scuro, più aperture.">
             <Heatmap heat={data.heat} />

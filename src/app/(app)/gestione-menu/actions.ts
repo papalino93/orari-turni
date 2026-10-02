@@ -553,11 +553,11 @@ export async function resetSoldOut(): Promise<ActionResult<ChangeResult>> {
   });
 }
 
-export async function moveItem(idInput: string, directionInput: "up" | "down"): Promise<ActionResult> {
+export async function moveItem(idInput: string, directionInput: "up" | "down" | "top" | "bottom"): Promise<ActionResult> {
   return runAction(async () => {
     await requireMenuEditor();
     const id = parseId(idInput, "voce");
-    const direction = parseEnum(directionInput, ["up", "down"] as const, "direzione");
+    const direction = parseEnum(directionInput, ["up", "down", "top", "bottom"] as const, "direzione");
     const item = await prisma.menuItem.findFirst({ where: { id, deletedAt: null } });
     assert(item, "Voce non trovata.");
 
@@ -566,17 +566,84 @@ export async function moveItem(idInput: string, directionInput: "up" | "down"): 
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });
     const index = siblings.findIndex((s) => s.id === id);
-    const swapWith = direction === "up" ? index - 1 : index + 1;
-    if (index === -1 || swapWith < 0 || swapWith >= siblings.length) return;
-
-    // Gli ordini possono avere valori uguali: si riscrive l'intero gruppo
-    // invece di scambiare solo due numeri (che in quel caso non sposterebbe nulla).
+    if (index === -1) return;
     const reordered = siblings.slice();
-    [reordered[index], reordered[swapWith]] = [reordered[swapWith], reordered[index]];
+    if (direction === "top" || direction === "bottom") {
+      // «In cima» / «In fondo»: la voce va prima o ultima del suo gruppo.
+      const [moving] = reordered.splice(index, 1);
+      if (direction === "top") reordered.unshift(moving);
+      else reordered.push(moving);
+    } else {
+      const swapWith = direction === "up" ? index - 1 : index + 1;
+      if (swapWith < 0 || swapWith >= siblings.length) return;
+      // Gli ordini possono avere valori uguali: si riscrive l'intero gruppo
+      // invece di scambiare solo due numeri (che in quel caso non sposterebbe nulla).
+      [reordered[index], reordered[swapWith]] = [reordered[swapWith], reordered[index]];
+    }
     await prisma.$transaction(
       reordered.map((s, i) => prisma.menuItem.update({ where: { id: s.id }, data: { sortOrder: i } })),
     );
     revalidateMenu();
+  });
+}
+
+// «Riordina»: nuovo ordine di sezioni (menù fisso), gruppi di una sezione o voci
+// di un gruppo, tutto insieme. Un solo record di storico: «Annulla» rimette
+// l'ordine di prima. Gli id devono essere esattamente quelli attuali.
+export async function reorder(
+  levelInput: "section" | "group" | "item",
+  parentIdInput: string | null,
+  idsInput: string[],
+): Promise<ActionResult<ChangeResult>> {
+  return runAction(async () => {
+    const editor = await requireMenuEditor();
+    const level = parseEnum(levelInput, ["section", "group", "item"] as const, "livello");
+    assert(Array.isArray(idsInput) && idsInput.length > 0 && idsInput.length <= 500, "Elenco non valido.");
+    const ids = idsInput.map((x) => parseId(x, "elemento"));
+
+    let current: { id: string; sortOrder: number }[];
+    let label: string;
+    if (level === "section") {
+      current = await prisma.menuSection.findMany({ where: { promoId: null, dailyOnly: false }, select: { id: true, sortOrder: true } });
+      label = "Ordine delle sezioni";
+    } else if (level === "group") {
+      const sectionId = parseId(parentIdInput, "sezione");
+      const section = await prisma.menuSection.findUnique({ where: { id: sectionId } });
+      assert(section, "Sezione non trovata.");
+      current = await prisma.menuGroup.findMany({ where: { sectionId, deletedAt: null }, select: { id: true, sortOrder: true } });
+      label = `Ordine dei gruppi · ${section.label}`;
+    } else {
+      const groupId = parseId(parentIdInput, "gruppo");
+      const group = await prisma.menuGroup.findFirst({ where: { id: groupId, deletedAt: null } });
+      assert(group, "Gruppo non trovato.");
+      current = await prisma.menuItem.findMany({ where: { groupId, deletedAt: null }, select: { id: true, sortOrder: true } });
+      label = `Ordine delle voci · ${group.title}`;
+    }
+    assert(
+      current.length === ids.length && new Set(ids).size === ids.length && ids.every((id) => current.some((c) => c.id === id)),
+      "Il menù è cambiato nel frattempo: chiudi e riapri «Riordina».",
+    );
+
+    const before: Record<string, number> = Object.fromEntries(current.map((c) => [c.id, c.sortOrder]));
+    const after: Record<string, number> = Object.fromEntries(ids.map((id, i) => [id, i]));
+    const changeId = await prisma.$transaction(async (tx) => {
+      for (const [id, sortOrder] of Object.entries(after)) {
+        if (level === "section") await tx.menuSection.update({ where: { id }, data: { sortOrder } });
+        else if (level === "group") await tx.menuGroup.update({ where: { id }, data: { sortOrder } });
+        else await tx.menuItem.update({ where: { id }, data: { sortOrder } });
+      }
+      return logChange(tx, {
+        actorName: editor.name,
+        action: "UPDATE",
+        entity: level,
+        entityId: "*order",
+        label,
+        before: { order: before },
+        after: { order: after },
+      });
+    });
+    revalidateMenu();
+    return { changeId };
   });
 }
 
@@ -763,6 +830,25 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
           action: "RESTORE",
           entity: "item",
           entityId: "*",
+          label: change.label,
+        });
+        await tx.menuChange.update({ where: { id }, data: { undoneById: undoId } });
+        return;
+      }
+
+      // Nuovo ordine («Riordina»): si rimette l'ordine di prima.
+      if (change.entityId === "*order") {
+        const order = (before.order ?? {}) as Record<string, number>;
+        for (const [rowId, sortOrder] of Object.entries(order)) {
+          if (entity === "section") await tx.menuSection.updateMany({ where: { id: rowId }, data: { sortOrder } });
+          else if (entity === "group") await tx.menuGroup.updateMany({ where: { id: rowId }, data: { sortOrder } });
+          else await tx.menuItem.updateMany({ where: { id: rowId }, data: { sortOrder } });
+        }
+        const undoId = await logChange(tx, {
+          actorName: editor.name,
+          action: "RESTORE",
+          entity: entity === "section" || entity === "group" ? entity : "item",
+          entityId: "*order",
           label: change.label,
         });
         await tx.menuChange.update({ where: { id }, data: { undoneById: undoId } });

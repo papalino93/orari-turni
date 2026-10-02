@@ -11,6 +11,7 @@ import { BlockSheet, BlocksPanel, type SectionChoice } from "./block-ui";
 import { DailyPanel, type DailyData } from "./daily-ui";
 import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
+import { ReorderSheet } from "./reorder-ui";
 import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
 import { ItemSearch } from "./search-ui";
 import { HistorySheet, PreviewSheet, QrSheet, SectionTextsSheet } from "./side-sheets";
@@ -100,6 +101,7 @@ type SheetState =
   | { type: "history" }
   | { type: "preview" }
   | { type: "qr" }
+  | { type: "reorder" }
   | { type: "promo"; id: string | null }
   | { type: "promo-duplicate"; id: string }
   | null;
@@ -361,6 +363,13 @@ export function MenuEditor({
           </button>
           <button
             type="button"
+            onClick={() => setSheet({ type: "reorder" })}
+            className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          >
+            Riordina
+          </button>
+          <button
+            type="button"
             onClick={() => setSheet({ type: "history" })}
             className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
           >
@@ -602,6 +611,14 @@ export function MenuEditor({
             setSheet({ type: "item", itemId: n.itemId, groupId: n.groupId, queue });
             select(n.key);
           }}
+        />
+      )}
+      {sheet?.type === "reorder" && (
+        <ReorderSheet
+          sections={sections}
+          startSectionId={promoSelected ? null : (section?.id ?? null)}
+          run={run}
+          onClose={() => setSheet(null)}
         />
       )}
       {sheet?.type === "import" && section && (
