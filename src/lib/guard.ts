@@ -74,6 +74,34 @@ export async function requireSelfOrAdmin(employeeId: string): Promise<{ role: "A
   throw new AuthError();
 }
 
+export type MenuEditor = { name: string; role: "ADMIN" | "EMPLOYEE" };
+
+// Chi può modificare il menù pubblico: titolare/consulente sempre, un
+// dipendente solo se il titolare gli ha dato il permesso (Employee.canEditMenu).
+// Il flag si legge dal database a ogni chiamata, non dal token: revocarlo ha
+// effetto subito anche su una sessione già aperta. Il Proxy non può saperlo
+// (legge solo il token), quindi questo — non il routing — è il confine reale.
+export async function getMenuEditor(): Promise<MenuEditor | null> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return null;
+
+  if (session.user.role !== "EMPLOYEE") {
+    const user = await prisma.user.findUnique({ where: { username: session.user.username } });
+    return user ? { name: user.name, role: "ADMIN" } : null;
+  }
+
+  if (!session.user.employeeId) return null;
+  const employee = await prisma.employee.findUnique({ where: { id: session.user.employeeId } });
+  if (!employee || !employee.username || !employee.active || !employee.canEditMenu) return null;
+  return { name: employee.name, role: "EMPLOYEE" };
+}
+
+export async function requireMenuEditor(): Promise<MenuEditor> {
+  const editor = await getMenuEditor();
+  if (!editor) throw new AuthError("Non hai il permesso di modificare il menù. Se la sessione è scaduta, accedi di nuovo.");
+  return editor;
+}
+
 // Analoga a requireUser() ma per un login da dipendente (role "EMPLOYEE"):
 // usata dalle action dell'Area Dipendenti, dove ognuno può leggere e
 // modificare solo i propri dati (mai passare l'id di un altro dipendente).

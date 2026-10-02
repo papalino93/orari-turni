@@ -64,6 +64,10 @@ model Employee {
   // dell'Area Dipendenti già aperta con la versione precedente.
   tokenVersion  Int       @default(0)
   deactivatedAt DateTime?
+  // Permesso, assegnato dal titolare, di modificare il menù pubblico (vedi
+  // /gestione-menu). Letto dal database a ogni richiesta — mai dal token —
+  // così revocarlo ha effetto immediato anche su una sessione già aperta.
+  canEditMenu   Boolean   @default(false)
 
   photo               EmployeePhoto?
   shiftBlocks         ShiftBlock[]
@@ -218,4 +222,105 @@ model LeaveBalance {
   updatedAt          DateTime  @updatedAt
 
   @@unique([employeeId, leaveType, year])
+}
+
+enum MenuSectionKind {
+  WINE // voci con calice/bottiglia/uvaggio
+  FOOD // voci con descrizione e un solo prezzo
+}
+
+// Menù pubblico raggiungibile dal QR (/menu). Le sezioni principali sono
+// fisse (Bollicine, Bianchi, Tartare…): si modificano solo i loro testi. I
+// gruppi dentro una sezione e le voci invece cambiano di continuo.
+model MenuSection {
+  id           String          @id @default(cuid())
+  slug         String          @unique
+  label        String // etichetta nella barra di navigazione
+  kicker       String // riga piccola sopra al titolo ("Vini", "Cucina")
+  title        String
+  kind         MenuSectionKind
+  note         String?
+  cover        String? // testo del coperto, mostrato sotto la nota
+  addonTitle   String? // titoletto dell'avviso (es. "Novità · Oli aromatizzati")
+  addon        String? // testo dell'avviso a fondo sezione
+  sortOrder    Int             @default(0)
+  // Predisposizione per una versione in altre lingue: oggi non usato.
+  translations Json?
+
+  groups MenuGroup[]
+}
+
+model MenuGroup {
+  id           String      @id @default(cuid())
+  sectionId    String
+  section      MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  title        String
+  columns      Boolean     @default(false) // mostra le colonne calice/bottiglia
+  sortOrder    Int         @default(0)
+  deletedAt    DateTime? // eliminazione "morbida": recuperabile dallo storico
+  translations Json?
+
+  items MenuItem[]
+
+  @@index([sectionId, sortOrder])
+}
+
+// Un vino o un piatto. Per i vini valgono priceGlassCents/priceBottleCents
+// (null = non disponibile in quel formato, mostrato come "—"), per il resto
+// priceCents. I prezzi sono in centesimi.
+model MenuItem {
+  id               String    @id @default(cuid())
+  groupId          String
+  group            MenuGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name             String
+  sub              String?
+  grapes           String?
+  description      String?
+  priceGlassCents  Int?
+  priceBottleCents Int?
+  priceCents       Int?
+  enomatic         Boolean   @default(false)
+  // Codici dei 14 allergeni UE; allergensReviewed distingue "nessun
+  // allergene" da "non ancora compilato" (vedi pagina /menu/allergeni).
+  allergens         String[]  @default([])
+  allergensReviewed Boolean   @default(false)
+  // Giorno commerciale (YYYY-MM-DD, vedi lib/menu.ts) in cui la voce è stata
+  // segnata esaurita: vale solo per quel giorno, così il ripristino è
+  // automatico senza bisogno di un cron.
+  soldOutDay       String?
+  sortOrder        Int       @default(0)
+  deletedAt        DateTime?
+  translations     Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([groupId, sortOrder])
+}
+
+enum MenuChangeAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  SOLD_OUT
+  AVAILABLE
+  RESET_SOLD_OUT
+}
+
+// Registro delle modifiche al menù: chi, quando, cosa. before/after sono
+// istantanee dei soli campi cambiati e permettono di ripristinare.
+model MenuChange {
+  id        String           @id @default(cuid())
+  at        DateTime         @default(now())
+  actorName String
+  action    MenuChangeAction
+  entity    String // "item" | "group" | "section"
+  entityId  String
+  label     String // nome leggibile della voce/gruppo al momento
+  before    Json?
+  after     Json?
+  // Se valorizzato, questa riga è stata annullata dalla riga indicata.
+  undoneById String?
+
+  @@index([at])
 }

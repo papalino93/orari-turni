@@ -1,0 +1,246 @@
+"use client";
+
+import { useState } from "react";
+import { formatPrice } from "@/lib/menu-format";
+import { deleteItem, duplicateItem, moveItem, saveItem } from "./actions";
+import { Field, Sheet, inputClass } from "./sheet";
+import type { EditorItem, EditorSection, RunFn } from "./menu-editor";
+
+function priceInput(cents: number | null): string {
+  return cents === null ? "" : formatPrice(cents);
+}
+
+export function ItemSheet({
+  sections,
+  section,
+  groupId,
+  item,
+  isFirst,
+  isLast,
+  run,
+  onClose,
+  onDuplicated,
+}: {
+  sections: EditorSection[];
+  section: EditorSection;
+  groupId: string;
+  item: EditorItem | null;
+  isFirst: boolean;
+  isLast: boolean;
+  run: RunFn;
+  onClose: () => void;
+  onDuplicated: (newId: string) => void;
+}) {
+  const isWine = section.kind === "WINE";
+  const [name, setName] = useState(item?.name ?? "");
+  const [sub, setSub] = useState(item?.sub ?? "");
+  const [grapes, setGrapes] = useState(item?.grapes ?? "");
+  const [description, setDescription] = useState(item?.description ?? "");
+  const [priceGlass, setPriceGlass] = useState(priceInput(item?.priceGlassCents ?? null));
+  const [priceBottle, setPriceBottle] = useState(priceInput(item?.priceBottleCents ?? null));
+  const [price, setPrice] = useState(priceInput(item?.priceCents ?? null));
+  const [enomatic, setEnomatic] = useState(item?.enomatic ?? false);
+  const [targetGroup, setTargetGroup] = useState(groupId);
+  const [busy, setBusy] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  // Si può spostare solo tra sezioni dello stesso tipo: un vino non diventa
+  // un piatto (i campi non sono gli stessi).
+  const sameKind = sections.filter((s) => s.kind === section.kind);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const result = await run(
+      () => saveItem(item?.id ?? null, { name, groupId: targetGroup, sub, grapes, description, priceGlass, priceBottle, price, enomatic }),
+      item ? "Voce salvata" : "Voce aggiunta",
+    );
+    setBusy(false);
+    if (result) onClose();
+  }
+
+  async function duplicate() {
+    if (!item) return;
+    setBusy(true);
+    const result = await run(() => duplicateItem(item.id), "Voce duplicata");
+    setBusy(false);
+    if (result) {
+      onClose();
+      onDuplicated(result.id);
+    }
+  }
+
+  async function remove() {
+    if (!item) return;
+    setBusy(true);
+    const result = await run(() => deleteItem(item.id), `«${item.name}» eliminata`);
+    setBusy(false);
+    if (result) onClose();
+  }
+
+  async function move(direction: "up" | "down") {
+    if (!item) return;
+    setBusy(true);
+    await run(() => moveItem(item.id, direction), "");
+    setBusy(false);
+  }
+
+  return (
+    <Sheet title={item ? "Modifica voce" : isWine ? "Nuovo vino" : "Nuova voce"} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3.5">
+        <Field label="Nome">
+          <input
+            autoFocus={!item}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={120}
+            required
+            className={inputClass}
+            placeholder={isWine ? "es. Aquila del Torre" : "es. Tagliere Classico"}
+          />
+        </Field>
+
+        {isWine ? (
+          <>
+            <Field label="Sottotitolo" hint="Denominazione, annata, zona…">
+              <input value={sub} onChange={(e) => setSub(e.target.value)} maxLength={160} className={inputClass} placeholder="es. Torre Bianco" />
+            </Field>
+            <Field label="Uvaggio">
+              <input
+                value={grapes}
+                onChange={(e) => setGrapes(e.target.value)}
+                maxLength={200}
+                className={inputClass}
+                placeholder="es. 100% Friulano"
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Calice (€)" hint="Vuoto = non al calice">
+                <input
+                  value={priceGlass}
+                  onChange={(e) => setPriceGlass(e.target.value)}
+                  inputMode="decimal"
+                  className={inputClass}
+                  placeholder="es. 6"
+                />
+              </Field>
+              <Field label="Bottiglia (€)">
+                <input
+                  value={priceBottle}
+                  onChange={(e) => setPriceBottle(e.target.value)}
+                  inputMode="decimal"
+                  className={inputClass}
+                  placeholder="es. 30"
+                />
+              </Field>
+            </div>
+            <label className="flex min-h-11 items-center gap-3 text-sm text-foreground">
+              <input type="checkbox" checked={enomatic} onChange={(e) => setEnomatic(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
+              Fa parte del Progetto Enomatic
+            </label>
+          </>
+        ) : (
+          <>
+            <Field label="Descrizione">
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={300}
+                rows={3}
+                className={inputClass}
+                placeholder="Ingredienti, peso…"
+              />
+            </Field>
+            <Field label="Prezzo (€)">
+              <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" required className={inputClass} placeholder="es. 13" />
+            </Field>
+          </>
+        )}
+
+        <Field label="Gruppo">
+          <select value={targetGroup} onChange={(e) => setTargetGroup(e.target.value)} className={inputClass}>
+            {sameKind.map((s) => (
+              <optgroup key={s.id} label={s.title}>
+                {s.groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </Field>
+
+        <button
+          type="submit"
+          disabled={busy || !name.trim()}
+          className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+        >
+          {busy ? "Salvo…" : item ? "Salva" : "Aggiungi"}
+        </button>
+
+        {item && (
+          <div className="space-y-3 border-t border-border pt-3.5">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy || isFirst}
+                onClick={() => move("up")}
+                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30"
+              >
+                ↑ Sposta su
+              </button>
+              <button
+                type="button"
+                disabled={busy || isLast}
+                onClick={() => move("down")}
+                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30"
+              >
+                ↓ Sposta giù
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={duplicate}
+                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-50"
+              >
+                Duplica
+              </button>
+            </div>
+
+            {confirmingDelete ? (
+              <div className="rounded-xl border border-danger/30 bg-danger-bg p-3">
+                <p className="text-xs text-danger">Eliminare «{item.name}»? Resta recuperabile dallo storico.</p>
+                <div className="mt-2.5 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(false)}
+                    className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted"
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={remove}
+                    className="min-h-10 rounded-full bg-danger px-3.5 text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    Sì, elimina
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-danger hover:text-danger"
+              >
+                Elimina voce
+              </button>
+            )}
+          </div>
+        )}
+      </form>
+    </Sheet>
+  );
+}

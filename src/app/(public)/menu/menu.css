@@ -1,0 +1,62 @@
+/* Stile del menù pubblico (/menu): colori e caratteri propri, indipendenti dal
+   tema chiaro/scuro dell'app, che qui non deve mai comparire. */
+.menu-root {
+  background: #f4eee3;
+  color: #1f2621;
+  font-family: var(--font-menu-body), Georgia, serif;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.menu-serif {
+  font-family: var(--font-menu-serif), serif;
+}
+.menu-sans {
+  font-family: var(--font-menu-sans), sans-serif;
+}
+html:has(.menu-root),
+html:has(.menu-root) body {
+  background: #f4eee3;
+  scroll-behavior: smooth;
+}
+/* Nell'app una regola globale "* { border-color: var(--border) }" (fuori da
+   ogni layer) batte le utility di Tailwind: i colori dei filetti del menù
+   vanno quindi dichiarati qui, con regole proprie. */
+.menu-root,
+.menu-root * {
+  border-color: #d9cebc;
+}
+.menu-root .menu-rule-soft {
+  border-color: #e7dfd2;
+}
+.menu-root .menu-chip-active {
+  border-color: #6b1020;
+}
+.menu-root .menu-chip-idle {
+  border-color: transparent;
+}
+.menu-root a {
+  color: #6b1020;
+}
+.menu-root ::-webkit-scrollbar {
+  display: none;
+}
+@keyframes menu-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.menu-fade-up {
+  animation: menu-fade-up 0.6s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-fade-up {
+    animation: none;
+  }
+  html:has(.menu-root) {
+    scroll-behavior: auto;
+  }
+}

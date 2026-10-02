@@ -13,6 +13,7 @@ const ADMIN_NAV_ITEMS = [
   // riaggiunta qui (con la sua PalmIcon, rimossa sotto) quando la riattiviamo.
   // { href: "/ferie", label: "Ferie & Permessi", icon: PalmIcon },
   { href: "/dipendenti", label: "Dipendenti", icon: PeopleIcon },
+  { href: "/gestione-menu", label: "Menù", icon: MenuIcon },
 ];
 
 // Un login da dipendente vede solo la propria area — niente Orari generale,
@@ -20,18 +21,28 @@ const ADMIN_NAV_ITEMS = [
 // blocca quegli indirizzi anche digitati a mano: qui è solo la vetrina).
 const EMPLOYEE_NAV_ITEMS = [{ href: "/mie-ore", label: "Le mie ore", icon: CalendarIcon }];
 
+// Un dipendente vede "Menù" solo se il titolare gliel'ha concesso: è la
+// vetrina, il controllo vero resta lato server (vedi getMenuEditor).
+const EMPLOYEE_MENU_NAV_ITEM = { href: "/gestione-menu", label: "Menù", icon: MenuIcon };
+
 export function AppShell({
   userName,
   role,
+  canEditMenu,
   children,
 }: {
   userName: string;
   role: "ADMIN" | "EMPLOYEE";
+  canEditMenu: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const isAdmin = role === "ADMIN";
-  const navItems = isAdmin ? ADMIN_NAV_ITEMS : EMPLOYEE_NAV_ITEMS;
+  const navItems = isAdmin
+    ? ADMIN_NAV_ITEMS
+    : canEditMenu
+      ? [...EMPLOYEE_NAV_ITEMS, EMPLOYEE_MENU_NAV_ITEM]
+      : EMPLOYEE_NAV_ITEMS;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -137,6 +148,25 @@ function CalendarIcon({ active }: { active: boolean }) {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2}>
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+
+function MenuIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={active ? 2.4 : 2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7 3h10c0 6-2 9-5 9s-5-3-5-9z" />
+      <path d="M12 12v8" />
+      <path d="M8 21h8" />
     </svg>
   );
 }

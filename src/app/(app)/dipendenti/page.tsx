@@ -109,6 +109,7 @@ export default async function DipendentiPage() {
     // Decifrata qui, non nel Client Component: la chiave di decifrazione
     // (derivata da NEXTAUTH_SECRET) non deve mai lasciare il server.
     password: e.password ? safeDecrypt(e.password) : null,
+    canEditMenu: e.canEditMenu,
     pendingSubmissions: pendingSubmissions
       .filter((s) => s.employeeId === e.id)
       .map((s) => ({ year: s.year, month: s.month, submittedAt: s.submittedAt?.toISOString() ?? null })),
