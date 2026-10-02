@@ -29,6 +29,13 @@ export function wineSortKey(w: WineLike): [number, number, string, string, strin
   return [foreign, tier, foreign ? country : "", region, norm(w.name)];
 }
 
+// Vino italiano: nazione vuota oppure «Italia». Per questi la regione è obbligatoria
+// nella scheda (decide anche il posto in carta).
+export function isItalianWine(w: { country: string | null }): boolean {
+  const country = norm(w.country);
+  return country === "" || country === "italia";
+}
+
 export function compareWines(a: WineLike, b: WineLike): number {
   const ka = wineSortKey(a);
   const kb = wineSortKey(b);

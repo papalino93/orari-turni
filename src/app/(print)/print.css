@@ -1,0 +1,58 @@
+/* Menù da stampare: foglio A4 chiaro, anche se l'app è in tema scuro. */
+@page {
+  size: A4;
+  margin: 14mm 15mm 16mm;
+}
+
+.print-root {
+  min-height: 100vh;
+  background: #e9e4dc;
+  color: #1f2420;
+  font-family: var(--font-print-serif), Georgia, serif;
+  color-scheme: light;
+}
+
+.print-sans {
+  font-family: var(--font-print-sans), system-ui, sans-serif;
+}
+
+.print-sheet {
+  width: 210mm;
+  max-width: 100%;
+  margin: 0 auto 32px;
+  padding: 14mm 15mm 16mm;
+  background: #fffdf9;
+  box-shadow: 0 2px 18px rgba(0, 0, 0, 0.12);
+}
+
+.print-avoid {
+  break-inside: avoid;
+}
+
+.print-keep {
+  break-after: avoid;
+}
+
+@media print {
+  html,
+  body,
+  .print-root {
+    background: #fff !important;
+    min-height: 0;
+  }
+  .print-sheet {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    background: #fff;
+  }
+  .print-no {
+    display: none !important;
+  }
+}
+
+/* Prezzi: cifre tutte alla stessa altezza e larghezza, in colonna. */
+.print-num {
+  font-variant-numeric: lining-nums tabular-nums;
+}

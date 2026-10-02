@@ -26,8 +26,8 @@ async function addWine(name, region, country = "") {
   await card.getByRole("button", { name: "+ Aggiungi vino" }).first().click();
   await dialog().waitFor();
   await dialog().getByLabel("Azienda", { exact: true }).fill(name);
-  if (region) await dialog().getByLabel("Regione (facoltativa)").fill(region);
-  if (country) await dialog().getByLabel("Nazione (facoltativa)").fill(country);
+  if (country) await dialog().getByLabel("Nazione (vuota = Italia)").fill(country);
+  if (region) await dialog().getByLabel(/^Regione/).fill(region);
   await dialog().getByLabel("Bottiglia (€)").fill("30");
   await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
   await dialog().waitFor({ state: "detached" });
@@ -45,7 +45,10 @@ await addWine("Vino Ordine Toscano", "Toscana");
 n = names();
 check("Toscana: tra i toscani, in ordine alfabetico", n.indexOf("Vino Ordine Toscano") > n.indexOf("Tenuta Argentiera") && n.indexOf("Vino Ordine Toscano") < n.indexOf("Aquila del Torre"), n.join(", "));
 
-await addWine("Vino Ordine Senza Regione", "");
+// Un vino italiano senza regione (dalla scheda non si può più: arriva da «Incolla più
+// voci», che lo mette in fondo): resta dopo gli altri italiani.
+await addWine("Vino Ordine Senza Regione", "Veneto");
+DB(`update "MenuItem" set region=null, "sortOrder"=(select max("sortOrder")+1 from "MenuItem" where "groupId"='${GROUP}') where name='Vino Ordine Senza Regione'`);
 n = names();
 check("senza regione: in fondo agli italiani", n.indexOf("Vino Ordine Senza Regione") === n.length - 1, n.join(", "));
 
