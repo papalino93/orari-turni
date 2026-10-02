@@ -40,7 +40,7 @@ export function ItemSearch({
             groupId: g.id,
             kind: s.kind,
             place: s.dailyOnly ? "Oggi fuori menù" : s.title,
-            text: norm([item.name, item.sub, item.grapes, item.region, item.country, item.description, g.title].filter(Boolean).join(" ")),
+            text: norm([item.name, item.wineName, item.denomination, item.vintage, item.sub, item.grapes, item.region, item.country, item.description, g.title].filter(Boolean).join(" ")),
           })),
         ),
       ),

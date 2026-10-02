@@ -25,7 +25,7 @@ async function addWine(name, region, country = "") {
   const card = page.locator("section, div").filter({ has: page.getByText(/^Italia · \d+$/) }).last();
   await card.getByRole("button", { name: "+ Aggiungi vino" }).first().click();
   await dialog().waitFor();
-  await dialog().getByLabel("Nome", { exact: true }).fill(name);
+  await dialog().getByLabel("Azienda", { exact: true }).fill(name);
   if (region) await dialog().getByLabel("Regione (facoltativa)").fill(region);
   if (country) await dialog().getByLabel("Nazione (facoltativa)").fill(country);
   await dialog().getByLabel("Bottiglia (€)").fill("30");

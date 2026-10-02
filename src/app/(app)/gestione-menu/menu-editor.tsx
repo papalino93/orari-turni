@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
-import { blockStatus, formatPrice, priceLine, type MenuBlockView } from "@/lib/menu-format";
+import { blockStatus, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
 import { traitLabel } from "@/lib/wine-traits";
 import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
@@ -20,6 +20,9 @@ export type EditorItem = {
   id: string;
   groupId: string;
   name: string;
+  wineName: string | null;
+  denomination: string | null;
+  vintage: string | null;
   sub: string | null;
   grapes: string | null;
   region: string | null;
@@ -198,7 +201,7 @@ export function MenuEditor({
     .filter((s) => s.kind === "WINE")
     .flatMap((s) =>
       s.groups.flatMap((g) =>
-        g.items.map((i) => ({ id: i.id, name: i.name, section: s.label, detail: [i.sub, priceSummary(i, "WINE")].filter(Boolean).join(" · "), soldOut: isSold(i) })),
+        g.items.map((i) => ({ id: i.id, name: i.name, section: s.label, detail: [i.wineName, wineDetail(i), priceSummary(i, "WINE")].filter(Boolean).join(" · "), soldOut: isSold(i) })),
       ),
     );
   const wineNames = new Map(wines.map((w) => [w.id, w.name]));
@@ -774,7 +777,7 @@ function GroupCard({
         <ul>
           {group.items.map((item) => {
             const sold = isSold(item);
-            const secondary = kind === "WINE" ? item.sub : item.description;
+            const secondary = kind === "WINE" ? [item.wineName, wineDetail(item)].filter(Boolean).join(" · ") : item.description;
             return (
               <li key={item.id} className={`flex items-center gap-2 border-b border-border px-3 py-1.5 last:border-b-0 ${sold ? "bg-surface-2/60" : ""}`}>
                 <button type="button" onClick={() => onEdit(item)} className="min-h-12 min-w-0 flex-1 py-1 text-left" aria-label={`Modifica ${item.name}`}>

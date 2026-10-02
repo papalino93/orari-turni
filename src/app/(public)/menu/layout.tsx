@@ -26,6 +26,19 @@ export const metadata: Metadata = {
   // Raggiungibile dal QR in enoteca, non dai motori di ricerca: una copia
   // vecchia nei risultati mostrerebbe prezzi e voci non più veri.
   robots: { index: false, follow: false },
+  // Anteprima quando il link del menù viene condiviso (immagine: opengraph-image.tsx).
+  openGraph: {
+    title: "Carta dei vini e Menù — L'Angolo del Vino",
+    description: "Vini al calice e in bottiglia, taglieri, eventi. Enoteca a Scandicci.",
+    siteName: "L'Angolo del Vino",
+    locale: "it_IT",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Carta dei vini e Menù — L'Angolo del Vino",
+    description: "Vini al calice e in bottiglia, taglieri, eventi. Enoteca a Scandicci.",
+  },
 };
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
