@@ -1,29 +1,19 @@
 import { redirect } from "next/navigation";
 import { getMenuEditor } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
-import { businessDayKey, isSoldOut } from "@/lib/menu-format";
-import { loadCover, loadMenu } from "@/lib/menu";
-import { MenuEditor, type EditorSection, type HistoryEntry } from "./menu-editor";
+import { businessDayKey, isSoldOut, parseVariants } from "@/lib/menu-format";
+import { loadCover, loadMenu, loadPromosForEditor } from "@/lib/menu";
+import { MenuEditor, type EditorPromo, type EditorSection, type HistoryEntry } from "./menu-editor";
 
-export default async function GestioneMenuPage() {
-  // Il Proxy lascia arrivare qui qualsiasi login dipendente (non conosce il
-  // permesso): è questa pagina a decidere. Senza permesso si torna alla
-  // propria area, come per qualunque altra pagina non concessa.
-  const editor = await getMenuEditor();
-  if (!editor) redirect("/mie-ore");
+type LoadedSection = Awaited<ReturnType<typeof loadMenu>>[number];
 
-  const dayKey = businessDayKey();
-  const [menu, cover, history] = await Promise.all([
-    loadMenu(),
-    loadCover(),
-    prisma.menuChange.findMany({ orderBy: { at: "desc" }, take: 60 }),
-  ]);
-
-  const sections: EditorSection[] = menu.map((s) => ({
+function toEditorSection(s: LoadedSection, dayKey: string): EditorSection {
+  return {
     id: s.id,
     slug: s.slug,
     label: s.label,
     title: s.title,
+    promoId: s.promoId,
     kind: s.kind,
     note: s.note,
     coverApplies: s.coverApplies,
@@ -44,11 +34,46 @@ export default async function GestioneMenuPage() {
         priceBottleCents: i.priceBottleCents,
         priceCents: i.priceCents,
         enomatic: i.enomatic,
+        variants: parseVariants(i.variants),
         allergens: i.allergens,
         allergensReviewed: i.allergensReviewed,
         soldOut: isSoldOut(i, dayKey),
       })),
     })),
+  };
+}
+
+export default async function GestioneMenuPage() {
+  // Il Proxy lascia arrivare qui qualsiasi login dipendente (non conosce il
+  // permesso): è questa pagina a decidere. Senza permesso si torna alla
+  // propria area, come per qualunque altra pagina non concessa.
+  const editor = await getMenuEditor();
+  if (!editor) redirect("/mie-ore");
+
+  const dayKey = businessDayKey();
+  const [menu, promoRows, cover, history] = await Promise.all([
+    loadMenu(),
+    loadPromosForEditor(),
+    loadCover(),
+    prisma.menuChange.findMany({ orderBy: { at: "desc" }, take: 60 }),
+  ]);
+
+  const sections = menu.map((s) => toEditorSection(s, dayKey));
+
+  const promos: EditorPromo[] = promoRows.map((p) => ({
+    id: p.id,
+    kind: p.kind,
+    slug: p.slug,
+    title: p.title,
+    label: p.label,
+    body: p.body,
+    showFrom: p.showFrom,
+    startDate: p.startDate,
+    endDate: p.endDate,
+    hidden: p.hidden,
+    imageVersion: p.imageUpdatedAt ? p.imageUpdatedAt.getTime() : null,
+    // Il titolo dell'evento è quello della pagina: la sezione collegata lo segue.
+    section: p.section ? { ...toEditorSection(p.section, dayKey), title: p.title, label: p.title } : null,
   }));
 
   const entries: HistoryEntry[] = history.map((h) => ({
@@ -60,5 +85,5 @@ export default async function GestioneMenuPage() {
     undone: h.undoneById !== null,
   }));
 
-  return <MenuEditor sections={sections} cover={cover} history={entries} />;
+  return <MenuEditor sections={sections} promos={promos} today={dayKey} cover={cover} history={entries} />;
 }

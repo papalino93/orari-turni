@@ -44,3 +44,76 @@ export function nb(text: string | null | undefined): string {
   if (!text) return "";
   return text.replace(/(\d[\d,]*%?) (?=[A-Za-zÀ-ÿ€])/g, "$1\u00A0").replace(/ · /g, "\u00A0· ");
 }
+
+// --- Formati e prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l) -------------------
+
+export type MenuVariant = { label: string; cents: number };
+
+// Il campo è JSON nel database: si rilegge in modo difensivo.
+export function parseVariants(value: unknown): MenuVariant[] | null {
+  if (!Array.isArray(value)) return null;
+  const list = value.flatMap((v) => {
+    if (!v || typeof v !== "object") return [];
+    const { label, cents } = v as { label?: unknown; cents?: unknown };
+    return typeof label === "string" && typeof cents === "number" ? [{ label, cents }] : [];
+  });
+  return list.length > 0 ? list : null;
+}
+
+// --- Eventi e annunci -------------------------------------------------------
+
+const MONTHS = [
+  "gennaio",
+  "febbraio",
+  "marzo",
+  "aprile",
+  "maggio",
+  "giugno",
+  "luglio",
+  "agosto",
+  "settembre",
+  "ottobre",
+  "novembre",
+  "dicembre",
+];
+
+function dayParts(key: string): { d: number; m: number; y: number } {
+  const [y, m, d] = key.split("-").map(Number);
+  return { d, m: m - 1, y };
+}
+
+// "9 ottobre", "9–12 ottobre", "30 ottobre – 2 novembre", con l'anno solo se cambia.
+export function formatPromoDates(startKey: string, endKey: string): string {
+  const a = dayParts(startKey);
+  const b = dayParts(endKey);
+  if (startKey === endKey) return `${a.d} ${MONTHS[a.m]}`;
+  if (a.y !== b.y) return `${a.d} ${MONTHS[a.m]} ${a.y} – ${b.d} ${MONTHS[b.m]} ${b.y}`;
+  if (a.m === b.m) return `${a.d}–${b.d} ${MONTHS[a.m]}`;
+  return `${a.d} ${MONTHS[a.m]} – ${b.d} ${MONTHS[b.m]}`;
+}
+
+export function formatPromoDay(key: string): string {
+  const p = dayParts(key);
+  return `${p.d} ${MONTHS[p.m]}`;
+}
+
+type PromoDates = { showFrom: string; startDate: string; endDate: string };
+
+// scheduled = non ancora visibile; announced = locandina visibile, evento non
+// ancora iniziato; live = in corso; past = concluso. `today` è un giorno commerciale.
+export type PromoStatus = "scheduled" | "announced" | "live" | "past";
+
+export function promoStatus(p: PromoDates, today: string): PromoStatus {
+  if (today > p.endDate) return "past";
+  if (today >= p.startDate) return "live";
+  if (today >= p.showFrom) return "announced";
+  return "scheduled";
+}
+
+export function isPosterVisible(p: PromoDates & { hidden: boolean; deletedAt: Date | null }, today: string): boolean {
+  return !p.hidden && !p.deletedAt && today >= p.showFrom && today <= p.endDate;
+}
+
+export function isPromoMenuVisible(p: PromoDates & { hidden: boolean; deletedAt: Date | null }, today: string): boolean {
+  return !p.hidden && !p.deletedAt && today >= p.startDate && today <= p.endDate;
+}

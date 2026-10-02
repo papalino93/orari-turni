@@ -41,6 +41,10 @@ export function ItemSheet({
   const [priceBottle, setPriceBottle] = useState(priceInput(item?.priceBottleCents ?? null));
   const [price, setPrice] = useState(priceInput(item?.priceCents ?? null));
   const [enomatic, setEnomatic] = useState(item?.enomatic ?? false);
+  // Più formati con prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l), alternativi al prezzo singolo.
+  const [variants, setVariants] = useState<{ label: string; price: string }[]>(
+    () => item?.variants?.map((v) => ({ label: v.label, price: formatPrice(v.cents) })) ?? [],
+  );
   const [allergenMode, setAllergenMode] = useState<AllergenState>(item ? allergenState(item) : "unknown");
   const [allergens, setAllergens] = useState<string[]>(item?.allergens ?? []);
   const [targetGroup, setTargetGroup] = useState(groupId);
@@ -68,6 +72,7 @@ export function ItemSheet({
           enomatic,
           allergens: allergenMode === "some" ? allergens : [],
           allergensReviewed: allergenMode !== "unknown",
+          variants: variants.filter((v) => v.label.trim() || v.price.trim()),
         }),
       item ? "Voce salvata" : "Voce aggiunta",
     );
@@ -167,9 +172,56 @@ export function ItemSheet({
                 placeholder="Ingredienti, peso…"
               />
             </Field>
-            <Field label="Prezzo (€)">
-              <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" required className={inputClass} placeholder="es. 13" />
-            </Field>
+            {variants.length === 0 && (
+              <Field label="Prezzo (€)">
+                <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" required className={inputClass} placeholder="es. 13" />
+              </Field>
+            )}
+
+            <div>
+              <p className="mb-1 text-xs font-medium text-foreground-muted">
+                Formati e prezzi <span className="font-normal">(facoltativo, es. birra 0,2 l · 0,4 l · 1 l)</span>
+              </p>
+              {variants.map((v, i) => (
+                <div key={i} className="mb-2 flex items-center gap-2">
+                  <input
+                    value={v.label}
+                    onChange={(e) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                    maxLength={30}
+                    aria-label={`Formato ${i + 1}`}
+                    placeholder="es. 0,4 l"
+                    className={`${inputClass} min-w-0 flex-1`}
+                  />
+                  <input
+                    value={v.price}
+                    onChange={(e) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, price: e.target.value } : x)))}
+                    inputMode="decimal"
+                    aria-label={`Prezzo del formato ${i + 1}`}
+                    placeholder="€"
+                    className={`${inputClass} w-24 shrink-0`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVariants((prev) => prev.filter((_, j) => j !== i))}
+                    aria-label={`Togli il formato ${i + 1}`}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-2 hover:text-danger"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                disabled={variants.length >= 8}
+                onClick={() => setVariants((prev) => [...prev, { label: "", price: "" }])}
+                className="min-h-11 w-full rounded-xl border border-dashed border-border text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-40"
+              >
+                + Aggiungi un formato
+              </button>
+              {variants.length > 0 && (
+                <p className="mt-1.5 text-[11px] text-foreground-muted">Con i formati il prezzo singolo non serve.</p>
+              )}
+            </div>
 
             <fieldset>
               <legend className="mb-1 text-xs font-medium text-foreground-muted">Allergeni</legend>

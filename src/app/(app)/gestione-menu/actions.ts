@@ -1,10 +1,11 @@
 "use server";
 
-import type { MenuChangeAction, MenuSectionKind, Prisma } from "@prisma/client";
+import { Prisma, type MenuSectionKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireMenuEditor } from "@/lib/guard";
 import { ALLERGEN_CODES } from "@/lib/allergens";
-import { businessDayKey } from "@/lib/menu-format";
+import { diff, logChange, type Fields } from "@/lib/menu-log";
+import { businessDayKey, parseVariants, type MenuVariant } from "@/lib/menu-format";
 import { MAX_IMPORT_ROWS, type ImportRowInput } from "@/lib/menu-import";
 import { parsePrice, revalidateMenu } from "@/lib/menu";
 import { assert, parseEnum, parseId, parseText, runAction, ValidationError, type ActionResult } from "@/lib/validation";
@@ -12,9 +13,6 @@ import { assert, parseEnum, parseId, parseText, runAction, ValidationError, type
 // Ogni azione qui sotto parte da requireMenuEditor(): il Proxy non conosce il
 // permesso "può modificare il menù" (vive nel database), quindi questo è il
 // confine reale — vedi lib/guard.ts.
-
-type Tx = Prisma.TransactionClient;
-type Fields = Record<string, unknown>;
 
 // Il toast "Annulla" usa changeId per tornare indietro con undoChange().
 export type ChangeResult = { changeId: string | null };
@@ -32,6 +30,8 @@ export type ItemInput = {
   // Solo piatti. allergensReviewed false = "da compilare" (non è "nessuno").
   allergens?: string[];
   allergensReviewed?: boolean;
+  // Più formati con prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l): alternativi al prezzo singolo.
+  variants?: { label: string; price: string }[];
 };
 
 const ITEM_KEYS = [
@@ -45,6 +45,7 @@ const ITEM_KEYS = [
   "enomatic",
   "allergens",
   "allergensReviewed",
+  "variants",
   "groupId",
 ] as const;
 
@@ -56,48 +57,8 @@ const RESTORABLE: Record<string, readonly string[]> = {
   group: ["title", "columns", "deletedAt"],
   section: ["note", "coverApplies", "addonTitle", "addon"],
   setting: ["value"],
+  promo: ["title", "label", "body", "showFrom", "startDate", "endDate", "hidden", "deletedAt"],
 };
-
-async function logChange(
-  tx: Tx,
-  entry: {
-    actorName: string;
-    action: MenuChangeAction;
-    entity: "item" | "group" | "section" | "setting";
-    entityId: string;
-    label: string;
-    before?: Fields | null;
-    after?: Fields | null;
-  },
-): Promise<string> {
-  const row = await tx.menuChange.create({
-    data: {
-      actorName: entry.actorName,
-      action: entry.action,
-      entity: entry.entity,
-      entityId: entry.entityId,
-      label: entry.label,
-      before: (entry.before ?? undefined) as Prisma.InputJsonValue | undefined,
-      after: (entry.after ?? undefined) as Prisma.InputJsonValue | undefined,
-    },
-  });
-  return row.id;
-}
-
-// Solo i campi che differiscono, uno snapshot "prima" e uno "dopo".
-function diff(before: Fields, after: Fields): { before: Fields; after: Fields } | null {
-  const b: Fields = {};
-  const a: Fields = {};
-  for (const key of Object.keys(after)) {
-    // JSON.stringify perché alcuni campi sono liste (allergeni): due liste
-    // uguali sono oggetti diversi per !==.
-    if (JSON.stringify(before[key] ?? null) !== JSON.stringify(after[key] ?? null)) {
-      b[key] = before[key] ?? null;
-      a[key] = after[key] ?? null;
-    }
-  }
-  return Object.keys(a).length === 0 ? null : { before: b, after: a };
-}
 
 function parseAllergens(value: unknown): string[] {
   const list = Array.isArray(value) ? value : [];
@@ -106,6 +67,22 @@ function parseAllergens(value: unknown): string[] {
   }
   // Ordine fisso (quello della legge) e senza doppioni.
   return ALLERGEN_CODES.filter((code) => list.includes(code));
+}
+
+function parseVariantInput(value: unknown): MenuVariant[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  assert(value.length <= 8, "Al massimo 8 formati per voce.");
+  return value.map((v: { label?: unknown; price?: unknown }, i) => {
+    const label = parseText(v?.label, `del formato ${i + 1}`, { max: 30, required: true });
+    const cents = parsePrice(v?.price, `del formato «${label}»`);
+    assert(cents !== null, `Manca il prezzo del formato «${label}».`);
+    return { label, cents };
+  });
+}
+
+// I formati si salvano come JSON; nessun formato = colonna vuota (null SQL).
+function toItemData<T extends { variants: MenuVariant[] | null }>(data: T) {
+  return { ...data, variants: data.variants && data.variants.length > 0 ? data.variants : Prisma.DbNull };
 }
 
 function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
@@ -128,12 +105,14 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
       // I vini non hanno allergeni per voce: vale la nota unica "solfiti".
       allergens: [] as string[],
       allergensReviewed: false,
+      variants: null as MenuVariant[] | null,
     };
   }
   const description = parseText(input.description, "descrizione", { max: 300 }) || null;
   const allergensReviewed = Boolean(input.allergensReviewed);
-  const priceCents = parsePrice(input.price, "prezzo");
-  assert(priceCents !== null, "Inserisci il prezzo.");
+  const variants = parseVariantInput(input.variants);
+  const priceCents = variants ? null : parsePrice(input.price, "prezzo");
+  assert(variants !== null || priceCents !== null, "Inserisci il prezzo, oppure almeno un formato con il suo prezzo.");
   return {
     name,
     sub: null,
@@ -145,12 +124,13 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
     enomatic: false,
     allergens: allergensReviewed ? parseAllergens(input.allergens) : [],
     allergensReviewed,
+    variants,
   };
 }
 
 function itemSnapshot(item: Fields): Fields {
   const out: Fields = {};
-  for (const key of ITEM_KEYS) out[key] = item[key] ?? null;
+  for (const key of ITEM_KEYS) out[key] = key === "variants" ? parseVariants(item[key]) : (item[key] ?? null);
   return out;
 }
 
@@ -173,7 +153,7 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
         orderBy: { sortOrder: "desc" },
       });
       const changeId = await prisma.$transaction(async (tx) => {
-        const created = await tx.menuItem.create({ data: { ...data, groupId, sortOrder: (last?.sortOrder ?? -1) + 1 } });
+        const created = await tx.menuItem.create({ data: { ...toItemData(data), groupId, sortOrder: (last?.sortOrder ?? -1) + 1 } });
         return logChange(tx, {
           actorName: editor.name,
           action: "CREATE",
@@ -207,7 +187,7 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
     const changeId = await prisma.$transaction(async (tx) => {
       await tx.menuItem.update({
         where: { id },
-        data: { ...data, groupId, ...(moved ? { sortOrder: (last?.sortOrder ?? -1) + 1 } : {}) },
+        data: { ...toItemData(data), groupId, ...(moved ? { sortOrder: (last?.sortOrder ?? -1) + 1 } : {}) },
       });
       return logChange(tx, {
         actorName: editor.name,
@@ -259,7 +239,7 @@ export async function importItems(
     const result = await prisma.$transaction(async (tx) => {
       const ids: string[] = [];
       for (const [i, data] of parsed.entries()) {
-        const created = await tx.menuItem.create({ data: { ...data, groupId, sortOrder: base + i } });
+        const created = await tx.menuItem.create({ data: { ...toItemData(data), groupId, sortOrder: base + i } });
         ids.push(created.id);
       }
       const changeId = await logChange(tx, {
@@ -302,6 +282,7 @@ export async function duplicateItem(idInput: string): Promise<ActionResult<Chang
           enomatic: source.enomatic,
           allergens: source.allergens,
           allergensReviewed: source.allergensReviewed,
+          variants: source.variants === null ? Prisma.DbNull : (source.variants as Prisma.InputJsonValue),
           sortOrder: source.sortOrder + 1,
         },
       });
@@ -609,6 +590,7 @@ export async function updateCover(valueInput: string): Promise<ActionResult<Chan
 
 function toColumn(key: string, value: unknown): unknown {
   if (key === "deletedAt") return typeof value === "string" ? new Date(value) : null;
+  if (key === "variants") return value === null || value === undefined ? Prisma.DbNull : value;
   return value;
 }
 
@@ -624,7 +606,7 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
     assert(!change.undoneById, "Questa modifica è già stata annullata.");
 
     await prisma.$transaction(async (tx) => {
-      const entity = change.entity as "item" | "group" | "section" | "setting";
+      const entity = change.entity as "item" | "group" | "section" | "setting" | "promo";
       const before = (change.before ?? {}) as Fields;
 
       // Inserimento in blocco: l'annullamento toglie tutte le voci aggiunte insieme.
@@ -677,7 +659,9 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
             ? tx.menuGroup
             : entity === "setting"
               ? tx.menuSetting
-              : tx.menuSection;
+              : entity === "promo"
+                ? tx.menuPromo
+                : tx.menuSection;
       const current = await (delegate as unknown as {
         findUnique: (args: { where: { id: string } }) => Promise<Fields | null>;
       }).findUnique({ where: { id: change.entityId } });
