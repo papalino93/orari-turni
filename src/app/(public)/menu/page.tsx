@@ -295,7 +295,7 @@ export default async function MenuPage() {
                           </div>
                         )}
                         {item.grapes && (
-                          <div className="text-pretty text-[15.5px] italic leading-[1.4] text-[#5B605A]">{nb(item.grapes)}</div>
+                          <div className="text-pretty text-[16px] font-medium italic leading-[1.4] text-[#4F544F]">{nb(item.grapes)}</div>
                         )}
                         {item.description && (
                           <div className="text-pretty text-[16.5px] leading-[1.45] text-[#3F4540]">{nb(item.description)}</div>

@@ -25,8 +25,8 @@ PR #30, #31 (menù, allergeni, incolla in blocco, coperto), #32 (questo document
 
 ## Regola del titolare: numero di versione
 Il titolare vuole **sempre il numero di versione sia sul sito sia nella chat**.
-- Sul sito: etichetta `v0.5.0 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
-- **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.5.0**.
+- Sul sito: etichetta `v0.5.1 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
+- **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.5.1**.
 - In chat: a ogni risposta che riguarda un rilascio scrivi «Versione X.Y.Z» (quella pubblicata in produzione, verificata sul sito).
 
 ## ATTENZIONE: una sola sessione alla volta
@@ -110,6 +110,11 @@ Nella barra sezioni, a destra, due strumenti discreti; più «Torna su».
 
 ### Codice QR — FATTO (v0.5.0)
 «Codice QR» tra i pulsanti della gestione (`QrSheet`, libreria `qrcode`): indirizzo del sito da cui si sta lavorando + `/menu`, colore nero o bordeaux, download SVG (stampa) e PNG 1600 px. Test: `scripts/menu-e2e/qr.mjs` (8 controlli, legge il QR con `jsqr`; richiede `npm i --no-save sharp jsqr`).
+
+### v0.5.1 — rifiniture
+- In gestione i riquadri «Informazioni del menù» e «Il locale» sono **chiusi di default** (una riga di riepilogo con freccia): la lista del menù sale in alto. I test li aprono con `expandPanels(page)` in `lib.mjs`.
+- Sul menù l'uvaggio in corsivo è un po' più grande e più scuro (`font-medium`, 16 px): il corsivo sottile di EB Garamond rendeva male alcune parole («Ri sling»: nel database il testo è corretto, «Riesling»).
+- Da confermare con il titolare (possibili refusi, non toccati): «Spoma?» (sottotitolo di Angol d'Amig) e «Costaripa Créant» (Mattia Vezzola).
 
 ### Altre modifiche di v0.5.0
 - Gruppo «Metodi classici» → **«Metodo classico»** (migrazione `20261005100000`; la sezione si chiama già Bollicine).

@@ -1,4 +1,4 @@
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels } from "./lib.mjs";
 
 resetBlocks();
 DB(`delete from \"MenuChange\"`);
@@ -19,6 +19,7 @@ const page = await ctx.newPage();
 page.setDefaultTimeout(60000);
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
+await expandPanels(page);
 check("editor: titolo Menù", await page.locator("h1:has-text('Menù')").count() === 1);
 const chips = await page.locator('nav[aria-label="Sezioni"] button').allInnerTexts();
 check("editor: 7 sezioni", chips.length === 7, chips.map((c) => c.replace(/\n/g, " ")).join("|"));

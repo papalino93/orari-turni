@@ -27,6 +27,8 @@ export type VenueSheetKind = "hero" | "hours" | "contacts";
 // --- Riquadro «Il locale» ------------------------------------------------------
 
 export function VenuePanel({ venue, onOpen }: { venue: EditorVenue; onOpen: (kind: VenueSheetKind) => void }) {
+  // Chiuso di default: serve di rado, la lista del menù resta più in alto.
+  const [open, setOpen] = useState(false);
   const status = openStatus(venue.hours, new Date());
   const upcoming = venue.hours.exceptions.length;
   const rows: { kind: VenueSheetKind; title: string; summary: string; label: string }[] = [
@@ -51,8 +53,23 @@ export function VenuePanel({ venue, onOpen }: { venue: EditorVenue; onOpen: (kin
   ];
   return (
     <section aria-label="Il locale" className="mb-5 rounded-2xl border border-border bg-surface px-4 py-3">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Il locale · copertina, orari, contatti</p>
-      <ul className="mt-1 divide-y divide-border">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-10 w-full items-start gap-2 text-left"
+      >
+        <span aria-hidden="true" className={`mt-1 text-foreground-muted transition-transform ${open ? "rotate-180" : ""}`}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Il locale · copertina, orari, contatti</span>
+          <span className="mt-0.5 block truncate text-xs text-foreground-muted">{status ? status.label : "Orari, contatti e copertina del menù"}</span>
+        </span>
+      </button>
+      <ul className={`mt-1 divide-y divide-border ${open ? "" : "hidden"}`}>
         {rows.map((row) => (
           <li key={row.kind}>
             <button
