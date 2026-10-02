@@ -8,7 +8,7 @@
 // di spazio vuoto.
 
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
-import { leaveLabelFor, leaveTypeToKind, type LeaveType } from "@/lib/schedule";
+import { formatHours, leaveLabelFor, leaveTypeToKind, type LeaveType } from "@/lib/schedule";
 import {
   DANGER,
   GOLD,
@@ -182,7 +182,7 @@ export async function exportEmployeeRangePdf({
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8.5);
       doc.setTextColor(...TEXT);
-      doc.text(`${Math.round(hours * 100) / 100}h`, CARD_X + CARD_W - 5, y + rowH / 2 + 1, {
+      doc.text(formatHours(hours), CARD_X + CARD_W - 5, y + rowH / 2 + 1, {
         align: "right",
         baseline: "middle",
       });
@@ -209,7 +209,7 @@ export async function exportEmployeeRangePdf({
   doc.setFontSize(9.5);
   doc.setTextColor(253, 242, 244);
   doc.text("TOTALE ORE", CARD_X + 5, y + 6.3);
-  doc.text(`${Math.round(totalHours * 100) / 100} h`, CARD_X + CARD_W - 5, y + 6.3, { align: "right" });
+  doc.text(formatHours(totalHours), CARD_X + CARD_W - 5, y + 6.3, { align: "right" });
   y += 10;
 
   // Cornice leggera attorno all'intera card, solo se il documento sta su

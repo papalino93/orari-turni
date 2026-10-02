@@ -7,6 +7,7 @@ import { buildSchedule, formatHours, type Block, type Closure, type Leave, type 
 import { EmployeeAvatar } from "@/components/avatar";
 import { useToast, runWithToast } from "@/components/toast";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
+import { plural } from "@/lib/plural";
 import {
   deleteEmployee,
   getEmployeeDeletionImpact,
@@ -388,7 +389,7 @@ function EmployeeCard({
                 ? "Controllo dati collegati…"
                 : deletionImpact.shifts + deletionImpact.leaves + deletionImpact.balances === 0
                   ? `Eliminare definitivamente ${employee.name}? Non ci sono dati collegati.`
-                  : `Eliminando ${employee.name} verranno rimossi anche ${deletionImpact.shifts} turni, ${deletionImpact.leaves} voci di ferie/permessi e ${deletionImpact.balances} saldi collegati. Per il personale storico è preferibile disattivare invece di eliminare.`}
+                  : `Eliminando ${employee.name} verranno rimossi anche ${plural(deletionImpact.shifts, "turno", "turni")}, ${plural(deletionImpact.leaves, "voce di ferie/permessi", "voci di ferie/permessi")} e ${plural(deletionImpact.balances, "saldo collegato", "saldi collegati")}. Per il personale storico è preferibile disattivare invece di eliminare.`}
             </p>
             <div className="mt-2 flex justify-end gap-2">
               <button type="button" onClick={() => setConfirmingDelete(false)} className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted">

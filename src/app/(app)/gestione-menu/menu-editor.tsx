@@ -740,7 +740,7 @@ function GroupCard({
       {confirmingDelete && (
         <div className="border-b border-danger/30 bg-danger-bg px-3 py-3">
           <p className="text-xs text-danger">
-            Eliminare il gruppo «{group.title}»{group.items.length > 0 ? ` e le sue ${group.items.length} voci` : ""}? Lo recuperi
+            Eliminare il gruppo «{group.title}»{group.items.length > 0 ? ` e ${group.items.length === 1 ? "la sua voce" : `le sue ${group.items.length} voci`}` : ""}? Lo recuperi
             dallo storico.
           </p>
           <div className="mt-2.5 flex justify-end gap-2">

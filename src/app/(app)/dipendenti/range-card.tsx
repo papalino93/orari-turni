@@ -1,6 +1,6 @@
 import { blockHours, dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { LOGO_DATA_URI } from "@/lib/logo-data-uri";
-import { leaveLabelFor } from "@/lib/schedule";
+import { formatHours, leaveLabelFor } from "@/lib/schedule";
 
 type RangeBlock = { dateKey: string; startTime: string; endTime: string };
 type RangeLeave = { dateKey: string; type: "FERIE" | "PERMESSO" | "LIBERO" | "MALATTIA"; quantity: number };
@@ -147,7 +147,7 @@ export function RangeCard({
                     <span style={{ color: "#c2b7b4", fontStyle: "italic" }}>non pianificato</span>
                   )}
                 </td>
-                <td style={{ padding: "9px 12px", textAlign: "right" }}>{hours > 0 ? `${Math.round(hours * 100) / 100}h` : ""}</td>
+                <td style={{ padding: "9px 12px", textAlign: "right" }}>{hours > 0 ? formatHours(hours) : ""}</td>
               </tr>
             );
           })}
@@ -158,7 +158,7 @@ export function RangeCard({
               Totale ore
             </td>
             <td style={{ padding: "12px", textAlign: "right", fontWeight: 700, color: "#8a2740" }}>
-              {Math.round(totalHours * 100) / 100}h
+              {formatHours(totalHours)}
             </td>
           </tr>
         </tfoot>

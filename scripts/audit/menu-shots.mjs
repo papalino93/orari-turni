@@ -1,0 +1,15 @@
+import fs from "node:fs";
+import { launch, login, BASE } from "../menu-e2e/lib.mjs";
+const OUT = process.env.SHOTS ?? "/tmp/claude-0/shots/menu";
+fs.mkdirSync(OUT, { recursive: true });
+const b = await launch();
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2, locale: "it-IT", timezoneId: "Europe/Rome" });
+const p = await ctx.newPage();
+await login(p, "andrea", process.env.E2E_ADMIN_PASSWORD);
+await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await p.getByRole("button", { name: /Ricordamelo più tardi/i }).click().catch(() => {});
+await p.waitForTimeout(500);
+await p.screenshot({ path: `${OUT}/g01-top.png` });
+await p.screenshot({ path: `${OUT}/g02-full.png`, fullPage: true });
+console.log((await p.locator("main").innerText()).split("\n").filter(Boolean).slice(0, 60).join(" / "));
+await b.close();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { COVERAGE_START_HOUR, formatHours, type buildSchedule } from "@/lib/schedule";
+import { formatHours, type buildSchedule, type CoverageRange } from "@/lib/schedule";
 import { DayCellContent, DayEditorModal, orderEmployees } from "./shared";
 import { DayStatusModal } from "./day-status-modal";
 import { EmployeeAvatar } from "@/components/avatar";
@@ -10,26 +10,14 @@ import { EmployeeAvatar } from "@/components/avatar";
 // comunicava nulla di utile ("barre alte" rispetto a cosa?) — lo stesso
 // array orario diventa immediatamente leggibile come testo semplice:
 // "13:00–16:00 (1 persona) · 16:00–20:00 (2 persone)".
-function formatHourLabel(hour: number): string {
-  return `${String(hour).padStart(2, "0")}:00`;
+function formatClock(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
-function summarizeCoverage(counts: number[]): string | null {
-  const ranges: { start: number; end: number; count: number }[] = [];
-  let current: { start: number; end: number; count: number } | null = null;
-  counts.forEach((count, i) => {
-    const hour = COVERAGE_START_HOUR + i;
-    if (count > 0 && current && current.count === count && current.end === hour) {
-      current.end = hour + 1;
-    } else {
-      if (current) ranges.push(current);
-      current = count > 0 ? { start: hour, end: hour + 1, count } : null;
-    }
-  });
-  if (current) ranges.push(current);
+function summarizeCoverage(ranges: CoverageRange[]): string | null {
   if (ranges.length === 0) return null;
   return ranges
-    .map((r) => `${formatHourLabel(r.start)}–${formatHourLabel(r.end)} (${r.count} ${r.count === 1 ? "persona" : "persone"})`)
+    .map((r) => `${formatClock(r.start)}–${formatClock(r.end)} (${r.count} ${r.count === 1 ? "persona" : "persone"})`)
     .join(" · ");
 }
 
@@ -66,7 +54,7 @@ export function DayView({
           <div className="flex items-center gap-3">
             {!closed && (
               <p className="text-sm">
-                <span className="font-semibold text-foreground">{totalHours}h</span>{" "}
+                <span className="font-semibold text-foreground">{formatHours(totalHours)}</span>{" "}
                 <span className="text-foreground-muted">totali</span>
               </p>
             )}

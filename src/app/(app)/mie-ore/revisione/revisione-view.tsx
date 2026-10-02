@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDayMonth, dayLabel, monthLabel, parseDateKey, todayKey } from "@/lib/week";
-import { buildSchedule, type Closure, type Leave } from "@/lib/schedule";
+import { buildSchedule, formatHours, type Closure, type Leave } from "@/lib/schedule";
 import { DayCellContent, DayEditorModal } from "../../orari/shared";
 import { useToast, runWithToast } from "@/components/toast";
 import { submitMonth } from "../actions";
@@ -202,7 +202,7 @@ export function RevisioneView({
         </div>
         <div className="flex items-center justify-between border-t border-border bg-surface-2/50 px-4 py-2.5 text-sm">
           <span className="font-medium text-foreground-muted">Totale ore</span>
-          <span className="font-semibold text-foreground">{Math.round(totalHours * 100) / 100} h</span>
+          <span className="font-semibold text-foreground">{formatHours(totalHours)}</span>
         </div>
       </div>
 
