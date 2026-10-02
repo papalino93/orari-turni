@@ -38,7 +38,7 @@ export const DEFAULT_HOURS: Hours = {
 
 export const DEFAULT_CONTACTS: Contacts = {
   phone: "338 327 7053",
-  whatsappMessage: "Ciao, vorrei prenotare un tavolo per…",
+  whatsappMessage: "Ciao! Vorrei prenotare un tavolo per",
   address: "Via dei Rossi 53/C, 50018 Scandicci FI",
   instagram: "https://www.instagram.com/langolo.del.vino_enoteca/",
   review: "https://share.google/ads9ad7vXNVdN2B4t",
@@ -229,7 +229,11 @@ export function telHref(phone: string): string | null {
 export function whatsappHref(phone: string, message: string): string | null {
   const n = internationalNumber(phone);
   if (!n) return null;
-  return `https://wa.me/${n}${message.trim() ? `?text=${encodeURIComponent(message.trim())}` : ""}`;
+  // Se il messaggio finisce con una parola («…un tavolo per»), si aggiunge uno
+  // spazio: il cliente continua a scrivere («4 persone, sabato alle 20»).
+  const text = message.trim();
+  const ready = /[\p{L}\p{N}]$/u.test(text) ? `${text} ` : text;
+  return `https://wa.me/${n}${text ? `?text=${encodeURIComponent(ready)}` : ""}`;
 }
 
 export function mapsHref(address: string): string | null {
