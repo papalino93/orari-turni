@@ -27,6 +27,17 @@ export function formatPrice(cents: number | null | undefined): string {
   return (cents / 100).toFixed(2).replace(".", ",");
 }
 
+// Accetta "7", "7,5", "7,50", "7.50", "€ 7" e i simboli di "nessun prezzo"
+// ("", "—", "-"). cents null = nessun prezzo; ok false = non è un prezzo.
+export function tryParsePrice(value: unknown): { ok: true; cents: number | null } | { ok: false } {
+  if (value === null || value === undefined) return { ok: true, cents: null };
+  const raw = String(value).replace(/€/g, "").replace(/\s/g, "");
+  if (raw === "" || raw === "—" || raw === "-" || raw === "–") return { ok: true, cents: null };
+  if (!/^\d{1,4}([.,]\d{1,2})?$/.test(raw)) return { ok: false };
+  const cents = Math.round(Number(raw.replace(",", ".")) * 100);
+  return cents > 0 ? { ok: true, cents } : { ok: false };
+}
+
 // Evita righe spezzate male: tiene uniti numero e parola ("45% Pinot Noir",
 // "160 g") e il punto medio con ciò che lo precede.
 export function nb(text: string | null | undefined): string {

@@ -6,8 +6,9 @@ import { useToast } from "@/components/toast";
 import { formatPrice } from "@/lib/menu-format";
 import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
+import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
-import { HistorySheet, SectionTextsSheet } from "./side-sheets";
+import { CoverSheet, HistorySheet, SectionTextsSheet } from "./side-sheets";
 
 export type EditorItem = {
   id: string;
@@ -20,6 +21,8 @@ export type EditorItem = {
   priceBottleCents: number | null;
   priceCents: number | null;
   enomatic: boolean;
+  allergens: string[];
+  allergensReviewed: boolean;
   soldOut: boolean;
 };
 
@@ -32,7 +35,7 @@ export type EditorSection = {
   title: string;
   kind: "WINE" | "FOOD";
   note: string | null;
-  cover: string | null;
+  coverApplies: boolean;
   addonTitle: string | null;
   addon: string | null;
   groups: EditorGroup[];
@@ -58,7 +61,9 @@ export type RunFn = <T extends ChangeResult | { changeId: string | null; id: str
 
 type SheetState =
   | { type: "item"; itemId: string | null; groupId: string }
+  | { type: "import"; groupId: string }
   | { type: "texts" }
+  | { type: "cover" }
   | { type: "history" }
   | null;
 
@@ -72,7 +77,15 @@ function priceSummary(item: EditorItem, kind: "WINE" | "FOOD"): string {
   return parts.join(" · ");
 }
 
-export function MenuEditor({ sections, history }: { sections: EditorSection[]; history: HistoryEntry[] }) {
+export function MenuEditor({
+  sections,
+  cover,
+  history,
+}: {
+  sections: EditorSection[];
+  cover: string | null;
+  history: HistoryEntry[];
+}) {
   const router = useRouter();
   const toast = useToast();
   const [, startTransition] = useTransition();
@@ -89,6 +102,12 @@ export function MenuEditor({ sections, history }: { sections: EditorSection[]; h
   const localSold = local.base === sections ? local.map : EMPTY;
 
   const section = sections.find((s) => s.slug === activeSlug) ?? sections[0];
+  // Piatti con allergeni "da compilare": sul menù dei clienti risultano "da
+  // verificare con il personale".
+  const missingAllergens = sections.reduce(
+    (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed).length, 0) : 0),
+    0,
+  );
   const isSold = (item: EditorItem) => localSold[item.id] ?? item.soldOut;
   const soldOutCount = sections.reduce(
     (n, s) => n + s.groups.reduce((m, g) => m + g.items.filter(isSold).length, 0),
@@ -209,6 +228,38 @@ export function MenuEditor({ sections, history }: { sections: EditorSection[]; h
         </div>
       </div>
 
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Coperto</p>
+          <p className="truncate text-sm font-medium text-foreground">{cover || "Nessun coperto"}</p>
+          <p className="text-[11px] text-foreground-muted">
+            Vale per tutta la cucina
+            {sections.some((s) => s.coverApplies)
+              ? `: compare in ${sections
+                  .filter((s) => s.coverApplies)
+                  .map((s) => s.title)
+                  .join(" e ")}.`
+              : "."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSheet({ type: "cover" })}
+          className="min-h-10 shrink-0 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+        >
+          Modifica
+        </button>
+      </div>
+
+      {missingAllergens > 0 && (
+        <p className="mb-5 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-3 text-sm text-gold">
+          {missingAllergens === 1
+            ? "1 piatto ha gli allergeni da compilare."
+            : `${missingAllergens} piatti hanno gli allergeni da compilare.`}{" "}
+          <span className="text-gold/80">Finché non lo fai, i clienti vedono «da verificare con il personale».</span>
+        </p>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <nav aria-label="Sezioni" className="flex flex-wrap gap-2 lg:sticky lg:top-24 lg:h-fit lg:flex-col lg:gap-1">
           {sections.map((s) => {
@@ -257,6 +308,7 @@ export function MenuEditor({ sections, history }: { sections: EditorSection[]; h
               onToggleSold={toggleSold}
               onEdit={(item) => setSheet({ type: "item", itemId: item.id, groupId: group.id })}
               onAdd={() => setSheet({ type: "item", itemId: null, groupId: group.id })}
+              onImport={() => setSheet({ type: "import", groupId: group.id })}
             />
           ))}
 
@@ -278,6 +330,10 @@ export function MenuEditor({ sections, history }: { sections: EditorSection[]; h
           onDuplicated={(newId) => setPendingOpenId(newId)}
         />
       )}
+      {sheet?.type === "import" && (
+        <ImportSheet key={sheet.groupId} section={section} groupId={sheet.groupId} run={run} onClose={() => setSheet(null)} />
+      )}
+      {sheet?.type === "cover" && <CoverSheet cover={cover} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "texts" && <SectionTextsSheet section={section} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "history" && <HistorySheet history={history} onUndo={undo} onClose={() => setSheet(null)} />}
     </div>
@@ -294,6 +350,7 @@ function GroupCard({
   onToggleSold,
   onEdit,
   onAdd,
+  onImport,
 }: {
   group: EditorGroup;
   kind: "WINE" | "FOOD";
@@ -304,6 +361,7 @@ function GroupCard({
   onToggleSold: (item: EditorItem) => void;
   onEdit: (item: EditorItem) => void;
   onAdd: () => void;
+  onImport: () => void;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(group.title);
@@ -423,6 +481,9 @@ function GroupCard({
                   </span>
                   {secondary && <span className="block truncate text-xs text-foreground-muted">{secondary}</span>}
                   <span className="block text-xs text-foreground-muted/90">{priceSummary(item, kind)}</span>
+                  {kind === "FOOD" && !item.allergensReviewed && (
+                    <span className="mt-0.5 block text-[11px] font-medium text-gold">Allergeni da compilare</span>
+                  )}
                 </button>
                 <button
                   type="button"
@@ -443,13 +504,20 @@ function GroupCard({
         </ul>
       )}
 
-      <div className="border-t border-border px-3 py-2">
+      <div className="flex flex-wrap gap-2 border-t border-border px-3 py-2">
         <button
           type="button"
           onClick={onAdd}
-          className="min-h-11 w-full rounded-xl border border-dashed border-border text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          className="min-h-11 min-w-[10rem] flex-1 rounded-xl border border-dashed border-border text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground"
         >
           + {kind === "WINE" ? "Aggiungi vino" : "Aggiungi voce"}
+        </button>
+        <button
+          type="button"
+          onClick={onImport}
+          className="min-h-11 min-w-[10rem] flex-1 rounded-xl border border-dashed border-border text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+        >
+          Incolla più voci
         </button>
       </div>
     </section>

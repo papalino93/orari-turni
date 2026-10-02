@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ALLERGENS, allergenState, type AllergenState } from "@/lib/allergens";
 import { formatPrice } from "@/lib/menu-format";
 import { deleteItem, duplicateItem, moveItem, saveItem } from "./actions";
 import { Field, Sheet, inputClass } from "./sheet";
@@ -40,6 +41,8 @@ export function ItemSheet({
   const [priceBottle, setPriceBottle] = useState(priceInput(item?.priceBottleCents ?? null));
   const [price, setPrice] = useState(priceInput(item?.priceCents ?? null));
   const [enomatic, setEnomatic] = useState(item?.enomatic ?? false);
+  const [allergenMode, setAllergenMode] = useState<AllergenState>(item ? allergenState(item) : "unknown");
+  const [allergens, setAllergens] = useState<string[]>(item?.allergens ?? []);
   const [targetGroup, setTargetGroup] = useState(groupId);
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -52,7 +55,20 @@ export function ItemSheet({
     e.preventDefault();
     setBusy(true);
     const result = await run(
-      () => saveItem(item?.id ?? null, { name, groupId: targetGroup, sub, grapes, description, priceGlass, priceBottle, price, enomatic }),
+      () =>
+        saveItem(item?.id ?? null, {
+          name,
+          groupId: targetGroup,
+          sub,
+          grapes,
+          description,
+          priceGlass,
+          priceBottle,
+          price,
+          enomatic,
+          allergens: allergenMode === "some" ? allergens : [],
+          allergensReviewed: allergenMode !== "unknown",
+        }),
       item ? "Voce salvata" : "Voce aggiunta",
     );
     setBusy(false);
@@ -154,6 +170,67 @@ export function ItemSheet({
             <Field label="Prezzo (€)">
               <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" required className={inputClass} placeholder="es. 13" />
             </Field>
+
+            <fieldset>
+              <legend className="mb-1 text-xs font-medium text-foreground-muted">Allergeni</legend>
+              <div role="radiogroup" aria-label="Allergeni" className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ["unknown", "Da compilare"],
+                    ["none", "Nessuno"],
+                    ["some", "Contiene…"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={allergenMode === value}
+                    onClick={() => setAllergenMode(value)}
+                    className={`min-h-11 rounded-xl border px-2 text-xs font-medium transition-colors ${
+                      allergenMode === value
+                        ? "border-accent bg-accent text-accent-foreground"
+                        : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {allergenMode === "unknown" && (
+                <p className="mt-1.5 text-[11px] text-gold">Finché non è compilato, i clienti vedono «da verificare con il personale».</p>
+              )}
+              {allergenMode === "none" && (
+                <p className="mt-1.5 text-[11px] text-foreground-muted">Confermi che il piatto non contiene nessuno dei 14 allergeni.</p>
+              )}
+              {allergenMode === "some" && (
+                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                  {ALLERGENS.map((a) => {
+                    const checked = allergens.includes(a.code);
+                    return (
+                      <label
+                        key={a.code}
+                        title={a.detail}
+                        className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-sm ${
+                          checked ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground-muted"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => setAllergens((prev) => (checked ? prev.filter((c) => c !== a.code) : [...prev, a.code]))}
+                          className="h-4 w-4 accent-[var(--accent)]"
+                        />
+                        {a.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {allergenMode === "some" && allergens.length === 0 && (
+                <p className="mt-1.5 text-[11px] text-danger">Spunta almeno un allergene, oppure scegli «Nessuno».</p>
+              )}
+            </fieldset>
           </>
         )}
 
@@ -173,7 +250,7 @@ export function ItemSheet({
 
         <button
           type="submit"
-          disabled={busy || !name.trim()}
+          disabled={busy || !name.trim() || (!isWine && allergenMode === "some" && allergens.length === 0)}
           className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
           {busy ? "Salvo…" : item ? "Salva" : "Aggiungi"}
