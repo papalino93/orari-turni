@@ -448,7 +448,10 @@ function PairPicker({
       {selected ? (
         <div className="flex items-center gap-2 rounded-xl border border-accent/50 bg-accent/5 py-1.5 pl-3 pr-1">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{selected.name}</p>
+            <p className="truncate text-sm font-medium text-foreground">
+              {selected.name}
+              {selected.soldOut && <span className="ml-2 text-[11px] font-semibold text-danger">Esaurito oggi</span>}
+            </p>
             <p className="truncate text-[11px] text-foreground-muted">
               {selected.section}
               {selected.detail ? ` · ${selected.detail}` : ""}
@@ -485,7 +488,10 @@ function PairPicker({
                     }}
                     className="block min-h-11 w-full px-3 py-1.5 text-left hover:bg-surface-2"
                   >
-                    <span className="block truncate text-sm font-medium text-foreground">{w.name}</span>
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {w.name}
+                      {w.soldOut && <span className="ml-2 text-[11px] font-semibold text-danger">Esaurito oggi</span>}
+                    </span>
                     <span className="block truncate text-[11px] text-foreground-muted">
                       {w.section}
                       {w.detail ? ` · ${w.detail}` : ""}
@@ -501,7 +507,9 @@ function PairPicker({
       <p className="mt-1.5 text-[11px] text-foreground-muted">
         {lost
           ? "Il vino abbinato prima non è più nel menù: scegline un altro, oppure lascia vuoto."
-          : "Sul menù compare sotto il piatto; se il vino è esaurito non si vede."}
+          : selected?.soldOut
+            ? "Oggi il vino è esaurito: il riquadro tornerà sul menù quando sarà di nuovo disponibile."
+            : "Sul menù compare sotto il piatto; se il vino è esaurito non si vede."}
       </p>
     </div>
   );
