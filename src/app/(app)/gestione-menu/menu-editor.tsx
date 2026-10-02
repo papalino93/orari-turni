@@ -113,7 +113,7 @@ function priceSummary(item: EditorItem, kind: "WINE" | "FOOD"): string {
 }
 
 // Un vino del menù fisso che si può abbinare a un piatto («Abbinamento consigliato»).
-export type PairWine = { id: string; name: string; section: string; detail: string };
+export type PairWine = { id: string; name: string; section: string; detail: string; soldOut: boolean };
 
 export function MenuEditor({
   sections,
@@ -147,13 +147,6 @@ export function MenuEditor({
     map: EMPTY,
   });
   const localSold = local.base === sections ? local.map : EMPTY;
-  // Vini del menù fisso: scelta dell'abbinamento e nomi mostrati nell'elenco dei piatti.
-  const wines: PairWine[] = sections
-    .filter((s) => s.kind === "WINE")
-    .flatMap((s) =>
-      s.groups.flatMap((g) => g.items.map((i) => ({ id: i.id, name: i.name, section: s.label, detail: [i.sub, priceSummary(i, "WINE")].filter(Boolean).join(" · ") }))),
-    );
-  const wineNames = new Map(wines.map((w) => [w.id, w.name]));
 
   // Sezioni fisse + menù speciali degli eventi: per cercare voci e gruppi servono tutte.
   const eventSections = promos.flatMap((p) => (p.section ? [p.section] : []));
@@ -193,6 +186,15 @@ export function MenuEditor({
       : [],
   );
   const isSold = (item: EditorItem) => localSold[item.id] ?? item.soldOut;
+  // Vini del menù fisso: scelta dell'abbinamento e nomi mostrati nell'elenco dei piatti.
+  const wines: PairWine[] = sections
+    .filter((s) => s.kind === "WINE")
+    .flatMap((s) =>
+      s.groups.flatMap((g) =>
+        g.items.map((i) => ({ id: i.id, name: i.name, section: s.label, detail: [i.sub, priceSummary(i, "WINE")].filter(Boolean).join(" · "), soldOut: isSold(i) })),
+      ),
+    );
+  const wineNames = new Map(wines.map((w) => [w.id, w.name]));
   const soldOutCount = allSections.reduce(
     (n, s) => n + s.groups.reduce((m, g) => m + g.items.filter(isSold).length, 0),
     0,
