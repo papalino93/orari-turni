@@ -1,7 +1,9 @@
 import Image from "next/image";
+import Link from "next/link";
 import { businessDayKey, formatPrice, isSoldOut, nb } from "@/lib/menu-format";
-import { loadMenu } from "@/lib/menu";
+import { loadCover, loadMenu } from "@/lib/menu";
 import { MenuNav } from "./menu-nav";
+import { Ornament } from "./ornament";
 
 // Pagina in cache, rigenerata ogni minuto e a ogni modifica del menù (vedi
 // revalidateMenu): regge i picchi di scansioni del QR senza interrogare il
@@ -10,18 +12,6 @@ import { MenuNav } from "./menu-nav";
 export const revalidate = 60;
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-
-function Ornament({ color }: { color: string }) {
-  return (
-    <div className="flex items-center justify-center gap-[7px]" aria-hidden>
-      <div className="h-px w-7" style={{ background: color }} />
-      <div className="h-[5px] w-[5px] rotate-45 border" style={{ borderColor: color }} />
-      <div className="h-[3px] w-[3px] rotate-45" style={{ background: color }} />
-      <div className="h-[5px] w-[5px] rotate-45 border" style={{ borderColor: color }} />
-      <div className="h-px w-7" style={{ background: color }} />
-    </div>
-  );
-}
 
 function GlassIcon() {
   return (
@@ -44,7 +34,7 @@ function BottleIcon() {
 
 export default async function MenuPage() {
   const dayKey = businessDayKey();
-  const loaded = await loadMenu();
+  const [loaded, cover] = await Promise.all([loadMenu(), loadCover()]);
 
   // Vini esauriti: spariscono. Piatti esauriti: restano, sbiaditi. Un gruppo
   // o una sezione senza nulla da mostrare non compare (né il suo chip).
@@ -130,14 +120,14 @@ export default async function MenuPage() {
               <Ornament color="#9C7A45" />
             </div>
 
-            {(section.note || section.cover) && (
+            {(section.note || (section.coverApplies && cover)) && (
               <div className="mx-auto mt-8 flex max-w-[400px] flex-col items-center gap-2 border-y px-1 py-[18px] text-center">
                 {section.note && (
                   <p className="m-0 text-balance text-[16.5px] italic leading-normal text-[#3F4540]">{section.note}</p>
                 )}
-                {section.cover && (
+                {section.coverApplies && cover && (
                   <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.22em] text-[#6B1020]">
-                    {section.cover}
+                    {cover}
                   </div>
                 )}
               </div>
@@ -225,6 +215,12 @@ export default async function MenuPage() {
           <p className="m-0 max-w-[420px] text-balance text-[15.5px] italic leading-normal text-[#5B605A]">
             Prezzi in euro. I vini indicati “Enomatic” fanno parte del Progetto Enomatic.
           </p>
+          <Link
+            href="/menu/allergeni"
+            className="menu-sans flex min-h-11 items-center text-[11px] font-medium uppercase tracking-[0.22em] underline underline-offset-4"
+          >
+            Allergeni e intolleranze
+          </Link>
         </div>
       </main>
 

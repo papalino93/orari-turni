@@ -4,20 +4,14 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { tryParsePrice } from "@/lib/menu-format";
 import { ValidationError } from "@/lib/validation";
 
-// Accetta "7", "7,5", "7,50", "7.50", "€ 7" e i simboli di "nessun prezzo"
-// ("", "—", "-"). Restituisce i centesimi, oppure null se non c'è prezzo.
+// Come tryParsePrice, ma lancia un errore leggibile se non è un prezzo.
 export function parsePrice(value: unknown, field: string): number | null {
-  if (value === null || value === undefined) return null;
-  const raw = String(value).replace(/€/g, "").replace(/\s/g, "");
-  if (raw === "" || raw === "—" || raw === "-" || raw === "–") return null;
-  if (!/^\d{1,4}([.,]\d{1,2})?$/.test(raw)) {
-    throw new ValidationError(`Prezzo ${field} non valido (esempio: 7 oppure 7,50).`);
-  }
-  const cents = Math.round(Number(raw.replace(",", ".")) * 100);
-  if (cents <= 0) throw new ValidationError(`Prezzo ${field} non valido.`);
-  return cents;
+  const parsed = tryParsePrice(value);
+  if (!parsed.ok) throw new ValidationError(`Prezzo ${field} non valido (esempio: 7 oppure 7,50).`);
+  return parsed.cents;
 }
 
 // Sezioni → gruppi → voci non eliminate, nell'ordine di visualizzazione.
@@ -33,6 +27,13 @@ export async function loadMenu() {
       },
     },
   });
+}
+
+// Testo del coperto (es. "Coperto € 1,00"), uguale per tutte le sezioni di
+// cucina; null se non c'è.
+export async function loadCover(): Promise<string | null> {
+  const setting = await prisma.menuSetting.findUnique({ where: { id: "cover" } });
+  return setting?.value.trim() ? setting.value : null;
 }
 
 export type LoadedMenu = Awaited<ReturnType<typeof loadMenu>>;

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getMenuEditor } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
 import { businessDayKey, isSoldOut } from "@/lib/menu-format";
-import { loadMenu } from "@/lib/menu";
+import { loadCover, loadMenu } from "@/lib/menu";
 import { MenuEditor, type EditorSection, type HistoryEntry } from "./menu-editor";
 
 export default async function GestioneMenuPage() {
@@ -13,8 +13,9 @@ export default async function GestioneMenuPage() {
   if (!editor) redirect("/mie-ore");
 
   const dayKey = businessDayKey();
-  const [menu, history] = await Promise.all([
+  const [menu, cover, history] = await Promise.all([
     loadMenu(),
+    loadCover(),
     prisma.menuChange.findMany({ orderBy: { at: "desc" }, take: 60 }),
   ]);
 
@@ -25,7 +26,7 @@ export default async function GestioneMenuPage() {
     title: s.title,
     kind: s.kind,
     note: s.note,
-    cover: s.cover,
+    coverApplies: s.coverApplies,
     addonTitle: s.addonTitle,
     addon: s.addon,
     groups: s.groups.map((g) => ({
@@ -43,6 +44,8 @@ export default async function GestioneMenuPage() {
         priceBottleCents: i.priceBottleCents,
         priceCents: i.priceCents,
         enomatic: i.enomatic,
+        allergens: i.allergens,
+        allergensReviewed: i.allergensReviewed,
         soldOut: isSoldOut(i, dayKey),
       })),
     })),
@@ -57,5 +60,5 @@ export default async function GestioneMenuPage() {
     undone: h.undoneById !== null,
   }));
 
-  return <MenuEditor sections={sections} history={entries} />;
+  return <MenuEditor sections={sections} cover={cover} history={entries} />;
 }

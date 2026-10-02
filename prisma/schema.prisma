@@ -240,7 +240,9 @@ model MenuSection {
   title        String
   kind         MenuSectionKind
   note         String?
-  cover        String? // testo del coperto, mostrato sotto la nota
+  // Il coperto è uno solo per tutto il menù (vedi MenuSetting "cover"): qui si
+  // segna solo in quali sezioni va mostrato (tutta la parte di cucina).
+  coverApplies Boolean         @default(false)
   addonTitle   String? // titoletto dell'avviso (es. "Novità · Oli aromatizzati")
   addon        String? // testo dell'avviso a fondo sezione
   sortOrder    Int             @default(0)
@@ -297,6 +299,13 @@ model MenuItem {
   @@index([groupId, sortOrder])
 }
 
+// Impostazioni uniche del menù, chiave → testo. Oggi solo "cover" (il testo del
+// coperto, es. "Coperto € 1,00"); vuoto = nessun coperto.
+model MenuSetting {
+  id    String @id
+  value String
+}
+
 enum MenuChangeAction {
   CREATE
   UPDATE
@@ -314,7 +323,7 @@ model MenuChange {
   at        DateTime         @default(now())
   actorName String
   action    MenuChangeAction
-  entity    String // "item" | "group" | "section"
+  entity    String // "item" | "group" | "section" | "setting"
   entityId  String
   label     String // nome leggibile della voce/gruppo al momento
   before    Json?
