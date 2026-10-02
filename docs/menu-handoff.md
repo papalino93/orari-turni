@@ -39,6 +39,37 @@ Dove sta nel codice:
 - Gestione: `gestione-menu/promo-actions.ts` (crea, modifica, nascondi, elimina, duplica, foto), `promo-ui.tsx` (scheda, foglio di creazione/modifica, duplicazione), `menu-editor.tsx` (selezione sezione o pagina, elenco corrente e archivio), `item-sheet.tsx` (formati). Registro modifiche condiviso in `src/lib/menu-log.ts`; ridimensionamento foto in `src/lib/image-resize.ts`; helper date e stato in `src/lib/menu-format.ts` (`promoStatus`, `formatPromoDates`…).
 - L'annullamento dello storico copre anche l'entità `promo` (campi in `RESTORABLE.promo`).
 
+### Blocchi informativi: progetto concordato, NON ancora implementato
+Richiesta del titolare: poter aggiungere "altre cose" al menù un domani (un tastino «+» nel riquadro in alto «Coperto e chiusura cucina»), decidendo **dove** piazzarle e **di che tipo** sono; anche coperto e chiusura cucina devono poter essere piazzati dove vuole. Soluzione: coperto e chiusura cucina diventano i primi due di tanti **blocchi** uguali.
+
+Decisioni già prese con il titolare:
+- **Tre tipi**: testo semplice; voce con prezzo (es. «Coperto € 1,00», «Servizio 10%», «Tavolo all'aperto + € 2»); avviso evidenziato (es. «Domenica cucina chiusa»).
+- **Dove compare**: in cima al menù (sotto «In evidenza», sopra la barra sezioni), in fondo (sopra la legenda allergeni), oppure **sotto il titolo di una o più sezioni** (anche più sezioni insieme, compresi i menù speciali degli eventi). NON serve il posizionamento «dopo un gruppo preciso» (scartato: troppe scelte, punto fragile se si riordinano i gruppi).
+- **Quando**: facoltativamente dal giorno X al giorno Y (giorno commerciale, come gli eventi); poi sparisce da solo. Interruttore «Nascondi».
+- **Ordine**: più blocchi nello stesso punto si riordinano con le frecce.
+- Aspetto: voce con prezzo = riga in maiuscoletto bordeaux («COPERTO € 1,00»); testo = paragrafo corsivo; avviso = riquadro con filetti. Coerente con il design del menù.
+
+Progetto tecnico proposto:
+```prisma
+enum MenuBlockKind { TEXT PRICE NOTICE }
+enum MenuBlockPlacement { TOP BOTTOM SECTIONS }
+model MenuBlock {
+  id String @id @default(cuid()); kind MenuBlockKind
+  label String?        // es. "Coperto" (titoletto o etichetta del prezzo)
+  text String?         // testo o avviso
+  priceCents Int?      // solo PRICE
+  placement MenuBlockPlacement
+  sectionIds String[]  // solo SECTIONS: id delle MenuSection (anche sezioni collegate a eventi)
+  startDate String?; endDate String?   // giorni commerciali, facoltativi
+  hidden Boolean @default(false); sortOrder Int @default(0); deletedAt DateTime?
+  createdAt DateTime @default(now()); updatedAt DateTime @updatedAt
+}
+```
+- Migrazione dati: da `MenuSetting` `cover` → blocco PRICE «Coperto» (analizza «€ 1,00» → 100 centesimi; se non analizzabile, blocco TEXT) e da `kitchenNote` → blocco TEXT; entrambi con `placement = SECTIONS` e `sectionIds` = sezioni con `coverApplies = true`; poi eliminare `MenuSection.coverApplies` e le due impostazioni (la tabella `MenuSetting` può restare).
+- Gestione: il riquadro in alto diventa «Informazioni del menù» con l'elenco dei blocchi (icona per tipo, riassunto, chip «Dove», date) e «+ Aggiungi blocco». Foglio di modifica: tipo (3 pulsanti), campi secondo il tipo, «Dove compare» (in cima / in fondo / sotto il titolo di sezioni + spunte delle sezioni, eventi compresi), «Dal / Al» facoltativi, Nascondi, Elimina, frecce per l'ordine. La scheda «Testi di questa sezione» elenca i blocchi che compaiono in quella sezione (con «Modifica»). Storico e «Annulla» come per il resto (nuova entità `block` in `RESTORABLE`).
+- Pubblico: un componente `MenuBlocks` per i tre punti (sostituisce la logica di `coverApplies` in `page.tsx` e `promo-content.tsx`); blocchi scaduti o nascosti non compaiono; cache da rigenerare (`revalidateMenu`).
+- Test: nuova suite `scripts/menu-e2e/blocks.mjs` (creazione dei tre tipi, i tre punti, sezioni multiple, date, nascondi, ordine, migrazione coperto/chiusura cucina invariata, permessi).
+
 ### Passo 2: copertina, orari, contatti
 - Copertina più bassa (circa metà schermo); foto e righe del titolo modificabili dalla gestione.
 - Orari per giorno (anche spezzati) + eccezioni per data (aperture/chiusure straordinarie) + indicazione automatica «Aperto ora · chiude alle 22:00» / «Chiuso · riapre domani alle 16:30»; non compare se mancano gli orari. Dalla scheda Google: lun e mar 17–21:30; mer, ven, sab 10–13 e 16:30–22; gio 10–13 e 16:30–22:30; dom 16:30–21.
