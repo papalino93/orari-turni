@@ -11,6 +11,7 @@ import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
 import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
 import { HistorySheet, SectionTextsSheet } from "./side-sheets";
+import { ContactsSheet, HeroSheet, HoursSheet, VenuePanel, type EditorVenue, type VenueSheetKind } from "./venue-ui";
 
 export type EditorItem = {
   id: string;
@@ -84,6 +85,7 @@ type SheetState =
   | { type: "import"; groupId: string }
   | { type: "texts" }
   | { type: "block"; id: string | null }
+  | { type: "venue"; kind: VenueSheetKind }
   | { type: "history" }
   | { type: "promo"; id: string | null }
   | { type: "promo-duplicate"; id: string }
@@ -107,12 +109,14 @@ export function MenuEditor({
   promos,
   today,
   blocks,
+  venue,
   history,
 }: {
   sections: EditorSection[];
   promos: EditorPromo[];
   today: string;
   blocks: MenuBlockView[];
+  venue: EditorVenue;
   history: HistoryEntry[];
 }) {
   const router = useRouter();
@@ -156,8 +160,6 @@ export function MenuEditor({
     (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed).length, 0) : 0),
     0,
   );
-  const missingIn = (s: EditorSection | null) =>
-    s && s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed).length, 0) : 0;
   // Piatti con allergeni da compilare, nell'ordine in cui si vedono (sezioni fisse, poi eventi non conclusi):
   // servono al percorso «Compila allergeni».
   const missingQueue: QueueItem[] = [
@@ -351,6 +353,8 @@ export function MenuEditor({
         onAdd={() => setSheet({ type: "block", id: null })}
       />
 
+      <VenuePanel venue={venue} onOpen={(kind) => setSheet({ type: "venue", kind })} />
+
       {missingAllergens > 0 && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-3 text-sm text-gold">
           <p className="min-w-0 flex-1">
@@ -530,6 +534,11 @@ export function MenuEditor({
       {sheet?.type === "import" && section && (
         <ImportSheet key={sheet.groupId} section={section} groupId={sheet.groupId} run={run} onClose={() => setSheet(null)} />
       )}
+      {sheet?.type === "venue" && sheet.kind === "hero" && <HeroSheet venue={venue} run={run} onClose={() => setSheet(null)} />}
+      {sheet?.type === "venue" && sheet.kind === "hours" && (
+        <HoursSheet hours={venue.hours} today={today} run={run} onClose={() => setSheet(null)} />
+      )}
+      {sheet?.type === "venue" && sheet.kind === "contacts" && <ContactsSheet contacts={venue.contacts} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "block" && (sheet.id === null || blockToEdit) && (
         <BlockSheet key={sheet.id ?? "new"} block={blockToEdit} choices={sectionChoices} run={run} onClose={() => setSheet(null)} />
       )}

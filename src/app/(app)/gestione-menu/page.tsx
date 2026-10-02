@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getMenuEditor } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
 import { businessDayKey, isSoldOut, parseVariants } from "@/lib/menu-format";
-import { loadBlocks, loadMenu, loadPromosForEditor } from "@/lib/menu";
+import { loadBlocks, loadMenu, loadPromosForEditor, loadVenue } from "@/lib/menu";
 import { MenuEditor, type EditorPromo, type EditorSection, type HistoryEntry } from "./menu-editor";
 
 type LoadedSection = Awaited<ReturnType<typeof loadMenu>>[number];
@@ -50,10 +50,11 @@ export default async function GestioneMenuPage() {
   if (!editor) redirect("/mie-ore");
 
   const dayKey = businessDayKey();
-  const [menu, promoRows, blocks, history] = await Promise.all([
+  const [menu, promoRows, blocks, venueData, history] = await Promise.all([
     loadMenu(),
     loadPromosForEditor(),
     loadBlocks(),
+    loadVenue(),
     prisma.menuChange.findMany({ orderBy: { at: "desc" }, take: 60 }),
   ]);
 
@@ -84,5 +85,5 @@ export default async function GestioneMenuPage() {
     undone: h.undoneById !== null,
   }));
 
-  return <MenuEditor sections={sections} promos={promos} today={dayKey} blocks={blocks} history={entries} />;
+  return <MenuEditor sections={sections} promos={promos} today={dayKey} blocks={blocks} venue={venueData} history={entries} />;
 }

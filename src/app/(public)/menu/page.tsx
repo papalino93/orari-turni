@@ -1,12 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { businessDayKey, formatPrice, isSoldOut, nb, parseVariants, promoStatus } from "@/lib/menu-format";
-import { loadMenu, loadVisibleBlocks, loadVisiblePromos } from "@/lib/menu";
+import { loadMenu, loadVenue, loadVisibleBlocks, loadVisiblePromos } from "@/lib/menu";
 import { VERSION_LABEL } from "@/lib/version";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
 import { InEvidenza } from "./in-evidenza";
 import { Variants } from "./item-prices";
 import { MenuBlocks } from "./menu-blocks";
+import { OpenStatusPill } from "./open-status";
+import { VenueInfo } from "./venue-footer";
 import { MenuNav } from "./menu-nav";
 import { PromoContent } from "./promo-content";
 import { Ornament } from "./ornament";
@@ -40,7 +42,8 @@ function BottleIcon() {
 
 export default async function MenuPage() {
   const dayKey = businessDayKey();
-  const [loaded, blocks, promos] = await Promise.all([loadMenu(), loadVisibleBlocks(dayKey), loadVisiblePromos(dayKey)]);
+  const [loaded, blocks, promos, venue] = await Promise.all([loadMenu(), loadVisibleBlocks(dayKey), loadVisiblePromos(dayKey), loadVenue()]);
+  const heroLines = venue.hero.title.split("\n");
   const topBlocks = blocks.filter((b) => b.placement === "TOP");
   const bottomBlocks = blocks.filter((b) => b.placement === "BOTTOM");
 
@@ -68,15 +71,25 @@ export default async function MenuPage() {
 
   return (
     <>
-      <header className="relative flex min-h-svh flex-col items-center justify-between overflow-hidden bg-[#5A0E18] px-6 pb-[30px] pt-[max(28px,env(safe-area-inset-top))] text-center text-[#F1E8DA]">
-        <Image
-          src="/menu/hero.jpg"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover [filter:saturate(0.75)_contrast(1.05)_brightness(0.95)] [object-position:50%_40%]"
-        />
+      <header className="relative flex min-h-[min(100svh,560px)] flex-col items-center justify-between overflow-hidden bg-[#5A0E18] px-6 pb-[30px] pt-[max(28px,env(safe-area-inset-top))] text-center text-[#F1E8DA]">
+        {venue.heroImageVersion ? (
+          // eslint-disable-next-line @next/next/no-img-element -- foto caricata dal titolare, servita con cache lunga
+          <img
+            src={`/menu/copertina?v=${venue.heroImageVersion}`}
+            alt=""
+            fetchPriority="high"
+            className="absolute inset-0 h-full w-full object-cover [filter:saturate(0.75)_contrast(1.05)_brightness(0.95)] [object-position:50%_40%]"
+          />
+        ) : (
+          <Image
+            src="/menu/hero.jpg"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover [filter:saturate(0.75)_contrast(1.05)_brightness(0.95)] [object-position:50%_40%]"
+          />
+        )}
         <div className="pointer-events-none absolute inset-0 bg-[#6E1424] opacity-50 mix-blend-color" />
         <div className="pointer-events-none absolute inset-0 bg-[#4A0A15] opacity-[0.32]" />
         <div className="pointer-events-none absolute inset-0 [background:linear-gradient(180deg,rgba(38,4,10,0.45)_0%,rgba(38,4,10,0.12)_38%,rgba(38,4,10,0.35)_62%,rgba(38,4,10,0.88)_100%)]" />
@@ -93,10 +106,23 @@ export default async function MenuPage() {
           <div className="flex flex-col items-center gap-3.5">
             <div className="h-9 w-px bg-[#B8955E]" />
             <div className="menu-serif text-[32px] font-medium leading-[1.2] tracking-[0.01em] text-[#F4EDE1] [text-shadow:0_1px_12px_rgba(20,2,6,0.6)]">
-              Carta dei vini
-              <br />
-              <span className="text-[27px] italic text-[#E3D4BC]">e</span> Menù
+              {heroLines.map((line, i) => {
+                // «e Menù»: la «e» iniziale resta in corsivo, come nel titolo di partenza.
+                const lead = line.match(/^e\s+(.*)$/);
+                return (
+                  <span key={i} className="block">
+                    {lead ? (
+                      <>
+                        <span className="text-[27px] italic text-[#E3D4BC]">e</span> {lead[1]}
+                      </>
+                    ) : (
+                      line
+                    )}
+                  </span>
+                );
+              })}
             </div>
+            <OpenStatusPill hours={venue.hours} />
           </div>
         </div>
         {chips.length > 0 ? (
@@ -263,6 +289,7 @@ export default async function MenuPage() {
         <img src="/menu/logo.png" alt="L’Angolo del Vino" className="h-auto w-[200px] [filter:invert(1)_sepia(0.25)]" />
         <Ornament color="#C9A96E" />
         <div className="menu-sans text-[10px] uppercase tracking-[0.4em] text-[#E9DCC4]">Enoteca</div>
+        <VenueInfo hours={venue.hours} contacts={venue.contacts} />
         <div className="menu-sans text-[10px] tracking-[0.1em] text-[#E9DCC4]/60">{VERSION_LABEL}</div>
       </footer>
     </>

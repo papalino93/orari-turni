@@ -25,17 +25,20 @@ PR #30, #31 (menù, allergeni, incolla in blocco, coperto), #32 (questo document
 
 ## Regola del titolare: numero di versione
 Il titolare vuole **sempre il numero di versione sia sul sito sia nella chat**.
-- Sul sito: etichetta `v0.3.0 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
-- **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.3.0**.
+- Sul sito: etichetta `v0.4.0 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
+- **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.4.0**.
 - In chat: a ogni risposta che riguarda un rilascio scrivi «Versione X.Y.Z» (quella pubblicata in produzione, verificata sul sito).
+
+## ATTENZIONE: una sola sessione alla volta
+Il 2 ottobre due sessioni hanno lavorato insieme sullo stesso repo (stesso database per anteprime e produzione): una migrazione distruttiva eseguita da un'anteprima (`20261004100000_menu_blocks`, toglie `coverApplies`) ha rotto la rigenerazione di `/menu` in produzione finché il codice nuovo non è stato unito. **Prima di iniziare controlla `git branch -r` e i commit recenti; non pubblicare migrazioni da più branch; ogni push di un branch con migrazioni le esegue sul database condiviso.**
 
 ## Giro di bug e UX del 2 ottobre (v0.2.1)
 Trovato e corretto: barra sezioni del menù che in fondo alla pagina restava su «Tartare» invece di «Bevande»; nomi molto lunghi o prezzi con decimali/migliaia che si sovrapponevano ai prezzi sul menù pubblico (colonne prezzo ora `min-w`, testo con `overflow-wrap:anywhere`); nomi e sottotitoli delle righe in gestione tagliati con «…» (ora fino a 2 righe); fogli di gestione senza `overscroll-contain` (la pagina dietro poteva scorrere). Controllati senza difetti: nessun overflow orizzontale a 360/390/834/1366 px su menù, allegeni e gestione; Esc chiude i fogli; campi data nei fogli evento. Note: a 1366 px il contenuto della gestione (max-w-5xl) è un po' più stretto del banner e dell'intestazione (max-w-6xl): solo estetica. Suite al termine: public 23, editor 53, allergeni 56, compile-flow 12, eventi 40.
 
 ## Tutto ciò che MANCA da fare (riepilogo, in quest'ordine consigliato)
-1. **Vista allergeni da compilare**: il titolare non è convinto della barra fissa; decidere (vedi «Dubbio…» più sotto) e chiudere. Proposta: un solo pulsante «Compila allergeni (N da fare)» + foglio con «1 di N» e «Salva e passa al successivo».
+1. ~~Vista allergeni da compilare~~ **FATTO (v0.3.0)**: pulsante «Compila allergeni (N da fare)», foglio «Allergeni · 1 di N», «Salva e passa al successivo» / «Salta questo piatto».
 2. ~~Blocchi informativi~~ **FATTO (v0.3.0)**, vedi sotto.
-3. **Passo 2: copertina, orari, contatti**: copertina più bassa con foto e titolo modificabili; orari settimanali con eccezioni (chiusure e aperture straordinarie) e «Aperto ora / Chiuso» automatico (dati iniziali dagli orari Google, il titolare ha mandato lo screenshot); contatti: Chiama (338 327 7053, modificabile), WhatsApp con messaggio precompilato (testo da confermare), Come arrivare (Via dei Rossi 53/C, Scandicci, indirizzo modificabile), Scrivi una recensione Google (`https://share.google/ads9ad7vXNVdN2B4t`, da verificare che sia il link giusto), Instagram (URL già dato dal titolare in chat: richiederlo se manca).
+3. ~~Passo 2: copertina, orari, contatti~~ **FATTO (v0.4.0)**, vedi sotto.
 4. **Passo 3: «Oggi fuori menù»**: piatti e vini del giorno esauriti in una vista veloce, si azzera da solo alle 5:00, «Riproponi».
 5. **Passo 4: strumenti per i clienti**: ricerca, filtri (Al calice, Enomatic), «Torna su», dimensione del testo (A+), discreti nella barra sezioni.
 6. **Passo 5: comodità per chi gestisce**: ricerca di una voce, anteprima in cornice da telefono (affiancata sul PC), riquadro «Da fare».
@@ -72,10 +75,15 @@ Coperto, chiusura cucina e qualsiasi altra informazione sono **blocchi** (`MenuB
 - **Pubblico**: `src/app/(public)/menu/menu-blocks.tsx` (`MenuBlocks`, `MenuBlockItem`) per i tre punti; `loadBlocks`/`loadVisibleBlocks` in `src/lib/menu.ts`; helper puri (`blockStatus`, `priceLine`, `blockSummary`…) in `menu-format.ts`.
 - Test: `scripts/menu-e2e/blocks.mjs` (46 controlli). Le suite usano `DB` e `resetBlocks()` di `scripts/menu-e2e/lib.mjs`.
 
-### Dubbio del titolare sulla vista «allergeni da compilare» (da risolvere)
-Il titolare ha detto che la barra fissa con avanzamento «non lo convince tantissimo». Mia analisi: a 390 px occupa circa 80 px e copre le chip delle sezioni; il filtro è un modo in più da capire; la parte davvero utile è «Salva e vai al prossimo». **Proposta fatta, non ancora confermata**: sostituire barra e filtro con un solo pulsante «Compila allergeni (N da fare)» che apre il foglio del primo piatto mancante con contatore «1 di N» e «Salva e passa al successivo», lista normale senza barra fissa. Se il titolare conferma, farla (`menu-editor.tsx`: `foodSections`, `missingItems`, `nextMissing`, `compileMode`; `item-sheet.tsx`: `nextMissing`, `onNext`) e aggiornare `scripts/menu-e2e/compile-flow.mjs`; se indica un punto preciso, partire da quello.
+### Passo 2: copertina, orari, contatti — FATTO (v0.4.0)
+Gestione: riquadro «Il locale · copertina, orari, contatti» (3 righe con «Modifica») sotto «Informazioni del menù».
+- **Copertina** (`HeroSheet`): titolo fino a 3 righe («e Menù» tiene la «e» in corsivo) e foto di sfondo caricabile (ridimensionata sul telefono, tabella `MenuHeroImage`, servita da `/menu/copertina?v=`); «Torna alla foto predefinita». Copertina più bassa (max 560 px).
+- **Orari** (`HoursSheet`): 7 giorni con fasce anche spezzate («Come il giorno prima»), eccezioni per data (chiuso oppure aperto con orario, motivo, e «Pubblica anche un annuncio sul menù» che crea un annuncio in «In evidenza»); interruttore «Aperto ora / Chiuso». Lo stato si calcola **sul telefono** (`OpenStatusPill`, ora di Roma, `openStatus` in `src/lib/menu-venue.ts`), quindi resta giusto anche con la pagina in cache. In fondo al menù la tabella degli orari raggruppa i giorni uguali.
+- **Contatti** (`ContactsSheet`): telefono, messaggio WhatsApp, indirizzo, Instagram, link recensione (https obbligatorio). In fondo al menù pulsanti Chiama / WhatsApp / Come arrivare / Lascia una recensione / Instagram, ognuno compare solo se ha il dato.
+- Dati: impostazioni JSON `hero`, `hours`, `contacts` in `MenuSetting` (valori di partenza inseriti dalla migrazione `20261004140000_menu_venue`: orari della scheda Google, telefono 338 327 7053, Via dei Rossi 53/C, Instagram e recensione indicati dal titolare); salvataggi nello storico con «Annulla» (la foto no). Codice: `src/lib/menu-venue.ts` (puro), `loadVenue()` in `menu.ts`, `venue-actions.ts`, `venue-ui.tsx`, pubblico `open-status.tsx`, `venue-footer.tsx`, `copertina/route.ts`.
+- Test: `scripts/menu-e2e/venue.mjs` (30 controlli; orologio del browser bloccato su lunedì 5/10/2026 19:00; richiede `sharp`).
+- Da fare dal titolare: provare dal telefono il link della recensione (`https://share.google/ads9ad7vXNVdN2B4t`) e confermare il testo del messaggio WhatsApp.
 
-### Passo 2: copertina, orari, contatti
 - Copertina più bassa (circa metà schermo); foto e righe del titolo modificabili dalla gestione.
 - Orari per giorno (anche spezzati) + eccezioni per data (aperture/chiusure straordinarie) + indicazione automatica «Aperto ora · chiude alle 22:00» / «Chiuso · riapre domani alle 16:30»; non compare se mancano gli orari. Dalla scheda Google: lun e mar 17–21:30; mer, ven, sab 10–13 e 16:30–22; gio 10–13 e 16:30–22:30; dom 16:30–21.
 - Contatti in un solo posto, modificabili: telefono 338 327 7053, indirizzo Via dei Rossi 53C, 50018 Scandicci FI, Instagram `https://www.instagram.com/langolo.del.vino_enoteca/`, recensione Google `https://share.google/ads9ad7vXNVdN2B4t` (porta al profilo Google dell'attività, da cui si scrive la recensione con un tocco in più; il link diretto alla finestra di recensione si prende da Profilo dell'attività → "Chiedi recensioni" e si può sostituire dalla gestione). Pulsanti: Chiama, WhatsApp (messaggio precompilato per prenotare), Come arrivare (Google Maps), Lascia una recensione, Instagram; un pulsante senza dato non compare.
@@ -128,6 +136,7 @@ Regole già decise per gli allergeni: nel dubbio, in più. Il primo elenco è ne
    node scripts/menu-e2e/compile-flow.mjs               # vista allergeni da compilare, «Compila», «Salva e vai a…» (12 controlli; azzera lo stato: tutto il cibo compilato tranne i due kombucha)
    node scripts/menu-e2e/blocks.mjs                      # blocchi informativi: tipi, punti, sezioni, date, nascondi, ordine, eventi, permessi (46 controlli)
    node scripts/demo-seed.mjs                            # (facoltativo, DOPO le suite) dipendenti, turni e ore inventati per provare e fotografare l'app
+   node scripts/menu-e2e/venue.mjs                       # copertina, orari, contatti (30 controlli)
    node scripts/menu-e2e/events.mjs                      # eventi, annunci, formati, archivio, permessi (40 controlli; richiede `npm i --no-save sharp` se manca)
    ```
    Contro `next start` (build di produzione) esporta anche `E2E_PROD=1`: la suite degli allergeni aspetta 62 secondi perché le pagine pubbliche sono in cache. Esegui `events.mjs` per ultima: lascia un evento in corso che altera le altre suite.

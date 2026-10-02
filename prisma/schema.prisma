@@ -345,9 +345,16 @@ model MenuPromoImage {
   updatedAt DateTime  @updatedAt
 }
 
-// Impostazioni uniche del menù, chiave → testo. Oggi non ne esiste nessuna in uso
-// (coperto e chiusura cucina sono diventati blocchi, vedi MenuBlock): la tabella
-// resta per le prossime.
+// Foto di copertina del menù (una sola, id "hero"); vuota = foto predefinita.
+model MenuHeroImage {
+  id        String   @id
+  data      Bytes
+  mimeType  String
+  updatedAt DateTime @updatedAt
+}
+
+// Impostazioni uniche del menù, chiave → testo (JSON): "hero", "hours" e
+// "contacts" (copertina, orari, contatti: vedi src/lib/menu-venue.ts).
 model MenuSetting {
   id    String @id
   value String

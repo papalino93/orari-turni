@@ -5,6 +5,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { blockStatus, tryParsePrice, type MenuBlockView } from "@/lib/menu-format";
+import { parseContacts, parseHero, parseHours } from "@/lib/menu-venue";
 import { ValidationError } from "@/lib/validation";
 
 // Come tryParsePrice, ma lancia un errore leggibile se non è un prezzo.
@@ -56,6 +57,22 @@ export async function loadBlocks(): Promise<MenuBlockView[]> {
 // Quelli da mostrare oggi sul menù dei clienti.
 export async function loadVisibleBlocks(dayKey: string): Promise<MenuBlockView[]> {
   return (await loadBlocks()).filter((b) => blockStatus(b, dayKey) === "live");
+}
+
+// Copertina, orari e contatti (impostazioni JSON); se mancano valgono i valori
+// di partenza. heroImage = versione della foto personalizzata (null = predefinita).
+export async function loadVenue() {
+  const [rows, image] = await Promise.all([
+    prisma.menuSetting.findMany({ where: { id: { in: ["hero", "hours", "contacts"] } } }),
+    prisma.menuHeroImage.findUnique({ where: { id: "hero" }, select: { updatedAt: true } }),
+  ]);
+  const raw = (id: string) => rows.find((r) => r.id === id)?.value ?? null;
+  return {
+    hero: parseHero(raw("hero")),
+    hours: parseHours(raw("hours")),
+    contacts: parseContacts(raw("contacts")),
+    heroImageVersion: image ? image.updatedAt.getTime() : null,
+  };
 }
 
 const promoInclude = {

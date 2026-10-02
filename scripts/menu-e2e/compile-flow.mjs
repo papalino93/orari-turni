@@ -18,40 +18,33 @@ await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 18
 const dialog = () => page.locator('[role="dialog"]');
 const settle = (ms = 1500) => page.waitForTimeout(ms);
 
-await page.getByRole("button", { name: "Vedi i piatti →" }).click();
-await settle(800);
-const bar = page.locator('[role="progressbar"]').locator("xpath=ancestor::div[contains(@class,'sticky')]");
-const barText = (await bar.innerText()).replace(/ /g, " ");
-check("vista da compilare: avanzamento 'N di N piatti compilati · 2 da fare'", new RegExp(`${totalFood - 2} di ${totalFood} piatti compilati · 2 da fare`).test(barText), barText.replace(/\n/g, " | "));
-check("vista da compilare: barra di avanzamento presente", (await page.locator('[role="progressbar"]').getAttribute("aria-valuenow")) === String(totalFood - 2));
-check("vista da compilare: apre la sezione Bevande con soli 2 piatti", (await page.locator("li button[aria-label^='Modifica ']").count()) === 2);
-check("vista da compilare: pulsante 'Compila' sulle righe", (await page.getByRole("button", { name: "Compila", exact: true }).count()) === 2);
-check("vista da compilare: niente 'Esaurito' sulle righe", (await page.getByRole("button", { name: "Esaurito", exact: true }).count()) === 0);
-const sticky = await bar.evaluate((el) => getComputedStyle(el).position);
-check("vista da compilare: la barra resta visibile (sticky)", sticky === "sticky");
-const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-check("vista da compilare: nessun overflow orizzontale a 390px", overflow <= 0, String(overflow));
-if (SHOTS) await page.screenshot({ path: `${SHOTS}/compila-390.png` });
-
-// Compila il primo e passa al prossimo
-await page.getByRole("button", { name: "Compila", exact: true }).first().click();
+const startBtn = page.getByRole("button", { name: /^Compila allergeni \(\d+ da fare\)$/ });
+check("banner: pulsante «Compila allergeni (2 da fare)»", (await startBtn.count()) === 1, await startBtn.innerText());
+check("niente barra fissa di filtro", (await page.locator('[role="progressbar"]').count()) === 0);
+check("righe normali: «Esaurito» resta disponibile", (await page.getByRole("button", { name: "Esaurito", exact: true }).count()) > 0);
+await startBtn.click();
 await dialog().waitFor();
+check("guidata: titolo «Allergeni · 1 di 2»", (await dialog().getByRole("heading", { name: "Allergeni · 1 di 2" }).count()) === 1);
 const firstName = await dialog().getByLabel("Nome", { exact: true }).inputValue();
 await dialog().getByRole("radio", { name: "Nessuno" }).click();
-const nextBtn = dialog().getByRole("button", { name: /^Salva e vai a/ });
-check("foglio: 'Salva e vai a …' presente per il piatto successivo", (await nextBtn.count()) === 1, await nextBtn.innerText());
-await nextBtn.click();
+check("guidata: «Salva e passa al successivo» presente", (await dialog().getByRole("button", { name: "Salva e passa al successivo" }).count()) === 1);
+check("guidata: «Salta questo piatto» presente", (await dialog().getByRole("button", { name: "Salta questo piatto" }).count()) === 1);
+const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+check("guidata: nessun overflow orizzontale a 390px", overflow <= 0, String(overflow));
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/compila-390.png` });
+await dialog().getByRole("button", { name: "Salva e passa al successivo" }).click();
 await settle(2200);
 await dialog().waitFor();
 const secondName = await dialog().getByLabel("Nome", { exact: true }).inputValue();
-check("foglio: si apre il piatto successivo", secondName !== firstName && /Kombucha/.test(secondName), `${firstName} → ${secondName}`);
-check("foglio: ultimo piatto, niente 'Salva e vai'", (await dialog().getByRole("button", { name: /^Salva e vai a/ }).count()) === 0);
+check("guidata: si apre il piatto successivo", secondName !== firstName && /Kombucha/.test(secondName), `${firstName} → ${secondName}`);
+check("guidata: titolo «Allergeni · 2 di 2»", (await dialog().getByRole("heading", { name: "Allergeni · 2 di 2" }).count()) === 1);
+check("guidata: ultimo piatto, niente «Salta»", (await dialog().getByRole("button", { name: "Salta questo piatto" }).count()) === 0);
 await dialog().getByRole("radio", { name: "Contiene…" }).click();
 await dialog().getByLabel("Solfiti").check();
-await dialog().getByRole("button", { name: "Salva", exact: true }).click();
+await dialog().getByRole("button", { name: "Salva e chiudi" }).click();
 await dialog().waitFor({ state: "detached" });
 await settle();
-check("fine: la vista da compilare sparisce quando non resta nulla", (await page.locator('[role="progressbar"]').count()) === 0 && (await page.getByText(/allergeni da compilare/i).count()) === 0);
+check("fine: l'avviso sparisce quando non resta nulla", (await page.getByText(/allergeni da compilare/i).count()) === 0);
 check("DB: entrambi i kombucha compilati", DB(`select count(*) from "MenuItem" where id in ('menu_itm_066','menu_itm_067') and "allergensReviewed"=true`) === "2");
 
 await browser.close();
