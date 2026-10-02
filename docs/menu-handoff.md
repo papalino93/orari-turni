@@ -106,7 +106,14 @@ Nella barra sezioni, a destra, due strumenti discreti; più «Torna su».
 - **Cerca una voce** (`search-ui.tsx`): campo in cima alla gestione, trova in tutto il menù (fisso, eventi, oggi) e segna «Esaurito» con un tocco; toccando il nome si apre la modifica.
 - **Anteprima** (`PreviewSheet` in `side-sheets.tsx`): il menù dei clienti in una cornice da telefono, con «Aggiorna».
 - Test: `scripts/menu-e2e/search.mjs` (11 controlli).
-- **Modalità servizio**: ancora SOLO da progettare (elenco unico per l'Esaurito, interruttori grandi); non implementare senza il via del titolare.
+- **Modalità servizio**: implementata ma **NON in produzione** (vedi sotto).
+
+### Modalità servizio — IMPLEMENTATA, NON IN PRODUZIONE (PR aperta, non unire)
+Il titolare l'ha voluta pronta ma **non pubblicata finché non l'ha vista lui** («potrebbe essere inutile o addirittura dannosa»). La PR resta aperta/bozza: **non unirla a `main` senza il suo ok esplicito**. Il codice è su `claude/modalita-servizio` (PR dedicata). Per vederla: anteprima Vercel della PR (che usa lo STESSO database di produzione: gli interruttori cambiano davvero il menù di oggi → alla fine «Riattiva tutto»).
+- Pagina `/gestione-menu/servizio` (`servizio/page.tsx`, `servizio/service-view.tsx`), stessi permessi della gestione; pulsante «Modalità servizio» nell'intestazione della gestione.
+- Un elenco unico di tutte le voci (prima «Oggi fuori menù» e gli eventi in corso), ricerca, filtri Tutto/Vini/Piatti/Esauriti, interruttori grandi (72×40 px) solo sull'interruttore (la riga non è cliccabile), nessuna modifica possibile; schermo sempre acceso (Wake Lock, dove disponibile); toast con «Annulla»; «Riattiva tutto» con doppia conferma; errori di rete: l'interruttore torna com'era.
+- Test: `scripts/menu-e2e/service.mjs` (27 controlli).
+- Rischi da valutare con il titolare: tocchi accidentali mentre si scorre (mitigati: solo l'interruttore, annulla, storico); più persone che segnano la stessa voce (vale l'ultimo); rumore in una sala poco connessa.
 
 ### Codice QR — FATTO (v0.5.0)
 «Codice QR» tra i pulsanti della gestione (`QrSheet`, libreria `qrcode`): indirizzo del sito da cui si sta lavorando + `/menu`, colore nero o bordeaux, download SVG (stampa) e PNG 1600 px. Test: `scripts/menu-e2e/qr.mjs` (8 controlli, legge il QR con `jsqr`; richiede `npm i --no-save sharp jsqr`).

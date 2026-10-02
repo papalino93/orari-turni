@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
 import { blockStatus, formatPrice, priceLine, type MenuBlockView } from "@/lib/menu-format";
@@ -349,6 +350,12 @@ export function MenuEditor({
           >
             Anteprima
           </button>
+          <Link
+            href="/gestione-menu/servizio"
+            className="flex min-h-10 items-center rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          >
+            Modalità servizio
+          </Link>
           <button
             type="button"
             onClick={() => setSheet({ type: "qr" })}
