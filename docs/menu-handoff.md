@@ -25,8 +25,8 @@ PR #30, #31 (menù, allergeni, incolla in blocco, coperto), #32 (questo document
 
 ## Regola del titolare: numero di versione
 Il titolare vuole **sempre il numero di versione sia sul sito sia nella chat**.
-- Sul sito: etichetta `v0.4.1 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
-- **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.4.1**.
+- Sul sito: etichetta `v0.5.0 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
+- **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.5.0**.
 - In chat: a ogni risposta che riguarda un rilascio scrivi «Versione X.Y.Z» (quella pubblicata in produzione, verificata sul sito).
 
 ## ATTENZIONE: una sola sessione alla volta
@@ -39,10 +39,10 @@ Trovato e corretto: barra sezioni del menù che in fondo alla pagina restava su 
 1. ~~Vista allergeni da compilare~~ **FATTO (v0.3.0)**: pulsante «Compila allergeni (N da fare)», foglio «Allergeni · 1 di N», «Salva e passa al successivo» / «Salta questo piatto».
 2. ~~Blocchi informativi~~ **FATTO (v0.3.0)**, vedi sotto.
 3. ~~Passo 2: copertina, orari, contatti~~ **FATTO (v0.4.0)**, vedi sotto.
-4. **Passo 3: «Oggi fuori menù»**: piatti e vini del giorno esauriti in una vista veloce, si azzera da solo alle 5:00, «Riproponi».
-5. **Passo 4: strumenti per i clienti**: ricerca, filtri (Al calice, Enomatic), «Torna su», dimensione del testo (A+), discreti nella barra sezioni.
-6. **Passo 5: comodità per chi gestisce**: ricerca di una voce, anteprima in cornice da telefono (affiancata sul PC), riquadro «Da fare».
-7. **Generatore del QR code**: pagina in gestione, download SVG/PNG verso `/menu` (libreria `qrcode`); NON toccare il QR stampato (qrco.de/bes4Ad): lo ripunta il titolare dopo aver compilato gli allergeni.
+4. ~~Passo 3: «Oggi fuori menù»~~ **FATTO (v0.5.0)**.
+5. ~~Passo 4: strumenti per i clienti~~ **FATTO (v0.5.0)**: ricerca, filtri, testo grande, «Torna su».
+6. ~~Passo 5: comodità per chi gestisce~~ **FATTO (v0.5.0)**: ricerca di una voce con «Esaurito», anteprima da telefono. Il riquadro «Da fare» non serve: l'unico avviso utile (allergeni) è già in cima alla gestione.
+7. ~~Generatore del QR code~~ **FATTO (v0.5.0)**: «Codice QR» in gestione (SVG/PNG). Il QR stampato (qrco.de/bes4Ad) NON è stato toccato: lo ripunta il titolare dopo aver compilato gli allergeni.
 8. **Modalità servizio**: solo progettare e discutere, NON implementare finché il titolare non conferma.
 9. **Inglese**: oggi solo italiano, ma i dati sono pronti per le traduzioni (colonne `translations`); nessun costo: niente traduzione automatica a pagamento.
 10. **In chiusura, sempre**: giro approfondito di bug e UX su telefono, tablet e PC (menù clienti e gestione), correggere, riassumere al titolare; aggiornare questo documento e il numero di versione.
@@ -88,19 +88,33 @@ Gestione: riquadro «Il locale · copertina, orari, contatti» (3 righe con «Mo
 - Orari per giorno (anche spezzati) + eccezioni per data (aperture/chiusure straordinarie) + indicazione automatica «Aperto ora · chiude alle 22:00» / «Chiuso · riapre domani alle 16:30»; non compare se mancano gli orari. Dalla scheda Google: lun e mar 17–21:30; mer, ven, sab 10–13 e 16:30–22; gio 10–13 e 16:30–22:30; dom 16:30–21.
 - Contatti in un solo posto, modificabili: telefono 338 327 7053, indirizzo Via dei Rossi 53C, 50018 Scandicci FI, Instagram `https://www.instagram.com/langolo.del.vino_enoteca/`, recensione Google `https://share.google/ads9ad7vXNVdN2B4t` (porta al profilo Google dell'attività, da cui si scrive la recensione con un tocco in più; il link diretto alla finestra di recensione si prende da Profilo dell'attività → "Chiedi recensioni" e si può sostituire dalla gestione). Pulsanti: Chiama, WhatsApp (messaggio precompilato per prenotare), Come arrivare (Google Maps), Lascia una recensione, Instagram; un pulsante senza dato non compare.
 
-### Passo 3: piatti e vini del giorno
-Sezione «Oggi fuori menù» in cima, che si azzera alle 5:00; «Riproponi» ripresenta quelli di ieri.
+### Passo 3: «Oggi fuori menù» — FATTO (v0.5.0)
+Piatti e vini che valgono solo oggi (il giorno cambia alle 5:00), con gli stessi campi e lo stesso editor delle voci normali.
+- **Dati**: due sezioni speciali `oggi-piatti` (FOOD) e `oggi-vini` (WINE) con `MenuSection.dailyOnly = true`, un gruppo ciascuna; le voci hanno `MenuItem.onlyDay` (giorno commerciale di validità). `loadMenu()` le esclude (non sono sezioni fisse); `loadDaily(dayKey)` e `loadDailyRecent(dayKey)` in `src/lib/menu.ts`. Migrazione `20261005120000_menu_daily`.
+- **Gestione**: riquadro «Oggi fuori menù» in cima (`daily-ui.tsx`): «+ Piatto», «+ Vino» (aprono l'editor normale), «Togli» (con Annulla), «Riproponi (N dei giorni scorsi)» (copia la voce con `onlyDay` = oggi, ultimi 14 giorni; le voci più vecchie di 60 giorni si cancellano a ogni «Riproponi»). Azioni: `saveItem` imposta `onlyDay` alla creazione, `reproposeItem` in `actions.ts`.
+- **Pubblico**: sezione «Oggi fuori menù» in cima, con chip «Oggi» (nessun numero romano: le altre restano I, II…); ogni gruppo ha il proprio tipo (`group.kind`) per prezzi e allergeni. Anche i piatti del giorno compaiono in `/menu/allergeni`.
+- Test: `scripts/menu-e2e/daily.mjs` (22 controlli).
 
-### Passo 4: strumenti per i clienti (nella barra sezioni, discreti)
-Ricerca (nome, zona, uvaggio, ingredienti), filtri «Al calice» ed «Enomatic», «Torna su», «A+» per il testo grande (ricordato nel dispositivo).
+### Passo 4: strumenti per i clienti — FATTO (v0.5.0)
+Nella barra sezioni, a destra, due strumenti discreti; più «Torna su».
+- **Ricerca** (`menu-search.tsx`): a tutto schermo, per nome, zona, uvaggio, ingredienti, anche senza accenti; filtri «Al calice» e «Enomatic»; scegliendo un risultato si torna al menù e la voce si evidenzia (classe `menu-found`, ancore `#v-<id>` sulle righe).
+- **«Aa» testo più grande**: `html[data-menu-large]` ingrandisce `.menu-main` (zoom 1.16), scelta ricordata nel browser (`localStorage`, chiave `menu-text-large`).
+- **«Torna su»**: pulsante rotondo che compare dopo circa 1,2 schermate.
+- Test: `scripts/menu-e2e/tools.mjs` (22 controlli).
 
-### Passo 5: comodità per chi gestisce
-Ricerca di una voce con interruttore Esaurito, anteprima in cornice da telefono (affiancata sul PC), riquadro «Da fare» (allergeni da compilare, esauriti da ieri, eventi in scadenza, orari straordinari mancanti).
+### Passo 5: comodità per chi gestisce — FATTO (v0.5.0)
+- **Cerca una voce** (`search-ui.tsx`): campo in cima alla gestione, trova in tutto il menù (fisso, eventi, oggi) e segna «Esaurito» con un tocco; toccando il nome si apre la modifica.
+- **Anteprima** (`PreviewSheet` in `side-sheets.tsx`): il menù dei clienti in una cornice da telefono, con «Aggiorna».
+- Test: `scripts/menu-e2e/search.mjs` (11 controlli).
+- **Modalità servizio**: ancora SOLO da progettare (elenco unico per l'Esaurito, interruttori grandi); non implementare senza il via del titolare.
 
-**Modalità servizio (elenco unico solo per l'Esaurito, interruttori grandi, niente modifica per sbaglio): il titolare vuole che venga solo PROGETTATA e discussa, NON implementata finché non lo conferma.**
+### Codice QR — FATTO (v0.5.0)
+«Codice QR» tra i pulsanti della gestione (`QrSheet`, libreria `qrcode`): indirizzo del sito da cui si sta lavorando + `/menu`, colore nero o bordeaux, download SVG (stampa) e PNG 1600 px. Test: `scripts/menu-e2e/qr.mjs` (8 controlli, legge il QR con `jsqr`; richiede `npm i --no-save sharp jsqr`).
 
-### Generatore del QR code (quando serve)
-Pagina in gestione con download SVG e PNG verso `/menu` (libreria `qrcode`). Non cambia il QR attuale.
+### Altre modifiche di v0.5.0
+- Gruppo «Metodi classici» → **«Metodo classico»** (migrazione `20261005100000`; la sezione si chiama già Bollicine).
+- **Rossi** divisi in «Italia» ed «Estero» (i due francesi: Famille Lançon, M. Chapoutier); i Bianchi hanno già «Italia» e «… dal mondo» (se il titolare vuole lo stesso nome, si rinomina dalla gestione). Migrazione `20261005110000`.
+- **Regione e Nazione** facoltative per i vini (`MenuItem.region`, `country`; campi nel foglio del vino; sul menù compaiono sotto il sottotitolo in maiuscoletto, es. «TOSCANA · ITALIA»). Per i vini già presenti sono vuoti, tranne la Nazione «Francia» dei due rossi esteri.
 
 ### In chiusura, sempre
 Giro approfondito di bug e UX su telefono, tablet e PC, per entrambe le parti (menù dei clienti e gestione); correggere ciò che si trova, poi riassumere al titolare.
@@ -137,6 +151,10 @@ Regole già decise per gli allergeni: nel dubbio, in più. Il primo elenco è ne
    node scripts/menu-e2e/blocks.mjs                      # blocchi informativi: tipi, punti, sezioni, date, nascondi, ordine, eventi, permessi (46 controlli)
    node scripts/demo-seed.mjs                            # (facoltativo, DOPO le suite) dipendenti, turni e ore inventati per provare e fotografare l'app
    node scripts/menu-e2e/venue.mjs                       # copertina, orari, contatti (30 controlli)
+   node scripts/menu-e2e/daily.mjs                       # oggi fuori menù (22)
+   node scripts/menu-e2e/tools.mjs                       # ricerca, testo grande, torna su (22)
+   node scripts/menu-e2e/search.mjs                      # ricerca in gestione e anteprima (11)
+   node scripts/menu-e2e/qr.mjs                          # codice QR (8; richiede jsqr)
    node scripts/menu-e2e/events.mjs                      # eventi, annunci, formati, archivio, permessi (40 controlli; richiede `npm i --no-save sharp` se manca)
    ```
    Contro `next start` (build di produzione) esporta anche `E2E_PROD=1`: la suite degli allergeni aspetta 62 secondi perché le pagine pubbliche sono in cache. Esegui `events.mjs` per ultima: lascia un evento in corso che altera le altre suite.

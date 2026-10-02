@@ -11,7 +11,8 @@ import { DailyPanel, type DailyData } from "./daily-ui";
 import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
 import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
-import { HistorySheet, SectionTextsSheet } from "./side-sheets";
+import { ItemSearch } from "./search-ui";
+import { HistorySheet, PreviewSheet, QrSheet, SectionTextsSheet } from "./side-sheets";
 import { ContactsSheet, HeroSheet, HoursSheet, VenuePanel, type EditorVenue, type VenueSheetKind } from "./venue-ui";
 
 export type EditorItem = {
@@ -91,6 +92,8 @@ type SheetState =
   | { type: "block"; id: string | null }
   | { type: "venue"; kind: VenueSheetKind }
   | { type: "history" }
+  | { type: "preview" }
+  | { type: "qr" }
   | { type: "promo"; id: string | null }
   | { type: "promo-duplicate"; id: string }
   | null;
@@ -339,6 +342,20 @@ export function MenuEditor({
           >
             Storico
           </button>
+          <button
+            type="button"
+            onClick={() => setSheet({ type: "preview" })}
+            className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          >
+            Anteprima
+          </button>
+          <button
+            type="button"
+            onClick={() => setSheet({ type: "qr" })}
+            className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          >
+            Codice QR
+          </button>
           <a
             href="/menu"
             target="_blank"
@@ -349,6 +366,13 @@ export function MenuEditor({
           </a>
         </div>
       </div>
+
+      <ItemSearch
+        sections={allSections.filter((s) => !s.promoId || effectiveStatus(promos.find((p) => p.id === s.promoId)!, today) !== "past")}
+        isSold={isSold}
+        onToggleSold={toggleSold}
+        onEdit={(item, groupId) => setSheet({ type: "item", itemId: item.id, groupId })}
+      />
 
       <DailyPanel
         daily={daily}
@@ -547,6 +571,8 @@ export function MenuEditor({
       {sheet?.type === "import" && section && (
         <ImportSheet key={sheet.groupId} section={section} groupId={sheet.groupId} run={run} onClose={() => setSheet(null)} />
       )}
+      {sheet?.type === "preview" && <PreviewSheet onClose={() => setSheet(null)} />}
+      {sheet?.type === "qr" && <QrSheet onClose={() => setSheet(null)} />}
       {sheet?.type === "venue" && sheet.kind === "hero" && <HeroSheet venue={venue} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "venue" && sheet.kind === "hours" && (
         <HoursSheet hours={venue.hours} today={today} run={run} onClose={() => setSheet(null)} />

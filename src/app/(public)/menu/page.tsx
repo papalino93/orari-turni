@@ -10,6 +10,7 @@ import { MenuBlocks } from "./menu-blocks";
 import { OpenStatusPill } from "./open-status";
 import { VenueInfo } from "./venue-footer";
 import { MenuNav } from "./menu-nav";
+import type { SearchItem } from "./menu-search";
 import { PromoContent } from "./promo-content";
 import { Ornament } from "./ornament";
 
@@ -88,6 +89,42 @@ export default async function MenuPage() {
   // Numeri romani solo per le sezioni fisse: «Oggi fuori menù» non ne ha.
   let romanIndex = 0;
   const numerals = new Map(sections.map((s) => [s.id, s.daily ? "" : (ROMAN[romanIndex++] ?? "")]));
+
+  const searchItems: SearchItem[] = sections.flatMap((section) =>
+    section.groups.flatMap((group) =>
+      group.items.map((item) => {
+        const variants = parseVariants(item.variants);
+        const price = variants
+          ? variants.map((v) => `${v.label} ${formatPrice(v.cents)}`).join(" · ")
+          : group.kind === "WINE"
+            ? [
+                item.priceGlassCents !== null ? `Calice ${formatPrice(item.priceGlassCents)}` : null,
+                item.priceBottleCents !== null ? `Bott. ${formatPrice(item.priceBottleCents)}` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : item.priceCents !== null
+              ? `€ ${formatPrice(item.priceCents)}`
+              : "";
+        return {
+          id: item.id,
+          name: item.name,
+          sub: item.sub,
+          grapes: item.grapes,
+          region: item.region,
+          country: item.country,
+          description: item.description,
+          section: section.daily ? "Oggi fuori menù" : section.label,
+          group: group.title,
+          kind: group.kind,
+          price,
+          glass: item.priceGlassCents !== null,
+          enomatic: item.enomatic,
+          soldOut: item.soldOut,
+        };
+      }),
+    ),
+  );
 
   const chips = sections.map((s) => ({ id: s.slug, label: s.label }));
   // Evento in corso: si apre da solo a pagina piena subito dopo la copertina.
@@ -180,9 +217,9 @@ export default async function MenuPage() {
           <MenuBlocks blocks={topBlocks} />
         </div>
       )}
-      {chips.length > 0 && <MenuNav chips={chips} />}
+      {chips.length > 0 && <MenuNav chips={chips} items={searchItems} />}
 
-      <main className="mx-auto max-w-[720px] px-6 pb-[72px]">
+      <main className="menu-main mx-auto max-w-[720px] px-6 pb-[72px]">
         {sections.length === 0 && (
           <p className="pt-20 text-center text-lg italic text-[#5B605A]">Il menù è in aggiornamento. Torna tra poco.</p>
         )}
@@ -234,6 +271,7 @@ export default async function MenuPage() {
                   return (
                     <div
                       key={item.id}
+                      id={`v-${item.id}`}
                       className={`flex items-baseline gap-2.5 menu-rule-soft border-b py-3.5 ${item.soldOut ? "opacity-50" : ""}`}
                     >
                       <div className="flex min-w-0 flex-1 flex-col gap-[3px] [overflow-wrap:anywhere]">

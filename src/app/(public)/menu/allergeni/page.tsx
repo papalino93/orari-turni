@@ -61,7 +61,7 @@ export default async function AllergeniPage() {
         </Link>
       </header>
 
-      <main className="mx-auto max-w-[720px] px-6 pb-[72px] pt-14">
+      <main className="menu-main mx-auto max-w-[720px] px-6 pb-[72px] pt-14">
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="menu-sans text-[11px] uppercase tracking-[0.34em] text-[#5B605A]">Informazioni</div>
           <h1 className="menu-serif m-0 mb-2.5 mt-0.5 text-balance text-[42px] font-medium leading-[1.05] text-[#6B1020]">
