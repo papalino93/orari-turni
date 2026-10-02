@@ -32,8 +32,8 @@ export function VenuePanel({ venue, onOpen }: { venue: EditorVenue; onOpen: (kin
   const rows: { kind: VenueSheetKind; title: string; summary: string; label: string }[] = [
     {
       kind: "hero",
-      title: "Copertina",
-      summary: `${venue.hero.title.replace(/\n/g, " · ")} · ${venue.heroImageVersion ? "foto personalizzata" : "foto predefinita"}`,
+      title: "Testo e foto della copertina",
+      summary: `Testo: «${venue.hero.title.replace(/\n/g, " ")}» · Foto: ${venue.heroImageVersion ? "personalizzata" : "predefinita"}`,
       label: "Modifica la copertina",
     },
     {

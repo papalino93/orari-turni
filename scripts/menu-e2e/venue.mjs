@@ -67,7 +67,7 @@ const dialog = () => page.locator('[role="dialog"]');
 const settle = (ms = 1500) => page.waitForTimeout(ms);
 const panel = () => page.locator('section[aria-label="Il locale"]');
 let pt = (await panel().innerText()).replace(/ /g, " ");
-check("pannello «Il locale»: copertina, orari, contatti", /Copertina/.test(pt) && /Orari/.test(pt) && /Contatti/.test(pt) && /338 327 7053/.test(pt));
+check("pannello «Il locale»: copertina, orari, contatti", /copertina/i.test(pt) && /Orari/.test(pt) && /Contatti/.test(pt) && /338 327 7053/.test(pt));
 
 // Contatti: tolgo la recensione e cambio il messaggio
 await page.getByRole("button", { name: "Modifica i contatti" }).click();
