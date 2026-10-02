@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
-import { formatPrice } from "@/lib/menu-format";
+import { formatPrice, type CoverInfo } from "@/lib/menu-format";
 import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
 import { ImportSheet } from "./import-sheet";
@@ -103,13 +103,13 @@ export function MenuEditor({
   sections,
   promos,
   today,
-  cover,
+  coverInfo,
   history,
 }: {
   sections: EditorSection[];
   promos: EditorPromo[];
   today: string;
-  cover: string | null;
+  coverInfo: CoverInfo;
   history: HistoryEntry[];
 }) {
   const router = useRouter();
@@ -118,6 +118,8 @@ export function MenuEditor({
   const [activeSlug, setActiveSlug] = useState(sections[0]?.slug ?? "");
   const [sheet, setSheet] = useState<SheetState>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  // Vista "solo i piatti con allergeni da compilare", attivata dall'avviso in alto.
+  const [missingOnly, setMissingOnly] = useState(false);
   const [pendingOpenId, setPendingOpenId] = useState<string | null>(null);
   // Stato "esaurito" mostrato subito, in attesa della risposta del server: vale
   // solo finché i dati ricaricati non lo sostituiscono (si confronta l'identità
@@ -146,6 +148,14 @@ export function MenuEditor({
     (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed).length, 0) : 0),
     0,
   );
+  const missingIn = (s: EditorSection | null) =>
+    s && s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed).length, 0) : 0;
+  const filterOn = missingOnly && missingAllergens > 0;
+  // Sezioni (fisse o di eventi non conclusi) con piatti da compilare, nell'ordine in cui si vedono.
+  const missingTargets = [
+    ...sections.map((s) => ({ key: s.slug, section: s })),
+    ...promos.flatMap((p) => (p.section && effectiveStatus(p, today) !== "past" ? [{ key: `promo:${p.id}`, section: p.section }] : [])),
+  ].filter((target) => missingIn(target.section) > 0);
   const isSold = (item: EditorItem) => localSold[item.id] ?? item.soldOut;
   const soldOutCount = allSections.reduce(
     (n, s) => n + s.groups.reduce((m, g) => m + g.items.filter(isSold).length, 0),
@@ -172,6 +182,15 @@ export function MenuEditor({
     if (window.matchMedia("(max-width: 1023px)").matches) {
       requestAnimationFrame(() => contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     }
+  }
+
+  // Apre la prima sezione con piatti da compilare (o la successiva a quella aperta).
+  function goToMissing() {
+    if (missingTargets.length === 0) return;
+    const index = missingTargets.findIndex((target) => target.key === activeSlug);
+    const next = missingTargets[(index + 1) % missingTargets.length];
+    setMissingOnly(true);
+    select(next.key);
   }
 
   async function undo(changeId: string) {
@@ -309,8 +328,15 @@ export function MenuEditor({
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Coperto</p>
-          <p className="truncate text-sm font-medium text-foreground">{cover || "Nessun coperto"}</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Coperto e chiusura cucina</p>
+          <p className="mt-1 text-sm text-foreground">
+            <span className="text-foreground-muted">Coperto: </span>
+            <span className="font-medium">{coverInfo.cover || "nessuno"}</span>
+          </p>
+          <p className="mt-0.5 text-sm text-foreground">
+            <span className="text-foreground-muted">Chiusura cucina: </span>
+            {coverInfo.kitchenNote ? <span>{coverInfo.kitchenNote}</span> : <span className="font-medium">nessun avviso</span>}
+          </p>
           <p className="text-[11px] text-foreground-muted">
             Vale per tutta la cucina
             {sections.some((s) => s.coverApplies)
@@ -324,6 +350,7 @@ export function MenuEditor({
         <button
           type="button"
           onClick={() => setSheet({ type: "cover" })}
+          aria-label="Modifica coperto e chiusura cucina"
           className="min-h-10 shrink-0 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
         >
           Modifica
@@ -331,19 +358,40 @@ export function MenuEditor({
       </div>
 
       {missingAllergens > 0 && (
-        <p className="mb-5 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-3 text-sm text-gold">
-          {missingAllergens === 1
-            ? "1 piatto ha gli allergeni da compilare."
-            : `${missingAllergens} piatti hanno gli allergeni da compilare.`}{" "}
-          <span className="text-gold/80">Finché non lo fai, i clienti vedono «da verificare con il personale».</span>
-        </p>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-3 text-sm text-gold">
+          <p className="min-w-0 flex-1">
+            {filterOn
+              ? "Stai vedendo solo i piatti con allergeni da compilare."
+              : missingAllergens === 1
+                ? "1 piatto ha gli allergeni da compilare."
+                : `${missingAllergens} piatti hanno gli allergeni da compilare.`}{" "}
+            <span className="text-gold/80">Finché non lo fai, i clienti vedono «da verificare con il personale».</span>
+          </p>
+          {filterOn ? (
+            <button
+              type="button"
+              onClick={() => setMissingOnly(false)}
+              className="min-h-10 shrink-0 rounded-full border border-gold/40 px-3.5 text-xs font-semibold text-gold hover:bg-gold/10"
+            >
+              Mostra tutto
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={goToMissing}
+              className="min-h-10 shrink-0 rounded-full bg-gold/20 px-3.5 text-xs font-semibold text-gold hover:bg-gold/30"
+            >
+              Vedi i piatti →
+            </button>
+          )}
+        </div>
       )}
 
       <div className="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <div className="space-y-5 lg:sticky lg:top-24 lg:h-fit">
           <nav aria-label="Sezioni" className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
             {sections.map((s) => {
-              const count = s.groups.reduce((n, g) => n + g.items.length, 0);
+              const count = filterOn ? missingIn(s) : s.groups.reduce((n, g) => n + g.items.length, 0);
               const active = !promoSelected && s.slug === section?.slug;
               return (
                 <button
@@ -355,7 +403,7 @@ export function MenuEditor({
                     active
                       ? "bg-accent text-accent-foreground"
                       : "border border-border text-foreground-muted hover:border-accent hover:text-foreground lg:border-transparent"
-                  }`}
+                  } ${filterOn && count === 0 && !active ? "opacity-50" : ""}`}
                 >
                   <span>{s.label}</span>
                   <span className={`text-xs ${active ? "text-accent-foreground/80" : "text-foreground-muted/70"}`}>{count}</span>
@@ -406,34 +454,95 @@ export function MenuEditor({
 
           {section && (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
-                {!activePromo && (
+              <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
+
+              {!activePromo && (
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+                  <div className="min-w-0 space-y-1 text-sm">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Testi di questa sezione</p>
+                    {section.note && (
+                      <p className="text-foreground">
+                        <span className="text-foreground-muted">Nota: </span>
+                        {section.note}
+                      </p>
+                    )}
+                    {section.addon && (
+                      <p className="text-foreground">
+                        <span className="text-foreground-muted">Avviso{section.addonTitle ? ` · ${section.addonTitle}` : ""}: </span>
+                        {section.addon}
+                      </p>
+                    )}
+                    {section.coverApplies && (
+                      <>
+                        <p className="text-foreground">
+                          <span className="text-foreground-muted">Chiusura cucina: </span>
+                          {coverInfo.kitchenNote || "nessun avviso"}
+                        </p>
+                        <p className="text-foreground">
+                          <span className="text-foreground-muted">Coperto: </span>
+                          {coverInfo.cover || "nessuno"}
+                        </p>
+                        <p className="text-[11px] text-foreground-muted">Valgono per tutta la cucina: si cambiano nel riquadro in alto.</p>
+                      </>
+                    )}
+                    {!section.note && !section.addon && !section.coverApplies && (
+                      <p className="text-foreground-muted">Nessun testo: compaiono solo titolo e voci.</p>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setSheet({ type: "texts" })}
-                    className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+                    aria-label="Modifica i testi di questa sezione"
+                    className="min-h-10 shrink-0 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
                   >
-                    Testi della sezione
+                    Modifica
                   </button>
-                )}
-              </div>
+                </div>
+              )}
 
-              {section.groups.map((group, index) => (
-                <GroupCard
-                  key={group.id}
-                  group={group}
-                  kind={section.kind}
-                  isFirst={index === 0}
-                  isLast={index === section.groups.length - 1}
-                  isSold={isSold}
-                  run={run}
-                  onToggleSold={toggleSold}
-                  onEdit={(item) => setSheet({ type: "item", itemId: item.id, groupId: group.id })}
-                  onAdd={() => setSheet({ type: "item", itemId: null, groupId: group.id })}
-                  onImport={() => setSheet({ type: "import", groupId: group.id })}
-                />
-              ))}
+              {filterOn && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-2.5 text-sm text-gold">
+                  <span>
+                    {missingIn(section) > 0
+                      ? `Da compilare qui: ${missingIn(section)}`
+                      : section.kind === "WINE"
+                        ? "I vini non hanno allergeni da compilare: vale la nota sui solfiti."
+                        : "In questa sezione i piatti sono a posto."}
+                  </span>
+                  {missingTargets.some((target) => target.key !== activeSlug) && (
+                    <button
+                      type="button"
+                      onClick={goToMissing}
+                      className="min-h-10 rounded-full border border-gold/40 px-3.5 text-xs font-semibold text-gold hover:bg-gold/10"
+                    >
+                      Prossima sezione →
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {section.groups.map((group, index) => {
+                // Nella vista "da compilare" restano solo i piatti senza allergeni; i
+                // gruppi rimasti vuoti spariscono, i vini non hanno nulla da compilare.
+                const shown =
+                  filterOn && section.kind === "FOOD" ? { ...group, items: group.items.filter((i) => !i.allergensReviewed) } : group;
+                if (filterOn && (section.kind === "WINE" || shown.items.length === 0)) return null;
+                return (
+                  <GroupCard
+                    key={group.id}
+                    group={shown}
+                    kind={section.kind}
+                    isFirst={index === 0}
+                    isLast={index === section.groups.length - 1}
+                    isSold={isSold}
+                    run={run}
+                    onToggleSold={toggleSold}
+                    onEdit={(item) => setSheet({ type: "item", itemId: item.id, groupId: group.id })}
+                    onAdd={() => setSheet({ type: "item", itemId: null, groupId: group.id })}
+                    onImport={() => setSheet({ type: "import", groupId: group.id })}
+                  />
+                );
+              })}
 
               <NewGroupForm sectionId={section.id} run={run} />
             </>
@@ -458,7 +567,7 @@ export function MenuEditor({
       {sheet?.type === "import" && section && (
         <ImportSheet key={sheet.groupId} section={section} groupId={sheet.groupId} run={run} onClose={() => setSheet(null)} />
       )}
-      {sheet?.type === "cover" && <CoverSheet cover={cover} run={run} onClose={() => setSheet(null)} />}
+      {sheet?.type === "cover" && <CoverSheet info={coverInfo} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "promo" && (sheet.id === null || promoToEdit) && (
         <PromoSheet
           key={sheet.id ?? "new"}

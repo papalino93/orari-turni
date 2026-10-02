@@ -64,7 +64,7 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   await page.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
-  check("/menu: link a /menu/allergeni presente", (await page.locator('a[href="/menu/allergeni"]').count()) === 1);
+  check("/menu: link a /menu/allergeni presente", (await page.locator('a[href="/menu/allergeni"]').count()) >= 1);
   await ctx.close();
 }
 
@@ -78,6 +78,15 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
   check("coperto: in Taglieri & Pinse", (await inSection("taglieri")) === 1);
   check("coperto: anche in Tartare (si arriva dal chip)", (await inSection("tartare")) === 1);
   check("coperto: non in Bevande né nei vini", (await inSection("bevande")) === 0 && (await inSection("bianchi")) === 0 && (await inSection("bollicine")) === 0);
+  const kitchen = async (id) => ((await page.locator(`#${id}`).innerText()).match(/la cucina chiude/i) ?? []).length;
+  check("avviso cucina: vicino al coperto in Taglieri e in Tartare", (await kitchen("taglieri")) === 1 && (await kitchen("tartare")) === 1);
+  check("avviso cucina: non in Bevande né nei vini", (await kitchen("bevande")) === 0 && (await kitchen("bianchi")) === 0);
+  // numeri degli allergeni accanto ai piatti + legenda 1–14 in fondo
+  const classico = (await page.locator("#taglieri .menu-rule-soft", { hasText: "Tagliere Classico" }).innerText()).replace(/\u00A0/g, " ");
+  check("allergeni sul menù: Tagliere Classico = 7 · 12 (latte, solfiti)", /7 · 12/.test(classico), classico.replace(/\n/g, " | "));
+  check("allergeni sul menù: kombucha 'da verificare'", (await page.locator("#bevande .menu-rule-soft", { hasText: "Kombucha" }).first().innerText()).toLowerCase().includes("da verificare"));
+  check("allergeni sul menù: i vini non hanno numeri", !/allergeni/i.test(await page.locator("#bianchi").innerText()));
+  check("legenda allergeni in fondo: 14 voci numerate", (await page.locator('section[aria-label="Legenda degli allergeni"] ol > li').count()) === 14);
   await ctx.close();
 }
 

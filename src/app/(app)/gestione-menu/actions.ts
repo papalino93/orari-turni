@@ -561,28 +561,43 @@ export async function updateSectionTexts(
   });
 }
 
-// Il coperto è uno solo per tutto il menù. Vuoto = nessun coperto.
-export async function updateCover(valueInput: string): Promise<ActionResult<ChangeResult>> {
+// Coperto e avviso della cucina: uno solo per tutto il menù, valgono per tutta la
+// cucina. Vuoto = non mostrato. Ogni valore cambiato è una riga dello storico
+// (l'"Annulla" del toast è disponibile quando cambia un solo valore).
+export async function updateCoverInfo(input: { cover: string; kitchenNote: string }): Promise<ActionResult<ChangeResult>> {
   return runAction(async () => {
     const editor = await requireMenuEditor();
-    const value = parseText(valueInput, "coperto", { max: 80 });
-    const current = await prisma.menuSetting.findUnique({ where: { id: "cover" } });
-    if ((current?.value ?? "") === value) return { changeId: null };
+    const next = {
+      cover: parseText(input.cover, "coperto", { max: 80 }),
+      kitchenNote: parseText(input.kitchenNote, "avviso della cucina", { max: 300 }),
+    };
+    const labels = { cover: "Coperto", kitchenNote: "Chiusura cucina" } as const;
+    const rows = await prisma.menuSetting.findMany({ where: { id: { in: ["cover", "kitchenNote"] } } });
+    const current = (id: "cover" | "kitchenNote") => rows.find((r) => r.id === id)?.value ?? "";
 
-    const changeId = await prisma.$transaction(async (tx) => {
-      await tx.menuSetting.upsert({ where: { id: "cover" }, create: { id: "cover", value }, update: { value } });
-      return logChange(tx, {
-        actorName: editor.name,
-        action: "UPDATE",
-        entity: "setting",
-        entityId: "cover",
-        label: "Coperto",
-        before: { value: current?.value ?? "" },
-        after: { value },
-      });
+    const changedKeys = (["cover", "kitchenNote"] as const).filter((k) => current(k) !== next[k]);
+    if (changedKeys.length === 0) return { changeId: null };
+
+    const ids = await prisma.$transaction(async (tx) => {
+      const out: string[] = [];
+      for (const key of changedKeys) {
+        await tx.menuSetting.upsert({ where: { id: key }, create: { id: key, value: next[key] }, update: { value: next[key] } });
+        out.push(
+          await logChange(tx, {
+            actorName: editor.name,
+            action: "UPDATE",
+            entity: "setting",
+            entityId: key,
+            label: labels[key],
+            before: { value: current(key) },
+            after: { value: next[key] },
+          }),
+        );
+      }
+      return out;
     });
     revalidateMenu();
-    return { changeId };
+    return { changeId: ids.length === 1 ? ids[0] : null };
   });
 }
 

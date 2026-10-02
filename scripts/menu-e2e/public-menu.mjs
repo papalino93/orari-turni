@@ -10,7 +10,7 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check(`/menu @${label} nessun overflow orizzontale`, overflow <= 0, `delta ${overflow}`);
   const info = await page.evaluate(() => ({
-    sections: [...document.querySelectorAll("main section")].map((s) => s.id),
+    sections: [...document.querySelectorAll("main section[id]")].map((s) => s.id),
     forms: document.querySelectorAll("form, input, textarea, select").length,
     buttons: document.querySelectorAll("main button").length,
     links: [...document.querySelectorAll("a")].map((a) => a.getAttribute("href")),

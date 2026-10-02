@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { businessDayKey, formatPrice, isSoldOut, nb, parseVariants, promoStatus } from "@/lib/menu-format";
-import { loadCover, loadMenu, loadVisiblePromos } from "@/lib/menu";
+import { loadCoverInfo, loadMenu, loadVisiblePromos } from "@/lib/menu";
+import { AllergenLegend, AllergenMarks } from "./allergen-marks";
 import { InEvidenza } from "./in-evidenza";
 import { Variants } from "./item-prices";
 import { MenuNav } from "./menu-nav";
@@ -37,7 +38,7 @@ function BottleIcon() {
 
 export default async function MenuPage() {
   const dayKey = businessDayKey();
-  const [loaded, cover, promos] = await Promise.all([loadMenu(), loadCover(), loadVisiblePromos(dayKey)]);
+  const [loaded, coverInfo, promos] = await Promise.all([loadMenu(), loadCoverInfo(), loadVisiblePromos(dayKey)]);
 
   // Vini esauriti: spariscono. Piatti esauriti: restano, sbiaditi. Un gruppo
   // o una sezione senza nulla da mostrare non compare (né il suo chip).
@@ -111,7 +112,7 @@ export default async function MenuPage() {
 
       {liveEvents.map((promo) => (
         <section key={promo.id} id={`evento-${promo.slug}`} aria-label={promo.title} className="mx-auto max-w-[720px] px-6 pb-4 pt-8">
-          <PromoContent promo={promo} cover={cover} dayKey={dayKey} inline />
+          <PromoContent promo={promo} info={coverInfo} dayKey={dayKey} inline />
         </section>
       ))}
 
@@ -136,14 +137,17 @@ export default async function MenuPage() {
               <Ornament color="#9C7A45" />
             </div>
 
-            {(section.note || (section.coverApplies && cover)) && (
+            {(section.note || (section.coverApplies && (coverInfo.cover || coverInfo.kitchenNote))) && (
               <div className="mx-auto mt-8 flex max-w-[400px] flex-col items-center gap-2 border-y px-1 py-[18px] text-center">
                 {section.note && (
                   <p className="m-0 text-balance text-[16.5px] italic leading-normal text-[#3F4540]">{section.note}</p>
                 )}
-                {section.coverApplies && cover && (
+                {section.coverApplies && coverInfo.kitchenNote && (
+                  <p className="m-0 text-balance text-[16.5px] italic leading-normal text-[#3F4540]">{coverInfo.kitchenNote}</p>
+                )}
+                {section.coverApplies && coverInfo.cover && (
                   <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.22em] text-[#6B1020]">
-                    {cover}
+                    {coverInfo.cover}
                   </div>
                 )}
               </div>
@@ -197,6 +201,7 @@ export default async function MenuPage() {
                         {item.description && (
                           <div className="text-pretty text-[16.5px] leading-[1.45] text-[#3F4540]">{nb(item.description)}</div>
                         )}
+                        {section.kind === "FOOD" && <AllergenMarks item={item} />}
                       </div>
                       {group.columns && (
                         <div className="menu-sans w-9 flex-none text-right text-base text-[#1F2621]">
@@ -230,6 +235,8 @@ export default async function MenuPage() {
             )}
           </section>
         ))}
+
+        {sections.some((s) => s.kind === "FOOD") && <AllergenLegend />}
 
         <div className="mt-[72px] flex flex-col items-center gap-3.5 text-center">
           <Ornament color="#9C7A45" />

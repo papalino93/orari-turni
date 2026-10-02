@@ -47,6 +47,9 @@ export function nb(text: string | null | undefined): string {
 
 // --- Formati e prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l) -------------------
 
+// Informazioni valide per tutta la cucina, mostrate nelle sezioni di cucina.
+export type CoverInfo = { cover: string | null; kitchenNote: string | null };
+
 export type MenuVariant = { label: string; cents: number };
 
 // Il campo è JSON nel database: si rilegge in modo difensivo.
