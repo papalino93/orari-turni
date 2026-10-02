@@ -165,3 +165,4 @@ Regole già decise per gli allergeni: nel dubbio, in più. Il primo elenco è ne
 - Un toast con «Annulla» dura 8 secondi: nei test lenti usare l'annullamento dallo storico.
 - Campi data (`type="date"`) nei fogli: usare `dateInputClass` (`sheet.tsx`), con `min-w-0`; tre colonne in un foglio da 512 px tagliano la data. Locandina su riga intera, inizio/fine affiancati.
 - Gli interventi diretti sul database non rigenerano le pagine in cache (60 s) quando si prova con `next start`.
+
