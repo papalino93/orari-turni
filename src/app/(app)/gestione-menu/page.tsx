@@ -37,6 +37,8 @@ function toEditorSection(s: LoadedSection, dayKey: string): EditorSection {
         priceBottleCents: i.priceBottleCents,
         priceCents: i.priceCents,
         enomatic: i.enomatic,
+        recommended: i.recommended,
+        pairWineId: i.pairWineId,
         variants: parseVariants(i.variants),
         allergens: i.allergens,
         allergensReviewed: i.allergensReviewed,

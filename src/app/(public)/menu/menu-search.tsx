@@ -16,6 +16,7 @@ export type SearchItem = {
   price: string;
   glass: boolean;
   enomatic: boolean;
+  recommended: boolean;
   soldOut: boolean;
 };
 
@@ -25,7 +26,8 @@ function norm(text: string): string {
 }
 
 function haystack(i: SearchItem): string {
-  return norm([i.name, i.sub, i.grapes, i.region, i.country, i.description, i.group, i.section].filter(Boolean).join(" "));
+  // «consigliato» trova i vini con l'etichetta.
+  return norm([i.name, i.sub, i.grapes, i.region, i.country, i.description, i.group, i.section, i.recommended ? "consigliato" : null].filter(Boolean).join(" "));
 }
 
 const MAX_RESULTS = 40;

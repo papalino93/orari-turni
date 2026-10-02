@@ -12,6 +12,7 @@ import { VenueInfo } from "./venue-footer";
 import { MenuNav } from "./menu-nav";
 import type { SearchItem } from "./menu-search";
 import { PromoContent } from "./promo-content";
+import { PairingBack } from "./pairing";
 import { Ornament } from "./ornament";
 
 // Pagina in cache, rigenerata ogni minuto e a ogni modifica del menù (vedi
@@ -22,9 +23,9 @@ export const revalidate = 60;
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
-function GlassIcon() {
+function GlassIcon({ small = false }: { small?: boolean }) {
   return (
-    <svg width="15" height="20" viewBox="0 0 24 32" fill="none" stroke="#6B1020" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={small ? 12 : 15} height={small ? 16 : 20} viewBox="0 0 24 32" fill="none" stroke="#6B1020" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M5 2h14c0 8-3 13-7 13S5 10 5 2z" />
       <path d="M12 15v13" />
       <path d="M7 30h10" />
@@ -32,9 +33,9 @@ function GlassIcon() {
   );
 }
 
-function BottleIcon() {
+function BottleIcon({ small = false }: { small?: boolean }) {
   return (
-    <svg width="11" height="22" viewBox="0 0 16 32" fill="none" stroke="#6B1020" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={small ? 8 : 11} height={small ? 16 : 22} viewBox="0 0 16 32" fill="none" stroke="#6B1020" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 1.5h4v7c0 1.5 4 3 4 7.5v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V16c0-4.5 4-6 4-7.5z" />
       <path d="M2 19h12M2 25h12" />
     </svg>
@@ -71,6 +72,18 @@ export default async function MenuPage() {
         .filter((group) => group.items.length > 0),
     }))
     .filter((section) => section.groups.length > 0);
+
+  // «Abbinalo con»: i vini del menù fisso ancora disponibili oggi. Un piatto
+  // abbinato a un vino esaurito o eliminato semplicemente non mostra il riquadro.
+  const pairWines = new Map(
+    regular
+      .filter((s) => s.kind === "WINE")
+      .flatMap((s) =>
+        s.groups.flatMap((g) =>
+          g.items.map((w) => [w.id, { name: w.name, zone: w.sub || w.region || s.label, glass: w.priceGlassCents, bottle: w.priceBottleCents }] as const),
+        ),
+      ),
+  );
 
   // «Oggi fuori menù»: piatti e vini valgono solo oggi, in cima al menù. Ogni gruppo
   // ricorda se è di vini o di piatti (prezzi e allergeni cambiano di conseguenza).
@@ -120,6 +133,7 @@ export default async function MenuPage() {
           price,
           glass: item.priceGlassCents !== null,
           enomatic: item.enomatic,
+          recommended: group.kind === "WINE" && item.recommended,
           soldOut: item.soldOut,
         };
       }),
@@ -218,6 +232,7 @@ export default async function MenuPage() {
         </div>
       )}
       {chips.length > 0 && <MenuNav chips={chips} items={searchItems} />}
+      {pairWines.size > 0 && <PairingBack />}
 
       <main className="menu-main mx-auto max-w-[720px] px-6 pb-[72px]">
         {sections.length === 0 && (
@@ -268,6 +283,7 @@ export default async function MenuPage() {
                 {group.items.map((item) => {
                   const price = group.kind === "WINE" ? item.priceBottleCents : item.priceCents;
                   const variants = parseVariants(item.variants);
+                  const pair = group.kind === "FOOD" && !item.soldOut && item.pairWineId ? pairWines.get(item.pairWineId) : undefined;
                   return (
                     <div
                       key={item.id}
@@ -280,6 +296,11 @@ export default async function MenuPage() {
                           {item.enomatic && (
                             <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#6B1020]">
                               Enomatic
+                            </span>
+                          )}
+                          {group.kind === "WINE" && item.recommended && (
+                            <span className="menu-sans ml-[9px] inline-block whitespace-nowrap rounded-full border border-[#C9A96E] px-[7px] py-px align-[2px] text-[9.5px] font-medium uppercase leading-[1.5] tracking-[0.16em] text-[#8A6A2E]">
+                              Consigliato
                             </span>
                           )}
                           {item.soldOut && (
@@ -301,6 +322,39 @@ export default async function MenuPage() {
                           <div className="text-pretty text-[16.5px] leading-[1.45] text-[#3F4540]">{nb(item.description)}</div>
                         )}
                         {group.kind === "FOOD" && <AllergenMarks item={item} />}
+                        {pair && (
+                          <a
+                            href={`#v-${item.pairWineId}`}
+                            data-pair-from={item.id}
+                            data-pair-name={item.name}
+                            className="mt-2 flex min-h-11 items-center gap-3 rounded-xl border border-[#E3D7C2] bg-[#FBF7EF] py-2 pl-3 pr-3.5 !text-[#1F2621] no-underline"
+                          >
+                            <span className="min-w-0 flex-1">
+                              <span className="menu-sans block text-[9.5px] font-medium uppercase tracking-[0.24em] text-[#8A6A2E]">Abbinalo con</span>
+                              <span className="block truncate text-[17px] font-medium leading-tight">{pair.name}</span>
+                              <span className="menu-sans block truncate text-xs text-[#4A504B]">{pair.zone}</span>
+                              <span className="menu-sans mt-1 flex items-center gap-4 text-sm font-medium text-[#1F2621]">
+                                {pair.glass !== null && (
+                                  <span className="flex items-center gap-1.5">
+                                    <GlassIcon small />
+                                    <span className="sr-only">Calice</span>
+                                    {formatPrice(pair.glass)}
+                                  </span>
+                                )}
+                                {pair.bottle !== null && (
+                                  <span className="flex items-center gap-1.5 text-[#6B1020]">
+                                    <BottleIcon small />
+                                    <span className="sr-only">Bottiglia</span>
+                                    {formatPrice(pair.bottle)}
+                                  </span>
+                                )}
+                              </span>
+                            </span>
+                            <span aria-hidden className="menu-sans text-xl leading-none text-[#6B1020]">
+                              ›
+                            </span>
+                          </a>
+                        )}
                       </div>
                       {group.columns && (
                         <div className="menu-sans min-w-9 flex-none whitespace-nowrap text-right text-base text-[#1F2621]">
