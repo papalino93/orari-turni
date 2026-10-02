@@ -291,6 +291,9 @@ model MenuItem {
   // [{ "label": "0,4 l", "cents": 600 }]. Alternativo a priceCents.
   variants         Json?
   enomatic         Boolean   @default(false)
+  // Solo piatti: il vino da abbinare («Abbinalo con»), uno per piatto. Niente
+  // chiave esterna: se il vino è eliminato o esaurito, il menù non lo mostra.
+  pairWineId       String?
   // Codici dei 14 allergeni UE; allergensReviewed distingue "nessun
   // allergene" da "non ancora compilato" (vedi pagina /menu/allergeni).
   allergens         String[]  @default([])

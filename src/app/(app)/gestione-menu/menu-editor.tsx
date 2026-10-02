@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
 import { blockStatus, formatPrice, priceLine, type MenuBlockView } from "@/lib/menu-format";
@@ -28,6 +29,7 @@ export type EditorItem = {
   priceBottleCents: number | null;
   priceCents: number | null;
   enomatic: boolean;
+  pairWineId: string | null;
   variants: { label: string; cents: number }[] | null;
   allergens: string[];
   allergensReviewed: boolean;
@@ -111,6 +113,9 @@ function priceSummary(item: EditorItem, kind: "WINE" | "FOOD"): string {
   return parts.join(" · ");
 }
 
+// Un vino del menù fisso che si può abbinare a un piatto («Abbinamento consigliato»).
+export type PairWine = { id: string; name: string; section: string; detail: string };
+
 export function MenuEditor({
   sections,
   daily,
@@ -143,6 +148,13 @@ export function MenuEditor({
     map: EMPTY,
   });
   const localSold = local.base === sections ? local.map : EMPTY;
+  // Vini del menù fisso: scelta dell'abbinamento e nomi mostrati nell'elenco dei piatti.
+  const wines: PairWine[] = sections
+    .filter((s) => s.kind === "WINE")
+    .flatMap((s) =>
+      s.groups.flatMap((g) => g.items.map((i) => ({ id: i.id, name: i.name, section: s.label, detail: [i.sub, priceSummary(i, "WINE")].filter(Boolean).join(" · ") }))),
+    );
+  const wineNames = new Map(wines.map((w) => [w.id, w.name]));
 
   // Sezioni fisse + menù speciali degli eventi: per cercare voci e gruppi servono tutte.
   const eventSections = promos.flatMap((p) => (p.section ? [p.section] : []));
@@ -349,6 +361,12 @@ export function MenuEditor({
           >
             Anteprima
           </button>
+          <Link
+            href="/gestione-menu/servizio"
+            className="flex min-h-10 items-center rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          >
+            Modalità servizio
+          </Link>
           <button
             type="button"
             onClick={() => setSheet({ type: "qr" })}
@@ -533,6 +551,7 @@ export function MenuEditor({
                     isFirst={index === 0}
                     isLast={index === section.groups.length - 1}
                     isSold={isSold}
+                    wineNames={wineNames}
                     run={run}
                     onToggleSold={toggleSold}
                     onEdit={(item) => setSheet({ type: "item", itemId: item.id, groupId: group.id })}
@@ -555,6 +574,7 @@ export function MenuEditor({
           section={itemSheetSection}
           groupId={itemSheetGroup.id}
           item={editingItem}
+          wines={wines}
           isFirst={itemIndex <= 0}
           isLast={itemIndex === -1 || itemIndex === itemSheetGroup.items.length - 1}
           run={run}
@@ -614,6 +634,7 @@ function GroupCard({
   isFirst,
   isLast,
   isSold,
+  wineNames,
   run,
   onToggleSold,
   onEdit,
@@ -625,6 +646,7 @@ function GroupCard({
   isFirst: boolean;
   isLast: boolean;
   isSold: (item: EditorItem) => boolean;
+  wineNames: Map<string, string>;
   run: RunFn;
   onToggleSold: (item: EditorItem) => void;
   onEdit: (item: EditorItem) => void;
@@ -749,6 +771,11 @@ function GroupCard({
                   </span>
                   {secondary && <span className="block line-clamp-2 break-words text-xs text-foreground-muted">{secondary}</span>}
                   <span className="block text-xs text-foreground-muted/90">{priceSummary(item, kind)}</span>
+                  {item.pairWineId && wineNames.has(item.pairWineId) && (
+                    <span className="mt-0.5 block truncate text-[11px] text-foreground-muted">
+                      Abbinamento: {wineNames.get(item.pairWineId)}
+                    </span>
+                  )}
                   {kind === "FOOD" && !item.allergensReviewed && (
                     <span className="mt-0.5 block text-[11px] font-medium text-gold">Allergeni da compilare</span>
                   )}
