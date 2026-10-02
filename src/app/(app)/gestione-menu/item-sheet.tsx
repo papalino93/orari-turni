@@ -22,6 +22,7 @@ export function ItemSheet({
   onClose,
   onDuplicated,
   nextMissing,
+  progress,
   onNext,
 }: {
   sections: EditorSection[];
@@ -35,6 +36,8 @@ export function ItemSheet({
   onDuplicated: (newId: string) => void;
   // Nella vista "allergeni da compilare": il piatto successivo da compilare.
   nextMissing?: { itemId: string; groupId: string; name: string; key: string } | null;
+  // «Piatto 2 di 5» nel percorso «Compila allergeni».
+  progress?: { position: number; total: number } | null;
   onNext?: (next: { itemId: string; groupId: string; name: string; key: string }) => void;
 }) {
   const isWine = section.kind === "WINE";
@@ -115,7 +118,7 @@ export function ItemSheet({
   }
 
   return (
-    <Sheet title={item ? "Modifica voce" : isWine ? "Nuovo vino" : "Nuova voce"} onClose={onClose}>
+    <Sheet title={progress ? `Allergeni · ${progress.position} di ${progress.total}` : item ? "Modifica voce" : isWine ? "Nuovo vino" : "Nuova voce"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3.5">
         <Field label="Nome">
           <input
@@ -310,20 +313,21 @@ export function ItemSheet({
 
         <button
           type="submit"
+          onClick={progress ? (e) => void submit(e, true) : undefined}
           disabled={busy || !name.trim() || (!isWine && allergenMode === "some" && allergens.length === 0)}
           className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
-          {busy ? "Salvo…" : item ? "Salva" : "Aggiungi"}
+          {busy ? "Salvo…" : progress ? (nextMissing ? "Salva e passa al successivo" : "Salva e chiudi") : item ? "Salva" : "Aggiungi"}
         </button>
 
-        {nextMissing && item && (
+        {progress && nextMissing && (
           <button
             type="button"
-            disabled={busy || !name.trim() || (!isWine && allergenMode === "some" && allergens.length === 0)}
-            onClick={(e) => void submit(e, true)}
-            className="min-h-11 w-full rounded-xl border border-accent px-4 py-2.5 text-sm font-semibold text-accent hover:bg-accent/10 disabled:opacity-50"
+            disabled={busy}
+            onClick={() => onNext?.(nextMissing)}
+            className="min-h-11 w-full rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
           >
-            Salva e vai a «{nextMissing.name}»
+            Salta questo piatto
           </button>
         )}
 

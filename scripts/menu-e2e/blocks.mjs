@@ -225,7 +225,6 @@ const slug = DB(`select slug from "MenuPromo" where title='Serata Prova'`);
 const eventSection = DB(`select id from "MenuSection" where "promoId" = (select id from "MenuPromo" where title='Serata Prova')`);
 check("DB: il coperto è stato aggiunto al menù speciale, la chiusura cucina no", DB(`select count(*) from "MenuBlock" where id='blk_cover' and '${eventSection}' = any("sectionIds")`) === "1" && DB(`select count(*) from "MenuBlock" where id='blk_kitchen_note' and '${eventSection}' = any("sectionIds")`) === "0");
 // il menù speciale va guardato nella pagina dell'evento; serve almeno una voce
-const groupId = (await page.evaluate(() => null)) ?? null;
 DB(`insert into "MenuGroup"(id,"sectionId",title,columns,"sortOrder") values ('grp_test_blk','${eventSection}','Piatti',false,0)`);
 DB(`insert into "MenuItem"(id,"groupId",name,"priceCents","sortOrder","updatedAt","allergensReviewed") values ('itm_test_blk','grp_test_blk','Piatto prova',900,0,now(),true)`);
 if (process.env.E2E_PROD) await new Promise((resolve) => setTimeout(resolve, 2000));

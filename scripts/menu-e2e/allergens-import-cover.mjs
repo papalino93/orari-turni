@@ -72,7 +72,7 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
   const page = await ctx.newPage();
   page.setDefaultTimeout(60000);
   await page.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
-  const inSection = async (id) => ((await page.locator(`#${id}`).innerText()).match(/coperto € 1,00/i) ?? []).length;
+  const inSection = async (id) => ((await page.locator(`#${id}`).innerText()).replace(/\u00a0/g, " ").match(/coperto € 1,00/i) ?? []).length;
   check("coperto: in Taglieri & Pinse", (await inSection("taglieri")) === 1);
   check("coperto: anche in Tartare (si arriva dal chip)", (await inSection("tartare")) === 1);
   check("coperto: non in Bevande né nei vini", (await inSection("bevande")) === 0 && (await inSection("bianchi")) === 0 && (await inSection("bollicine")) === 0);

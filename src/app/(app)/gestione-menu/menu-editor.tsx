@@ -79,7 +79,8 @@ export type RunFn = <T extends ChangeResult | { changeId: string | null; id: str
 ) => Promise<T | null>;
 
 type SheetState =
-  | { type: "item"; itemId: string | null; groupId: string }
+  // `queue`: percorso «Compila allergeni» (piatti da compilare, nell'ordine in cui si vedono).
+  | { type: "item"; itemId: string | null; groupId: string; queue?: QueueItem[] }
   | { type: "import"; groupId: string }
   | { type: "texts" }
   | { type: "block"; id: string | null }
@@ -87,6 +88,8 @@ type SheetState =
   | { type: "promo"; id: string | null }
   | { type: "promo-duplicate"; id: string }
   | null;
+
+type QueueItem = { itemId: string; groupId: string; name: string; key: string };
 
 const EMPTY: Record<string, boolean> = {};
 
@@ -118,8 +121,6 @@ export function MenuEditor({
   const [activeSlug, setActiveSlug] = useState(sections[0]?.slug ?? "");
   const [sheet, setSheet] = useState<SheetState>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  // Vista "solo i piatti con allergeni da compilare", attivata dall'avviso in alto.
-  const [missingOnly, setMissingOnly] = useState(false);
   const [pendingOpenId, setPendingOpenId] = useState<string | null>(null);
   // Stato "esaurito" mostrato subito, in attesa della risposta del server: vale
   // solo finché i dati ricaricati non lo sostituiscono (si confronta l'identità
@@ -157,23 +158,18 @@ export function MenuEditor({
   );
   const missingIn = (s: EditorSection | null) =>
     s && s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed).length, 0) : 0;
-  const filterOn = missingOnly && missingAllergens > 0;
-  // Sezioni (fisse o di eventi non conclusi) con piatti da compilare, nell'ordine in cui si vedono.
-  const missingTargets = [
+  // Piatti con allergeni da compilare, nell'ordine in cui si vedono (sezioni fisse, poi eventi non conclusi):
+  // servono al percorso «Compila allergeni».
+  const missingQueue: QueueItem[] = [
     ...sections.map((s) => ({ key: s.slug, section: s })),
     ...promos.flatMap((p) => (p.section && effectiveStatus(p, today) !== "past" ? [{ key: `promo:${p.id}`, section: p.section }] : [])),
-  ].filter((target) => missingIn(target.section) > 0);
-  const foodSections = [...sections, ...liveEventSections].filter((s) => s.kind === "FOOD");
-  const totalFood = foodSections.reduce((n, s) => n + s.groups.reduce((m, g) => m + g.items.length, 0), 0);
-  const compiledFood = totalFood - missingAllergens;
-  // Piatti da compilare nell'ordine in cui si vedono: servono a "Salva e vai al prossimo".
-  const missingItems = filterOn
-    ? missingTargets.flatMap((target) =>
-        target.section.groups.flatMap((g) =>
+  ].flatMap((target) =>
+    target.section.kind === "FOOD"
+      ? target.section.groups.flatMap((g) =>
           g.items.filter((i) => !i.allergensReviewed).map((i) => ({ itemId: i.id, groupId: g.id, name: i.name, key: target.key })),
-        ),
-      )
-    : [];
+        )
+      : [],
+  );
   const isSold = (item: EditorItem) => localSold[item.id] ?? item.soldOut;
   const soldOutCount = allSections.reduce(
     (n, s) => n + s.groups.reduce((m, g) => m + g.items.filter(isSold).length, 0),
@@ -202,13 +198,12 @@ export function MenuEditor({
     }
   }
 
-  // Apre la prima sezione con piatti da compilare (o la successiva a quella aperta).
-  function goToMissing() {
-    if (missingTargets.length === 0) return;
-    const index = missingTargets.findIndex((target) => target.key === activeSlug);
-    const next = missingTargets[(index + 1) % missingTargets.length];
-    setMissingOnly(true);
-    select(next.key);
+  // «Compila allergeni»: apre il primo piatto mancante; «Salva e passa al successivo» scorre gli altri.
+  function startCompile() {
+    const first = missingQueue[0];
+    if (!first) return;
+    setSheet({ type: "item", itemId: first.itemId, groupId: first.groupId, queue: missingQueue });
+    select(first.key);
   }
 
   async function undo(changeId: string) {
@@ -269,8 +264,9 @@ export function MenuEditor({
   const itemSheetSection = itemSheetGroup
     ? allSections.find((s) => s.groups.some((g) => g.id === itemSheetGroup.id))
     : undefined;
-  const missingIndex = editingItem ? missingItems.findIndex((m) => m.itemId === editingItem.id) : -1;
-  const nextMissing = missingIndex >= 0 ? (missingItems[missingIndex + 1] ?? null) : null;
+  const queue = sheet?.type === "item" ? sheet.queue : undefined;
+  const queueIndex = queue && editingItem ? queue.findIndex((m) => m.itemId === editingItem.id) : -1;
+  const nextMissing = queue && queueIndex >= 0 ? (queue[queueIndex + 1] ?? null) : null;
   const itemIndex = itemSheetGroup && editingItem ? itemSheetGroup.items.findIndex((i) => i.id === editingItem.id) : -1;
 
   if (!section && !promoSelected) {
@@ -355,49 +351,7 @@ export function MenuEditor({
         onAdd={() => setSheet({ type: "block", id: null })}
       />
 
-      {filterOn && (
-        <div className="sticky top-[calc(4.25rem+env(safe-area-inset-top))] z-20 mb-5 rounded-2xl border border-gold/40 bg-surface/95 p-3.5 shadow-lg backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-gold">Allergeni da compilare</p>
-              <p className="text-xs text-foreground-muted">
-                {compiledFood} di {totalFood} piatti compilati · {missingAllergens} da fare
-                {missingIn(section) > 0 && missingAllergens !== missingIn(section) ? ` (${missingIn(section)} in questa sezione)` : ""}
-              </p>
-              <div
-                className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2"
-                role="progressbar"
-                aria-label="Piatti con allergeni compilati"
-                aria-valuemin={0}
-                aria-valuemax={totalFood}
-                aria-valuenow={compiledFood}
-              >
-                <div className="h-full rounded-full bg-gold transition-all" style={{ width: `${totalFood ? Math.round((compiledFood / totalFood) * 100) : 0}%` }} />
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              {missingTargets.some((target) => target.key !== activeSlug) && (
-                <button
-                  type="button"
-                  onClick={goToMissing}
-                  className="min-h-10 rounded-full border border-gold/40 px-3.5 text-xs font-semibold text-gold hover:bg-gold/10"
-                >
-                  Prossima sezione →
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setMissingOnly(false)}
-                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-              >
-                Mostra tutto
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!filterOn && missingAllergens > 0 && (
+      {missingAllergens > 0 && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-3 text-sm text-gold">
           <p className="min-w-0 flex-1">
             {missingAllergens === 1 ? "1 piatto ha gli allergeni da compilare." : `${missingAllergens} piatti hanno gli allergeni da compilare.`}{" "}
@@ -405,10 +359,10 @@ export function MenuEditor({
           </p>
           <button
             type="button"
-            onClick={goToMissing}
+            onClick={startCompile}
             className="min-h-10 shrink-0 rounded-full bg-gold/20 px-3.5 text-xs font-semibold text-gold hover:bg-gold/30"
           >
-            Vedi i piatti →
+            Compila allergeni ({missingAllergens} da fare)
           </button>
         </div>
       )}
@@ -417,7 +371,7 @@ export function MenuEditor({
         <div className="space-y-5 lg:sticky lg:top-24 lg:h-fit">
           <nav aria-label="Sezioni" className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
             {sections.map((s) => {
-              const count = filterOn ? missingIn(s) : s.groups.reduce((n, g) => n + g.items.length, 0);
+              const count = s.groups.reduce((n, g) => n + g.items.length, 0);
               const active = !promoSelected && s.slug === section?.slug;
               return (
                 <button
@@ -429,7 +383,7 @@ export function MenuEditor({
                     active
                       ? "bg-accent text-accent-foreground"
                       : "border border-border text-foreground-muted hover:border-accent hover:text-foreground lg:border-transparent"
-                  } ${filterOn && count === 0 && !active ? "opacity-50" : ""}`}
+                  }`}
                 >
                   <span>{s.label}</span>
                   <span className={`text-xs ${active ? "text-accent-foreground/80" : "text-foreground-muted/70"}`}>{count}</span>
@@ -529,24 +483,11 @@ export function MenuEditor({
                 </div>
               )}
 
-              {filterOn && missingIn(section) === 0 && (
-                <p className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-foreground-muted">
-                  {section.kind === "WINE"
-                    ? "I vini non hanno allergeni da compilare: vale la nota sui solfiti."
-                    : "In questa sezione i piatti sono tutti a posto."}
-                </p>
-              )}
-
               {section.groups.map((group, index) => {
-                // Nella vista "da compilare" restano solo i piatti senza allergeni; i
-                // gruppi rimasti vuoti spariscono, i vini non hanno nulla da compilare.
-                const shown =
-                  filterOn && section.kind === "FOOD" ? { ...group, items: group.items.filter((i) => !i.allergensReviewed) } : group;
-                if (filterOn && (section.kind === "WINE" || shown.items.length === 0)) return null;
                 return (
                   <GroupCard
                     key={group.id}
-                    group={shown}
+                    group={group}
                     kind={section.kind}
                     isFirst={index === 0}
                     isLast={index === section.groups.length - 1}
@@ -556,7 +497,6 @@ export function MenuEditor({
                     onEdit={(item) => setSheet({ type: "item", itemId: item.id, groupId: group.id })}
                     onAdd={() => setSheet({ type: "item", itemId: null, groupId: group.id })}
                     onImport={() => setSheet({ type: "import", groupId: group.id })}
-                    compileMode={filterOn}
                   />
                 );
               })}
@@ -580,8 +520,9 @@ export function MenuEditor({
           onClose={() => setSheet(null)}
           onDuplicated={(newId) => setPendingOpenId(newId)}
           nextMissing={nextMissing}
+          progress={queue && queueIndex >= 0 ? { position: queueIndex + 1, total: queue.length } : null}
           onNext={(n) => {
-            setSheet({ type: "item", itemId: n.itemId, groupId: n.groupId });
+            setSheet({ type: "item", itemId: n.itemId, groupId: n.groupId, queue });
             select(n.key);
           }}
         />
@@ -630,7 +571,6 @@ function GroupCard({
   onEdit,
   onAdd,
   onImport,
-  compileMode,
 }: {
   group: EditorGroup;
   kind: "WINE" | "FOOD";
@@ -642,7 +582,6 @@ function GroupCard({
   onEdit: (item: EditorItem) => void;
   onAdd: () => void;
   onImport: () => void;
-  compileMode: boolean;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(group.title);
@@ -766,15 +705,6 @@ function GroupCard({
                     <span className="mt-0.5 block text-[11px] font-medium text-gold">Allergeni da compilare</span>
                   )}
                 </button>
-                {compileMode ? (
-                  <button
-                    type="button"
-                    onClick={() => onEdit(item)}
-                    className="min-h-11 shrink-0 rounded-full bg-gold/20 px-4 text-xs font-semibold text-gold hover:bg-gold/30"
-                  >
-                    Compila
-                  </button>
-                ) : (
                   <button
                     type="button"
                     aria-pressed={sold}
@@ -788,7 +718,6 @@ function GroupCard({
                   >
                     Esaurito
                   </button>
-                )}
               </li>
             );
           })}

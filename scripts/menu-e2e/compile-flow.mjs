@@ -24,7 +24,7 @@ const bar = page.locator('[role="progressbar"]').locator("xpath=ancestor::div[co
 const barText = (await bar.innerText()).replace(/ /g, " ");
 check("vista da compilare: avanzamento 'N di N piatti compilati · 2 da fare'", new RegExp(`${totalFood - 2} di ${totalFood} piatti compilati · 2 da fare`).test(barText), barText.replace(/\n/g, " | "));
 check("vista da compilare: barra di avanzamento presente", (await page.locator('[role="progressbar"]').getAttribute("aria-valuenow")) === String(totalFood - 2));
-check("vista da compilare: apre la sezione Bevande con soli 2 piatti", (await page.locator("li button[aria-label^='Modifica']").count()) === 2);
+check("vista da compilare: apre la sezione Bevande con soli 2 piatti", (await page.locator("li button[aria-label^='Modifica ']").count()) === 2);
 check("vista da compilare: pulsante 'Compila' sulle righe", (await page.getByRole("button", { name: "Compila", exact: true }).count()) === 2);
 check("vista da compilare: niente 'Esaurito' sulle righe", (await page.getByRole("button", { name: "Esaurito", exact: true }).count()) === 0);
 const sticky = await bar.evaluate((el) => getComputedStyle(el).position);

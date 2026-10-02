@@ -120,7 +120,7 @@ export function BlocksPanel({
                         disabled={busy || index === 0}
                         onClick={() => move(b.id, "up")}
                         aria-label="Sposta su"
-                        className="flex h-9 w-8 items-center justify-center rounded-full text-foreground-muted hover:text-foreground disabled:opacity-30"
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground-muted hover:text-foreground disabled:opacity-30"
                       >
                         <Chevron up />
                       </button>
@@ -129,7 +129,7 @@ export function BlocksPanel({
                         disabled={busy || index === group.length - 1}
                         onClick={() => move(b.id, "down")}
                         aria-label="Sposta giù"
-                        className="flex h-9 w-8 items-center justify-center rounded-full text-foreground-muted hover:text-foreground disabled:opacity-30"
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground-muted hover:text-foreground disabled:opacity-30"
                       >
                         <Chevron />
                       </button>

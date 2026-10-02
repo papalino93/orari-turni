@@ -8,10 +8,10 @@ Il titolare (L'Angolo del Vino, enoteca a Scandicci) parla italiano: risposte br
 
 PR #30, #31 (menù, allergeni, incolla in blocco, coperto), #32 (questo documento), #33 (eventi), #34 (numeri allergeni, chiusura cucina) e #35 (vista allergeni da compilare, campi data dei fogli evento, progetto dei blocchi) sono su `main`.
 
-- **`/menu`** (pubblico, senza login, non indicizzato): copertina, barra sezioni, 7 sezioni e 71 voci, vini esauriti nascosti, piatti esauriti sbiaditi, **coperto e "chiusura cucina" unici** (impostazioni `cover` e `kitchenNote` in `MenuSetting`) mostrati insieme in tutte le sezioni di cucina (flag `coverApplies`), link a `/menu/allergeni`. Cache con `revalidate = 60` più `revalidateMenu()` a ogni modifica.
+- **`/menu`** (pubblico, senza login, non indicizzato): copertina, barra sezioni, 7 sezioni e 71 voci, vini esauriti nascosti, piatti esauriti sbiaditi, **coperto e chiusura cucina come blocchi informativi** (vedi sotto), link a `/menu/allergeni`. Cache con `revalidate = 60` più `revalidateMenu()` a ogni modifica.
 - **Allergeni sul menù** (numerazione ufficiale 1–14): accanto a ogni piatto i numeri degli allergeni (es. "Allergeni 7 · 12"); in fondo al menù e al menù speciale degli eventi la **legenda numerata**; un piatto da compilare dice "Allergeni da verificare con il personale" (mai una riga vuota che sembri sicura); i vini non hanno numeri (nota "I vini contengono solfiti" nella legenda).
 - **`/menu/allergeni`** (pubblico): stessi dati con filtro "devi evitare qualcosa?" e legenda; si raggiunge da "Cerca per allergene".
-- **`/gestione-menu`** (login + permesso): in alto il riquadro "Coperto e chiusura cucina" (testi leggibili + Modifica); ogni sezione mostra subito i suoi testi ("Testi di questa sezione" + Modifica, senza aprire fogli); l'avviso "N piatti hanno gli allergeni da compilare" è un pulsante («Vedi i piatti →») che apre la vista «da compilare»: pannello fisso in alto con avanzamento («19 di 21 piatti compilati · 2 da fare», barra `role=progressbar`), «Prossima sezione →», «Mostra tutto»; sulle righe «Compila» al posto di «Esaurito»; nel foglio del piatto «Salva e vai a «…»» passa al prossimo da compilare; voci (aggiungi, modifica, duplica, elimina, sposta, "Esaurito", "Riattiva tutto"), gruppi, testi di sezione, coperto unico, allergeni per piatto, "Incolla più voci" con anteprima, storico con annulla e ripristina.
+- **`/gestione-menu`** (login + permesso): in alto il riquadro «Informazioni del menù» (blocchi con tipo, dove compaiono, date, frecce, «+ Aggiungi»); ogni sezione mostra subito i suoi testi ("Testi di questa sezione" + Modifica, senza aprire fogli); l'avviso "N piatti hanno gli allergeni da compilare" è un pulsante («Vedi i piatti →») che apre la vista «da compilare»: pannello fisso in alto con avanzamento («19 di 21 piatti compilati · 2 da fare», barra `role=progressbar`), «Prossima sezione →», «Mostra tutto»; sulle righe «Compila» al posto di «Esaurito»; nel foglio del piatto «Salva e vai a «…»» passa al prossimo da compilare; voci (aggiungi, modifica, duplica, elimina, sposta, "Esaurito", "Riattiva tutto"), gruppi, testi di sezione, coperto unico, allergeni per piatto, "Incolla più voci" con anteprima, storico con annulla e ripristina.
 - **Permessi**: titolare e consulente sempre; un dipendente solo con l'interruttore "Può modificare il menù" in Dipendenti (`Employee.canEditMenu`, letto dal database a ogni richiesta). Ogni Server Action chiama `requireMenuEditor()` (`src/lib/guard.ts`).
 - **Proxy** (`src/proxy.ts`): apre al pubblico solo `menu(?:/|$)`. L'elenco esclude per prefisso: l'area di gestione sta sotto `/gestione-menu` apposta.
 - Il link del QR stampato (qrco.de/bes4Ad, QR Code Generator) **non va toccato**: lo ripunta il titolare quando vuole.
@@ -20,18 +20,18 @@ PR #30, #31 (menù, allergeni, incolla in blocco, coperto), #32 (questo document
 - Pubblico: `src/app/(public)/menu/` (`page.tsx`, `menu-nav.tsx`, `menu.css`, `ornament.tsx`, `allergeni/`). Assets in `public/menu/` (`hero.jpg`, `logo.png`).
 - Gestione: `src/app/(app)/gestione-menu/` (`actions.ts`, `menu-editor.tsx`, `item-sheet.tsx`, `import-sheet.tsx`, `side-sheets.tsx`, `sheet.tsx`, `page.tsx`).
 - Logica: `src/lib/menu.ts` (solo server: database, `revalidateMenu`), `src/lib/menu-format.ts` (pura, usabile nel client: prezzi, giorno commerciale, `nb`), `src/lib/menu-import.ts`, `src/lib/allergens.ts`.
-- Dati: modelli `MenuSection`, `MenuGroup`, `MenuItem`, `MenuChange` (storico), `MenuSetting` (coperto) in `prisma/schema.prisma`. Le migrazioni si applicano al deploy (`npm run build` = `prisma migrate deploy && next build`).
+- Dati: modelli `MenuSection`, `MenuGroup`, `MenuItem`, `MenuChange` (storico), `MenuBlock` (informazioni: coperto, chiusura cucina, avvisi), `MenuSetting` (vuota, per il futuro) in `prisma/schema.prisma`. Le migrazioni si applicano al deploy (`npm run build` = `prisma migrate deploy && next build`).
 - Il giorno commerciale cambia alle 5:00 ora italiana (`businessDayKey`). "Esaurito" = `soldOutDay` uguale al giorno corrente: si azzera da solo, nessun cron.
 
 ## Regola del titolare: numero di versione
 Il titolare vuole **sempre il numero di versione sia sul sito sia nella chat**.
 - Sul sito: etichetta `v0.2.0 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
-- **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.2.0**.
+- **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.3.0**.
 - In chat: a ogni risposta che riguarda un rilascio scrivi «Versione X.Y.Z» (quella pubblicata in produzione, verificata sul sito).
 
 ## Tutto ciò che MANCA da fare (riepilogo, in quest'ordine consigliato)
 1. **Vista allergeni da compilare**: il titolare non è convinto della barra fissa; decidere (vedi «Dubbio…» più sotto) e chiudere. Proposta: un solo pulsante «Compila allergeni (N da fare)» + foglio con «1 di N» e «Salva e passa al successivo».
-2. **Blocchi informativi** (progetto più sotto): modello `MenuBlock`, tipi testo / voce con prezzo / avviso evidenziato, posizione cima / fondo / sotto il titolo di una o più sezioni (anche nei menù evento), finestra di date facoltativa, ordine con frecce; coperto e chiusura cucina diventano blocchi di sistema spostabili (migrare `cover` e `kitchenNote`). Attendere il via del titolare sul progetto.
+2. ~~Blocchi informativi~~ **FATTO (v0.3.0)**, vedi sotto.
 3. **Passo 2: copertina, orari, contatti**: copertina più bassa con foto e titolo modificabili; orari settimanali con eccezioni (chiusure e aperture straordinarie) e «Aperto ora / Chiuso» automatico (dati iniziali dagli orari Google, il titolare ha mandato lo screenshot); contatti: Chiama (338 327 7053, modificabile), WhatsApp con messaggio precompilato (testo da confermare), Come arrivare (Via dei Rossi 53/C, Scandicci, indirizzo modificabile), Scrivi una recensione Google (`https://share.google/ads9ad7vXNVdN2B4t`, da verificare che sia il link giusto), Instagram (URL già dato dal titolare in chat: richiederlo se manca).
 4. **Passo 3: «Oggi fuori menù»**: piatti e vini del giorno esauriti in una vista veloce, si azzera da solo alle 5:00, «Riproponi».
 5. **Passo 4: strumenti per i clienti**: ricerca, filtri (Al calice, Enomatic), «Torna su», dimensione del testo (A+), discreti nella barra sezioni.
@@ -59,36 +59,15 @@ Dove sta nel codice:
 - Gestione: `gestione-menu/promo-actions.ts` (crea, modifica, nascondi, elimina, duplica, foto), `promo-ui.tsx` (scheda, foglio di creazione/modifica, duplicazione), `menu-editor.tsx` (selezione sezione o pagina, elenco corrente e archivio), `item-sheet.tsx` (formati). Registro modifiche condiviso in `src/lib/menu-log.ts`; ridimensionamento foto in `src/lib/image-resize.ts`; helper date e stato in `src/lib/menu-format.ts` (`promoStatus`, `formatPromoDates`…).
 - L'annullamento dello storico copre anche l'entità `promo` (campi in `RESTORABLE.promo`).
 
-### Blocchi informativi: progetto concordato, NON ancora implementato
-Richiesta del titolare: poter aggiungere "altre cose" al menù un domani (un tastino «+» nel riquadro in alto «Coperto e chiusura cucina»), decidendo **dove** piazzarle e **di che tipo** sono; anche coperto e chiusura cucina devono poter essere piazzati dove vuole. Soluzione: coperto e chiusura cucina diventano i primi due di tanti **blocchi** uguali.
-
-Decisioni già prese con il titolare:
-- **Tre tipi**: testo semplice; voce con prezzo (es. «Coperto € 1,00», «Servizio 10%», «Tavolo all'aperto + € 2»); avviso evidenziato (es. «Domenica cucina chiusa»).
-- **Dove compare**: in cima al menù (sotto «In evidenza», sopra la barra sezioni), in fondo (sopra la legenda allergeni), oppure **sotto il titolo di una o più sezioni** (anche più sezioni insieme, compresi i menù speciali degli eventi). NON serve il posizionamento «dopo un gruppo preciso» (scartato: troppe scelte, punto fragile se si riordinano i gruppi).
-- **Quando**: facoltativamente dal giorno X al giorno Y (giorno commerciale, come gli eventi); poi sparisce da solo. Interruttore «Nascondi».
-- **Ordine**: più blocchi nello stesso punto si riordinano con le frecce.
-- Aspetto: voce con prezzo = riga in maiuscoletto bordeaux («COPERTO € 1,00»); testo = paragrafo corsivo; avviso = riquadro con filetti. Coerente con il design del menù.
-
-Progetto tecnico proposto:
-```prisma
-enum MenuBlockKind { TEXT PRICE NOTICE }
-enum MenuBlockPlacement { TOP BOTTOM SECTIONS }
-model MenuBlock {
-  id String @id @default(cuid()); kind MenuBlockKind
-  label String?        // es. "Coperto" (titoletto o etichetta del prezzo)
-  text String?         // testo o avviso
-  priceCents Int?      // solo PRICE
-  placement MenuBlockPlacement
-  sectionIds String[]  // solo SECTIONS: id delle MenuSection (anche sezioni collegate a eventi)
-  startDate String?; endDate String?   // giorni commerciali, facoltativi
-  hidden Boolean @default(false); sortOrder Int @default(0); deletedAt DateTime?
-  createdAt DateTime @default(now()); updatedAt DateTime @updatedAt
-}
-```
-- Migrazione dati: da `MenuSetting` `cover` → blocco PRICE «Coperto» (analizza «€ 1,00» → 100 centesimi; se non analizzabile, blocco TEXT) e da `kitchenNote` → blocco TEXT; entrambi con `placement = SECTIONS` e `sectionIds` = sezioni con `coverApplies = true`; poi eliminare `MenuSection.coverApplies` e le due impostazioni (la tabella `MenuSetting` può restare).
-- Gestione: il riquadro in alto diventa «Informazioni del menù» con l'elenco dei blocchi (icona per tipo, riassunto, chip «Dove», date) e «+ Aggiungi blocco». Foglio di modifica: tipo (3 pulsanti), campi secondo il tipo, «Dove compare» (in cima / in fondo / sotto il titolo di sezioni + spunte delle sezioni, eventi compresi), «Dal / Al» facoltativi, Nascondi, Elimina, frecce per l'ordine. La scheda «Testi di questa sezione» elenca i blocchi che compaiono in quella sezione (con «Modifica»). Storico e «Annulla» come per il resto (nuova entità `block` in `RESTORABLE`).
-- Pubblico: un componente `MenuBlocks` per i tre punti (sostituisce la logica di `coverApplies` in `page.tsx` e `promo-content.tsx`); blocchi scaduti o nascosti non compaiono; cache da rigenerare (`revalidateMenu`).
-- Test: nuova suite `scripts/menu-e2e/blocks.mjs` (creazione dei tre tipi, i tre punti, sezioni multiple, date, nascondi, ordine, migrazione coperto/chiusura cucina invariata, permessi).
+### Blocchi informativi — FATTO (v0.3.0)
+Coperto, chiusura cucina e qualsiasi altra informazione sono **blocchi** (`MenuBlock`), tutti uguali:
+- **Tre tipi**: testo (paragrafo in corsivo), voce con prezzo (riga in maiuscoletto bordeaux, es. «COPERTO € 1,00»), avviso (riquadro con filetti).
+- **Dove**: in cima (sotto «In evidenza», sopra la barra sezioni), in fondo (sopra la legenda allergeni), oppure sotto il titolo di una o più sezioni (`sectionIds`, menù speciali degli eventi compresi). Nessun «dopo un gruppo preciso».
+- **Quando**: `startDate`/`endDate` facoltativi (giorno commerciale); `hidden` = «Nascondi per ora»; ordine con le frecce dentro lo stesso punto.
+- **Migrazione** `20261004100000_menu_blocks`: `MenuSetting` `cover` → blocco `blk_cover` (voce con prezzo «Coperto», 100 centesimi; se il testo non è «etichetta € importo» resta un testo), `kitchenNote` → `blk_kitchen_note` (testo), entrambi sotto le sezioni che avevano `coverApplies`; poi eliminati `MenuSetting` cover/kitchenNote, il loro storico e la colonna `MenuSection.coverApplies`.
+- **Gestione**: riquadro «Informazioni del menù» in alto (`block-ui.tsx`: `BlocksPanel`, `BlockSheet`), azioni in `block-actions.ts` (`saveBlock`, `deleteBlock`, `moveBlock`), storico/annulla con l'entità `block` (`RESTORABLE.block`). La scheda «Testi di questa sezione» elenca i blocchi della sezione. Nel foglio di un evento si sceglie quali blocchi mostrare nel suo menù speciale (`blockIds`, sincronizzati da `src/lib/menu-block-sync.ts`; la duplicazione copia gli stessi).
+- **Pubblico**: `src/app/(public)/menu/menu-blocks.tsx` (`MenuBlocks`, `MenuBlockItem`) per i tre punti; `loadBlocks`/`loadVisibleBlocks` in `src/lib/menu.ts`; helper puri (`blockStatus`, `priceLine`, `blockSummary`…) in `menu-format.ts`.
+- Test: `scripts/menu-e2e/blocks.mjs` (46 controlli). Le suite usano `DB` e `resetBlocks()` di `scripts/menu-e2e/lib.mjs`.
 
 ### Dubbio del titolare sulla vista «allergeni da compilare» (da risolvere)
 Il titolare ha detto che la barra fissa con avanzamento «non lo convince tantissimo». Mia analisi: a 390 px occupa circa 80 px e copre le chip delle sezioni; il filtro è un modo in più da capire; la parte davvero utile è «Salva e vai al prossimo». **Proposta fatta, non ancora confermata**: sostituire barra e filtro con un solo pulsante «Compila allergeni (N da fare)» che apre il foglio del primo piatto mancante con contatore «1 di N» e «Salva e passa al successivo», lista normale senza barra fissa. Se il titolare conferma, farla (`menu-editor.tsx`: `foodSections`, `missingItems`, `nextMissing`, `compileMode`; `item-sheet.tsx`: `nextMissing`, `onNext`) e aggiornare `scripts/menu-e2e/compile-flow.mjs`; se indica un punto preciso, partire da quello.
@@ -144,6 +123,8 @@ Regole già decise per gli allergeni: nel dubbio, in più. Il primo elenco è ne
    node scripts/menu-e2e/editor.mjs                      # gestione, permessi, storico (53 controlli)
    node scripts/menu-e2e/allergens-import-cover.mjs      # allergeni, numeri e legenda, incolla in blocco, coperto e chiusura cucina (56 controlli)
    node scripts/menu-e2e/compile-flow.mjs               # vista allergeni da compilare, «Compila», «Salva e vai a…» (12 controlli; azzera lo stato: tutto il cibo compilato tranne i due kombucha)
+   node scripts/menu-e2e/blocks.mjs                      # blocchi informativi: tipi, punti, sezioni, date, nascondi, ordine, eventi, permessi (46 controlli)
+   node scripts/demo-seed.mjs                            # (facoltativo, DOPO le suite) dipendenti, turni e ore inventati per provare e fotografare l'app
    node scripts/menu-e2e/events.mjs                      # eventi, annunci, formati, archivio, permessi (40 controlli; richiede `npm i --no-save sharp` se manca)
    ```
    Contro `next start` (build di produzione) esporta anche `E2E_PROD=1`: la suite degli allergeni aspetta 62 secondi perché le pagine pubbliche sono in cache. Esegui `events.mjs` per ultima: lascia un evento in corso che altera le altre suite.
