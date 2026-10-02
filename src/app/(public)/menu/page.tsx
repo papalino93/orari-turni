@@ -13,6 +13,7 @@ import { MenuNav } from "./menu-nav";
 import type { SearchItem } from "./menu-search";
 import { PromoContent } from "./promo-content";
 import { PairingBack } from "./pairing";
+import { WineTraits } from "./wine-traits";
 import { Ornament } from "./ornament";
 
 // Pagina in cache, rigenerata ogni minuto e a ogni modifica del menù (vedi
@@ -80,7 +81,7 @@ export default async function MenuPage() {
       .filter((s) => s.kind === "WINE")
       .flatMap((s) =>
         s.groups.flatMap((g) =>
-          g.items.map((w) => [w.id, { name: w.name, zone: w.sub || (originLabel(w) ? "" : s.label), origin: originLabel(w), glass: w.priceGlassCents, bottle: w.priceBottleCents }] as const),
+          g.items.map((w) => [w.id, { name: w.name, zone: w.sub || (originLabel(w) ? "" : s.label), origin: originLabel(w), traits: w.traits, glass: w.priceGlassCents, bottle: w.priceBottleCents }] as const),
         ),
       ),
   );
@@ -133,6 +134,7 @@ export default async function MenuPage() {
           price,
           glass: item.priceGlassCents !== null,
           enomatic: item.enomatic,
+          traits: group.kind === "WINE" ? item.traits : [],
           soldOut: item.soldOut,
         };
       }),
@@ -310,6 +312,7 @@ export default async function MenuPage() {
                         {item.grapes && (
                           <div className="text-pretty text-[16px] font-medium italic leading-[1.4] text-[#4F544F]">{nb(item.grapes)}</div>
                         )}
+                        {group.kind === "WINE" && <WineTraits traits={item.traits} />}
                         {item.description && (
                           <div className="text-pretty text-[16.5px] leading-[1.45] text-[#3F4540]">{nb(item.description)}</div>
                         )}
@@ -348,6 +351,7 @@ export default async function MenuPage() {
                               {pair.origin && (
                                 <span className="menu-sans mt-[3px] block truncate text-[10.5px] font-medium uppercase tracking-[0.16em] text-[#5B605A]">{pair.origin}</span>
                               )}
+                              <WineTraits traits={pair.traits} small />
                             </span>
                             <span className="menu-sans flex flex-none items-end gap-3.5 text-[15px] font-medium leading-none">
                               {pair.glass !== null && (

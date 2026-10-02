@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { originLabel } from "@/lib/menu-format";
+import { WINE_TRAITS, traitLabel } from "@/lib/wine-traits";
 
 export type SearchItem = {
   id: string;
@@ -17,6 +18,7 @@ export type SearchItem = {
   price: string;
   glass: boolean;
   enomatic: boolean;
+  traits: string[];
   soldOut: boolean;
 };
 
@@ -26,7 +28,7 @@ function norm(text: string): string {
 }
 
 function haystack(i: SearchItem): string {
-  return norm([i.name, i.sub, i.grapes, i.region, i.country, i.description, i.group, i.section].filter(Boolean).join(" "));
+  return norm([i.name, i.sub, i.grapes, i.region, i.country, i.description, i.group, i.section, ...i.traits.map(traitLabel)].filter(Boolean).join(" "));
 }
 
 const MAX_RESULTS = 40;
@@ -37,6 +39,9 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
   const [query, setQuery] = useState("");
   const [glass, setGlass] = useState(false);
   const [enomatic, setEnomatic] = useState(false);
+  // Filtri per caratteristica: solo quelle che almeno un vino ha.
+  const [trait, setTrait] = useState<Set<string>>(() => new Set());
+  const availableTraits = useMemo(() => WINE_TRAITS.filter((t) => items.some((i) => i.traits.includes(t.code))), [items]);
   const input = useRef<HTMLInputElement>(null);
   const index = useMemo(() => items.map((item) => ({ item, text: haystack(item) })), [items]);
 
@@ -56,10 +61,10 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
   }, [onClose]);
 
   const tokens = norm(query).split(/\s+/).filter(Boolean);
-  const active = tokens.length > 0 || glass || enomatic;
+  const active = tokens.length > 0 || glass || enomatic || trait.size > 0;
   const results = active
     ? index
-        .filter(({ item, text }) => (!glass || item.glass) && (!enomatic || item.enomatic) && tokens.every((t) => text.includes(t)))
+        .filter(({ item, text }) => (!glass || item.glass) && (!enomatic || item.enomatic) && [...trait].every((c) => item.traits.includes(c)) && tokens.every((t) => text.includes(t)))
         .map(({ item }) => item)
     : [];
 
@@ -89,7 +94,7 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Cerca un vino, un vitigno, un piatto…"
+          placeholder="Vino, vitigno, zona, piatto…"
           aria-label="Cerca nel menù"
           enterKeyHint="search"
           autoComplete="off"
@@ -103,13 +108,32 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
           Chiudi
         </button>
       </div>
-      <div className="mx-auto flex w-full max-w-[720px] flex-wrap gap-2 px-5 pb-3">
+      {/* Filtri su una riga che scorre di lato: con le caratteristiche dei vini possono essere sei. */}
+      <div className="mx-auto flex w-full max-w-[720px] gap-2 overflow-x-auto px-5 pb-3 [scrollbar-width:none] [&>*]:shrink-0">
         <button type="button" aria-pressed={glass} onClick={() => setGlass((v) => !v)} className={chip(glass)}>
           Al calice
         </button>
         <button type="button" aria-pressed={enomatic} onClick={() => setEnomatic((v) => !v)} className={chip(enomatic)}>
           Enomatic
         </button>
+        {availableTraits.map((t) => (
+          <button
+            key={t.code}
+            type="button"
+            aria-pressed={trait.has(t.code)}
+            onClick={() =>
+              setTrait((prev) => {
+                const next = new Set(prev);
+                if (next.has(t.code)) next.delete(t.code);
+                else next.add(t.code);
+                return next;
+              })
+            }
+            className={chip(trait.has(t.code))}
+          >
+            {t.code === "NO_ADDED_SULFITES" ? "Senza solfiti" : t.short}
+          </button>
+        ))}
       </div>
       <div className="mx-auto w-full max-w-[720px] flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(24px,env(safe-area-inset-bottom))]" role="region" aria-live="polite">
         {!active && (
@@ -135,6 +159,9 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
                         <span className="menu-sans block text-[13px] leading-snug text-[#4A504B]">
                           {[item.sub, originLabel(item, ", ")].filter(Boolean).join(" · ")}
                         </span>
+                      )}
+                      {item.traits.length > 0 && (
+                        <span className="menu-sans block text-[12px] text-[#4A504B]">{item.traits.map(traitLabel).join(" · ")}</span>
                       )}
                       <span className="menu-sans block text-[11px] uppercase tracking-[0.16em] text-[#8A8F88]">
                         {item.section}

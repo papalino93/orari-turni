@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
 import { blockStatus, formatPrice, priceLine, type MenuBlockView } from "@/lib/menu-format";
+import { traitLabel } from "@/lib/wine-traits";
 import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
 import { BlockSheet, BlocksPanel, type SectionChoice } from "./block-ui";
@@ -28,6 +29,7 @@ export type EditorItem = {
   priceBottleCents: number | null;
   priceCents: number | null;
   enomatic: boolean;
+  traits: string[];
   pairWineId: string | null;
   variants: { label: string; cents: number }[] | null;
   allergens: string[];
@@ -782,6 +784,9 @@ function GroupCard({
                   </span>
                   {secondary && <span className="block line-clamp-2 break-words text-xs text-foreground-muted">{secondary}</span>}
                   <span className="block text-xs text-foreground-muted/90">{priceSummary(item, kind)}</span>
+                  {kind === "WINE" && item.traits.length > 0 && (
+                    <span className="mt-0.5 block text-[11px] text-foreground-muted">{item.traits.map(traitLabel).join(" · ")}</span>
+                  )}
                   {item.pairWineId && wineNames.has(item.pairWineId) && (
                     <span className="mt-0.5 block truncate text-[11px] text-foreground-muted">
                       Abbinamento: {wineNames.get(item.pairWineId)}
