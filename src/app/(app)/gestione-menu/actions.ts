@@ -4,6 +4,8 @@ import { Prisma, type MenuSectionKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireMenuEditor } from "@/lib/guard";
 import { ALLERGEN_CODES } from "@/lib/allergens";
+import { WINE_TRAIT_CODES, sortTraits } from "@/lib/wine-traits";
+import { insertionIndex } from "@/lib/wine-order";
 import { diff, logChange, type Fields } from "@/lib/menu-log";
 import { businessDayKey, parseVariants, type MenuVariant } from "@/lib/menu-format";
 import { MAX_IMPORT_ROWS, type ImportRowInput } from "@/lib/menu-import";
@@ -30,6 +32,8 @@ export type ItemInput = {
   priceBottle?: string;
   price?: string;
   enomatic?: boolean;
+  // Solo vini: caratteristiche (vedi lib/wine-traits.ts).
+  traits?: string[];
   // Solo piatti: il vino da abbinare (uno solo), vuoto = nessuno.
   pairWineId?: string | null;
   // Solo piatti. allergensReviewed false = "da compilare" (non è "nessuno").
@@ -50,6 +54,7 @@ const ITEM_KEYS = [
   "priceBottleCents",
   "priceCents",
   "enomatic",
+  "traits",
   "pairWineId",
   "allergens",
   "allergensReviewed",
@@ -75,6 +80,12 @@ function parseAllergens(value: unknown): string[] {
   }
   // Ordine fisso (quello della legge) e senza doppioni.
   return ALLERGEN_CODES.filter((code) => list.includes(code));
+}
+
+function parseTraits(value: unknown): string[] {
+  const list = Array.isArray(value) ? value : [];
+  for (const code of list) assert(typeof code === "string" && WINE_TRAIT_CODES.includes(code), "Caratteristica del vino non valida.");
+  return sortTraits(list as string[]);
 }
 
 function parseVariantInput(value: unknown): MenuVariant[] | null {
@@ -114,6 +125,7 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
       priceBottleCents,
       priceCents: null,
       enomatic: Boolean(input.enomatic),
+      traits: parseTraits(input.traits),
       pairWineId: null as string | null,
       // I vini non hanno allergeni per voce: vale la nota unica "solfiti".
       allergens: [] as string[],
@@ -137,6 +149,7 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
     priceBottleCents: null,
     priceCents,
     enomatic: false,
+    traits: [] as string[],
     // Controllato in saveItem (deve essere un vino del menù): qui solo la forma.
     pairWineId: input.pairWineId ? parseId(input.pairWineId, "vino da abbinare") : null,
     allergens: allergensReviewed ? parseAllergens(input.allergens) : [],
@@ -145,9 +158,34 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
   };
 }
 
+// Posto di un vino nuovo (o spostato in un altro gruppo) nel menù fisso: secondo
+// l'ordine della carta (Toscana, poi nord → sud, poi estero; vedi lib/wine-order.ts),
+// rispetto a com'è ordinato il gruppo adesso, anche a mano. Fa spazio spostando
+// in giù chi viene dopo e restituisce il sortOrder da usare.
+async function wineSortOrder(
+  tx: Prisma.TransactionClient,
+  groupId: string,
+  wine: { name: string; region: string | null; country: string | null },
+): Promise<number> {
+  const list = await tx.menuItem.findMany({
+    where: { groupId, deletedAt: null },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true, name: true, region: true, country: true, sortOrder: true },
+  });
+  const i = insertionIndex(list, wine);
+  if (i >= list.length) return (list.at(-1)?.sortOrder ?? -1) + 1;
+  const at = list[i].sortOrder;
+  await tx.menuItem.updateMany({ where: { groupId, deletedAt: null, sortOrder: { gte: at } }, data: { sortOrder: { increment: 1 } } });
+  return at;
+}
+
 function itemSnapshot(item: Fields): Fields {
   const out: Fields = {};
-  for (const key of ITEM_KEYS) out[key] = key === "variants" ? parseVariants(item[key]) : (item[key] ?? null);
+  for (const key of ITEM_KEYS) {
+    if (key === "variants") out[key] = parseVariants(item[key]);
+    else if (key === "traits") out[key] = Array.isArray(item[key]) ? item[key] : [];
+    else out[key] = item[key] ?? null;
+  }
   return out;
 }
 
@@ -181,12 +219,14 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
         where: { groupId, deletedAt: null },
         orderBy: { sortOrder: "desc" },
       });
+      // Vini del menù fisso: al posto della loro regione. Il resto: in fondo al gruppo.
+      const byRegion = group.section.kind === "WINE" && !group.section.dailyOnly && !group.section.promoId;
       const { changeId, created } = await prisma.$transaction(async (tx) => {
         const created = await tx.menuItem.create({
           data: {
             ...toItemData(data),
             groupId,
-            sortOrder: (last?.sortOrder ?? -1) + 1,
+            sortOrder: byRegion ? await wineSortOrder(tx, groupId, data) : (last?.sortOrder ?? -1) + 1,
             // «Oggi fuori menù»: la voce vale solo per il giorno commerciale in corso.
             ...(group.section.dailyOnly ? { onlyDay: businessDayKey() } : {}),
           },
@@ -223,9 +263,15 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
       ? await prisma.menuItem.findFirst({ where: { groupId, deletedAt: null }, orderBy: { sortOrder: "desc" } })
       : null;
     const changeId = await prisma.$transaction(async (tx) => {
+      // Spostato in un altro gruppo: un vino va al posto della sua regione, il resto in fondo.
+      const movedOrder = !moved
+        ? null
+        : group.section.kind === "WINE" && !group.section.dailyOnly && !group.section.promoId
+          ? await wineSortOrder(tx, groupId, data)
+          : (last?.sortOrder ?? -1) + 1;
       await tx.menuItem.update({
         where: { id },
-        data: { ...toItemData(data), groupId, ...(moved ? { sortOrder: (last?.sortOrder ?? -1) + 1 } : {}) },
+        data: { ...toItemData(data), groupId, ...(movedOrder !== null ? { sortOrder: movedOrder } : {}) },
       });
       return logChange(tx, {
         actorName: editor.name,
@@ -320,6 +366,7 @@ export async function duplicateItem(idInput: string): Promise<ActionResult<Chang
           priceBottleCents: source.priceBottleCents,
           priceCents: source.priceCents,
           enomatic: source.enomatic,
+          traits: source.traits,
           // L'abbinamento segue il piatto.
           pairWineId: source.pairWineId,
           allergens: source.allergens,
@@ -370,6 +417,7 @@ export async function reproposeItem(idInput: string): Promise<ActionResult<Chang
           priceBottleCents: source.priceBottleCents,
           priceCents: source.priceCents,
           enomatic: source.enomatic,
+          traits: source.traits,
           allergens: source.allergens,
           allergensReviewed: source.allergensReviewed,
           variants: source.variants === null ? Prisma.DbNull : (source.variants as Prisma.InputJsonValue),
@@ -662,6 +710,7 @@ export async function updateSectionTexts(
 function toColumn(key: string, value: unknown): unknown {
   if (key === "deletedAt") return typeof value === "string" ? new Date(value) : null;
   if (key === "variants") return value === null || value === undefined ? Prisma.DbNull : value;
+  if (key === "traits") return Array.isArray(value) ? value : [];
   return value;
 }
 

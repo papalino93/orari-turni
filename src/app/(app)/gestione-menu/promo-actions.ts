@@ -278,6 +278,7 @@ export async function duplicatePromo(
                 priceCents: item.priceCents,
                 variants: item.variants ?? undefined,
                 enomatic: item.enomatic,
+                traits: item.traits,
                 allergens: item.allergens,
                 allergensReviewed: item.allergensReviewed,
                 sortOrder: item.sortOrder,

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ALLERGENS, allergenState, type AllergenState } from "@/lib/allergens";
 import { formatPrice } from "@/lib/menu-format";
+import { WINE_TRAITS } from "@/lib/wine-traits";
 import { deleteItem, duplicateItem, moveItem, saveItem } from "./actions";
 import { Field, Sheet, inputClass } from "./sheet";
 import type { EditorItem, EditorSection, PairWine, RunFn } from "./menu-editor";
@@ -60,6 +61,7 @@ export function ItemSheet({
   const [priceBottle, setPriceBottle] = useState(priceInput(item?.priceBottleCents ?? null));
   const [price, setPrice] = useState(priceInput(item?.priceCents ?? null));
   const [enomatic, setEnomatic] = useState(item?.enomatic ?? false);
+  const [traits, setTraits] = useState<string[]>(item?.traits ?? []);
   // Un abbinamento a un vino che non c'è più (eliminato) si lascia cadere al salvataggio.
   const pairLost = Boolean(item?.pairWineId && !wines.some((w) => w.id === item.pairWineId));
   const [pairWineId, setPairWineId] = useState<string | null>(pairLost ? null : (item?.pairWineId ?? null));
@@ -100,6 +102,7 @@ export function ItemSheet({
           priceBottle,
           price,
           enomatic,
+          traits: isWine ? traits : [],
           pairWineId: canPair ? pairWineId : null,
           allergens: allergenMode === "some" ? allergens : [],
           allergensReviewed: allergenMode !== "unknown",
@@ -203,6 +206,32 @@ export function ItemSheet({
               <input type="checkbox" checked={enomatic} onChange={(e) => setEnomatic(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
               Fa parte del Progetto Enomatic
             </label>
+            <fieldset>
+              <legend className="mb-1 text-xs font-medium text-foreground-muted">
+                Caratteristiche <span className="font-normal">(facoltative, compaiono sotto l&apos;uvaggio)</span>
+              </legend>
+              <div className="grid grid-cols-2 gap-1.5">
+                {WINE_TRAITS.map((t) => {
+                  const checked = traits.includes(t.code);
+                  return (
+                    <label
+                      key={t.code}
+                      className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-sm ${
+                        checked ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground-muted"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => setTraits((prev) => (checked ? prev.filter((c) => c !== t.code) : [...prev, t.code]))}
+                        className="h-4 w-4 shrink-0 accent-[var(--accent)]"
+                      />
+                      {t.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
           </>
         ) : (
           <>
