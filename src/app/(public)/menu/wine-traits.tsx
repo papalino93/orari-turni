@@ -1,13 +1,13 @@
 import { WINE_TRAITS } from "@/lib/wine-traits";
 
 // Disegnini a tratto sottile, nel bordeaux della carta (come calice e bottiglia).
-function TraitIcon({ code, size }: { code: string; size: number }) {
+export function TraitIcon({ code, size, stroke = "#6B1020" }: { code: string; size: number; stroke?: string }) {
   const common = {
     width: size,
     height: size,
     viewBox: "0 0 24 24",
     fill: "none",
-    stroke: "#6B1020",
+    stroke,
     strokeWidth: 1.6,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,

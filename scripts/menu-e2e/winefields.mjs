@@ -48,6 +48,32 @@ check("vecchio sottotitolo: visibile per essere spostato", (await dialog().getBy
 await page.keyboard.press("Escape");
 DB(`update "MenuItem" set sub=null where id='${ID}'`);
 
+// Regione obbligatoria per i vini italiani (non per gli esteri)
+DB(`delete from "MenuItem" where name like 'Prova Regione%'`);
+await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+await page.getByRole("button", { name: "+ Aggiungi vino" }).first().click();
+await dialog().waitFor();
+check("scheda nuova: «Regione» senza «facoltativa»", (await dialog().getByLabel("Regione", { exact: true }).count()) === 1);
+await dialog().getByLabel("Azienda", { exact: true }).fill("Prova Regione IT");
+await dialog().getByLabel("Bottiglia (€)").fill("30");
+await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
+await page.waitForTimeout(1200);
+check("italiano senza regione: non si salva", DB(`select count(*) from "MenuItem" where name='Prova Regione IT'`) === "0" && (await dialog().count()) === 1);
+await dialog().getByLabel("Nazione (vuota = Italia)").fill("Francia");
+check("estero: la regione torna facoltativa", (await dialog().getByLabel("Regione (facoltativa)").count()) === 1);
+await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
+await dialog().waitFor({ state: "detached" });
+await page.waitForTimeout(1200);
+check("estero senza regione: salvato", DB(`select count(*) from "MenuItem" where name='Prova Regione IT' and country='Francia'`) === "1");
+// Un vino italiano senza regione arrivato da «Incolla più voci»: la gestione lo segnala.
+DB(`update "MenuItem" set country=null where name='Prova Regione IT'`);
+await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+check("gestione: «Manca la regione»", /Manca la regione/.test(await page.locator("li", { has: page.getByRole("button", { name: "Modifica Prova Regione IT", exact: true }) }).innerText()));
+DB(`delete from "MenuItem" where name like 'Prova Regione%'`);
+DB(`delete from "MenuChange"`);
+
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);

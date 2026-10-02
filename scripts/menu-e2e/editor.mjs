@@ -69,6 +69,7 @@ await dialog().getByLabel("Azienda", { exact: true }).fill("Vino Prova");
 await dialog().getByLabel("Denominazione").fill("Test");
 await dialog().getByLabel("Annata").fill("2024");
 await dialog().getByLabel("Uvaggio").fill("100% Prova");
+await dialog().getByLabel("Regione", { exact: true }).fill("Toscana");
 await dialog().getByLabel("Calice (€)").fill("6,5");
 await dialog().getByLabel("Bottiglia (€)").fill("32");
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/editor-1280-sheet.png` });
@@ -83,6 +84,7 @@ check("aggiunta: vino sul pubblico con prezzi 6,50 e 32", t.includes("Vino Prova
 await page.locator("section", { has: page.locator("h3:has-text('Italia')") }).locator("button", { hasText: "+ Aggiungi vino" }).click();
 await dialog().waitFor();
 await dialog().getByLabel("Azienda", { exact: true }).fill("Senza prezzo");
+await dialog().getByLabel("Regione", { exact: true }).fill("Toscana");
 await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
 await settle(800);
 check("validazione: serve almeno un prezzo", /almeno un prezzo/i.test(await toast().innerText()));
@@ -157,6 +159,7 @@ const gd = () => page.locator("section", { has: page.locator("h3:has-text('Dolci
 await gd().locator("button", { hasText: "+ Aggiungi vino" }).click();
 await dialog().waitFor();
 await dialog().getByLabel("Azienda", { exact: true }).fill("Passito Prova");
+await dialog().getByLabel("Regione", { exact: true }).fill("Sicilia");
 await dialog().getByLabel("Calice (€)").fill("8");
 await dialog().getByLabel("Bottiglia (€)").fill("");
 await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();

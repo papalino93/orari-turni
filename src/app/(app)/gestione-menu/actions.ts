@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMenuEditor } from "@/lib/guard";
 import { ALLERGEN_CODES } from "@/lib/allergens";
 import { WINE_TRAIT_CODES, sortTraits } from "@/lib/wine-traits";
-import { insertionIndex } from "@/lib/wine-order";
+import { insertionIndex, isItalianWine } from "@/lib/wine-order";
 import { diff, logChange, type Fields } from "@/lib/menu-log";
 import { businessDayKey, parseVariants, type MenuVariant } from "@/lib/menu-format";
 import { MAX_IMPORT_ROWS, type ImportRowInput } from "@/lib/menu-import";
@@ -111,7 +111,9 @@ function toItemData<T extends { variants: MenuVariant[] | null }>(data: T) {
   return { ...data, variants: data.variants && data.variants.length > 0 ? data.variants : Prisma.DbNull };
 }
 
-function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
+// requireRegion: dalla scheda la regione dei vini italiani è obbligatoria; «Incolla più
+// voci» non ha la colonna, e la gestione segnala poi «Manca la regione».
+function parseItemInput(kind: MenuSectionKind, input: ItemInput, { requireRegion = false } = {}) {
   const name = parseText(input.name, "nome", { max: 120, required: true });
   if (kind === "WINE") {
     const wineName = parseText(input.wineName, "nome del vino", { max: 120 }) || null;
@@ -123,6 +125,7 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
     const grapes = parseText(input.grapes, "uvaggio", { max: 200 }) || null;
     const region = parseText(input.region, "regione", { max: 60 }) || null;
     const country = parseText(input.country, "nazione", { max: 60 }) || null;
+    assert(!requireRegion || region || !isItalianWine({ country }), "Per i vini italiani la regione è obbligatoria (es. Toscana). Per un vino estero scrivi la nazione.");
     const priceGlassCents = parsePrice(input.priceGlass, "al calice");
     const priceBottleCents = parsePrice(input.priceBottle, "alla bottiglia");
     assert(priceGlassCents !== null || priceBottleCents !== null, "Inserisci almeno un prezzo (calice o bottiglia).");
@@ -218,7 +221,7 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
       include: { section: true },
     });
     assert(group, "Gruppo non trovato.");
-    const data = parseItemInput(group.section.kind, input);
+    const data = parseItemInput(group.section.kind, input, { requireRegion: true });
     // Abbinamento consigliato: solo per i piatti del menù fisso, e solo con un vino del menù
     // fisso (non di un evento né di «Oggi fuori menù», che spariscono).
     if (data.pairWineId) {
@@ -647,6 +650,73 @@ export async function reorder(
   });
 }
 
+// «Tabella prezzi»: tanti prezzi in una volta (calice/bottiglia per i vini,
+// prezzo o prezzi dei formati per il resto). Un solo record di storico con i
+// prezzi di prima: «Annulla» li rimette tutti.
+export type PriceChange = { id: string; priceGlass?: string; priceBottle?: string; price?: string; variants?: string[] };
+
+export async function savePrices(changesInput: PriceChange[]): Promise<ActionResult<ChangeResult>> {
+  return runAction(async () => {
+    const editor = await requireMenuEditor();
+    assert(Array.isArray(changesInput) && changesInput.length > 0 && changesInput.length <= 500, "Nessun prezzo da salvare.");
+    const ids = changesInput.map((c) => parseId(c?.id, "voce"));
+    assert(new Set(ids).size === ids.length, "Elenco non valido.");
+    const items = await prisma.menuItem.findMany({
+      where: { id: { in: ids }, deletedAt: null },
+      include: { group: { select: { section: { select: { kind: true, label: true } } } } },
+    });
+    assert(items.length === ids.length, "Il menù è cambiato nel frattempo: chiudi e riapri la tabella dei prezzi.");
+
+    const before: Record<string, Fields> = {};
+    const after: Record<string, Fields> = {};
+    for (const [i, change] of changesInput.entries()) {
+      const item = items.find((x) => x.id === ids[i])!;
+      const who = `«${item.name}»`;
+      if (item.group.section.kind === "WINE") {
+        const priceGlassCents = parsePrice(change.priceGlass, `al calice di ${who}`);
+        const priceBottleCents = parsePrice(change.priceBottle, `alla bottiglia di ${who}`);
+        assert(priceGlassCents !== null || priceBottleCents !== null, `${who}: serve almeno un prezzo (calice o bottiglia).`);
+        before[item.id] = { priceGlassCents: item.priceGlassCents, priceBottleCents: item.priceBottleCents };
+        after[item.id] = { priceGlassCents, priceBottleCents };
+        continue;
+      }
+      const variants = parseVariants(item.variants);
+      if (variants && variants.length > 0) {
+        const list = Array.isArray(change.variants) ? change.variants : [];
+        assert(list.length === variants.length, "Il menù è cambiato nel frattempo: chiudi e riapri la tabella dei prezzi.");
+        const next = variants.map((v, j) => {
+          const cents = parsePrice(list[j], `del formato «${v.label}» di ${who}`);
+          assert(cents !== null, `Manca il prezzo del formato «${v.label}» di ${who}.`);
+          return { label: v.label, cents };
+        });
+        before[item.id] = { variants };
+        after[item.id] = { variants: next };
+        continue;
+      }
+      const priceCents = parsePrice(change.price, `di ${who}`);
+      assert(priceCents !== null, `${who}: manca il prezzo.`);
+      before[item.id] = { priceCents: item.priceCents };
+      after[item.id] = { priceCents };
+    }
+
+    const labels = [...new Set(items.map((x) => x.group.section.label))];
+    const changeId = await prisma.$transaction(async (tx) => {
+      for (const [id, data] of Object.entries(after)) await tx.menuItem.update({ where: { id }, data: data as Prisma.MenuItemUpdateInput });
+      return logChange(tx, {
+        actorName: editor.name,
+        action: "UPDATE",
+        entity: "item",
+        entityId: "*prices",
+        label: `Prezzi di ${ids.length === 1 ? "1 voce" : `${ids.length} voci`} · ${labels.join(", ")}`,
+        before: { items: before },
+        after: { items: after },
+      });
+    });
+    revalidateMenu();
+    return { changeId };
+  });
+}
+
 // --- Gruppi ------------------------------------------------------------------
 
 export async function createGroup(sectionIdInput: string, titleInput: string): Promise<ActionResult<ChangeResult>> {
@@ -849,6 +919,25 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
           action: "RESTORE",
           entity: entity === "section" || entity === "group" ? entity : "item",
           entityId: "*order",
+          label: change.label,
+        });
+        await tx.menuChange.update({ where: { id }, data: { undoneById: undoId } });
+        return;
+      }
+
+      // «Tabella prezzi»: si rimettono i prezzi di prima di tutte le voci.
+      if (change.entityId === "*prices") {
+        const items = (before.items ?? {}) as Record<string, Fields>;
+        for (const [rowId, fields] of Object.entries(items)) {
+          const data: Fields = {};
+          for (const key of ["priceGlassCents", "priceBottleCents", "priceCents", "variants"]) if (key in fields) data[key] = fields[key];
+          await tx.menuItem.updateMany({ where: { id: rowId, deletedAt: null }, data: data as Prisma.MenuItemUpdateManyMutationInput });
+        }
+        const undoId = await logChange(tx, {
+          actorName: editor.name,
+          action: "RESTORE",
+          entity: "item",
+          entityId: "*prices",
           label: change.label,
         });
         await tx.menuChange.update({ where: { id }, data: { undoneById: undoId } });

@@ -52,6 +52,7 @@ await panel().getByRole("button", { name: "+ Vino" }).click();
 await dialog().waitFor();
 await dialog().getByLabel("Azienda", { exact: true }).fill("Vermentino di Gallura");
 await dialog().getByLabel("Denominazione").fill("Vermentino di Gallura Docg");
+await dialog().getByLabel("Regione", { exact: true }).fill("Sardegna");
 await dialog().getByLabel("Calice (€)").fill("8");
 await dialog().getByLabel("Bottiglia (€)").fill("35");
 await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();

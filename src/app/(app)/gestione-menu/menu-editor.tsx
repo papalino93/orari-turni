@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
 import { blockStatus, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
 import { traitLabel } from "@/lib/wine-traits";
+import { isItalianWine } from "@/lib/wine-order";
 import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
 import { BlockSheet, BlocksPanel, type SectionChoice } from "./block-ui";
@@ -12,6 +13,7 @@ import { DailyPanel, type DailyData } from "./daily-ui";
 import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
 import { ReorderSheet } from "./reorder-ui";
+import { PricesSheet } from "./prices-ui";
 import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
 import { ItemSearch } from "./search-ui";
 import { HistorySheet, PreviewSheet, QrSheet, SectionTextsSheet } from "./side-sheets";
@@ -102,6 +104,7 @@ type SheetState =
   | { type: "preview" }
   | { type: "qr" }
   | { type: "reorder" }
+  | { type: "prices" }
   | { type: "promo"; id: string | null }
   | { type: "promo-duplicate"; id: string }
   | null;
@@ -345,50 +348,6 @@ export function MenuEditor({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {soldOutCount > 0 && (
-            <button
-              type="button"
-              onClick={reactivateAll}
-              className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-            >
-              Riattiva tutto ({soldOutCount})
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setSheet({ type: "promo", id: null })}
-            className="min-h-10 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover"
-          >
-            + Evento o annuncio
-          </button>
-          <button
-            type="button"
-            onClick={() => setSheet({ type: "reorder" })}
-            className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-          >
-            Riordina
-          </button>
-          <button
-            type="button"
-            onClick={() => setSheet({ type: "history" })}
-            className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-          >
-            Storico
-          </button>
-          <button
-            type="button"
-            onClick={() => setSheet({ type: "preview" })}
-            className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-          >
-            Anteprima
-          </button>
-          <button
-            type="button"
-            onClick={() => setSheet({ type: "qr" })}
-            className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-          >
-            Codice QR
-          </button>
           <a
             href="/menu"
             target="_blank"
@@ -397,8 +356,58 @@ export function MenuEditor({
           >
             Vedi menù ↗
           </a>
+          <button
+            type="button"
+            onClick={() => setSheet({ type: "promo", id: null })}
+            className="min-h-10 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover"
+          >
+            + Evento o annuncio
+          </button>
         </div>
       </div>
+
+      {/* Strumenti tutti in una riga, sotto il titolo: le azioni principali restano sopra. */}
+      <div role="toolbar" aria-label="Strumenti del menù" className="-mt-2 mb-5 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => setSheet({ type: "prices" })} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+          Tabella prezzi
+        </button>
+        <button type="button" onClick={() => setSheet({ type: "reorder" })} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+          Riordina
+        </button>
+        <button type="button" onClick={() => setSheet({ type: "history" })} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+          Storico
+        </button>
+        <button type="button" onClick={() => setSheet({ type: "preview" })} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+          Anteprima
+        </button>
+        <a href="/gestione-menu/stampa" className="flex items-center min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+          Menù da stampare
+        </a>
+        <button type="button" onClick={() => setSheet({ type: "qr" })} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+          Codice QR
+        </button>
+        {soldOutCount > 0 && (
+          <button type="button" onClick={reactivateAll} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+            Riattiva tutto ({soldOutCount})
+          </button>
+        )}
+      </div>
+
+      {missingAllergens > 0 && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-3 text-sm text-gold">
+          <p className="min-w-0 flex-1">
+            {missingAllergens === 1 ? "1 piatto ha gli allergeni da compilare." : `${missingAllergens} piatti hanno gli allergeni da compilare.`}{" "}
+            <span className="text-gold/80">Finché non lo fai, i clienti vedono «da verificare con il personale».</span>
+          </p>
+          <button
+            type="button"
+            onClick={startCompile}
+            className="min-h-10 shrink-0 rounded-full bg-gold/20 px-3.5 text-xs font-semibold text-gold hover:bg-gold/30"
+          >
+            Compila allergeni ({missingAllergens} da fare)
+          </button>
+        </div>
+      )}
 
       <ItemSearch
         sections={allSections.filter((s) => !s.promoId || effectiveStatus(promos.find((p) => p.id === s.promoId)!, today) !== "past")}
@@ -424,22 +433,6 @@ export function MenuEditor({
       />
 
       <VenuePanel venue={venue} onOpen={(kind) => setSheet({ type: "venue", kind })} />
-
-      {missingAllergens > 0 && (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-3 text-sm text-gold">
-          <p className="min-w-0 flex-1">
-            {missingAllergens === 1 ? "1 piatto ha gli allergeni da compilare." : `${missingAllergens} piatti hanno gli allergeni da compilare.`}{" "}
-            <span className="text-gold/80">Finché non lo fai, i clienti vedono «da verificare con il personale».</span>
-          </p>
-          <button
-            type="button"
-            onClick={startCompile}
-            className="min-h-10 shrink-0 rounded-full bg-gold/20 px-3.5 text-xs font-semibold text-gold hover:bg-gold/30"
-          >
-            Compila allergeni ({missingAllergens} da fare)
-          </button>
-        </div>
-      )}
 
       <div className="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <div className="space-y-5 lg:sticky lg:top-24 lg:h-fit">
@@ -612,6 +605,9 @@ export function MenuEditor({
             select(n.key);
           }}
         />
+      )}
+      {sheet?.type === "prices" && (
+        <PricesSheet sections={sections} startSectionId={promoSelected ? null : (section?.id ?? null)} run={run} onClose={() => setSheet(null)} />
       )}
       {sheet?.type === "reorder" && (
         <ReorderSheet
@@ -811,6 +807,9 @@ function GroupCard({
                     <span className="mt-0.5 block truncate text-[11px] text-foreground-muted">
                       Abbinamento: {wineNames.get(item.pairWineId)}
                     </span>
+                  )}
+                  {kind === "WINE" && !item.region?.trim() && isItalianWine(item) && (
+                    <span className="mt-0.5 block text-[11px] font-medium text-gold">Manca la regione</span>
                   )}
                   {kind === "FOOD" && !item.allergensReviewed && (
                     <span className="mt-0.5 block text-[11px] font-medium text-gold">Allergeni da compilare</span>

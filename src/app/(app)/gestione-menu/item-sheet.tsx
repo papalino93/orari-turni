@@ -2,14 +2,38 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ALLERGENS, allergenState, type AllergenState } from "@/lib/allergens";
-import { formatPrice } from "@/lib/menu-format";
+import { formatPrice, originLabel, wineDetail } from "@/lib/menu-format";
 import { WINE_TRAITS } from "@/lib/wine-traits";
+import { isItalianWine } from "@/lib/wine-order";
+import { TraitIcon } from "@/app/(public)/menu/wine-traits";
 import { deleteItem, duplicateItem, moveItem, saveItem } from "./actions";
 import { Field, Sheet, inputClass } from "./sheet";
 import type { EditorItem, EditorSection, PairWine, RunFn } from "./menu-editor";
 
 function priceInput(cents: number | null): string {
   return cents === null ? "" : formatPrice(cents);
+}
+
+// Suggerimenti per regione e nazione: scritti sempre uguali, l'ordine della carta
+// li riconosce (Toscana prima, poi le altre in ordine alfabetico).
+const ITALIAN_REGIONS = [
+  "Abruzzo", "Alto Adige", "Basilicata", "Calabria", "Campania", "Emilia-Romagna", "Friuli-Venezia Giulia", "Lazio", "Liguria",
+  "Lombardia", "Marche", "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia", "Toscana", "Trentino", "Umbria", "Valle d'Aosta", "Veneto",
+];
+const COUNTRIES = ["Italia", "Francia", "Spagna", "Portogallo", "Germania", "Austria", "Slovenia", "Grecia"];
+
+// Un blocco della scheda: titolo piccolo e una riga sopra, per non avere un
+// muro di campi tutti uguali.
+function Block({ title, hint, children, first = false }: { title: string; hint?: string; children: React.ReactNode; first?: boolean }) {
+  return (
+    <div className={`space-y-3 ${first ? "" : "border-t border-border pt-3.5"}`}>
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground-muted">{title}</p>
+        {hint && <p className="mt-0.5 text-[11px] text-foreground-muted/80">{hint}</p>}
+      </div>
+      {children}
+    </div>
+  );
 }
 
 export function ItemSheet({
@@ -151,23 +175,41 @@ export function ItemSheet({
     setBusy(false);
   }
 
+  const nameField = (
+    <Field label={isWine ? "Azienda" : "Nome"}>
+      <input
+        autoFocus={!item}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxLength={120}
+        required
+        className={inputClass}
+        placeholder={isWine ? "es. Avignonesi" : "es. Tagliere Classico"}
+      />
+    </Field>
+  );
+  // Regioni e nazioni già usate nella carta, più quelle italiane.
+  const known = (pick: (i: EditorItem) => string | null, base: string[]) =>
+    [...new Set([...base, ...sections.flatMap((x) => x.groups.flatMap((g) => g.items.map(pick))).filter((v): v is string => Boolean(v && v.trim()))])].sort((a, b) =>
+      a.localeCompare(b, "it"),
+    );
+  const regionOptions = isWine ? known((i) => i.region, ITALIAN_REGIONS) : [];
+  const countryOptions = isWine ? known((i) => i.country, COUNTRIES) : [];
+  const italian = isWine && isItalianWine({ country });
+  const preview = {
+    detail: wineDetail({ denomination, vintage, sub }),
+    origin: originLabel({ region: region.trim() || null, country: country.trim() || null }),
+  };
+
   return (
     <Sheet title={progress ? `Allergeni · ${progress.position} di ${progress.total}` : item ? "Modifica voce" : isWine ? "Nuovo vino" : "Nuova voce"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3.5">
-        <Field label={isWine ? "Azienda" : "Nome"}>
-          <input
-            autoFocus={!item}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={120}
-            required
-            className={inputClass}
-            placeholder={isWine ? "es. Avignonesi" : "es. Tagliere Classico"}
-          />
-        </Field>
+        {!isWine && nameField}
 
         {isWine ? (
           <>
+            <Block title="Il vino" first>
+            {nameField}
             <Field label="Nome del vino (facoltativo)" hint="Se il vino non ha un nome proprio, lascia vuoto.">
               <input value={wineName} onChange={(e) => setWineName(e.target.value)} maxLength={120} className={inputClass} placeholder="es. Da-Di" />
             </Field>
@@ -193,14 +235,30 @@ export function ItemSheet({
                 placeholder="es. 100% Friulano"
               />
             </Field>
+            </Block>
+
+            <Block title="Da dove viene" hint="Per i vini italiani la regione è obbligatoria: decide anche il posto in carta (prima la Toscana, poi le altre in ordine alfabetico, poi l'estero).">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Regione (facoltativa)">
-                <input value={region} onChange={(e) => setRegion(e.target.value)} maxLength={60} className={inputClass} placeholder="es. Toscana" />
+              <Field label={italian ? "Regione" : "Regione (facoltativa)"}>
+                <input value={region} onChange={(e) => setRegion(e.target.value)} maxLength={60} required={italian} list="wine-regions" autoComplete="off" className={inputClass} placeholder="es. Toscana" />
               </Field>
-              <Field label="Nazione (facoltativa)">
-                <input value={country} onChange={(e) => setCountry(e.target.value)} maxLength={60} className={inputClass} placeholder="es. Italia" />
+              <Field label="Nazione (vuota = Italia)">
+                <input value={country} onChange={(e) => setCountry(e.target.value)} maxLength={60} list="wine-countries" autoComplete="off" className={inputClass} placeholder="es. Italia" />
               </Field>
             </div>
+            <datalist id="wine-regions">
+              {regionOptions.map((r) => (
+                <option key={r} value={r} />
+              ))}
+            </datalist>
+            <datalist id="wine-countries">
+              {countryOptions.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+            </Block>
+
+            <Block title="Prezzi">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Calice (€)" hint="Vuoto = non al calice">
                 <input
@@ -225,10 +283,11 @@ export function ItemSheet({
               <input type="checkbox" checked={enomatic} onChange={(e) => setEnomatic(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
               Fa parte del Progetto Enomatic
             </label>
+            </Block>
+
+            <Block title="Caratteristiche" hint="Facoltative: sul menù compaiono sotto l'uvaggio, con il disegnino.">
             <fieldset>
-              <legend className="mb-1 text-xs font-medium text-foreground-muted">
-                Caratteristiche <span className="font-normal">(facoltative, compaiono sotto l&apos;uvaggio)</span>
-              </legend>
+              <legend className="sr-only">Caratteristiche</legend>
               <div className="grid grid-cols-2 gap-1.5">
                 {WINE_TRAITS.map((t) => {
                   const checked = traits.includes(t.code);
@@ -245,12 +304,35 @@ export function ItemSheet({
                         onChange={() => setTraits((prev) => (checked ? prev.filter((c) => c !== t.code) : [...prev, t.code]))}
                         className="h-4 w-4 shrink-0 accent-[var(--accent)]"
                       />
-                      {t.label}
+                      <TraitIcon code={t.code} size={15} stroke="currentColor" />
+                      <span className="min-w-0">{t.label}</span>
                     </label>
                   );
                 })}
               </div>
             </fieldset>
+            </Block>
+
+            {name.trim() && (
+              <div className="rounded-xl bg-surface-2 px-3.5 py-3" aria-label="Come si legge sul menù">
+                <p className="mb-1 text-[11px] font-medium text-foreground-muted">Sul menù si legge così</p>
+                <p className="text-sm font-semibold text-foreground">{name.trim()}</p>
+                {wineName.trim() && <p className="text-sm italic text-foreground">{wineName.trim()}</p>}
+                {preview.detail && <p className="text-xs text-foreground-muted">{preview.detail}</p>}
+                {grapes.trim() && <p className="text-xs text-foreground-muted">{grapes.trim()}</p>}
+                {preview.origin && <p className="text-xs text-foreground-muted">{preview.origin}</p>}
+                {traits.length > 0 && (
+                  <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium text-foreground-muted">
+                    {WINE_TRAITS.filter((t) => traits.includes(t.code)).map((t) => (
+                      <span key={t.code} className="inline-flex items-center gap-1">
+                        <TraitIcon code={t.code} size={13} stroke="currentColor" />
+                        {t.short}
+                      </span>
+                    ))}
+                  </p>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -380,7 +462,7 @@ export function ItemSheet({
           </>
         )}
 
-        <Field label="Gruppo">
+        <Field label={isWine ? "Gruppo (dove sta nella carta)" : "Gruppo (dove sta nel menù)"}>
           <select value={targetGroup} onChange={(e) => setTargetGroup(e.target.value)} className={inputClass}>
             {sameKind.map((s) => (
               <optgroup key={s.id} label={s.title}>
