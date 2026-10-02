@@ -43,7 +43,8 @@ Trovato e corretto: barra sezioni del menù che in fondo alla pagina restava su 
 5. ~~Passo 4: strumenti per i clienti~~ **FATTO (v0.5.0)**: ricerca, filtri, testo grande, «Torna su».
 6. ~~Passo 5: comodità per chi gestisce~~ **FATTO (v0.5.0)**: ricerca di una voce con «Esaurito», anteprima da telefono. Il riquadro «Da fare» non serve: l'unico avviso utile (allergeni) è già in cima alla gestione.
 7. ~~Generatore del QR code~~ **FATTO (v0.5.0)**: «Codice QR» in gestione (SVG/PNG). Il QR stampato (qrco.de/bes4Ad) NON è stato toccato: lo ripunta il titolare dopo aver compilato gli allergeni.
-8. **Modalità servizio**: solo progettare e discutere, NON implementare finché il titolare non conferma.
+8. **Modalità servizio**: implementata, **NON in produzione** finché il titolare non l'ha vista (vedi sotto).
+8b. **Abbinamento consigliato** (piatto → vino): implementato sullo stesso branch della modalità servizio, **non ancora in produzione** (vedi sotto). Per pubblicarlo senza la modalità servizio va separato su un branch suo: chiedere prima al titolare.
 9. **Inglese**: oggi solo italiano, ma i dati sono pronti per le traduzioni (colonne `translations`); nessun costo: niente traduzione automatica a pagamento.
 10. **In chiusura, sempre**: giro approfondito di bug e UX su telefono, tablet e PC (menù clienti e gestione), correggere, riassumere al titolare; aggiornare questo documento e il numero di versione.
 
@@ -114,6 +115,15 @@ Il titolare l'ha voluta pronta ma **non pubblicata finché non l'ha vista lui** 
 - Un elenco unico di tutte le voci (prima «Oggi fuori menù» e gli eventi in corso), ricerca, filtri Tutto/Vini/Piatti/Esauriti, interruttori grandi (72×40 px) solo sull'interruttore (la riga non è cliccabile), nessuna modifica possibile; schermo sempre acceso (Wake Lock, dove disponibile); toast con «Annulla»; «Riattiva tutto» con doppia conferma; errori di rete: l'interruttore torna com'era.
 - Test: `scripts/menu-e2e/service.mjs` (27 controlli).
 - Rischi da valutare con il titolare: tocchi accidentali mentre si scorre (mitigati: solo l'interruttore, annulla, storico); più persone che segnano la stessa voce (vale l'ultimo); rumore in una sala poco connessa.
+
+### Abbinamento consigliato — IMPLEMENTATO, NON ANCORA IN PRODUZIONE
+Deciso con il titolare (2 ottobre): **un solo vino per piatto**, niente striscia «Consigliati», niente pagina «Cosa bevo con…?», **niente etichetta «Consigliato» sui vini** (provata e tolta: si punta solo sull'abbinamento dal piatto al vino).
+- Dati: `MenuItem.pairWineId` (solo piatti del menù fisso; nessuna chiave esterna). Migrazioni `20261006100000_menu_pairing` (aggiunge `pairWineId` e `recommended`) e `20261006110000_menu_drop_recommended` (toglie `recommended`, mai usata in produzione). Le migrazioni già girate sul database condiviso tramite anteprima **non vanno modificate**: si aggiunge una migrazione nuova.
+- Gestione: nella scheda del piatto «Abbinamento consigliato (facoltativo, un vino)»: si cerca un vino del menù fisso per nome, zona o sezione e lo si sceglie; ✕ lo toglie. In elenco: «Abbinamento: Mastrojanni». Server: il vino deve essere di una sezione vini fissa (no eventi, no «Oggi fuori menù»); per piatti di eventi e «Oggi fuori menù» il campo non c'è. Vino eliminato: la scheda lo dice e al salvataggio l'abbinamento cade. Duplica copia l'abbinamento. Storico e Annulla come sempre.
+- Menù: sotto il piatto un riquadro «velatura dorata» (scelto dal titolare tra varie proposte): «ABBINAMENTO CONSIGLIATO», nome del vino in corsivo bordeaux, sottotitolo, regione (e paese se non Italia), prezzi a colonne con calice e bottiglia come nella carta. Il tocco porta al vino e lo illumina; in basso «← Torna a «Piatto»» (`pairing.tsx`) che riporta al piatto e sparisce se si scorre lontano. Vino esaurito/eliminato o piatto esaurito: niente riquadro. Senza JavaScript è un link all'ancora `#v-<id>`.
+- Provenienza: `originLabel()` in `menu-format.ts` mostra la regione e il paese **solo se non è Italia** (vale anche per la riga sotto il vino e per la ricerca).
+- Regione/paese dei vini già in carta: migrazione `20261006120000_menu_wine_origins` (riempie solo i campi vuoti; valori confermati dal titolare: Villa della Torre → Veneto, Colletto → Lombardia, Borgo Canedo → Friuli-Venezia Giulia; Atma White solo «Grecia» e M. Chapoutier «Rouge Clair» solo «Francia», è un Vin de France; **Skyphos lasciato vuoto**, da verificare). Attenzione: girando anche dalle anteprime, questi dati compaiono subito anche in produzione (che mostra già la riga regione · paese).
+- Test: `scripts/menu-e2e/pairing.mjs` (33 controlli).
 
 ### Codice QR — FATTO (v0.5.0)
 «Codice QR» tra i pulsanti della gestione (`QrSheet`, libreria `qrcode`): indirizzo del sito da cui si sta lavorando + `/menu`, colore nero o bordeaux, download SVG (stampa) e PNG 1600 px. Test: `scripts/menu-e2e/qr.mjs` (8 controlli, legge il QR con `jsqr`; richiede `npm i --no-save sharp jsqr`).

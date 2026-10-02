@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { originLabel } from "@/lib/menu-format";
 
 export type SearchItem = {
   id: string;
@@ -16,7 +17,6 @@ export type SearchItem = {
   price: string;
   glass: boolean;
   enomatic: boolean;
-  recommended: boolean;
   soldOut: boolean;
 };
 
@@ -26,8 +26,7 @@ function norm(text: string): string {
 }
 
 function haystack(i: SearchItem): string {
-  // «consigliato» trova i vini con l'etichetta.
-  return norm([i.name, i.sub, i.grapes, i.region, i.country, i.description, i.group, i.section, i.recommended ? "consigliato" : null].filter(Boolean).join(" "));
+  return norm([i.name, i.sub, i.grapes, i.region, i.country, i.description, i.group, i.section].filter(Boolean).join(" "));
 }
 
 const MAX_RESULTS = 40;
@@ -134,7 +133,7 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
                       <span className="block text-[18px] font-medium leading-tight text-[#1F2621]">{item.name}</span>
                       {(item.sub || item.region || item.country) && (
                         <span className="menu-sans block text-[13px] leading-snug text-[#4A504B]">
-                          {[item.sub, [item.region, item.country].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}
+                          {[item.sub, originLabel(item, ", ")].filter(Boolean).join(" · ")}
                         </span>
                       )}
                       <span className="menu-sans block text-[11px] uppercase tracking-[0.16em] text-[#8A8F88]">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-// «Abbinalo con»: il tocco sul riquadro sotto un piatto porta al vino e lo
+// «Abbinamento consigliato»: il tocco sul riquadro sotto un piatto porta al vino e lo
 // illumina; in basso resta «Torna a …» per tornare al piatto. Senza JavaScript
 // il riquadro è un normale link all'ancora del vino.
 // Porta la voce al centro dello schermo e la illumina; restituisce dove arriverà

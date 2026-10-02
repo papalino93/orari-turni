@@ -30,8 +30,6 @@ export type ItemInput = {
   priceBottle?: string;
   price?: string;
   enomatic?: boolean;
-  // Solo vini: etichetta «Consigliato».
-  recommended?: boolean;
   // Solo piatti: il vino da abbinare (uno solo), vuoto = nessuno.
   pairWineId?: string | null;
   // Solo piatti. allergensReviewed false = "da compilare" (non è "nessuno").
@@ -52,7 +50,6 @@ const ITEM_KEYS = [
   "priceBottleCents",
   "priceCents",
   "enomatic",
-  "recommended",
   "pairWineId",
   "allergens",
   "allergensReviewed",
@@ -117,7 +114,6 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
       priceBottleCents,
       priceCents: null,
       enomatic: Boolean(input.enomatic),
-      recommended: Boolean(input.recommended),
       pairWineId: null as string | null,
       // I vini non hanno allergeni per voce: vale la nota unica "solfiti".
       allergens: [] as string[],
@@ -141,7 +137,6 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
     priceBottleCents: null,
     priceCents,
     enomatic: false,
-    recommended: false,
     // Controllato in saveItem (deve essere un vino del menù): qui solo la forma.
     pairWineId: input.pairWineId ? parseId(input.pairWineId, "vino da abbinare") : null,
     allergens: allergensReviewed ? parseAllergens(input.allergens) : [],
@@ -152,10 +147,7 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
 
 function itemSnapshot(item: Fields): Fields {
   const out: Fields = {};
-  for (const key of ITEM_KEYS) {
-    // Righe registrate prima di «Consigliato»: assente vale «spento».
-    out[key] = key === "variants" ? parseVariants(item[key]) : key === "recommended" ? Boolean(item[key]) : (item[key] ?? null);
-  }
+  for (const key of ITEM_KEYS) out[key] = key === "variants" ? parseVariants(item[key]) : (item[key] ?? null);
   return out;
 }
 
@@ -171,7 +163,7 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
     });
     assert(group, "Gruppo non trovato.");
     const data = parseItemInput(group.section.kind, input);
-    // «Abbinalo con»: solo per i piatti del menù fisso, e solo con un vino del menù
+    // Abbinamento consigliato: solo per i piatti del menù fisso, e solo con un vino del menù
     // fisso (non di un evento né di «Oggi fuori menù», che spariscono).
     if (data.pairWineId) {
       if (group.section.promoId || group.section.dailyOnly) data.pairWineId = null;
@@ -327,7 +319,7 @@ export async function duplicateItem(idInput: string): Promise<ActionResult<Chang
           priceBottleCents: source.priceBottleCents,
           priceCents: source.priceCents,
           enomatic: source.enomatic,
-          // L'abbinamento segue il piatto; «Consigliato» resta solo sull'originale.
+          // L'abbinamento segue il piatto.
           pairWineId: source.pairWineId,
           allergens: source.allergens,
           allergensReviewed: source.allergensReviewed,
