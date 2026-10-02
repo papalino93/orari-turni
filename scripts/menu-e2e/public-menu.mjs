@@ -77,6 +77,18 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
   await ctx.close();
 }
 
+// 5) Barra sezioni in fondo alla pagina e nomi molto lunghi
+{
+  const ctx = await browser.newContext({ viewport: { width: 360, height: 740 } });
+  const page = await ctx.newPage();
+  await page.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await page.waitForTimeout(600);
+  const active = (await page.locator("nav[aria-label='Sezioni del menù'] a[aria-current]").innerText()).trim();
+  check("barra sezioni: in fondo alla pagina è attiva l'ultima sezione", /bevande/i.test(active), active);
+  await ctx.close();
+}
+
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);

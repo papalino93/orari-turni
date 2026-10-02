@@ -25,9 +25,12 @@ PR #30, #31 (menù, allergeni, incolla in blocco, coperto), #32 (questo document
 
 ## Regola del titolare: numero di versione
 Il titolare vuole **sempre il numero di versione sia sul sito sia nella chat**.
-- Sul sito: etichetta `v0.2.0 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
+- Sul sito: etichetta `v0.3.0 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
 - **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.3.0**.
 - In chat: a ogni risposta che riguarda un rilascio scrivi «Versione X.Y.Z» (quella pubblicata in produzione, verificata sul sito).
+
+## Giro di bug e UX del 2 ottobre (v0.2.1)
+Trovato e corretto: barra sezioni del menù che in fondo alla pagina restava su «Tartare» invece di «Bevande»; nomi molto lunghi o prezzi con decimali/migliaia che si sovrapponevano ai prezzi sul menù pubblico (colonne prezzo ora `min-w`, testo con `overflow-wrap:anywhere`); nomi e sottotitoli delle righe in gestione tagliati con «…» (ora fino a 2 righe); fogli di gestione senza `overscroll-contain` (la pagina dietro poteva scorrere). Controllati senza difetti: nessun overflow orizzontale a 360/390/834/1366 px su menù, allegeni e gestione; Esc chiude i fogli; campi data nei fogli evento. Note: a 1366 px il contenuto della gestione (max-w-5xl) è un po' più stretto del banner e dell'intestazione (max-w-6xl): solo estetica. Suite al termine: public 23, editor 53, allergeni 56, compile-flow 12, eventi 40.
 
 ## Tutto ciò che MANCA da fare (riepilogo, in quest'ordine consigliato)
 1. **Vista allergeni da compilare**: il titolare non è convinto della barra fissa; decidere (vedi «Dubbio…» più sotto) e chiudere. Proposta: un solo pulsante «Compila allergeni (N da fare)» + foglio con «1 di N» e «Salva e passa al successivo».

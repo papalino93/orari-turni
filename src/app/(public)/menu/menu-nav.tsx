@@ -18,6 +18,10 @@ export function MenuNav({ chips }: { chips: Chip[] }) {
         const el = document.getElementById(chip.id);
         if (el && el.getBoundingClientRect().top < 120) current = chip.id;
       }
+      // In fondo alla pagina l'ultima sezione può essere troppo corta per
+      // arrivare in alto: si considera comunque quella in vista.
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 8;
+      if (atBottom && chips.length) current = chips[chips.length - 1].id;
       if (current === activeRef.current) return;
       activeRef.current = current;
       setActive(current);
