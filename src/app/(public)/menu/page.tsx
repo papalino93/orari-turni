@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { businessDayKey, formatPrice, isSoldOut, nb, parseVariants, promoStatus } from "@/lib/menu-format";
 import { loadCoverInfo, loadMenu, loadVisiblePromos } from "@/lib/menu";
+import { VERSION_LABEL } from "@/lib/version";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
 import { InEvidenza } from "./in-evidenza";
 import { Variants } from "./item-prices";
@@ -257,6 +258,7 @@ export default async function MenuPage() {
         <img src="/menu/logo.png" alt="L’Angolo del Vino" className="h-auto w-[200px] [filter:invert(1)_sepia(0.25)]" />
         <Ornament color="#C9A96E" />
         <div className="menu-sans text-[10px] uppercase tracking-[0.4em] text-[#E9DCC4]">Enoteca</div>
+        <div className="menu-sans text-[10px] tracking-[0.1em] text-[#E9DCC4]/60">{VERSION_LABEL}</div>
       </footer>
     </>
   );

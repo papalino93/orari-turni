@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { VERSION_LABEL } from "@/lib/version";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -107,6 +108,9 @@ export default function LoginPage() {
             {loading ? "Accesso in corso…" : "Accedi"}
           </button>
         </form>
+        <p className="mt-4 text-center text-[11px] text-brand-band-foreground-muted" aria-label="Versione dell'app">
+          {VERSION_LABEL}
+        </p>
       </div>
     </div>
   );

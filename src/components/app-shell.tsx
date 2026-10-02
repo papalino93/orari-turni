@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { InstallBanner, EmployeeInstallPrompt } from "@/components/install-banner";
+import { VERSION_LABEL } from "@/lib/version";
 
 const ADMIN_NAV_ITEMS = [
   { href: "/orari", label: "Orari", icon: CalendarIcon },
@@ -115,6 +116,9 @@ export function AppShell({
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-6 sm:px-6 md:pb-10">
         {isAdmin ? <InstallBanner /> : <EmployeeInstallPrompt />}
         {children}
+        <p className="mt-10 text-center text-[11px] text-foreground-muted/70" aria-label="Versione dell'app">
+          {VERSION_LABEL}
+        </p>
       </main>
 
       {/* pb con env(safe-area-inset-bottom): a differenza dei modali a
