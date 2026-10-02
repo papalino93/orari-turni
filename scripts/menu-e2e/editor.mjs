@@ -180,9 +180,9 @@ t = await publicText();
 check("gruppo: annulla eliminazione lo ripristina con le voci", t.includes("Passito Prova"));
 
 // ---- Testi della sezione
-await page.getByRole("button", { name: "Modifica", exact: true }).click();
+await page.getByRole("button", { name: "Modifica coperto e chiusura cucina" }).click();
 await dialog().waitFor();
-await dialog().getByLabel("Testo del coperto").fill("Coperto € 2,00");
+await dialog().getByPlaceholder("es. Coperto € 1,00").fill("Coperto € 2,00");
 await dialog().getByRole("button", { name: "Salva" }).click();
 await dialog().waitFor({ state: "detached" });
 await settle();

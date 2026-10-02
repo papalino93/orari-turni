@@ -34,3 +34,16 @@ export function allergenState(item: { allergens: string[]; allergensReviewed: bo
   if (!item.allergensReviewed) return "unknown";
   return item.allergens.length === 0 ? "none" : "some";
 }
+
+// Numero ufficiale dell'allergene (1 = glutine … 14 = molluschi), come nei menù
+// stampati: sul piatto compaiono i numeri, in fondo la legenda.
+export function allergenNumber(code: string): number {
+  return ALLERGEN_CODES.indexOf(code) + 1;
+}
+
+export function allergenNumbers(codes: string[]): number[] {
+  return codes
+    .map(allergenNumber)
+    .filter((n) => n > 0)
+    .sort((a, b) => a - b);
+}

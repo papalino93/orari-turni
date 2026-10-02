@@ -4,7 +4,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { tryParsePrice } from "@/lib/menu-format";
+import { tryParsePrice, type CoverInfo } from "@/lib/menu-format";
 import { ValidationError } from "@/lib/validation";
 
 // Come tryParsePrice, ma lancia un errore leggibile se non è un prezzo.
@@ -32,11 +32,15 @@ export async function loadMenu() {
   });
 }
 
-// Testo del coperto (es. "Coperto € 1,00"), uguale per tutte le sezioni di
-// cucina; null se non c'è.
-export async function loadCover(): Promise<string | null> {
-  const setting = await prisma.menuSetting.findUnique({ where: { id: "cover" } });
-  return setting?.value.trim() ? setting.value : null;
+// Coperto (es. "Coperto € 1,00") e avviso della cucina, uguali per tutte le
+// sezioni di cucina; null se non ci sono.
+export async function loadCoverInfo(): Promise<CoverInfo> {
+  const rows = await prisma.menuSetting.findMany({ where: { id: { in: ["cover", "kitchenNote"] } } });
+  const get = (id: string) => {
+    const value = rows.find((r) => r.id === id)?.value.trim();
+    return value ? value : null;
+  };
+  return { cover: get("cover"), kitchenNote: get("kitchenNote") };
 }
 
 const promoInclude = {

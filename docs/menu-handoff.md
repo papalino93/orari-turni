@@ -8,9 +8,10 @@ Il titolare (L'Angolo del Vino, enoteca a Scandicci) parla italiano: risposte br
 
 PR #30, #31 (menù, allergeni, incolla in blocco, coperto) e #32 (questo documento) sono su `main`; il passo 1 (eventi) è nella PR indicata più sotto.
 
-- **`/menu`** (pubblico, senza login, non indicizzato): copertina, barra sezioni, 7 sezioni e 71 voci, vini esauriti nascosti, piatti esauriti sbiaditi, coperto unico mostrato in tutte le sezioni di cucina, link a `/menu/allergeni`. Cache con `revalidate = 60` più `revalidateMenu()` a ogni modifica.
-- **`/menu/allergeni`** (pubblico): 14 allergeni UE, filtro "devi evitare qualcosa?", nota solfiti per i vini, piatti non compilati = "Da verificare con il personale".
-- **`/gestione-menu`** (login + permesso): voci (aggiungi, modifica, duplica, elimina, sposta, "Esaurito", "Riattiva tutto"), gruppi, testi di sezione, coperto unico, allergeni per piatto, "Incolla più voci" con anteprima, storico con annulla e ripristina.
+- **`/menu`** (pubblico, senza login, non indicizzato): copertina, barra sezioni, 7 sezioni e 71 voci, vini esauriti nascosti, piatti esauriti sbiaditi, **coperto e "chiusura cucina" unici** (impostazioni `cover` e `kitchenNote` in `MenuSetting`) mostrati insieme in tutte le sezioni di cucina (flag `coverApplies`), link a `/menu/allergeni`. Cache con `revalidate = 60` più `revalidateMenu()` a ogni modifica.
+- **Allergeni sul menù** (numerazione ufficiale 1–14): accanto a ogni piatto i numeri degli allergeni (es. "Allergeni 7 · 12"); in fondo al menù e al menù speciale degli eventi la **legenda numerata**; un piatto da compilare dice "Allergeni da verificare con il personale" (mai una riga vuota che sembri sicura); i vini non hanno numeri (nota "I vini contengono solfiti" nella legenda).
+- **`/menu/allergeni`** (pubblico): stessi dati con filtro "devi evitare qualcosa?" e legenda; si raggiunge da "Cerca per allergene".
+- **`/gestione-menu`** (login + permesso): in alto il riquadro "Coperto e chiusura cucina" (testi leggibili + Modifica); ogni sezione mostra subito i suoi testi ("Testi di questa sezione" + Modifica, senza aprire fogli); l'avviso "N piatti hanno gli allergeni da compilare" è un pulsante che apre solo quei piatti ("Prossima sezione", "Mostra tutto"); voci (aggiungi, modifica, duplica, elimina, sposta, "Esaurito", "Riattiva tutto"), gruppi, testi di sezione, coperto unico, allergeni per piatto, "Incolla più voci" con anteprima, storico con annulla e ripristina.
 - **Permessi**: titolare e consulente sempre; un dipendente solo con l'interruttore "Può modificare il menù" in Dipendenti (`Employee.canEditMenu`, letto dal database a ogni richiesta). Ogni Server Action chiama `requireMenuEditor()` (`src/lib/guard.ts`).
 - **Proxy** (`src/proxy.ts`): apre al pubblico solo `menu(?:/|$)`. L'elenco esclude per prefisso: l'area di gestione sta sotto `/gestione-menu` apposta.
 - Il link del QR stampato (qrco.de/bes4Ad, QR Code Generator) **non va toccato**: lo ripunta il titolare quando vuole.
@@ -41,7 +42,7 @@ Dove sta nel codice:
 ### Passo 2: copertina, orari, contatti
 - Copertina più bassa (circa metà schermo); foto e righe del titolo modificabili dalla gestione.
 - Orari per giorno (anche spezzati) + eccezioni per data (aperture/chiusure straordinarie) + indicazione automatica «Aperto ora · chiude alle 22:00» / «Chiuso · riapre domani alle 16:30»; non compare se mancano gli orari. Dalla scheda Google: lun e mar 17–21:30; mer, ven, sab 10–13 e 16:30–22; gio 10–13 e 16:30–22:30; dom 16:30–21.
-- Contatti in un solo posto, modificabili: telefono 338 327 7053, indirizzo Via dei Rossi 53C, 50018 Scandicci FI, Instagram `https://www.instagram.com/langolo.del.vino_enoteca/`, link recensione Google (**da chiedere al titolare**). Pulsanti: Chiama, WhatsApp (messaggio precompilato per prenotare), Come arrivare (Google Maps), Lascia una recensione, Instagram; un pulsante senza dato non compare.
+- Contatti in un solo posto, modificabili: telefono 338 327 7053, indirizzo Via dei Rossi 53C, 50018 Scandicci FI, Instagram `https://www.instagram.com/langolo.del.vino_enoteca/`, recensione Google `https://share.google/ads9ad7vXNVdN2B4t` (porta al profilo Google dell'attività, da cui si scrive la recensione con un tocco in più; il link diretto alla finestra di recensione si prende da Profilo dell'attività → "Chiedi recensioni" e si può sostituire dalla gestione). Pulsanti: Chiama, WhatsApp (messaggio precompilato per prenotare), Come arrivare (Google Maps), Lascia una recensione, Instagram; un pulsante senza dato non compare.
 
 ### Passo 3: piatti e vini del giorno
 Sezione «Oggi fuori menù» in cima, che si azzera alle 5:00; «Riproponi» ripresenta quelli di ieri.
@@ -61,11 +62,10 @@ Pagina in gestione con download SVG e PNG verso `/menu` (libreria `qrcode`). Non
 Giro approfondito di bug e UX su telefono, tablet e PC, per entrambe le parti (menù dei clienti e gestione); correggere ciò che si trova, poi riassumere al titolare.
 
 ## Domande aperte per il titolare
-- Oktoberfest: date, birre con formati e prezzi, piatti (inseribili dalla gestione a rilascio fatto).
-- Link «Scrivi una recensione» di Google; testo del messaggio WhatsApp.
-- «La cucina chiude 40–50 minuti prima» compare solo in Taglieri & Pinse: mostrarlo anche in Tartare, come il coperto?
-- Kombucha Zenzero e Bergamotto: allergeni da confermare sull'etichetta (oggi «da verificare»).
+- Oktoberfest: la locandina c'è (10–11 ottobre 2026, ore 17:00–22:00, "Birre, cibo e musica bavarese", 338 327 7053, Via dei Rossi 53/C Scandicci). Titolo, locandina, birre con formati e prezzi e piatti li inserisce il titolare dalla gestione: locandina visibile da 7 giorni prima (dal 3 ottobre), menù speciale solo il 10 e 11 (comportamento già così). Se serve, preparare io i dati da un suo elenco.
+- Messaggio precompilato per WhatsApp (proposta: "Ciao, vorrei prenotare un tavolo per…").
 - Validare il testo informativo della pagina allergeni.
+- Kombucha Zenzero e Bergamotto: il titolare li compila lui dopo aver letto l'etichetta (oggi "da verificare").
 
 Regole già decise per gli allergeni: nel dubbio, in più. Il primo elenco è nella migrazione `20261002140000_menu_allergens_initial`.
 
@@ -88,7 +88,7 @@ Regole già decise per gli allergeni: nel dubbio, in più. Il primo elenco è ne
    npx next dev -p 3100 &                                # prima: fuser -k 3100/tcp se la porta è occupata
    node scripts/menu-e2e/public-menu.mjs                 # pagine pubbliche e accessi (22 controlli)
    node scripts/menu-e2e/editor.mjs                      # gestione, permessi, storico (53 controlli)
-   node scripts/menu-e2e/allergens-import-cover.mjs      # allergeni, incolla in blocco, coperto (50 controlli)
+   node scripts/menu-e2e/allergens-import-cover.mjs      # allergeni, numeri e legenda, incolla in blocco, coperto e chiusura cucina (56 controlli)
    node scripts/menu-e2e/events.mjs                      # eventi, annunci, formati, archivio, permessi (40 controlli; richiede `npm i --no-save sharp` se manca)
    ```
    Contro `next start` (build di produzione) esporta anche `E2E_PROD=1`: la suite degli allergeni aspetta 62 secondi perché le pagine pubbliche sono in cache. Esegui `events.mjs` per ultima: lascia un evento in corso che altera le altre suite.

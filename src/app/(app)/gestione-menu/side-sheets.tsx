@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { updateCover, updateSectionTexts } from "./actions";
+import { updateCoverInfo, updateSectionTexts } from "./actions";
+import type { CoverInfo } from "@/lib/menu-format";
 import { Field, Sheet, inputClass } from "./sheet";
 import type { EditorSection, HistoryEntry, RunFn } from "./menu-editor";
 
@@ -136,35 +137,29 @@ export function SectionTextsSheet({
   );
 }
 
-// Il coperto è uno solo e vale per tutta la cucina: si modifica qui, non
-// sezione per sezione.
-export function CoverSheet({ cover, run, onClose }: { cover: string | null; run: RunFn; onClose: () => void }) {
-  const [value, setValue] = useState(cover ?? "");
+// Coperto e avviso della cucina: valgono per tutta la cucina e si modificano qui,
+// non sezione per sezione.
+export function CoverSheet({ info, run, onClose }: { info: CoverInfo; run: RunFn; onClose: () => void }) {
+  const [cover, setCover] = useState(info.cover ?? "");
+  const [kitchenNote, setKitchenNote] = useState(info.kitchenNote ?? "");
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const result = await run(() => updateCover(value), "Coperto aggiornato");
+    const result = await run(() => updateCoverInfo({ cover, kitchenNote }), "Coperto e chiusura cucina aggiornati");
     setBusy(false);
     if (result) onClose();
   }
 
   return (
-    <Sheet title="Coperto" onClose={onClose}>
+    <Sheet title="Coperto e chiusura della cucina" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3.5">
-        <Field
-          label="Testo del coperto"
-          hint="Vale per tutta la cucina e compare nelle sezioni di cucina del menù. Lascia vuoto se non c'è coperto."
-        >
-          <input
-            autoFocus
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            maxLength={80}
-            className={inputClass}
-            placeholder="es. Coperto € 1,00"
-          />
+        <Field label="Coperto" hint="Vale per tutta la cucina. Lascia vuoto se non c'è coperto.">
+          <input autoFocus value={cover} onChange={(e) => setCover(e.target.value)} maxLength={80} className={inputClass} placeholder="es. Coperto € 1,00" />
+        </Field>
+        <Field label="Chiusura della cucina" hint="Compare sopra al coperto in ogni sezione di cucina, es. «La cucina chiude circa 40–50 minuti prima della chiusura del locale». Vuoto = nessun avviso.">
+          <textarea value={kitchenNote} onChange={(e) => setKitchenNote(e.target.value)} maxLength={300} rows={4} className={inputClass} />
         </Field>
         <button
           type="submit"
