@@ -21,6 +21,8 @@ export function ItemSheet({
   run,
   onClose,
   onDuplicated,
+  nextMissing,
+  onNext,
 }: {
   sections: EditorSection[];
   section: EditorSection;
@@ -31,6 +33,9 @@ export function ItemSheet({
   run: RunFn;
   onClose: () => void;
   onDuplicated: (newId: string) => void;
+  // Nella vista "allergeni da compilare": il piatto successivo da compilare.
+  nextMissing?: { itemId: string; groupId: string; name: string; key: string } | null;
+  onNext?: (next: { itemId: string; groupId: string; name: string; key: string }) => void;
 }) {
   const isWine = section.kind === "WINE";
   const [name, setName] = useState(item?.name ?? "");
@@ -55,7 +60,7 @@ export function ItemSheet({
   // un piatto (i campi non sono gli stessi).
   const sameKind = sections.filter((s) => s.kind === section.kind);
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.SyntheticEvent, goNext = false) {
     e.preventDefault();
     setBusy(true);
     const result = await run(
@@ -77,7 +82,10 @@ export function ItemSheet({
       item ? "Voce salvata" : "Voce aggiunta",
     );
     setBusy(false);
-    if (result) onClose();
+    if (result) {
+      onClose();
+      if (goNext && nextMissing) onNext?.(nextMissing);
+    }
   }
 
   async function duplicate() {
@@ -307,6 +315,17 @@ export function ItemSheet({
         >
           {busy ? "Salvo…" : item ? "Salva" : "Aggiungi"}
         </button>
+
+        {nextMissing && item && (
+          <button
+            type="button"
+            disabled={busy || !name.trim() || (!isWine && allergenMode === "some" && allergens.length === 0)}
+            onClick={(e) => void submit(e, true)}
+            className="min-h-11 w-full rounded-xl border border-accent px-4 py-2.5 text-sm font-semibold text-accent hover:bg-accent/10 disabled:opacity-50"
+          >
+            Salva e vai a «{nextMissing.name}»
+          </button>
+        )}
 
         {item && (
           <div className="space-y-3 border-t border-border pt-3.5">

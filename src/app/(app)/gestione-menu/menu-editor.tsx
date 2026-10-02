@@ -156,6 +156,17 @@ export function MenuEditor({
     ...sections.map((s) => ({ key: s.slug, section: s })),
     ...promos.flatMap((p) => (p.section && effectiveStatus(p, today) !== "past" ? [{ key: `promo:${p.id}`, section: p.section }] : [])),
   ].filter((target) => missingIn(target.section) > 0);
+  const foodSections = [...sections, ...liveEventSections].filter((s) => s.kind === "FOOD");
+  const totalFood = foodSections.reduce((n, s) => n + s.groups.reduce((m, g) => m + g.items.length, 0), 0);
+  const compiledFood = totalFood - missingAllergens;
+  // Piatti da compilare nell'ordine in cui si vedono: servono a "Salva e vai al prossimo".
+  const missingItems = filterOn
+    ? missingTargets.flatMap((target) =>
+        target.section.groups.flatMap((g) =>
+          g.items.filter((i) => !i.allergensReviewed).map((i) => ({ itemId: i.id, groupId: g.id, name: i.name, key: target.key })),
+        ),
+      )
+    : [];
   const isSold = (item: EditorItem) => localSold[item.id] ?? item.soldOut;
   const soldOutCount = allSections.reduce(
     (n, s) => n + s.groups.reduce((m, g) => m + g.items.filter(isSold).length, 0),
@@ -251,6 +262,8 @@ export function MenuEditor({
   const itemSheetSection = itemSheetGroup
     ? allSections.find((s) => s.groups.some((g) => g.id === itemSheetGroup.id))
     : undefined;
+  const missingIndex = editingItem ? missingItems.findIndex((m) => m.itemId === editingItem.id) : -1;
+  const nextMissing = missingIndex >= 0 ? (missingItems[missingIndex + 1] ?? null) : null;
   const itemIndex = itemSheetGroup && editingItem ? itemSheetGroup.items.findIndex((i) => i.id === editingItem.id) : -1;
 
   if (!section && !promoSelected) {
@@ -357,33 +370,61 @@ export function MenuEditor({
         </button>
       </div>
 
-      {missingAllergens > 0 && (
+      {filterOn && (
+        <div className="sticky top-[calc(4.25rem+env(safe-area-inset-top))] z-20 mb-5 rounded-2xl border border-gold/40 bg-surface/95 p-3.5 shadow-lg backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-gold">Allergeni da compilare</p>
+              <p className="text-xs text-foreground-muted">
+                {compiledFood} di {totalFood} piatti compilati · {missingAllergens} da fare
+                {missingIn(section) > 0 && missingAllergens !== missingIn(section) ? ` (${missingIn(section)} in questa sezione)` : ""}
+              </p>
+              <div
+                className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2"
+                role="progressbar"
+                aria-label="Piatti con allergeni compilati"
+                aria-valuemin={0}
+                aria-valuemax={totalFood}
+                aria-valuenow={compiledFood}
+              >
+                <div className="h-full rounded-full bg-gold transition-all" style={{ width: `${totalFood ? Math.round((compiledFood / totalFood) * 100) : 0}%` }} />
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {missingTargets.some((target) => target.key !== activeSlug) && (
+                <button
+                  type="button"
+                  onClick={goToMissing}
+                  className="min-h-10 rounded-full border border-gold/40 px-3.5 text-xs font-semibold text-gold hover:bg-gold/10"
+                >
+                  Prossima sezione →
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setMissingOnly(false)}
+                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+              >
+                Mostra tutto
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!filterOn && missingAllergens > 0 && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-3 text-sm text-gold">
           <p className="min-w-0 flex-1">
-            {filterOn
-              ? "Stai vedendo solo i piatti con allergeni da compilare."
-              : missingAllergens === 1
-                ? "1 piatto ha gli allergeni da compilare."
-                : `${missingAllergens} piatti hanno gli allergeni da compilare.`}{" "}
+            {missingAllergens === 1 ? "1 piatto ha gli allergeni da compilare." : `${missingAllergens} piatti hanno gli allergeni da compilare.`}{" "}
             <span className="text-gold/80">Finché non lo fai, i clienti vedono «da verificare con il personale».</span>
           </p>
-          {filterOn ? (
-            <button
-              type="button"
-              onClick={() => setMissingOnly(false)}
-              className="min-h-10 shrink-0 rounded-full border border-gold/40 px-3.5 text-xs font-semibold text-gold hover:bg-gold/10"
-            >
-              Mostra tutto
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={goToMissing}
-              className="min-h-10 shrink-0 rounded-full bg-gold/20 px-3.5 text-xs font-semibold text-gold hover:bg-gold/30"
-            >
-              Vedi i piatti →
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={goToMissing}
+            className="min-h-10 shrink-0 rounded-full bg-gold/20 px-3.5 text-xs font-semibold text-gold hover:bg-gold/30"
+          >
+            Vedi i piatti →
+          </button>
         </div>
       )}
 
@@ -500,25 +541,12 @@ export function MenuEditor({
                 </div>
               )}
 
-              {filterOn && (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-2.5 text-sm text-gold">
-                  <span>
-                    {missingIn(section) > 0
-                      ? `Da compilare qui: ${missingIn(section)}`
-                      : section.kind === "WINE"
-                        ? "I vini non hanno allergeni da compilare: vale la nota sui solfiti."
-                        : "In questa sezione i piatti sono a posto."}
-                  </span>
-                  {missingTargets.some((target) => target.key !== activeSlug) && (
-                    <button
-                      type="button"
-                      onClick={goToMissing}
-                      className="min-h-10 rounded-full border border-gold/40 px-3.5 text-xs font-semibold text-gold hover:bg-gold/10"
-                    >
-                      Prossima sezione →
-                    </button>
-                  )}
-                </div>
+              {filterOn && missingIn(section) === 0 && (
+                <p className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-foreground-muted">
+                  {section.kind === "WINE"
+                    ? "I vini non hanno allergeni da compilare: vale la nota sui solfiti."
+                    : "In questa sezione i piatti sono tutti a posto."}
+                </p>
               )}
 
               {section.groups.map((group, index) => {
@@ -540,6 +568,7 @@ export function MenuEditor({
                     onEdit={(item) => setSheet({ type: "item", itemId: item.id, groupId: group.id })}
                     onAdd={() => setSheet({ type: "item", itemId: null, groupId: group.id })}
                     onImport={() => setSheet({ type: "import", groupId: group.id })}
+                    compileMode={filterOn}
                   />
                 );
               })}
@@ -562,6 +591,11 @@ export function MenuEditor({
           run={run}
           onClose={() => setSheet(null)}
           onDuplicated={(newId) => setPendingOpenId(newId)}
+          nextMissing={nextMissing}
+          onNext={(n) => {
+            setSheet({ type: "item", itemId: n.itemId, groupId: n.groupId });
+            select(n.key);
+          }}
         />
       )}
       {sheet?.type === "import" && section && (
@@ -604,6 +638,7 @@ function GroupCard({
   onEdit,
   onAdd,
   onImport,
+  compileMode,
 }: {
   group: EditorGroup;
   kind: "WINE" | "FOOD";
@@ -615,6 +650,7 @@ function GroupCard({
   onEdit: (item: EditorItem) => void;
   onAdd: () => void;
   onImport: () => void;
+  compileMode: boolean;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(group.title);
@@ -738,19 +774,29 @@ function GroupCard({
                     <span className="mt-0.5 block text-[11px] font-medium text-gold">Allergeni da compilare</span>
                   )}
                 </button>
-                <button
-                  type="button"
-                  aria-pressed={sold}
-                  onClick={() => onToggleSold(item)}
-                  title={sold ? "Segna di nuovo disponibile" : "Segna esaurita"}
-                  className={`min-h-11 shrink-0 rounded-full border px-3.5 text-xs font-semibold transition-colors ${
-                    sold
-                      ? "border-danger bg-danger text-white"
-                      : "border-border text-foreground-muted hover:border-danger hover:text-danger"
-                  }`}
-                >
-                  Esaurito
-                </button>
+                {compileMode ? (
+                  <button
+                    type="button"
+                    onClick={() => onEdit(item)}
+                    className="min-h-11 shrink-0 rounded-full bg-gold/20 px-4 text-xs font-semibold text-gold hover:bg-gold/30"
+                  >
+                    Compila
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    aria-pressed={sold}
+                    onClick={() => onToggleSold(item)}
+                    title={sold ? "Segna di nuovo disponibile" : "Segna esaurita"}
+                    className={`min-h-11 shrink-0 rounded-full border px-3.5 text-xs font-semibold transition-colors ${
+                      sold
+                        ? "border-danger bg-danger text-white"
+                        : "border-border text-foreground-muted hover:border-danger hover:text-danger"
+                    }`}
+                  >
+                    Esaurito
+                  </button>
+                )}
               </li>
             );
           })}
