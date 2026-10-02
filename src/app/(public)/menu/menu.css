@@ -27,6 +27,25 @@ html:has(.menu-root) body {
 .menu-root .menu-rule-soft {
   border-color: #e7dfd2;
 }
+.menu-root .menu-chip-idle-border {
+  border-color: #d9cebc;
+}
+/* Testo più grande (strumento «Aa» nella barra): ingrandisce il contenuto, non la copertina. */
+html[data-menu-large] .menu-root .menu-main {
+  zoom: 1.16;
+}
+/* Voce trovata con la ricerca: un breve alone dorato. */
+@keyframes menu-found {
+  0% {
+    background-color: rgba(201, 169, 110, 0.55);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.menu-root .menu-found {
+  animation: menu-found 2.4s ease-out;
+}
 .menu-root .menu-chip-active {
   border-color: #6b1020;
 }

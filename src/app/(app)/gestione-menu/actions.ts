@@ -22,6 +22,9 @@ export type ItemInput = {
   groupId: string;
   sub?: string;
   grapes?: string;
+  // Solo vini, facoltativi.
+  region?: string;
+  country?: string;
   description?: string;
   priceGlass?: string;
   priceBottle?: string;
@@ -38,6 +41,8 @@ const ITEM_KEYS = [
   "name",
   "sub",
   "grapes",
+  "region",
+  "country",
   "description",
   "priceGlassCents",
   "priceBottleCents",
@@ -90,6 +95,8 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
   if (kind === "WINE") {
     const sub = parseText(input.sub, "sottotitolo", { max: 160 }) || null;
     const grapes = parseText(input.grapes, "uvaggio", { max: 200 }) || null;
+    const region = parseText(input.region, "regione", { max: 60 }) || null;
+    const country = parseText(input.country, "nazione", { max: 60 }) || null;
     const priceGlassCents = parsePrice(input.priceGlass, "al calice");
     const priceBottleCents = parsePrice(input.priceBottle, "alla bottiglia");
     assert(priceGlassCents !== null || priceBottleCents !== null, "Inserisci almeno un prezzo (calice o bottiglia).");
@@ -97,6 +104,8 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
       name,
       sub,
       grapes,
+      region,
+      country,
       description: null,
       priceGlassCents,
       priceBottleCents,
@@ -117,6 +126,8 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput) {
     name,
     sub: null,
     grapes: null,
+    region: null,
+    country: null,
     description,
     priceGlassCents: null,
     priceBottleCents: null,
@@ -153,7 +164,15 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
         orderBy: { sortOrder: "desc" },
       });
       const changeId = await prisma.$transaction(async (tx) => {
-        const created = await tx.menuItem.create({ data: { ...toItemData(data), groupId, sortOrder: (last?.sortOrder ?? -1) + 1 } });
+        const created = await tx.menuItem.create({
+          data: {
+            ...toItemData(data),
+            groupId,
+            sortOrder: (last?.sortOrder ?? -1) + 1,
+            // «Oggi fuori menù»: la voce vale solo per il giorno commerciale in corso.
+            ...(group.section.dailyOnly ? { onlyDay: businessDayKey() } : {}),
+          },
+        });
         return logChange(tx, {
           actorName: editor.name,
           action: "CREATE",
@@ -275,6 +294,8 @@ export async function duplicateItem(idInput: string): Promise<ActionResult<Chang
           name: source.name,
           sub: source.sub,
           grapes: source.grapes,
+          region: source.region,
+          country: source.country,
           description: source.description,
           priceGlassCents: source.priceGlassCents,
           priceBottleCents: source.priceBottleCents,
@@ -283,6 +304,7 @@ export async function duplicateItem(idInput: string): Promise<ActionResult<Chang
           allergens: source.allergens,
           allergensReviewed: source.allergensReviewed,
           variants: source.variants === null ? Prisma.DbNull : (source.variants as Prisma.InputJsonValue),
+          onlyDay: source.onlyDay,
           sortOrder: source.sortOrder + 1,
         },
       });
@@ -292,6 +314,60 @@ export async function duplicateItem(idInput: string): Promise<ActionResult<Chang
         entity: "item",
         entityId: copy.id,
         label: copy.name,
+        after: itemSnapshot(copy),
+      });
+      return { changeId, id: copy.id };
+    });
+    revalidateMenu();
+    return result;
+  });
+}
+
+// «Riproponi»: rimette tra le voci di oggi un piatto o un vino già proposto
+// in un giorno passato (copia, la voce di ieri resta nello storico).
+export async function reproposeItem(idInput: string): Promise<ActionResult<ChangeResult & { id: string }>> {
+  return runAction(async () => {
+    const editor = await requireMenuEditor();
+    const id = parseId(idInput, "voce");
+    const source = await prisma.menuItem.findFirst({ where: { id, deletedAt: null }, include: { group: { include: { section: true } } } });
+    assert(source && source.group.section.dailyOnly, "Voce non trovata.");
+    const today = businessDayKey();
+    assert(source.onlyDay !== today, "È già tra le voci di oggi.");
+
+    const result = await prisma.$transaction(async (tx) => {
+      const last = await tx.menuItem.findFirst({ where: { groupId: source.groupId, deletedAt: null, onlyDay: today }, orderBy: { sortOrder: "desc" } });
+      const copy = await tx.menuItem.create({
+        data: {
+          groupId: source.groupId,
+          name: source.name,
+          sub: source.sub,
+          grapes: source.grapes,
+          region: source.region,
+          country: source.country,
+          description: source.description,
+          priceGlassCents: source.priceGlassCents,
+          priceBottleCents: source.priceBottleCents,
+          priceCents: source.priceCents,
+          enomatic: source.enomatic,
+          allergens: source.allergens,
+          allergensReviewed: source.allergensReviewed,
+          variants: source.variants === null ? Prisma.DbNull : (source.variants as Prisma.InputJsonValue),
+          onlyDay: today,
+          sortOrder: (last?.sortOrder ?? -1) + 1,
+        },
+      });
+      // Pulizia: le voci «oggi fuori menù» più vecchie di 60 giorni non servono più.
+      const cutoff = new Date(`${today}T12:00:00Z`);
+      cutoff.setUTCDate(cutoff.getUTCDate() - 60);
+      await tx.menuItem.deleteMany({
+        where: { onlyDay: { lt: cutoff.toISOString().slice(0, 10) }, group: { section: { dailyOnly: true } } },
+      });
+      const changeId = await logChange(tx, {
+        actorName: editor.name,
+        action: "CREATE",
+        entity: "item",
+        entityId: copy.id,
+        label: `${copy.name} (riproposto oggi)`,
         after: itemSnapshot(copy),
       });
       return { changeId, id: copy.id };

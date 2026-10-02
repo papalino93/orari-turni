@@ -48,7 +48,7 @@ export default async function PromoPage({ params }: { params: Promise<{ slug: st
         </Link>
       </header>
 
-      <main className="mx-auto max-w-[720px] px-6 pb-[72px] pt-8">
+      <main className="menu-main mx-auto max-w-[720px] px-6 pb-[72px] pt-8">
         <PromoContent promo={promo} blocks={blocks} dayKey={dayKey} />
 
         <div className="mt-14 flex flex-col items-center gap-3.5 text-center">

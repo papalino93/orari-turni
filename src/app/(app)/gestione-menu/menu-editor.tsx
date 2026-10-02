@@ -7,10 +7,12 @@ import { blockStatus, formatPrice, priceLine, type MenuBlockView } from "@/lib/m
 import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
 import { BlockSheet, BlocksPanel, type SectionChoice } from "./block-ui";
+import { DailyPanel, type DailyData } from "./daily-ui";
 import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
 import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
-import { HistorySheet, SectionTextsSheet } from "./side-sheets";
+import { ItemSearch } from "./search-ui";
+import { HistorySheet, PreviewSheet, QrSheet, SectionTextsSheet } from "./side-sheets";
 import { ContactsSheet, HeroSheet, HoursSheet, VenuePanel, type EditorVenue, type VenueSheetKind } from "./venue-ui";
 
 export type EditorItem = {
@@ -19,6 +21,8 @@ export type EditorItem = {
   name: string;
   sub: string | null;
   grapes: string | null;
+  region: string | null;
+  country: string | null;
   description: string | null;
   priceGlassCents: number | null;
   priceBottleCents: number | null;
@@ -38,6 +42,7 @@ export type EditorSection = {
   label: string;
   title: string;
   promoId: string | null;
+  dailyOnly: boolean;
   kind: "WINE" | "FOOD";
   note: string | null;
   addonTitle: string | null;
@@ -87,6 +92,8 @@ type SheetState =
   | { type: "block"; id: string | null }
   | { type: "venue"; kind: VenueSheetKind }
   | { type: "history" }
+  | { type: "preview" }
+  | { type: "qr" }
   | { type: "promo"; id: string | null }
   | { type: "promo-duplicate"; id: string }
   | null;
@@ -106,6 +113,7 @@ function priceSummary(item: EditorItem, kind: "WINE" | "FOOD"): string {
 
 export function MenuEditor({
   sections,
+  daily,
   promos,
   today,
   blocks,
@@ -113,6 +121,7 @@ export function MenuEditor({
   history,
 }: {
   sections: EditorSection[];
+  daily: DailyData;
   promos: EditorPromo[];
   today: string;
   blocks: MenuBlockView[];
@@ -137,7 +146,7 @@ export function MenuEditor({
 
   // Sezioni fisse + menù speciali degli eventi: per cercare voci e gruppi servono tutte.
   const eventSections = promos.flatMap((p) => (p.section ? [p.section] : []));
-  const allSections = [...sections, ...eventSections];
+  const allSections = [...sections, ...eventSections, ...daily.sections];
   // Sezioni in cui si può scegliere di mostrare un'informazione: quelle fisse e i menù speciali non conclusi.
   const sectionChoices: SectionChoice[] = [
     ...sections.map((s) => ({ id: s.id, label: s.title, event: false })),
@@ -333,6 +342,20 @@ export function MenuEditor({
           >
             Storico
           </button>
+          <button
+            type="button"
+            onClick={() => setSheet({ type: "preview" })}
+            className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          >
+            Anteprima
+          </button>
+          <button
+            type="button"
+            onClick={() => setSheet({ type: "qr" })}
+            className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          >
+            Codice QR
+          </button>
           <a
             href="/menu"
             target="_blank"
@@ -343,6 +366,20 @@ export function MenuEditor({
           </a>
         </div>
       </div>
+
+      <ItemSearch
+        sections={allSections.filter((s) => !s.promoId || effectiveStatus(promos.find((p) => p.id === s.promoId)!, today) !== "past")}
+        isSold={isSold}
+        onToggleSold={toggleSold}
+        onEdit={(item, groupId) => setSheet({ type: "item", itemId: item.id, groupId })}
+      />
+
+      <DailyPanel
+        daily={daily}
+        run={run}
+        onAdd={(groupId) => setSheet({ type: "item", itemId: null, groupId })}
+        onEdit={(item, groupId) => setSheet({ type: "item", itemId: item.id, groupId })}
+      />
 
       <BlocksPanel
         blocks={blocks}
@@ -514,7 +551,7 @@ export function MenuEditor({
       {sheet?.type === "item" && itemSheetGroup && itemSheetSection && (sheet.itemId === null || editingItem) && (
         <ItemSheet
           key={sheet.itemId ?? `new-${sheet.groupId}`}
-          sections={itemSheetSection.promoId ? [itemSheetSection] : sections}
+          sections={itemSheetSection.promoId || itemSheetSection.dailyOnly ? [itemSheetSection] : sections}
           section={itemSheetSection}
           groupId={itemSheetGroup.id}
           item={editingItem}
@@ -534,6 +571,8 @@ export function MenuEditor({
       {sheet?.type === "import" && section && (
         <ImportSheet key={sheet.groupId} section={section} groupId={sheet.groupId} run={run} onClose={() => setSheet(null)} />
       )}
+      {sheet?.type === "preview" && <PreviewSheet onClose={() => setSheet(null)} />}
+      {sheet?.type === "qr" && <QrSheet onClose={() => setSheet(null)} />}
       {sheet?.type === "venue" && sheet.kind === "hero" && <HeroSheet venue={venue} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "venue" && sheet.kind === "hours" && (
         <HoursSheet hours={venue.hours} today={today} run={run} onClose={() => setSheet(null)} />

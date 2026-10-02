@@ -44,6 +44,8 @@ export function ItemSheet({
   const [name, setName] = useState(item?.name ?? "");
   const [sub, setSub] = useState(item?.sub ?? "");
   const [grapes, setGrapes] = useState(item?.grapes ?? "");
+  const [region, setRegion] = useState(item?.region ?? "");
+  const [country, setCountry] = useState(item?.country ?? "");
   const [description, setDescription] = useState(item?.description ?? "");
   const [priceGlass, setPriceGlass] = useState(priceInput(item?.priceGlassCents ?? null));
   const [priceBottle, setPriceBottle] = useState(priceInput(item?.priceBottleCents ?? null));
@@ -73,6 +75,8 @@ export function ItemSheet({
           groupId: targetGroup,
           sub,
           grapes,
+          region,
+          country,
           description,
           priceGlass,
           priceBottle,
@@ -146,6 +150,14 @@ export function ItemSheet({
                 placeholder="es. 100% Friulano"
               />
             </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Regione (facoltativa)">
+                <input value={region} onChange={(e) => setRegion(e.target.value)} maxLength={60} className={inputClass} placeholder="es. Toscana" />
+              </Field>
+              <Field label="Nazione (facoltativa)">
+                <input value={country} onChange={(e) => setCountry(e.target.value)} maxLength={60} className={inputClass} placeholder="es. Italia" />
+              </Field>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Calice (€)" hint="Vuoto = non al calice">
                 <input

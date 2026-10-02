@@ -270,6 +270,8 @@ export async function duplicatePromo(
                 name: item.name,
                 sub: item.sub,
                 grapes: item.grapes,
+                region: item.region,
+                country: item.country,
                 description: item.description,
                 priceGlassCents: item.priceGlassCents,
                 priceBottleCents: item.priceBottleCents,

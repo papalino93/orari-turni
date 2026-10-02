@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ALLERGENS, allergenState } from "@/lib/allergens";
 import { businessDayKey, isPromoMenuVisible } from "@/lib/menu-format";
-import { loadMenu, loadVisiblePromos } from "@/lib/menu";
+import { loadDaily, loadMenu, loadVisiblePromos } from "@/lib/menu";
 import { Ornament } from "../ornament";
 import { AllergenExplorer, type ExplorerSection } from "./allergen-explorer";
 
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default async function AllergeniPage() {
   const dayKey = businessDayKey();
-  const [menu, promos] = await Promise.all([loadMenu(), loadVisiblePromos(dayKey)]);
+  const [menu, promos, daily] = await Promise.all([loadMenu(), loadVisiblePromos(dayKey), loadDaily(dayKey)]);
   // Il menù speciale di un evento conta finché l'evento è in corso.
   const eventSections = promos.flatMap((p) =>
     p.kind === "EVENT" && p.section && isPromoMenuVisible(p, dayKey) ? [{ ...p.section, title: p.title }] : [],
@@ -24,7 +24,7 @@ export default async function AllergeniPage() {
 
   // Solo i piatti: per i vini vale la nota unica sui solfiti. Un gruppo senza
   // voci non compare.
-  const sections: ExplorerSection[] = [...menu.filter((s) => s.kind === "FOOD"), ...eventSections]
+  const sections: ExplorerSection[] = [...daily.filter((s) => s.kind === "FOOD"), ...menu.filter((s) => s.kind === "FOOD"), ...eventSections]
     .map((s) => ({
       id: s.id,
       title: s.title,
@@ -61,7 +61,7 @@ export default async function AllergeniPage() {
         </Link>
       </header>
 
-      <main className="mx-auto max-w-[720px] px-6 pb-[72px] pt-14">
+      <main className="menu-main mx-auto max-w-[720px] px-6 pb-[72px] pt-14">
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="menu-sans text-[11px] uppercase tracking-[0.34em] text-[#5B605A]">Informazioni</div>
           <h1 className="menu-serif m-0 mb-2.5 mt-0.5 text-balance text-[42px] font-medium leading-[1.05] text-[#6B1020]">
