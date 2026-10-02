@@ -6,7 +6,7 @@ import { useToast } from "@/components/toast";
 import { formatPromoDates, promoStatus, type PromoStatus } from "@/lib/menu-format";
 import { resizeToJpeg } from "@/lib/image-resize";
 import { createPromo, deletePromo, duplicatePromo, removePromoImage, savePromoImage, setPromoHidden, updatePromo } from "./promo-actions";
-import { Field, Sheet, inputClass } from "./sheet";
+import { Field, Sheet, dateInputClass, inputClass } from "./sheet";
 import type { EditorPromo, RunFn } from "./menu-editor";
 
 export const STATUS_LABEL: Record<PromoStatus | "hidden", string> = {
@@ -341,7 +341,7 @@ export function PromoSheet({
           <p className="mt-1 text-[11px] text-foreground-muted/80">Meglio verticale (4:5). Si ridimensiona da sola: nessun file pesante.</p>
         </div>
 
-        <div className={`grid gap-3 ${isEvent ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
+        <div className="space-y-3">
           {isEvent && (
             <Field label="Mostra la locandina dal" hint="Per annunciarlo in anticipo.">
               <input
@@ -352,28 +352,30 @@ export function PromoSheet({
                   setShowFromTouched(true);
                 }}
                 required
-                className={inputClass}
+                className={dateInputClass}
               />
             </Field>
           )}
-          <Field label={isEvent ? "Inizio evento" : "Dal"}>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                const value = e.target.value;
-                setStartDate(value);
-                if (endDate < value) setEndDate(value);
-                // Finché non si sceglie a mano, la locandina compare 7 giorni prima.
-                if (!showFromTouched && value) setShowFrom(addDaysKey(value, -7));
-              }}
-              required
-              className={inputClass}
-            />
-          </Field>
-          <Field label={isEvent ? "Fine evento" : "Al"}>
-            <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} required className={inputClass} />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={isEvent ? "Inizio evento" : "Dal"}>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setStartDate(value);
+                  if (endDate < value) setEndDate(value);
+                  // Finché non si sceglie a mano, la locandina compare 7 giorni prima.
+                  if (!showFromTouched && value) setShowFrom(addDaysKey(value, -7));
+                }}
+                required
+                className={dateInputClass}
+              />
+            </Field>
+            <Field label={isEvent ? "Fine evento" : "Al"}>
+              <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} required className={dateInputClass} />
+            </Field>
+          </div>
         </div>
 
         {isEvent && (
@@ -443,27 +445,29 @@ export function DuplicatePromoSheet({
         <Field label="Titolo">
           <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} required className={inputClass} />
         </Field>
-        <div className={`grid gap-3 ${promo.kind === "EVENT" ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
+        <div className="space-y-3">
           {promo.kind === "EVENT" && (
             <Field label="Mostra la locandina dal">
-              <input type="date" value={showFrom} onChange={(e) => setShowFrom(e.target.value)} required className={inputClass} />
+              <input type="date" value={showFrom} onChange={(e) => setShowFrom(e.target.value)} required className={dateInputClass} />
             </Field>
           )}
-          <Field label={promo.kind === "EVENT" ? "Inizio evento" : "Dal"}>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                if (promo.kind !== "EVENT") setShowFrom(e.target.value);
-              }}
-              required
-              className={inputClass}
-            />
-          </Field>
-          <Field label={promo.kind === "EVENT" ? "Fine evento" : "Al"}>
-            <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} required className={inputClass} />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={promo.kind === "EVENT" ? "Inizio evento" : "Dal"}>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  if (promo.kind !== "EVENT") setShowFrom(e.target.value);
+                }}
+                required
+                className={dateInputClass}
+              />
+            </Field>
+            <Field label={promo.kind === "EVENT" ? "Fine evento" : "Al"}>
+              <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} required className={dateInputClass} />
+            </Field>
+          </div>
         </div>
         <button
           type="submit"

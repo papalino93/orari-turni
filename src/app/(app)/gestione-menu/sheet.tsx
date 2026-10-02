@@ -51,6 +51,10 @@ export function Sheet({
 export const inputClass =
   "w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-base text-foreground outline-none placeholder:text-foreground-muted/60 focus:border-accent sm:text-sm";
 
+// Campi data: stesso aspetto degli altri, ma senza che il testo si tagli o si
+// sposti (su iOS/Android l'input date ha misure sue) quando la colonna è stretta.
+export const dateInputClass = `${inputClass} min-w-0 appearance-none px-2.5 text-left [&::-webkit-date-and-time-value]:text-left [&::-webkit-datetime-edit]:p-0`;
+
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block">
