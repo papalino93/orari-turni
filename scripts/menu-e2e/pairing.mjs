@@ -1,12 +1,12 @@
-// «Consigliato» sui vini e «Abbinalo con» sui piatti: gestione, menù dei
-// clienti (tocco che porta al vino e «Torna a …»), vino esaurito o eliminato,
-// annulla, duplica, campi assenti dove non servono, permessi.
+// «Abbinamento consigliato» sui piatti: gestione, menù dei clienti (tocco che
+// porta al vino e «Torna a …»), vino esaurito o eliminato, annulla, duplica,
+// campo assente dove non serve, permessi.
 import { launch, login, check, BASE, results, ADMIN_PW, EMP_PW, DB } from "./lib.mjs";
 
 const WINE = "menu_itm_033"; // Mastrojanni, Rossi
 const DISH = "menu_itm_051"; // Tagliere Classico
 const clean = () => {
-  DB(`update "MenuItem" set recommended=false, "pairWineId"=null`);
+  DB(`update "MenuItem" set "pairWineId"=null`);
   DB(`update "MenuItem" set "soldOutDay"=null, "deletedAt"=null where id in ('${WINE}','${DISH}')`);
   DB(`delete from "MenuItem" where name='Tagliere Classico' and id<>'${DISH}'`);
   DB(`delete from "MenuItem" where "groupId" in ('menu_grp_oggi_piatti','menu_grp_oggi_vini')`);
@@ -30,8 +30,7 @@ const inView = (sel) =>
   });
 
 let t = await menu();
-check("partenza: nessun «Abbinalo con» sul menù", !/abbinalo con/i.test(t));
-check("partenza: nessun «Consigliato» sul menù", !/consigliato/i.test(t));
+check("partenza: nessun abbinamento sul menù", !/abbinamento consigliato/i.test(t));
 
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const page = await ctx.newPage();
@@ -43,32 +42,19 @@ const settle = (ms = 1500) => page.waitForTimeout(ms);
 const section = (name) => page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
 const row = (name) => page.locator("li", { has: page.getByRole("button", { name: `Modifica ${name}`, exact: true }) });
 
-// ---- «Consigliato» sul vino
+// ---- Il vino non ha il campo dell'abbinamento
 await section("Rossi");
 await page.getByRole("button", { name: "Modifica Mastrojanni", exact: true }).click();
 await dialog().waitFor();
-check("vino: c'è la casella «Consigliato»", (await dialog().getByLabel(/Consigliato/).count()) === 1);
-check("vino: niente «Abbinalo con»", (await dialog().getByLabel("Cerca un vino da abbinare").count()) === 0);
-await dialog().getByLabel(/Consigliato/).check();
-await dialog().getByRole("button", { name: "Salva", exact: true }).click();
+check("vino: niente abbinamento nella scheda", (await dialog().getByLabel("Cerca un vino da abbinare").count()) === 0);
+check("vino: niente «Consigliato»", !/consigliato/i.test(await dialog().innerText()));
+await page.keyboard.press("Escape");
 await dialog().waitFor({ state: "detached" });
-await settle();
-check("vino: nell'elenco compare «Consigliato»", /Consigliato/.test(await row("Mastrojanni").innerText()));
-check("vino: salvato nel database", DB(`select recommended from "MenuItem" where id='${WINE}'`) === "t");
 
-t = await menu();
-check("menù: «Consigliato» accanto a Mastrojanni", /Consigliato/.test(await pub.locator(`#v-${WINE}`).innerText()));
-await pub.getByRole("button", { name: "Cerca nel menù", exact: true }).click();
-await pub.locator("input[type=search]").fill("consigliato");
-await pub.waitForTimeout(400);
-check("ricerca: «consigliato» trova Mastrojanni", /Mastrojanni/.test(await pub.locator('[role="dialog"]').innerText()));
-await pub.keyboard.press("Escape");
-
-// ---- «Abbinalo con» sul piatto
+// ---- Abbinamento sul piatto
 await section("Taglieri");
 await page.getByRole("button", { name: "Modifica Tagliere Classico", exact: true }).click();
 await dialog().waitFor();
-check("piatto: niente casella «Consigliato»", (await dialog().getByLabel(/Consigliato/).count()) === 0);
 await dialog().getByLabel("Cerca un vino da abbinare").fill("montalcino rossi");
 await settle(300);
 const results1 = await dialog().locator("ul button").allInnerTexts();
@@ -79,14 +65,15 @@ check("piatto: la ricerca si chiude dopo la scelta", (await dialog().getByLabel(
 await dialog().getByRole("button", { name: "Salva", exact: true }).click();
 await dialog().waitFor({ state: "detached" });
 await settle();
-check("piatto: nell'elenco «Abbinalo con Mastrojanni»", /Abbinalo con Mastrojanni/.test(await row("Tagliere Classico").innerText()));
+check("piatto: nell'elenco «Abbinamento: Mastrojanni»", /Abbinamento: Mastrojanni/.test(await row("Tagliere Classico").innerText()));
 check("piatto: salvato nel database", DB(`select "pairWineId" from "MenuItem" where id='${DISH}'`) === WINE);
 
 t = await menu();
 const box = pub.locator(`a[data-pair-from="${DISH}"]`);
 check("menù: riquadro sotto il piatto", (await box.count()) === 1);
 const boxText = (await box.innerText()).replace(/\s+/g, " ");
-check("menù: nome, zona e prezzo del vino", /Abbinalo con/i.test(boxText) && /Mastrojanni/.test(boxText) && /Rosso di Montalcino · calice 8/.test(boxText), boxText);
+check("menù: titolo, nome e zona del vino", /Abbinamento consigliato/i.test(boxText) && /Mastrojanni/.test(boxText) && /Rosso di Montalcino/.test(boxText), boxText);
+check("menù: prezzo al calice e alla bottiglia", /Calice ?8/.test(boxText) && /Bottiglia ?40/.test(boxText), boxText);
 const bb = await box.boundingBox();
 check("menù: riquadro toccabile (almeno 44 px)", bb && bb.height >= 44);
 check("menù: un solo riquadro nel menù", (await pub.locator("a[data-pair-from]").count()) === 1);
@@ -134,7 +121,7 @@ await menu();
 check("vino eliminato: il riquadro sparisce", (await pub.locator(`a[data-pair-from="${DISH}"]`).count()) === 0);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await section("Taglieri");
-check("vino eliminato: in elenco niente «Abbinalo con»", !/Abbinalo con/.test(await row("Tagliere Classico").innerText()));
+check("vino eliminato: in elenco niente abbinamento", !/Abbinamento:/.test(await row("Tagliere Classico").innerText()));
 await page.getByRole("button", { name: "Modifica Tagliere Classico", exact: true }).click();
 await dialog().waitFor();
 check("vino eliminato: la scheda lo spiega", /non è più nel menù/.test(await dialog().innerText()));
@@ -161,7 +148,7 @@ await page.locator('[role="status"] button:has-text("Annulla")').last().click();
 await settle(2000);
 check("annulla: l'abbinamento torna", DB(`select coalesce("pairWineId",'') from "MenuItem" where id='${DISH}'`) === WINE);
 
-// ---- Duplica: l'abbinamento segue il piatto, «Consigliato» no
+// ---- Duplica: l'abbinamento segue il piatto
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await section("Taglieri");
 await page.getByRole("button", { name: "Modifica Tagliere Classico", exact: true }).click();
@@ -171,20 +158,11 @@ await settle(2500);
 check("duplica: la copia ha lo stesso vino", DB(`select count(*) from "MenuItem" where name='Tagliere Classico' and "deletedAt" is null and "pairWineId"='${WINE}'`) === "2");
 if (await dialog().count()) await page.keyboard.press("Escape");
 DB(`delete from "MenuItem" where name='Tagliere Classico' and id<>'${DISH}'`);
-await section("Rossi");
-await page.getByRole("button", { name: "Modifica Mastrojanni", exact: true }).click();
-await dialog().waitFor();
-await dialog().getByRole("button", { name: "Duplica" }).click();
-await settle(2500);
-check("duplica: la copia del vino non è «Consigliato»", DB(`select count(*) from "MenuItem" where name='Mastrojanni' and "groupId"='menu_grp_3_1' and "deletedAt" is null and recommended`) === "1");
-if (await dialog().count()) await page.keyboard.press("Escape");
-DB(`delete from "MenuItem" where name='Mastrojanni' and "groupId"='menu_grp_3_1' and id<>'${WINE}'`);
-
-// ---- Niente «Abbinalo con» per «Oggi fuori menù»
+// ---- Niente abbinamento per «Oggi fuori menù»
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await page.locator('section[aria-label="Oggi fuori menù"]').getByRole("button", { name: "+ Piatto" }).click();
 await dialog().waitFor();
-check("oggi fuori menù: niente «Abbinalo con»", (await dialog().getByLabel("Cerca un vino da abbinare").count()) === 0);
+check("oggi fuori menù: niente abbinamento", (await dialog().getByLabel("Cerca un vino da abbinare").count()) === 0);
 await page.keyboard.press("Escape");
 
 // ---- Permessi: chi ha il permesso vede e usa i campi
@@ -194,9 +172,11 @@ await page.keyboard.press("Escape");
   p.setDefaultTimeout(60000);
   await login(p, "marta", EMP_PW);
   await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 120000 });
+  const later = p.locator("button", { hasText: "Ricordamelo più tardi" });
+  if (await later.count()) await later.click();
   await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Taglieri" }).click();
   await p.getByRole("button", { name: "Modifica Tagliere Premium", exact: true }).click();
-  check("permessi: la dipendente con permesso vede «Abbinalo con»", (await p.getByLabel("Cerca un vino da abbinare").count()) === 1);
+  check("permessi: la dipendente con permesso vede l'abbinamento", (await p.getByLabel("Cerca un vino da abbinare").count()) === 1);
   await c.close();
 }
 

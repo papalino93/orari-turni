@@ -28,7 +28,6 @@ export type EditorItem = {
   priceBottleCents: number | null;
   priceCents: number | null;
   enomatic: boolean;
-  recommended: boolean;
   pairWineId: string | null;
   variants: { label: string; cents: number }[] | null;
   allergens: string[];
@@ -113,7 +112,7 @@ function priceSummary(item: EditorItem, kind: "WINE" | "FOOD"): string {
   return parts.join(" · ");
 }
 
-// Un vino del menù fisso che si può abbinare a un piatto («Abbinalo con»).
+// Un vino del menù fisso che si può abbinare a un piatto («Abbinamento consigliato»).
 export type PairWine = { id: string; name: string; section: string; detail: string };
 
 export function MenuEditor({
@@ -148,7 +147,7 @@ export function MenuEditor({
     map: EMPTY,
   });
   const localSold = local.base === sections ? local.map : EMPTY;
-  // Vini del menù fisso: scelta di «Abbinalo con» e nomi mostrati nell'elenco dei piatti.
+  // Vini del menù fisso: scelta dell'abbinamento e nomi mostrati nell'elenco dei piatti.
   const wines: PairWine[] = sections
     .filter((s) => s.kind === "WINE")
     .flatMap((s) =>
@@ -762,13 +761,12 @@ function GroupCard({
                   <span className={`block line-clamp-2 break-words text-sm font-medium ${sold ? "text-foreground-muted line-through" : "text-foreground"}`}>
                     {item.name}
                     {item.enomatic && <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-accent">Enomatic</span>}
-                    {item.recommended && <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-gold">Consigliato</span>}
                   </span>
                   {secondary && <span className="block line-clamp-2 break-words text-xs text-foreground-muted">{secondary}</span>}
                   <span className="block text-xs text-foreground-muted/90">{priceSummary(item, kind)}</span>
                   {item.pairWineId && wineNames.has(item.pairWineId) && (
                     <span className="mt-0.5 block truncate text-[11px] text-foreground-muted">
-                      Abbinalo con {wineNames.get(item.pairWineId)}
+                      Abbinamento: {wineNames.get(item.pairWineId)}
                     </span>
                   )}
                   {kind === "FOOD" && !item.allergensReviewed && (

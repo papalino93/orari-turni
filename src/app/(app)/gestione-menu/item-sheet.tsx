@@ -30,7 +30,7 @@ export function ItemSheet({
   section: EditorSection;
   groupId: string;
   item: EditorItem | null;
-  // Vini del menù fisso, per «Abbinalo con».
+  // Vini del menù fisso, per l'abbinamento consigliato.
   wines: PairWine[];
   isFirst: boolean;
   isLast: boolean;
@@ -54,7 +54,6 @@ export function ItemSheet({
   const [priceBottle, setPriceBottle] = useState(priceInput(item?.priceBottleCents ?? null));
   const [price, setPrice] = useState(priceInput(item?.priceCents ?? null));
   const [enomatic, setEnomatic] = useState(item?.enomatic ?? false);
-  const [recommended, setRecommended] = useState(item?.recommended ?? false);
   // Un abbinamento a un vino che non c'è più (eliminato) si lascia cadere al salvataggio.
   const pairLost = Boolean(item?.pairWineId && !wines.some((w) => w.id === item.pairWineId));
   const [pairWineId, setPairWineId] = useState<string | null>(pairLost ? null : (item?.pairWineId ?? null));
@@ -91,7 +90,6 @@ export function ItemSheet({
           priceBottle,
           price,
           enomatic,
-          recommended,
           pairWineId: canPair ? pairWineId : null,
           allergens: allergenMode === "some" ? allergens : [],
           allergensReviewed: allergenMode !== "unknown",
@@ -192,18 +190,6 @@ export function ItemSheet({
             <label className="flex min-h-11 items-center gap-3 text-sm text-foreground">
               <input type="checkbox" checked={enomatic} onChange={(e) => setEnomatic(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
               Fa parte del Progetto Enomatic
-            </label>
-            <label className="flex min-h-11 items-start gap-3 py-1 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={recommended}
-                onChange={(e) => setRecommended(e.target.checked)}
-                className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
-              />
-              <span>
-                Consigliato
-                <span className="block text-[11px] text-foreground-muted">Sul menù compare l&apos;etichetta «Consigliato» accanto al vino.</span>
-              </span>
             </label>
           </>
         ) : (
@@ -434,7 +420,7 @@ export function ItemSheet({
   );
 }
 
-// «Abbinalo con»: un vino del menù per il piatto. Si cerca per nome (o zona,
+// «Abbinamento consigliato»: un vino del menù per il piatto. Si cerca per nome (o zona,
 // uvaggio, sezione) e si sceglie con un tocco; ✕ lo toglie.
 function PairPicker({
   wines,
@@ -457,7 +443,7 @@ function PairPicker({
   return (
     <div>
       <p className="mb-1 text-xs font-medium text-foreground-muted">
-        Abbinalo con <span className="font-normal">(facoltativo, un vino)</span>
+        Abbinamento consigliato <span className="font-normal">(facoltativo, un vino)</span>
       </p>
       {selected ? (
         <div className="flex items-center gap-2 rounded-xl border border-accent/50 bg-accent/5 py-1.5 pl-3 pr-1">
