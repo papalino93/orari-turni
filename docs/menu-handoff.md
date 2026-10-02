@@ -23,6 +23,26 @@ PR #30, #31 (menù, allergeni, incolla in blocco, coperto), #32 (questo document
 - Dati: modelli `MenuSection`, `MenuGroup`, `MenuItem`, `MenuChange` (storico), `MenuSetting` (coperto) in `prisma/schema.prisma`. Le migrazioni si applicano al deploy (`npm run build` = `prisma migrate deploy && next build`).
 - Il giorno commerciale cambia alle 5:00 ora italiana (`businessDayKey`). "Esaurito" = `soldOutDay` uguale al giorno corrente: si azzera da solo, nessun cron.
 
+## Regola del titolare: numero di versione
+Il titolare vuole **sempre il numero di versione sia sul sito sia nella chat**.
+- Sul sito: etichetta `v0.2.0 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
+- **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.2.0**.
+- In chat: a ogni risposta che riguarda un rilascio scrivi «Versione X.Y.Z» (quella pubblicata in produzione, verificata sul sito).
+
+## Tutto ciò che MANCA da fare (riepilogo, in quest'ordine consigliato)
+1. **Vista allergeni da compilare**: il titolare non è convinto della barra fissa; decidere (vedi «Dubbio…» più sotto) e chiudere. Proposta: un solo pulsante «Compila allergeni (N da fare)» + foglio con «1 di N» e «Salva e passa al successivo».
+2. **Blocchi informativi** (progetto più sotto): modello `MenuBlock`, tipi testo / voce con prezzo / avviso evidenziato, posizione cima / fondo / sotto il titolo di una o più sezioni (anche nei menù evento), finestra di date facoltativa, ordine con frecce; coperto e chiusura cucina diventano blocchi di sistema spostabili (migrare `cover` e `kitchenNote`). Attendere il via del titolare sul progetto.
+3. **Passo 2: copertina, orari, contatti**: copertina più bassa con foto e titolo modificabili; orari settimanali con eccezioni (chiusure e aperture straordinarie) e «Aperto ora / Chiuso» automatico (dati iniziali dagli orari Google, il titolare ha mandato lo screenshot); contatti: Chiama (338 327 7053, modificabile), WhatsApp con messaggio precompilato (testo da confermare), Come arrivare (Via dei Rossi 53/C, Scandicci, indirizzo modificabile), Scrivi una recensione Google (`https://share.google/ads9ad7vXNVdN2B4t`, da verificare che sia il link giusto), Instagram (URL già dato dal titolare in chat: richiederlo se manca).
+4. **Passo 3: «Oggi fuori menù»**: piatti e vini del giorno esauriti in una vista veloce, si azzera da solo alle 5:00, «Riproponi».
+5. **Passo 4: strumenti per i clienti**: ricerca, filtri (Al calice, Enomatic), «Torna su», dimensione del testo (A+), discreti nella barra sezioni.
+6. **Passo 5: comodità per chi gestisce**: ricerca di una voce, anteprima in cornice da telefono (affiancata sul PC), riquadro «Da fare».
+7. **Generatore del QR code**: pagina in gestione, download SVG/PNG verso `/menu` (libreria `qrcode`); NON toccare il QR stampato (qrco.de/bes4Ad): lo ripunta il titolare dopo aver compilato gli allergeni.
+8. **Modalità servizio**: solo progettare e discutere, NON implementare finché il titolare non conferma.
+9. **Inglese**: oggi solo italiano, ma i dati sono pronti per le traduzioni (colonne `translations`); nessun costo: niente traduzione automatica a pagamento.
+10. **In chiusura, sempre**: giro approfondito di bug e UX su telefono, tablet e PC (menù clienti e gestione), correggere, riassumere al titolare; aggiornare questo documento e il numero di versione.
+
+Dati che inserisce il titolare (non codice): Oktoberfest 10–11 ottobre (titolo, locandina già inviata, birre e prezzi, piatti), etichette dei due kombucha, testo del messaggio WhatsApp, validazione del testo della pagina allergeni.
+
 ## Da fare, in quest'ordine (piano completo: vedi sotto)
 
 ### Passo 1: eventi e annunci — FATTO (PR «Eventi e annunci con locandina e menù speciale»)
