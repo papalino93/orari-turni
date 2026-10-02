@@ -5,7 +5,7 @@ import { ALLERGENS, allergenState, type AllergenState } from "@/lib/allergens";
 import { formatPrice } from "@/lib/menu-format";
 import { deleteItem, duplicateItem, moveItem, saveItem } from "./actions";
 import { Field, Sheet, inputClass } from "./sheet";
-import type { EditorItem, EditorSection, RunFn } from "./menu-editor";
+import type { EditorItem, EditorSection, PairWine, RunFn } from "./menu-editor";
 
 function priceInput(cents: number | null): string {
   return cents === null ? "" : formatPrice(cents);
@@ -16,6 +16,7 @@ export function ItemSheet({
   section,
   groupId,
   item,
+  wines,
   isFirst,
   isLast,
   run,
@@ -29,6 +30,8 @@ export function ItemSheet({
   section: EditorSection;
   groupId: string;
   item: EditorItem | null;
+  // Vini del menù fisso, per «Abbinalo con».
+  wines: PairWine[];
   isFirst: boolean;
   isLast: boolean;
   run: RunFn;
@@ -51,6 +54,12 @@ export function ItemSheet({
   const [priceBottle, setPriceBottle] = useState(priceInput(item?.priceBottleCents ?? null));
   const [price, setPrice] = useState(priceInput(item?.priceCents ?? null));
   const [enomatic, setEnomatic] = useState(item?.enomatic ?? false);
+  const [recommended, setRecommended] = useState(item?.recommended ?? false);
+  // Un abbinamento a un vino che non c'è più (eliminato) si lascia cadere al salvataggio.
+  const pairLost = Boolean(item?.pairWineId && !wines.some((w) => w.id === item.pairWineId));
+  const [pairWineId, setPairWineId] = useState<string | null>(pairLost ? null : (item?.pairWineId ?? null));
+  // Gli abbinamenti valgono per i piatti del menù fisso, non per eventi e «Oggi fuori menù».
+  const canPair = !isWine && !section.promoId && !section.dailyOnly && wines.length > 0;
   // Più formati con prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l), alternativi al prezzo singolo.
   const [variants, setVariants] = useState<{ label: string; price: string }[]>(
     () => item?.variants?.map((v) => ({ label: v.label, price: formatPrice(v.cents) })) ?? [],
@@ -82,6 +91,8 @@ export function ItemSheet({
           priceBottle,
           price,
           enomatic,
+          recommended,
+          pairWineId: canPair ? pairWineId : null,
           allergens: allergenMode === "some" ? allergens : [],
           allergensReviewed: allergenMode !== "unknown",
           variants: variants.filter((v) => v.label.trim() || v.price.trim()),
@@ -182,6 +193,18 @@ export function ItemSheet({
               <input type="checkbox" checked={enomatic} onChange={(e) => setEnomatic(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
               Fa parte del Progetto Enomatic
             </label>
+            <label className="flex min-h-11 items-start gap-3 py-1 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={recommended}
+                onChange={(e) => setRecommended(e.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
+              />
+              <span>
+                Consigliato
+                <span className="block text-[11px] text-foreground-muted">Sul menù compare l&apos;etichetta «Consigliato» accanto al vino.</span>
+              </span>
+            </label>
           </>
         ) : (
           <>
@@ -245,6 +268,8 @@ export function ItemSheet({
                 <p className="mt-1.5 text-[11px] text-foreground-muted">Con i formati il prezzo singolo non serve.</p>
               )}
             </div>
+
+            {canPair && <PairPicker wines={wines} value={pairWineId} onChange={setPairWineId} lost={pairLost} />}
 
             <fieldset>
               <legend className="mb-1 text-xs font-medium text-foreground-muted">Allergeni</legend>
@@ -406,5 +431,92 @@ export function ItemSheet({
         )}
       </form>
     </Sheet>
+  );
+}
+
+// «Abbinalo con»: un vino del menù per il piatto. Si cerca per nome (o zona,
+// uvaggio, sezione) e si sceglie con un tocco; ✕ lo toglie.
+function PairPicker({
+  wines,
+  value,
+  onChange,
+  lost,
+}: {
+  wines: PairWine[];
+  value: string | null;
+  onChange: (id: string | null) => void;
+  lost: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const selected = value ? wines.find((w) => w.id === value) : undefined;
+  const norm = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const tokens = norm(query).split(/\s+/).filter(Boolean);
+  const results =
+    tokens.length > 0 ? wines.filter((w) => tokens.every((t) => norm(`${w.name} ${w.section} ${w.detail}`).includes(t))).slice(0, 6) : [];
+
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium text-foreground-muted">
+        Abbinalo con <span className="font-normal">(facoltativo, un vino)</span>
+      </p>
+      {selected ? (
+        <div className="flex items-center gap-2 rounded-xl border border-accent/50 bg-accent/5 py-1.5 pl-3 pr-1">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">{selected.name}</p>
+            <p className="truncate text-[11px] text-foreground-muted">
+              {selected.section}
+              {selected.detail ? ` · ${selected.detail}` : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            aria-label={`Togli l'abbinamento con ${selected.name}`}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-2 hover:text-danger"
+          >
+            ✕
+          </button>
+        </div>
+      ) : (
+        <>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Cerca un vino da abbinare"
+            placeholder="Cerca un vino da abbinare…"
+            className={inputClass}
+          />
+          {results.length > 0 && (
+            <ul className="mt-1.5 overflow-hidden rounded-xl border border-border">
+              {results.map((w) => (
+                <li key={w.id} className="border-b border-border last:border-b-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(w.id);
+                      setQuery("");
+                    }}
+                    className="block min-h-11 w-full px-3 py-1.5 text-left hover:bg-surface-2"
+                  >
+                    <span className="block truncate text-sm font-medium text-foreground">{w.name}</span>
+                    <span className="block truncate text-[11px] text-foreground-muted">
+                      {w.section}
+                      {w.detail ? ` · ${w.detail}` : ""}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {tokens.length > 0 && results.length === 0 && <p className="mt-1.5 text-[11px] text-foreground-muted">Nessun vino trovato.</p>}
+        </>
+      )}
+      <p className="mt-1.5 text-[11px] text-foreground-muted">
+        {lost
+          ? "Il vino abbinato prima non è più nel menù: scegline un altro, oppure lascia vuoto."
+          : "Sul menù compare sotto il piatto; se il vino è esaurito non si vede."}
+      </p>
+    </div>
   );
 }
