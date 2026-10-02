@@ -181,7 +181,7 @@ export default async function MenuPage() {
                       key={item.id}
                       className={`flex items-baseline gap-2.5 menu-rule-soft border-b py-3.5 ${item.soldOut ? "opacity-50" : ""}`}
                     >
-                      <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                      <div className="flex min-w-0 flex-1 flex-col gap-[3px] [overflow-wrap:anywhere]">
                         <div className="text-pretty text-[19px] font-medium leading-tight text-[#1F2621]">
                           {nb(item.name)}
                           {item.enomatic && (
@@ -205,7 +205,7 @@ export default async function MenuPage() {
                         {section.kind === "FOOD" && <AllergenMarks item={item} />}
                       </div>
                       {group.columns && (
-                        <div className="menu-sans w-9 flex-none text-right text-base text-[#1F2621]">
+                        <div className="menu-sans min-w-9 flex-none whitespace-nowrap text-right text-base text-[#1F2621]">
                           {formatPrice(item.priceGlassCents)}
                         </div>
                       )}
@@ -213,7 +213,7 @@ export default async function MenuPage() {
                         <Variants variants={variants} soldOut={item.soldOut} />
                       ) : (
                         <div
-                          className={`menu-sans w-10 flex-none text-right text-base font-medium text-[#6B1020] ${item.soldOut ? "line-through" : ""}`}
+                          className={`menu-sans min-w-10 flex-none whitespace-nowrap text-right text-base font-medium text-[#6B1020] ${item.soldOut ? "line-through" : ""}`}
                         >
                           {price === null || price === undefined ? (group.columns ? "—" : "") : formatPrice(price)}
                         </div>
