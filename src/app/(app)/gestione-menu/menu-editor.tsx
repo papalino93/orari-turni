@@ -764,11 +764,11 @@ function GroupCard({
             return (
               <li key={item.id} className={`flex items-center gap-2 border-b border-border px-3 py-1.5 last:border-b-0 ${sold ? "bg-surface-2/60" : ""}`}>
                 <button type="button" onClick={() => onEdit(item)} className="min-h-12 min-w-0 flex-1 py-1 text-left" aria-label={`Modifica ${item.name}`}>
-                  <span className={`block truncate text-sm font-medium ${sold ? "text-foreground-muted line-through" : "text-foreground"}`}>
+                  <span className={`block line-clamp-2 break-words text-sm font-medium ${sold ? "text-foreground-muted line-through" : "text-foreground"}`}>
                     {item.name}
                     {item.enomatic && <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-accent">Enomatic</span>}
                   </span>
-                  {secondary && <span className="block truncate text-xs text-foreground-muted">{secondary}</span>}
+                  {secondary && <span className="block line-clamp-2 break-words text-xs text-foreground-muted">{secondary}</span>}
                   <span className="block text-xs text-foreground-muted/90">{priceSummary(item, kind)}</span>
                   {kind === "FOOD" && !item.allergensReviewed && (
                     <span className="mt-0.5 block text-[11px] font-medium text-gold">Allergeni da compilare</span>
