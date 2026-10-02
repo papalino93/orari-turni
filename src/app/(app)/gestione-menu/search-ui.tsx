@@ -55,7 +55,7 @@ export function ItemSearch({
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Cerca una voce per nome, uvaggio, ingrediente…"
+        placeholder="Cerca una voce del menù…"
         aria-label="Cerca una voce"
         autoComplete="off"
         enterKeyHint="search"
