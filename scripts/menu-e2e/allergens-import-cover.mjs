@@ -1,11 +1,9 @@
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW } from "./lib.mjs";
-import { execFileSync } from "node:child_process";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
 
-const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
 // stato pulito (i dati della migrazione restano com'erano)
 DB(`delete from "MenuPromo"`);
 DB(`delete from "MenuChange"`);
-DB(`update "MenuSetting" set value='Coperto € 1,00' where id='cover'`);
+resetBlocks();
 DB(`delete from "MenuItem" where id not like 'menu_itm_%'`);
 DB(`delete from "MenuGroup" where id not like 'menu_grp_%'`);
 DB(`update "MenuItem" set "soldOutDay"=null, "deletedAt"=null`);
@@ -74,7 +72,7 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
   const page = await ctx.newPage();
   page.setDefaultTimeout(60000);
   await page.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
-  const inSection = async (id) => ((await page.locator(`#${id}`).innerText()).match(/coperto € 1,00/i) ?? []).length;
+  const inSection = async (id) => ((await page.locator(`#${id}`).innerText()).replace(/\u00a0/g, " ").match(/coperto € 1,00/i) ?? []).length;
   check("coperto: in Taglieri & Pinse", (await inSection("taglieri")) === 1);
   check("coperto: anche in Tartare (si arriva dal chip)", (await inSection("tartare")) === 1);
   check("coperto: non in Bevande né nei vini", (await inSection("bevande")) === 0 && (await inSection("bianchi")) === 0 && (await inSection("bollicine")) === 0);

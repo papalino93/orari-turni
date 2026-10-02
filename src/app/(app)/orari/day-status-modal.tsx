@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
+import { plural } from "@/lib/plural";
 import { closeDay, reopenDay } from "./actions";
 
 type Status = "OPEN" | "CLOSED";
@@ -79,7 +80,9 @@ export function DayStatusModal({
             <p className="mb-4 text-sm text-foreground-muted">
               Riaprendo la giornata torna disponibile la normale pianificazione dei turni.
               {shiftCount > 0 &&
-                ` I ${shiftCount} turni inseriti prima della chiusura sono stati conservati e torneranno visibili.`}
+                (shiftCount === 1
+                  ? " Il turno inserito prima della chiusura è stato conservato e tornerà visibile."
+                  : ` I ${shiftCount} turni inseriti prima della chiusura sono stati conservati e torneranno visibili.`)}
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -106,8 +109,9 @@ export function DayStatusModal({
               {shiftCount > 0 && (
                 <>
                   {" "}
-                  Sono già presenti <strong className="text-foreground">{shiftCount} turni</strong> in questa
-                  giornata: scegli cosa farne.
+                  {shiftCount === 1 ? "C'è già" : "Ci sono già"}{" "}
+                  <strong className="text-foreground">{plural(shiftCount, "turno", "turni")}</strong> in questa giornata:
+                  scegli cosa farne.
                 </>
               )}
             </p>

@@ -240,9 +240,6 @@ model MenuSection {
   title        String
   kind         MenuSectionKind
   note         String?
-  // Il coperto è uno solo per tutto il menù (vedi MenuSetting "cover"): qui si
-  // segna solo in quali sezioni va mostrato (tutta la parte di cucina).
-  coverApplies Boolean         @default(false)
   addonTitle   String? // titoletto dell'avviso (es. "Novità · Oli aromatizzati")
   addon        String? // testo dell'avviso a fondo sezione
   sortOrder    Int             @default(0)
@@ -348,11 +345,53 @@ model MenuPromoImage {
   updatedAt DateTime  @updatedAt
 }
 
-// Impostazioni uniche del menù, chiave → testo. Oggi solo "cover" (il testo del
-// coperto, es. "Coperto € 1,00"); vuoto = nessun coperto.
+// Foto di copertina del menù (una sola, id "hero"); vuota = foto predefinita.
+model MenuHeroImage {
+  id        String   @id
+  data      Bytes
+  mimeType  String
+  updatedAt DateTime @updatedAt
+}
+
+// Impostazioni uniche del menù, chiave → testo (JSON): "hero", "hours" e
+// "contacts" (copertina, orari, contatti: vedi src/lib/menu-venue.ts).
 model MenuSetting {
   id    String @id
   value String
+}
+
+enum MenuBlockKind {
+  TEXT // testo semplice, in corsivo (es. «La cucina chiude circa 40–50 minuti prima…»)
+  PRICE // voce con prezzo (es. «Coperto € 1,00», «Servizio 10%»)
+  NOTICE // avviso evidenziato in un riquadro (es. «Domenica cucina chiusa»)
+}
+
+enum MenuBlockPlacement {
+  TOP // in cima al menù, sotto «In evidenza» e sopra la barra delle sezioni
+  BOTTOM // in fondo al menù, sopra la legenda degli allergeni
+  SECTIONS // sotto il titolo di una o più sezioni (anche menù speciali di eventi)
+}
+
+// Informazione da mostrare nel menù: coperto, chiusura cucina, avvisi, note.
+// Si decide di che tipo è, dove compare e (facoltativo) in quali giorni. Le date
+// sono giorni commerciali (YYYY-MM-DD, vedi lib/menu-format.ts).
+model MenuBlock {
+  id         String             @id @default(cuid())
+  kind       MenuBlockKind
+  label      String? // titoletto (TEXT, NOTICE) o nome della voce (PRICE, es. "Coperto")
+  text       String? // testo (TEXT, NOTICE)
+  priceCents Int? // solo PRICE
+  placement  MenuBlockPlacement
+  sectionIds String[]           @default([]) // solo SECTIONS: id delle MenuSection
+  startDate  String?
+  endDate    String?
+  hidden     Boolean            @default(false)
+  sortOrder  Int                @default(0)
+  deletedAt  DateTime?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([placement, sortOrder])
 }
 
 enum MenuChangeAction {
@@ -372,7 +411,7 @@ model MenuChange {
   at        DateTime         @default(now())
   actorName String
   action    MenuChangeAction
-  entity    String // "item" | "group" | "section" | "setting" | "promo"
+  entity    String // "item" | "group" | "section" | "setting" | "promo" | "block"
   entityId  String
   label     String // nome leggibile della voce/gruppo al momento
   before    Json?

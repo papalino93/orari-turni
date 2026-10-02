@@ -42,7 +42,7 @@ export function InstallBanner() {
         type="button"
         onClick={dismiss}
         aria-label="Chiudi"
-        className="shrink-0 text-foreground-muted hover:text-foreground"
+        className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:text-foreground"
       >
         ✕
       </button>

@@ -1,7 +1,6 @@
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW } from "./lib.mjs";
-import { execFileSync } from "node:child_process";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
 
-const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
+resetBlocks();
 DB(`delete from \"MenuChange\"`);
 DB(`delete from \"MenuItem\" where id not like 'menu_itm_%'`);
 DB(`delete from \"MenuGroup\" where id not like 'menu_grp_%'`);
@@ -180,9 +179,9 @@ t = await publicText();
 check("gruppo: annulla eliminazione lo ripristina con le voci", t.includes("Passito Prova"));
 
 // ---- Testi della sezione
-await page.getByRole("button", { name: "Modifica coperto e chiusura cucina" }).click();
+await page.getByRole("button", { name: "Modifica: Coperto € 1,00" }).click();
 await dialog().waitFor();
-await dialog().getByPlaceholder("es. Coperto € 1,00").fill("Coperto € 2,00");
+await dialog().getByPlaceholder("1,00").fill("2,00");
 await dialog().getByRole("button", { name: "Salva" }).click();
 await dialog().waitFor({ state: "detached" });
 await settle();
@@ -237,7 +236,7 @@ await marta.waitForTimeout(1500);
 check("marta: riattiva tutto", Number(DB(`select count(*) from \"MenuItem\" where \"soldOutDay\" is not null`)) === 0);
 
 await page.goto(`${BASE}/dipendenti`, { waitUntil: "networkidle", timeout: 120000 });
-const sw = page.locator('button[role="switch"][aria-label="Può modificare il menù: Marta Test"]');
+const sw = page.locator(`button[role="switch"][aria-label="Può modificare il menù: ${DB(`select name from "Employee" where username='marta'`)}"]`);
 check("dipendenti: interruttore menù presente e acceso per Marta", (await sw.getAttribute("aria-checked")) === "true");
 await sw.click();
 await settle();

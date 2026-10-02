@@ -3,13 +3,15 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
-import { formatPrice, type CoverInfo } from "@/lib/menu-format";
+import { blockStatus, formatPrice, priceLine, type MenuBlockView } from "@/lib/menu-format";
 import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
+import { BlockSheet, BlocksPanel, type SectionChoice } from "./block-ui";
 import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
 import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
-import { CoverSheet, HistorySheet, SectionTextsSheet } from "./side-sheets";
+import { HistorySheet, SectionTextsSheet } from "./side-sheets";
+import { ContactsSheet, HeroSheet, HoursSheet, VenuePanel, type EditorVenue, type VenueSheetKind } from "./venue-ui";
 
 export type EditorItem = {
   id: string;
@@ -38,7 +40,6 @@ export type EditorSection = {
   promoId: string | null;
   kind: "WINE" | "FOOD";
   note: string | null;
-  coverApplies: boolean;
   addonTitle: string | null;
   addon: string | null;
   groups: EditorGroup[];
@@ -79,14 +80,18 @@ export type RunFn = <T extends ChangeResult | { changeId: string | null; id: str
 ) => Promise<T | null>;
 
 type SheetState =
-  | { type: "item"; itemId: string | null; groupId: string }
+  // `queue`: percorso «Compila allergeni» (piatti da compilare, nell'ordine in cui si vedono).
+  | { type: "item"; itemId: string | null; groupId: string; queue?: QueueItem[] }
   | { type: "import"; groupId: string }
   | { type: "texts" }
-  | { type: "cover" }
+  | { type: "block"; id: string | null }
+  | { type: "venue"; kind: VenueSheetKind }
   | { type: "history" }
   | { type: "promo"; id: string | null }
   | { type: "promo-duplicate"; id: string }
   | null;
+
+type QueueItem = { itemId: string; groupId: string; name: string; key: string };
 
 const EMPTY: Record<string, boolean> = {};
 
@@ -103,13 +108,15 @@ export function MenuEditor({
   sections,
   promos,
   today,
-  coverInfo,
+  blocks,
+  venue,
   history,
 }: {
   sections: EditorSection[];
   promos: EditorPromo[];
   today: string;
-  coverInfo: CoverInfo;
+  blocks: MenuBlockView[];
+  venue: EditorVenue;
   history: HistoryEntry[];
 }) {
   const router = useRouter();
@@ -118,8 +125,6 @@ export function MenuEditor({
   const [activeSlug, setActiveSlug] = useState(sections[0]?.slug ?? "");
   const [sheet, setSheet] = useState<SheetState>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  // Vista "solo i piatti con allergeni da compilare", attivata dall'avviso in alto.
-  const [missingOnly, setMissingOnly] = useState(false);
   const [pendingOpenId, setPendingOpenId] = useState<string | null>(null);
   // Stato "esaurito" mostrato subito, in attesa della risposta del server: vale
   // solo finché i dati ricaricati non lo sostituiscono (si confronta l'identità
@@ -133,12 +138,19 @@ export function MenuEditor({
   // Sezioni fisse + menù speciali degli eventi: per cercare voci e gruppi servono tutte.
   const eventSections = promos.flatMap((p) => (p.section ? [p.section] : []));
   const allSections = [...sections, ...eventSections];
+  // Sezioni in cui si può scegliere di mostrare un'informazione: quelle fisse e i menù speciali non conclusi.
+  const sectionChoices: SectionChoice[] = [
+    ...sections.map((s) => ({ id: s.id, label: s.title, event: false })),
+    ...promos.flatMap((p) => (p.section && effectiveStatus(p, today) !== "past" ? [{ id: p.section.id, label: p.title, event: true }] : [])),
+  ];
+  const blockToEdit = sheet?.type === "block" && sheet.id ? (blocks.find((b) => b.id === sheet.id) ?? null) : null;
   // Selezione: o una sezione fissa (slug) o una pagina promozionale ("promo:<id>").
   const promoSelected = activeSlug.startsWith("promo:");
   const activePromo = promoSelected ? (promos.find((p) => `promo:${p.id}` === activeSlug) ?? null) : null;
   const section: EditorSection | null = promoSelected
     ? (activePromo?.section ?? null)
     : (sections.find((s) => s.slug === activeSlug) ?? sections[0] ?? null);
+  const sectionBlocks = section ? blocks.filter((b) => b.placement === "SECTIONS" && b.sectionIds.includes(section.id)) : [];
   // Piatti con allergeni "da compilare": sul menù dei clienti risultano "da
   // verificare con il personale". Gli eventi già conclusi non contano.
   const liveEventSections = promos.flatMap((p) =>
@@ -148,25 +160,18 @@ export function MenuEditor({
     (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed).length, 0) : 0),
     0,
   );
-  const missingIn = (s: EditorSection | null) =>
-    s && s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed).length, 0) : 0;
-  const filterOn = missingOnly && missingAllergens > 0;
-  // Sezioni (fisse o di eventi non conclusi) con piatti da compilare, nell'ordine in cui si vedono.
-  const missingTargets = [
+  // Piatti con allergeni da compilare, nell'ordine in cui si vedono (sezioni fisse, poi eventi non conclusi):
+  // servono al percorso «Compila allergeni».
+  const missingQueue: QueueItem[] = [
     ...sections.map((s) => ({ key: s.slug, section: s })),
     ...promos.flatMap((p) => (p.section && effectiveStatus(p, today) !== "past" ? [{ key: `promo:${p.id}`, section: p.section }] : [])),
-  ].filter((target) => missingIn(target.section) > 0);
-  const foodSections = [...sections, ...liveEventSections].filter((s) => s.kind === "FOOD");
-  const totalFood = foodSections.reduce((n, s) => n + s.groups.reduce((m, g) => m + g.items.length, 0), 0);
-  const compiledFood = totalFood - missingAllergens;
-  // Piatti da compilare nell'ordine in cui si vedono: servono a "Salva e vai al prossimo".
-  const missingItems = filterOn
-    ? missingTargets.flatMap((target) =>
-        target.section.groups.flatMap((g) =>
+  ].flatMap((target) =>
+    target.section.kind === "FOOD"
+      ? target.section.groups.flatMap((g) =>
           g.items.filter((i) => !i.allergensReviewed).map((i) => ({ itemId: i.id, groupId: g.id, name: i.name, key: target.key })),
-        ),
-      )
-    : [];
+        )
+      : [],
+  );
   const isSold = (item: EditorItem) => localSold[item.id] ?? item.soldOut;
   const soldOutCount = allSections.reduce(
     (n, s) => n + s.groups.reduce((m, g) => m + g.items.filter(isSold).length, 0),
@@ -195,13 +200,12 @@ export function MenuEditor({
     }
   }
 
-  // Apre la prima sezione con piatti da compilare (o la successiva a quella aperta).
-  function goToMissing() {
-    if (missingTargets.length === 0) return;
-    const index = missingTargets.findIndex((target) => target.key === activeSlug);
-    const next = missingTargets[(index + 1) % missingTargets.length];
-    setMissingOnly(true);
-    select(next.key);
+  // «Compila allergeni»: apre il primo piatto mancante; «Salva e passa al successivo» scorre gli altri.
+  function startCompile() {
+    const first = missingQueue[0];
+    if (!first) return;
+    setSheet({ type: "item", itemId: first.itemId, groupId: first.groupId, queue: missingQueue });
+    select(first.key);
   }
 
   async function undo(changeId: string) {
@@ -262,8 +266,9 @@ export function MenuEditor({
   const itemSheetSection = itemSheetGroup
     ? allSections.find((s) => s.groups.some((g) => g.id === itemSheetGroup.id))
     : undefined;
-  const missingIndex = editingItem ? missingItems.findIndex((m) => m.itemId === editingItem.id) : -1;
-  const nextMissing = missingIndex >= 0 ? (missingItems[missingIndex + 1] ?? null) : null;
+  const queue = sheet?.type === "item" ? sheet.queue : undefined;
+  const queueIndex = queue && editingItem ? queue.findIndex((m) => m.itemId === editingItem.id) : -1;
+  const nextMissing = queue && queueIndex >= 0 ? (queue[queueIndex + 1] ?? null) : null;
   const itemIndex = itemSheetGroup && editingItem ? itemSheetGroup.items.findIndex((i) => i.id === editingItem.id) : -1;
 
   if (!section && !promoSelected) {
@@ -339,80 +344,18 @@ export function MenuEditor({
         </div>
       </div>
 
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Coperto e chiusura cucina</p>
-          <p className="mt-1 text-sm text-foreground">
-            <span className="text-foreground-muted">Coperto: </span>
-            <span className="font-medium">{coverInfo.cover || "nessuno"}</span>
-          </p>
-          <p className="mt-0.5 text-sm text-foreground">
-            <span className="text-foreground-muted">Chiusura cucina: </span>
-            {coverInfo.kitchenNote ? <span>{coverInfo.kitchenNote}</span> : <span className="font-medium">nessun avviso</span>}
-          </p>
-          <p className="text-[11px] text-foreground-muted">
-            Vale per tutta la cucina
-            {sections.some((s) => s.coverApplies)
-              ? `: compare in ${sections
-                  .filter((s) => s.coverApplies)
-                  .map((s) => s.title)
-                  .join(" e ")}.`
-              : "."}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setSheet({ type: "cover" })}
-          aria-label="Modifica coperto e chiusura cucina"
-          className="min-h-10 shrink-0 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-        >
-          Modifica
-        </button>
-      </div>
+      <BlocksPanel
+        blocks={blocks}
+        choices={sectionChoices}
+        today={today}
+        run={run}
+        onEdit={(id) => setSheet({ type: "block", id })}
+        onAdd={() => setSheet({ type: "block", id: null })}
+      />
 
-      {filterOn && (
-        <div className="sticky top-[calc(4.25rem+env(safe-area-inset-top))] z-20 mb-5 rounded-2xl border border-gold/40 bg-surface/95 p-3.5 shadow-lg backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-gold">Allergeni da compilare</p>
-              <p className="text-xs text-foreground-muted">
-                {compiledFood} di {totalFood} piatti compilati · {missingAllergens} da fare
-                {missingIn(section) > 0 && missingAllergens !== missingIn(section) ? ` (${missingIn(section)} in questa sezione)` : ""}
-              </p>
-              <div
-                className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2"
-                role="progressbar"
-                aria-label="Piatti con allergeni compilati"
-                aria-valuemin={0}
-                aria-valuemax={totalFood}
-                aria-valuenow={compiledFood}
-              >
-                <div className="h-full rounded-full bg-gold transition-all" style={{ width: `${totalFood ? Math.round((compiledFood / totalFood) * 100) : 0}%` }} />
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              {missingTargets.some((target) => target.key !== activeSlug) && (
-                <button
-                  type="button"
-                  onClick={goToMissing}
-                  className="min-h-10 rounded-full border border-gold/40 px-3.5 text-xs font-semibold text-gold hover:bg-gold/10"
-                >
-                  Prossima sezione →
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setMissingOnly(false)}
-                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-              >
-                Mostra tutto
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <VenuePanel venue={venue} onOpen={(kind) => setSheet({ type: "venue", kind })} />
 
-      {!filterOn && missingAllergens > 0 && (
+      {missingAllergens > 0 && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-3 text-sm text-gold">
           <p className="min-w-0 flex-1">
             {missingAllergens === 1 ? "1 piatto ha gli allergeni da compilare." : `${missingAllergens} piatti hanno gli allergeni da compilare.`}{" "}
@@ -420,10 +363,10 @@ export function MenuEditor({
           </p>
           <button
             type="button"
-            onClick={goToMissing}
+            onClick={startCompile}
             className="min-h-10 shrink-0 rounded-full bg-gold/20 px-3.5 text-xs font-semibold text-gold hover:bg-gold/30"
           >
-            Vedi i piatti →
+            Compila allergeni ({missingAllergens} da fare)
           </button>
         </div>
       )}
@@ -432,7 +375,7 @@ export function MenuEditor({
         <div className="space-y-5 lg:sticky lg:top-24 lg:h-fit">
           <nav aria-label="Sezioni" className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
             {sections.map((s) => {
-              const count = filterOn ? missingIn(s) : s.groups.reduce((n, g) => n + g.items.length, 0);
+              const count = s.groups.reduce((n, g) => n + g.items.length, 0);
               const active = !promoSelected && s.slug === section?.slug;
               return (
                 <button
@@ -444,7 +387,7 @@ export function MenuEditor({
                     active
                       ? "bg-accent text-accent-foreground"
                       : "border border-border text-foreground-muted hover:border-accent hover:text-foreground lg:border-transparent"
-                  } ${filterOn && count === 0 && !active ? "opacity-50" : ""}`}
+                  }`}
                 >
                   <span>{s.label}</span>
                   <span className={`text-xs ${active ? "text-accent-foreground/80" : "text-foreground-muted/70"}`}>{count}</span>
@@ -513,20 +456,23 @@ export function MenuEditor({
                         {section.addon}
                       </p>
                     )}
-                    {section.coverApplies && (
-                      <>
-                        <p className="text-foreground">
-                          <span className="text-foreground-muted">Chiusura cucina: </span>
-                          {coverInfo.kitchenNote || "nessun avviso"}
-                        </p>
-                        <p className="text-foreground">
-                          <span className="text-foreground-muted">Coperto: </span>
-                          {coverInfo.cover || "nessuno"}
-                        </p>
-                        <p className="text-[11px] text-foreground-muted">Valgono per tutta la cucina: si cambiano nel riquadro in alto.</p>
-                      </>
-                    )}
-                    {!section.note && !section.addon && !section.coverApplies && (
+                    {sectionBlocks.map((b) => (
+                      <p key={b.id} className="flex items-baseline gap-2 text-foreground">
+                        <span className="min-w-0 flex-1">
+                          <span className="text-foreground-muted">{b.kind === "PRICE" ? "Prezzo: " : b.kind === "NOTICE" ? "Avviso: " : "Informazione: "}</span>
+                          {b.kind === "PRICE" ? priceLine(b) : b.text}
+                          {blockStatus(b, today) !== "live" && <span className="text-foreground-muted"> (non visibile oggi)</span>}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSheet({ type: "block", id: b.id })}
+                          className="shrink-0 text-[11px] font-medium text-accent hover:underline"
+                        >
+                          Modifica
+                        </button>
+                      </p>
+                    ))}
+                    {!section.note && !section.addon && sectionBlocks.length === 0 && (
                       <p className="text-foreground-muted">Nessun testo: compaiono solo titolo e voci.</p>
                     )}
                   </div>
@@ -541,24 +487,11 @@ export function MenuEditor({
                 </div>
               )}
 
-              {filterOn && missingIn(section) === 0 && (
-                <p className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-foreground-muted">
-                  {section.kind === "WINE"
-                    ? "I vini non hanno allergeni da compilare: vale la nota sui solfiti."
-                    : "In questa sezione i piatti sono tutti a posto."}
-                </p>
-              )}
-
               {section.groups.map((group, index) => {
-                // Nella vista "da compilare" restano solo i piatti senza allergeni; i
-                // gruppi rimasti vuoti spariscono, i vini non hanno nulla da compilare.
-                const shown =
-                  filterOn && section.kind === "FOOD" ? { ...group, items: group.items.filter((i) => !i.allergensReviewed) } : group;
-                if (filterOn && (section.kind === "WINE" || shown.items.length === 0)) return null;
                 return (
                   <GroupCard
                     key={group.id}
-                    group={shown}
+                    group={group}
                     kind={section.kind}
                     isFirst={index === 0}
                     isLast={index === section.groups.length - 1}
@@ -568,7 +501,6 @@ export function MenuEditor({
                     onEdit={(item) => setSheet({ type: "item", itemId: item.id, groupId: group.id })}
                     onAdd={() => setSheet({ type: "item", itemId: null, groupId: group.id })}
                     onImport={() => setSheet({ type: "import", groupId: group.id })}
-                    compileMode={filterOn}
                   />
                 );
               })}
@@ -592,8 +524,9 @@ export function MenuEditor({
           onClose={() => setSheet(null)}
           onDuplicated={(newId) => setPendingOpenId(newId)}
           nextMissing={nextMissing}
+          progress={queue && queueIndex >= 0 ? { position: queueIndex + 1, total: queue.length } : null}
           onNext={(n) => {
-            setSheet({ type: "item", itemId: n.itemId, groupId: n.groupId });
+            setSheet({ type: "item", itemId: n.itemId, groupId: n.groupId, queue });
             select(n.key);
           }}
         />
@@ -601,12 +534,21 @@ export function MenuEditor({
       {sheet?.type === "import" && section && (
         <ImportSheet key={sheet.groupId} section={section} groupId={sheet.groupId} run={run} onClose={() => setSheet(null)} />
       )}
-      {sheet?.type === "cover" && <CoverSheet info={coverInfo} run={run} onClose={() => setSheet(null)} />}
+      {sheet?.type === "venue" && sheet.kind === "hero" && <HeroSheet venue={venue} run={run} onClose={() => setSheet(null)} />}
+      {sheet?.type === "venue" && sheet.kind === "hours" && (
+        <HoursSheet hours={venue.hours} today={today} run={run} onClose={() => setSheet(null)} />
+      )}
+      {sheet?.type === "venue" && sheet.kind === "contacts" && <ContactsSheet contacts={venue.contacts} run={run} onClose={() => setSheet(null)} />}
+      {sheet?.type === "block" && (sheet.id === null || blockToEdit) && (
+        <BlockSheet key={sheet.id ?? "new"} block={blockToEdit} choices={sectionChoices} run={run} onClose={() => setSheet(null)} />
+      )}
       {sheet?.type === "promo" && (sheet.id === null || promoToEdit) && (
         <PromoSheet
           key={sheet.id ?? "new"}
           promo={promoToEdit}
           today={today}
+          blocks={blocks}
+          fixedFoodSectionIds={sections.filter((s) => s.kind === "FOOD").map((s) => s.id)}
           run={run}
           onSaved={(id) => setActiveSlug(`promo:${id}`)}
           onClose={() => setSheet(null)}
@@ -638,7 +580,6 @@ function GroupCard({
   onEdit,
   onAdd,
   onImport,
-  compileMode,
 }: {
   group: EditorGroup;
   kind: "WINE" | "FOOD";
@@ -650,7 +591,6 @@ function GroupCard({
   onEdit: (item: EditorItem) => void;
   onAdd: () => void;
   onImport: () => void;
-  compileMode: boolean;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(group.title);
@@ -740,7 +680,7 @@ function GroupCard({
       {confirmingDelete && (
         <div className="border-b border-danger/30 bg-danger-bg px-3 py-3">
           <p className="text-xs text-danger">
-            Eliminare il gruppo «{group.title}»{group.items.length > 0 ? ` e le sue ${group.items.length} voci` : ""}? Lo recuperi
+            Eliminare il gruppo «{group.title}»{group.items.length > 0 ? ` e ${group.items.length === 1 ? "la sua voce" : `le sue ${group.items.length} voci`}` : ""}? Lo recuperi
             dallo storico.
           </p>
           <div className="mt-2.5 flex justify-end gap-2">
@@ -774,15 +714,6 @@ function GroupCard({
                     <span className="mt-0.5 block text-[11px] font-medium text-gold">Allergeni da compilare</span>
                   )}
                 </button>
-                {compileMode ? (
-                  <button
-                    type="button"
-                    onClick={() => onEdit(item)}
-                    className="min-h-11 shrink-0 rounded-full bg-gold/20 px-4 text-xs font-semibold text-gold hover:bg-gold/30"
-                  >
-                    Compila
-                  </button>
-                ) : (
                   <button
                     type="button"
                     aria-pressed={sold}
@@ -796,7 +727,6 @@ function GroupCard({
                   >
                     Esaurito
                   </button>
-                )}
               </li>
             );
           })}

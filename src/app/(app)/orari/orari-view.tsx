@@ -15,7 +15,7 @@ import {
   toDateKey,
   todayKey,
 } from "@/lib/week";
-import { buildSchedule, type Block, type Closure, type Employee, type Leave } from "@/lib/schedule";
+import { buildSchedule, formatHours, type Block, type Closure, type Employee, type Leave } from "@/lib/schedule";
 import { orderEmployees } from "./shared";
 import { WeekBody } from "./week-grid";
 import { DayView } from "./day-view";
@@ -179,7 +179,7 @@ export function OrariView({
     startConfirming(async () => {
       const result = await runWithToast(toast, () => confirmPastShifts(rangeStartKey, rangeEndKey, employeeFilter), undefined);
       if (result) {
-        toast.showSuccess(result.verified > 0 ? `${result.verified} turni verificati` : "Nessun turno da verificare");
+        toast.showSuccess(result.verified > 0 ? (result.verified === 1 ? "1 turno verificato" : `${result.verified} turni verificati`) : "Nessun turno da verificare");
         router.refresh();
       }
     });
@@ -452,7 +452,7 @@ function WeekSummary({
       <Badge tone="neutral">
         {staffCount} dipendent{staffCount === 1 ? "e" : "i"}
       </Badge>
-      <Badge tone="neutral">{schedule.totalHours} h pianificate</Badge>
+      <Badge tone="neutral">{formatHours(schedule.totalHours)} pianificate</Badge>
       {schedule.closedDateKeys.length > 0 && (
         <Badge tone="neutral">
           🔒 {schedule.closedDateKeys.length} giorn{schedule.closedDateKeys.length === 1 ? "o" : "i"} di chiusura

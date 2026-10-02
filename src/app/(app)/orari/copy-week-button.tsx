@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast, runWithToast } from "@/components/toast";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
+import { plural } from "@/lib/plural";
 import { copyPreviousWeek, undoCopyPreviousWeek } from "./actions";
 
 // La rotazione di un negozio è quasi sempre la stessa di settimana in
@@ -57,7 +58,7 @@ export function CopyWeekButton({
         // "Annulla" nel toast: cancella per id esattamente ciò che questa
         // chiamata ha appena creato, mai altro — vedi il commento su
         // undoCopyPreviousWeek in actions.ts.
-        toast.showSuccess(`${result.filledSlots} giornate ricopiate dalla settimana precedente${extra}`, {
+        toast.showSuccess(`${plural(result.filledSlots, "giornata ricopiata", "giornate ricopiate")} dalla settimana precedente${extra}`, {
           label: "Annulla",
           onClick: () => undo(result.createdBlockIds, result.createdLeaveIds),
         });

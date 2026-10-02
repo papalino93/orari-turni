@@ -1,5 +1,5 @@
 import {
-  type CoverInfo,
+  type MenuBlockView,
   formatPrice,
   formatPromoDates,
   formatPromoDay,
@@ -11,6 +11,7 @@ import {
 import type { loadPromoBySlug } from "@/lib/menu";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
 import { Variants } from "./item-prices";
+import { MenuBlocks } from "./menu-blocks";
 import { Ornament } from "./ornament";
 
 export type PromoWithSection = NonNullable<Awaited<ReturnType<typeof loadPromoBySlug>>>;
@@ -21,12 +22,13 @@ export type PromoWithSection = NonNullable<Awaited<ReturnType<typeof loadPromoBy
 // giorni dell'evento (inline).
 export function PromoContent({
   promo,
-  info,
+  blocks,
   dayKey,
   inline = false,
 }: {
   promo: PromoWithSection;
-  info: CoverInfo;
+  // Blocchi da mostrare oggi (quelli «sotto il titolo di una sezione» che includono il menù speciale).
+  blocks: MenuBlockView[];
   dayKey: string;
   inline?: boolean;
 }) {
@@ -89,13 +91,11 @@ export function PromoContent({
       {showMenu && (
         <section className="mt-12">
           <h2 className="menu-serif m-0 text-center text-[34px] font-medium leading-[1.1] text-[#6B1020]">Menù speciale</h2>
-          {promo.section?.coverApplies && (info.kitchenNote || info.cover) && (
-            <div className="mx-auto mt-4 flex max-w-[400px] flex-col items-center gap-2 border-y px-1 py-[14px] text-center">
-              {info.kitchenNote && <p className="m-0 text-balance text-[16.5px] italic leading-normal text-[#3F4540]">{info.kitchenNote}</p>}
-              {info.cover && (
-                <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.22em] text-[#6B1020]">{info.cover}</div>
-              )}
-            </div>
+          {promo.section && (
+            <MenuBlocks
+              className="mt-4 !py-[14px]"
+              blocks={blocks.filter((b) => b.placement === "SECTIONS" && b.sectionIds.includes(promo.section!.id))}
+            />
           )}
           {groups.length === 0 && <p className="mt-6 text-center italic text-[#5B605A]">Il menù sarà pubblicato a breve.</p>}
           {groups.map((group) => (

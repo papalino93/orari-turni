@@ -55,9 +55,9 @@ const ITEM_KEYS = [
 const RESTORABLE: Record<string, readonly string[]> = {
   item: [...ITEM_KEYS, "soldOutDay", "deletedAt"],
   group: ["title", "columns", "deletedAt"],
-  section: ["note", "coverApplies", "addonTitle", "addon"],
-  setting: ["value"],
+  section: ["note", "addonTitle", "addon"],
   promo: ["title", "label", "body", "showFrom", "startDate", "endDate", "hidden", "deletedAt"],
+  block: ["kind", "label", "text", "priceCents", "placement", "sectionIds", "startDate", "endDate", "hidden", "deletedAt"],
 };
 
 function parseAllergens(value: unknown): string[] {
@@ -524,7 +524,7 @@ export async function deleteGroup(idInput: string): Promise<ActionResult<ChangeR
 
 export async function updateSectionTexts(
   idInput: string,
-  input: { note?: string; coverApplies?: boolean; addonTitle?: string; addon?: string },
+  input: { note?: string; addonTitle?: string; addon?: string },
 ): Promise<ActionResult<ChangeResult>> {
   return runAction(async () => {
     const editor = await requireMenuEditor();
@@ -534,12 +534,11 @@ export async function updateSectionTexts(
 
     const next = {
       note: parseText(input.note, "nota", { max: 300 }) || null,
-      coverApplies: Boolean(input.coverApplies),
       addonTitle: parseText(input.addonTitle, "titolo dell'avviso", { max: 120 }) || null,
       addon: parseText(input.addon, "avviso", { max: 500 }) || null,
     };
     const changed = diff(
-      { note: section.note, coverApplies: section.coverApplies, addonTitle: section.addonTitle, addon: section.addon },
+      { note: section.note, addonTitle: section.addonTitle, addon: section.addon },
       next,
     );
     if (!changed) return { changeId: null };
@@ -558,46 +557,6 @@ export async function updateSectionTexts(
     });
     revalidateMenu();
     return { changeId };
-  });
-}
-
-// Coperto e avviso della cucina: uno solo per tutto il menù, valgono per tutta la
-// cucina. Vuoto = non mostrato. Ogni valore cambiato è una riga dello storico
-// (l'"Annulla" del toast è disponibile quando cambia un solo valore).
-export async function updateCoverInfo(input: { cover: string; kitchenNote: string }): Promise<ActionResult<ChangeResult>> {
-  return runAction(async () => {
-    const editor = await requireMenuEditor();
-    const next = {
-      cover: parseText(input.cover, "coperto", { max: 80 }),
-      kitchenNote: parseText(input.kitchenNote, "avviso della cucina", { max: 300 }),
-    };
-    const labels = { cover: "Coperto", kitchenNote: "Chiusura cucina" } as const;
-    const rows = await prisma.menuSetting.findMany({ where: { id: { in: ["cover", "kitchenNote"] } } });
-    const current = (id: "cover" | "kitchenNote") => rows.find((r) => r.id === id)?.value ?? "";
-
-    const changedKeys = (["cover", "kitchenNote"] as const).filter((k) => current(k) !== next[k]);
-    if (changedKeys.length === 0) return { changeId: null };
-
-    const ids = await prisma.$transaction(async (tx) => {
-      const out: string[] = [];
-      for (const key of changedKeys) {
-        await tx.menuSetting.upsert({ where: { id: key }, create: { id: key, value: next[key] }, update: { value: next[key] } });
-        out.push(
-          await logChange(tx, {
-            actorName: editor.name,
-            action: "UPDATE",
-            entity: "setting",
-            entityId: key,
-            label: labels[key],
-            before: { value: current(key) },
-            after: { value: next[key] },
-          }),
-        );
-      }
-      return out;
-    });
-    revalidateMenu();
-    return { changeId: ids.length === 1 ? ids[0] : null };
   });
 }
 
@@ -621,7 +580,7 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
     assert(!change.undoneById, "Questa modifica è già stata annullata.");
 
     await prisma.$transaction(async (tx) => {
-      const entity = change.entity as "item" | "group" | "section" | "setting" | "promo";
+      const entity = change.entity as "item" | "group" | "section" | "promo" | "block";
       const before = (change.before ?? {}) as Fields;
 
       // Inserimento in blocco: l'annullamento toglie tutte le voci aggiunte insieme.
@@ -672,8 +631,8 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
           ? tx.menuItem
           : entity === "group"
             ? tx.menuGroup
-            : entity === "setting"
-              ? tx.menuSetting
+            : entity === "block"
+              ? tx.menuBlock
               : entity === "promo"
                 ? tx.menuPromo
                 : tx.menuSection;

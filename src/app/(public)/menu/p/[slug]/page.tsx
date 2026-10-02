@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { businessDayKey, formatPromoDates } from "@/lib/menu-format";
-import { loadCoverInfo, loadPromoBySlug } from "@/lib/menu";
+import { loadPromoBySlug, loadVisibleBlocks } from "@/lib/menu";
 import { Ornament } from "../../ornament";
 import { PromoContent } from "../../promo-content";
 
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function PromoPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const dayKey = businessDayKey();
-  const [promo, coverInfo] = await Promise.all([loadPromoBySlug(slug), loadCoverInfo()]);
+  const [promo, blocks] = await Promise.all([loadPromoBySlug(slug), loadVisibleBlocks(dayKey)]);
   // Una pagina eliminata o nascosta non esiste per i clienti; una non ancora
   // pubblicata (prima di "Mostra dal") nemmeno.
   if (!promo || promo.deletedAt || promo.hidden || dayKey < promo.showFrom) notFound();
@@ -49,7 +49,7 @@ export default async function PromoPage({ params }: { params: Promise<{ slug: st
       </header>
 
       <main className="mx-auto max-w-[720px] px-6 pb-[72px] pt-8">
-        <PromoContent promo={promo} info={coverInfo} dayKey={dayKey} />
+        <PromoContent promo={promo} blocks={blocks} dayKey={dayKey} />
 
         <div className="mt-14 flex flex-col items-center gap-3.5 text-center">
           <Ornament color="#9C7A45" />

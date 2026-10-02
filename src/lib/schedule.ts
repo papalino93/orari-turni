@@ -121,8 +121,8 @@ export type Schedule = {
   hoursInRange: (employeeId: string, fromKey: string, toKey: string) => number;
   /** Ore di tutti i dipendenti in una giornata, 0 se chiusa. */
   dayHours: (dateKey: string) => number;
-  /** Quante persone sono in turno in una data ora, 0 se la giornata è chiusa. */
-  dayCoverage: (dateKey: string) => number[];
+  /** Fasce in cui è in turno lo stesso numero di persone (minuti dalla mezzanotte), vuoto se la giornata è chiusa. */
+  dayCoverage: (dateKey: string) => CoverageRange[];
   /** Giorni aperti del periodo. */
   openDateKeys: string[];
   closedDateKeys: string[];
@@ -251,10 +251,10 @@ export function buildSchedule({
     return round(countedForHours.reduce((sum, e) => sum + entry(e.id, dateKey).hours, 0));
   }
 
-  function dayCoverage(dateKey: string): number[] {
+  function dayCoverage(dateKey: string): CoverageRange[] {
     if (closureByDate.has(dateKey)) return [];
     const dayBlocks = ordered.flatMap((e) => entry(e.id, dateKey).blocks);
-    return coverageByHour(dayBlocks);
+    return coverageRanges(dayBlocks);
   }
 
   const totalHours = round(countedForHours.reduce((sum, e) => sum + employeeHours(e.id), 0));
@@ -359,22 +359,31 @@ function findAnomalies(
   return anomalies;
 }
 
-// Orario di riferimento della copertura (fasce orarie di un'enoteca).
-export const COVERAGE_START_HOUR = 8;
-export const COVERAGE_END_HOUR = 24;
+export type CoverageRange = { start: number; end: number; count: number };
 
-export function coverageByHour(blocks: { startTime: string; endTime: string }[]): number[] {
-  const hours = COVERAGE_END_HOUR - COVERAGE_START_HOUR;
-  const counts = new Array<number>(hours).fill(0);
-  for (const b of blocks) {
-    const start = timeToMinutes(b.startTime);
-    const end = timeToMinutes(b.endTime);
-    for (let h = 0; h < hours; h++) {
-      const slotStart = (COVERAGE_START_HOUR + h) * 60;
-      if (start < slotStart + 60 && end > slotStart) counts[h]++;
-    }
+// Fasce continue con lo stesso numero di persone in turno, al minuto: un turno
+// 16:30–22:00 risulta "16:30–22:00", non "16:00–22:00" come con le ore intere.
+export function coverageRanges(blocks: { startTime: string; endTime: string }[]): CoverageRange[] {
+  const edges = new Set<number>();
+  const spans = blocks
+    .map((b) => ({ start: timeToMinutes(b.startTime), end: timeToMinutes(b.endTime) }))
+    .filter((s) => s.end > s.start);
+  spans.forEach((s) => {
+    edges.add(s.start);
+    edges.add(s.end);
+  });
+  const points = [...edges].sort((a, b) => a - b);
+  const ranges: CoverageRange[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const start = points[i];
+    const end = points[i + 1];
+    const count = spans.filter((s) => s.start <= start && s.end >= end).length;
+    if (count === 0) continue;
+    const last = ranges[ranges.length - 1];
+    if (last && last.count === count && last.end === start) last.end = end;
+    else ranges.push({ start, end, count });
   }
-  return counts;
+  return ranges;
 }
 
 // Le due fasce fisse del locale: mattina fino alle 13, pomeriggio dopo.
@@ -406,6 +415,11 @@ export function entryForPeriod(entry: DayEntry, period: Period): DayEntry {
 export function formatHours(hours: number): string {
   const rounded = round(hours);
   return Number.isInteger(rounded) ? `${rounded} h` : `${rounded.toString().replace(".", ",")} h`;
+}
+
+// Come formatHours ma senza l'unità: per i punti in cui l'etichetta "ore" è già accanto.
+export function formatHoursNumber(hours: number): string {
+  return round(hours).toString().replace(".", ",");
 }
 
 function round(n: number): number {

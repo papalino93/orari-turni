@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { dayLabel, formatDayMonth, isToday, parseDateKey, toDateKey } from "@/lib/week";
-import { entryForPeriod, formatHours, PERIOD_LABEL, PERIODS, type DayEntry, type Employee, type Period, buildSchedule } from "@/lib/schedule";
+import { entryForPeriod, formatHours, formatHoursNumber, PERIOD_LABEL, PERIODS, type DayEntry, type Employee, type Period, buildSchedule } from "@/lib/schedule";
 import { DayCellContent, DayEditorModal, orderEmployees } from "./shared";
 import { DayStatusModal } from "./day-status-modal";
 import { ClosureRangeModal } from "./closure-range-modal";
@@ -524,7 +524,7 @@ export function EmployeeWeekCard({
         </div>
         {employee.role !== "OWNER" && (
           <div className="shrink-0 text-right">
-            <p className="text-lg font-semibold leading-none text-foreground">{totalHours}</p>
+            <p className="text-lg font-semibold leading-none text-foreground">{formatHoursNumber(totalHours)}</p>
             <p className="text-[10px] uppercase tracking-wide text-foreground-muted">ore</p>
           </div>
         )}

@@ -4,7 +4,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { tryParsePrice, type CoverInfo } from "@/lib/menu-format";
+import { blockStatus, tryParsePrice, type MenuBlockView } from "@/lib/menu-format";
+import { parseContacts, parseHero, parseHours } from "@/lib/menu-venue";
 import { ValidationError } from "@/lib/validation";
 
 // Come tryParsePrice, ma lancia un errore leggibile se non è un prezzo.
@@ -32,15 +33,46 @@ export async function loadMenu() {
   });
 }
 
-// Coperto (es. "Coperto € 1,00") e avviso della cucina, uguali per tutte le
-// sezioni di cucina; null se non ci sono.
-export async function loadCoverInfo(): Promise<CoverInfo> {
-  const rows = await prisma.menuSetting.findMany({ where: { id: { in: ["cover", "kitchenNote"] } } });
-  const get = (id: string) => {
-    const value = rows.find((r) => r.id === id)?.value.trim();
-    return value ? value : null;
+// Blocchi informativi (coperto, chiusura cucina, avvisi…) non eliminati, nell'ordine
+// in cui compaiono. Chi li mostra filtra quelli scaduti o nascosti (blockStatus).
+export async function loadBlocks(): Promise<MenuBlockView[]> {
+  const rows = await prisma.menuBlock.findMany({
+    where: { deletedAt: null },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map((b) => ({
+    id: b.id,
+    kind: b.kind,
+    label: b.label,
+    text: b.text,
+    priceCents: b.priceCents,
+    placement: b.placement,
+    sectionIds: b.sectionIds,
+    startDate: b.startDate,
+    endDate: b.endDate,
+    hidden: b.hidden,
+  }));
+}
+
+// Quelli da mostrare oggi sul menù dei clienti.
+export async function loadVisibleBlocks(dayKey: string): Promise<MenuBlockView[]> {
+  return (await loadBlocks()).filter((b) => blockStatus(b, dayKey) === "live");
+}
+
+// Copertina, orari e contatti (impostazioni JSON); se mancano valgono i valori
+// di partenza. heroImage = versione della foto personalizzata (null = predefinita).
+export async function loadVenue() {
+  const [rows, image] = await Promise.all([
+    prisma.menuSetting.findMany({ where: { id: { in: ["hero", "hours", "contacts"] } } }),
+    prisma.menuHeroImage.findUnique({ where: { id: "hero" }, select: { updatedAt: true } }),
+  ]);
+  const raw = (id: string) => rows.find((r) => r.id === id)?.value ?? null;
+  return {
+    hero: parseHero(raw("hero")),
+    hours: parseHours(raw("hours")),
+    contacts: parseContacts(raw("contacts")),
+    heroImageVersion: image ? image.updatedAt.getTime() : null,
   };
-  return { cover: get("cover"), kitchenNote: get("kitchenNote") };
 }
 
 const promoInclude = {
