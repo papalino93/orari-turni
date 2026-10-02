@@ -441,3 +441,23 @@ model MenuChange {
 
   @@index([at])
 }
+
+// Statistiche anonime del menù dei clienti (vedi lib/menu-stats.ts): un evento
+// per riga, senza dati personali. Si registrano solo con «Inizia a contare»
+// acceso (MenuSetting "stats").
+model MenuEvent {
+  id      String   @id @default(cuid())
+  at      DateTime @default(now())
+  // Giorno (YYYY-MM-DD), ora 0–23 e giorno della settimana 1–7, in ora italiana.
+  day     String
+  hour    Int
+  weekday Int
+  kind    String
+  // Cosa: parola cercata, nome del vino, sezione, contatto… (breve).
+  label   String?
+  // A chi si riferisce, se serve (id della voce, slug dell'evento…).
+  target  String?
+
+  @@index([day])
+  @@index([kind, day])
+}

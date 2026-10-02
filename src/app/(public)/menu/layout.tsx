@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, EB_Garamond, Jost } from "next/font/google";
 import "./menu.css";
+import { MenuStats } from "./stats";
 
 const serif = Cormorant_Garamond({
   subsets: ["latin", "latin-ext"],
@@ -42,5 +43,10 @@ export const metadata: Metadata = {
 };
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
-  return <div className={`${serif.variable} ${body.variable} ${sans.variable} menu-root min-h-screen`}>{children}</div>;
+  return (
+    <div className={`${serif.variable} ${body.variable} ${sans.variable} menu-root min-h-screen`}>
+      <MenuStats />
+      {children}
+    </div>
+  );
 }

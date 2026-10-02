@@ -344,6 +344,9 @@ export default async function MenuPage() {
                           href={`#v-${item.pairWineId}`}
                           data-pair-from={item.id}
                           data-pair-name={item.name}
+                          data-stat-k="pair"
+                          data-stat-l={`${item.name} → ${pair.name}`}
+                          data-stat-t={item.pairWineId ?? undefined}
                           className="block rounded-[10px] sm:max-w-[560px] bg-[#C9A96E]/[0.13] px-3.5 pb-3 pt-2.5 !text-[#1F2621] no-underline"
                         >
                           <span className="menu-sans flex items-center gap-2 text-[9.5px] font-medium uppercase tracking-[0.28em] text-[#8A6A2E] after:h-px after:flex-1 after:bg-[#9C7A45]/35 after:content-['']">

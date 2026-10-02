@@ -15,6 +15,7 @@ const ADMIN_NAV_ITEMS = [
   // { href: "/ferie", label: "Ferie & Permessi", icon: PalmIcon },
   { href: "/dipendenti", label: "Dipendenti", icon: PeopleIcon },
   { href: "/gestione-menu", label: "Menù", icon: MenuIcon },
+  { href: "/statistiche", label: "Statistiche", icon: ChartIcon },
 ];
 
 // Un login da dipendente vede solo la propria area — niente Orari generale,
@@ -152,6 +153,17 @@ function CalendarIcon({ active }: { active: boolean }) {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2}>
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+
+function ChartIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h16" />
+      <path d="M7 16v-5" />
+      <path d="M12 16V6" />
+      <path d="M17 16v-8" />
     </svg>
   );
 }
