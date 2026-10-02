@@ -161,6 +161,21 @@ export async function toggleEmployeeActive(idInput: string, activeInput: boolean
   });
 }
 
+// Permesso di modificare il menù pubblico (/gestione-menu). Solo il titolare
+// lo assegna: un dipendente non può darselo né darlo ad altri.
+export async function setEmployeeMenuAccess(idInput: string, allowedInput: boolean): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireUser();
+    const id = parseId(idInput, "dipendente");
+    const employee = await prisma.employee.findUnique({ where: { id } });
+    assert(employee, "Dipendente non trovato.");
+    assert(employee.role === "EMPLOYEE", "Solo un dipendente con accesso può avere questo permesso.");
+
+    await prisma.employee.update({ where: { id }, data: { canEditMenu: Boolean(allowedInput) } });
+    revalidateEmployees();
+  });
+}
+
 // --- Credenziali Area Dipendenti --------------------------------------------
 
 export async function updateEmployeeUsername(idInput: string, usernameInput: string): Promise<ActionResult> {

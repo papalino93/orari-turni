@@ -11,6 +11,7 @@ import {
   deleteEmployee,
   getEmployeeDeletionImpact,
   moveEmployee,
+  setEmployeeMenuAccess,
   toggleEmployeeActive,
   updateEmployee,
 } from "./actions";
@@ -30,6 +31,7 @@ type EmployeeRow = {
   photoVersion: string | null;
   username: string | null;
   password: string | null;
+  canEditMenu: boolean;
   pendingSubmissions: { year: number; month: number; submittedAt: string | null }[];
 };
 
@@ -195,6 +197,17 @@ function EmployeeCard({
     });
   }
 
+  function toggleMenuAccess() {
+    startTransition(async () => {
+      const result = await runWithToast(
+        toast,
+        () => setEmployeeMenuAccess(employee.id, !employee.canEditMenu),
+        employee.canEditMenu ? "Non può più modificare il menù" : "Ora può modificare il menù",
+      );
+      if (result !== null) router.refresh();
+    });
+  }
+
   function toggleActive() {
     startTransition(async () => {
       const result = await runWithToast(
@@ -338,6 +351,33 @@ function EmployeeCard({
 
       {employee.role === "EMPLOYEE" && (
         <EmployeeCredentials employeeId={employee.id} username={employee.username} password={employee.password} />
+      )}
+
+      {employee.role === "EMPLOYEE" && employee.active && (
+        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-2.5">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-foreground">Può modificare il menù</p>
+            <p className="text-[11px] text-foreground-muted">Esaurito, voci, prezzi e gruppi del menù pubblico</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={employee.canEditMenu}
+            aria-label={`Può modificare il menù: ${employee.name}`}
+            disabled={pending}
+            onClick={toggleMenuAccess}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
+              employee.canEditMenu ? "bg-accent" : "bg-surface-2 ring-1 ring-inset ring-border"
+            }`}
+          >
+            <span
+              aria-hidden
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                employee.canEditMenu ? "left-[1.375rem]" : "left-0.5"
+              }`}
+            />
+          </button>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">

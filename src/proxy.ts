@@ -14,7 +14,12 @@ import { NextResponse } from "next/server";
 // guida per installare l'app (che ha senso indipendentemente dal ruolo). Un
 // dipendente che digita a mano /orari, /dipendenti, /ferie o /account viene
 // rimandato qui — non solo "non trova il link" nella barra di navigazione.
-const EMPLOYEE_ALLOWED_PREFIXES = ["/mie-ore", "/installa"];
+//
+// "/gestione-menu" è raggiungibile da tutti i login dipendente solo a livello
+// di routing: il Proxy legge il token e non conosce il permesso "può
+// modificare il menù" (vive nel database). Chi non ce l'ha viene rimandato
+// altrove dalla pagina stessa, e ogni Server Action lo ricontrolla.
+const EMPLOYEE_ALLOWED_PREFIXES = ["/mie-ore", "/installa", "/gestione-menu"];
 
 export default withAuth(
   function proxy(req) {
@@ -45,5 +50,12 @@ export const config = {
   // eccezione esplicita finiva reindirizzata al login, e chi riceve il
   // link su WhatsApp — senza sessione — vedeva un'anteprima vuota invece
   // dell'immagine.
-  matcher: ["/((?!api/auth|login|opengraph-image|twitter-image|_next/static|_next/image|.*\\..*).*)"],
+  //
+  // "menu" è il menù pubblico dietro il QR in enoteca: l'unica sezione
+  // visibile senza login (insieme a /menu/allergeni). Scritto come
+  // "menu(?:/|$)" e non "menu" perché questo elenco esclude per PREFISSO —
+  // "login" qui sopra esclude anche "/login-qualcosa" — e una rotta come
+  // "/menu-qualcosa" non deve diventare pubblica per sbaglio. L'area di
+  // gestione sta infatti sotto un altro nome ("/gestione-menu").
+  matcher: ["/((?!api/auth|login|menu(?:/|$)|opengraph-image|twitter-image|_next/static|_next/image|.*\\..*).*)"],
 };
