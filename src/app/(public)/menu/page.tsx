@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { businessDayKey, formatPrice, isSoldOut, nb, parseVariants, promoStatus } from "@/lib/menu-format";
+import { businessDayKey, formatPrice, isSoldOut, nb, originLabel, parseVariants, promoStatus } from "@/lib/menu-format";
 import { loadDaily, loadMenu, loadVenue, loadVisibleBlocks, loadVisiblePromos } from "@/lib/menu";
 import { VERSION_LABEL } from "@/lib/version";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
@@ -12,6 +12,7 @@ import { VenueInfo } from "./venue-footer";
 import { MenuNav } from "./menu-nav";
 import type { SearchItem } from "./menu-search";
 import { PromoContent } from "./promo-content";
+import { PairingBack } from "./pairing";
 import { Ornament } from "./ornament";
 
 // Pagina in cache, rigenerata ogni minuto e a ogni modifica del menù (vedi
@@ -22,9 +23,9 @@ export const revalidate = 60;
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
-function GlassIcon() {
+function GlassIcon({ small = false }: { small?: boolean }) {
   return (
-    <svg width="15" height="20" viewBox="0 0 24 32" fill="none" stroke="#6B1020" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={small ? 12 : 15} height={small ? 16 : 20} viewBox="0 0 24 32" fill="none" stroke="#6B1020" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M5 2h14c0 8-3 13-7 13S5 10 5 2z" />
       <path d="M12 15v13" />
       <path d="M7 30h10" />
@@ -32,9 +33,9 @@ function GlassIcon() {
   );
 }
 
-function BottleIcon() {
+function BottleIcon({ small = false }: { small?: boolean }) {
   return (
-    <svg width="11" height="22" viewBox="0 0 16 32" fill="none" stroke="#6B1020" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={small ? 8 : 11} height={small ? 16 : 22} viewBox="0 0 16 32" fill="none" stroke="#6B1020" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 1.5h4v7c0 1.5 4 3 4 7.5v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V16c0-4.5 4-6 4-7.5z" />
       <path d="M2 19h12M2 25h12" />
     </svg>
@@ -71,6 +72,18 @@ export default async function MenuPage() {
         .filter((group) => group.items.length > 0),
     }))
     .filter((section) => section.groups.length > 0);
+
+  // «Abbinamento consigliato»: i vini del menù fisso ancora disponibili oggi. Un piatto
+  // abbinato a un vino esaurito o eliminato semplicemente non mostra il riquadro.
+  const pairWines = new Map(
+    regular
+      .filter((s) => s.kind === "WINE")
+      .flatMap((s) =>
+        s.groups.flatMap((g) =>
+          g.items.map((w) => [w.id, { name: w.name, zone: w.sub || (originLabel(w) ? "" : s.label), origin: originLabel(w), glass: w.priceGlassCents, bottle: w.priceBottleCents }] as const),
+        ),
+      ),
+  );
 
   // «Oggi fuori menù»: piatti e vini valgono solo oggi, in cima al menù. Ogni gruppo
   // ricorda se è di vini o di piatti (prezzi e allergeni cambiano di conseguenza).
@@ -218,6 +231,7 @@ export default async function MenuPage() {
         </div>
       )}
       {chips.length > 0 && <MenuNav chips={chips} items={searchItems} />}
+      {pairWines.size > 0 && <PairingBack />}
 
       <main className="menu-main mx-auto max-w-[720px] px-6 pb-[72px]">
         {sections.length === 0 && (
@@ -268,6 +282,7 @@ export default async function MenuPage() {
                 {group.items.map((item) => {
                   const price = group.kind === "WINE" ? item.priceBottleCents : item.priceCents;
                   const variants = parseVariants(item.variants);
+                  const pair = group.kind === "FOOD" && !item.soldOut && item.pairWineId ? pairWines.get(item.pairWineId) : undefined;
                   return (
                     <div
                       key={item.id}
@@ -289,10 +304,8 @@ export default async function MenuPage() {
                           )}
                         </div>
                         {item.sub && <div className="menu-sans text-sm leading-[1.45] text-[#4A504B]">{item.sub}</div>}
-                        {(item.region || item.country) && (
-                          <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.16em] text-[#5B605A]">
-                            {[item.region, item.country].filter(Boolean).join(" · ")}
-                          </div>
+                        {originLabel(item) && (
+                          <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.16em] text-[#5B605A]">{originLabel(item)}</div>
                         )}
                         {item.grapes && (
                           <div className="text-pretty text-[16px] font-medium italic leading-[1.4] text-[#4F544F]">{nb(item.grapes)}</div>
@@ -301,6 +314,46 @@ export default async function MenuPage() {
                           <div className="text-pretty text-[16.5px] leading-[1.45] text-[#3F4540]">{nb(item.description)}</div>
                         )}
                         {group.kind === "FOOD" && <AllergenMarks item={item} />}
+                        {pair && (
+                          <a
+                            href={`#v-${item.pairWineId}`}
+                            data-pair-from={item.id}
+                            data-pair-name={item.name}
+                            className="mt-3 block rounded-[10px] bg-[#C9A96E]/[0.13] px-3.5 pb-3 pt-2.5 !text-[#1F2621] no-underline"
+                          >
+                            <span className="menu-sans flex items-center gap-2 text-[9.5px] font-medium uppercase tracking-[0.28em] text-[#8A6A2E] after:h-px after:flex-1 after:bg-[#9C7A45]/35 after:content-['']">
+                              Abbinamento consigliato
+                            </span>
+                            <span className="mt-[7px] flex items-end gap-3">
+                              <span className="min-w-0 flex-1">
+                                <span className="menu-serif block truncate text-[22px] font-medium italic leading-[1.1] text-[#6B1020]">{pair.name}</span>
+                                {pair.zone && <span className="menu-sans mt-[3px] block truncate text-[12.5px] text-[#5B605A]">{pair.zone}</span>}
+                                {pair.origin && (
+                                  <span className="menu-sans mt-[3px] block truncate text-[10.5px] font-medium uppercase tracking-[0.16em] text-[#5B605A]">{pair.origin}</span>
+                                )}
+                              </span>
+                              <span className="menu-sans flex flex-none items-end gap-3.5 text-[15px] font-medium leading-none">
+                                {pair.glass !== null && (
+                                  <span className="flex min-w-[26px] flex-col items-center gap-1">
+                                    <GlassIcon small />
+                                    <span className="sr-only">Calice</span>
+                                    {formatPrice(pair.glass)}
+                                  </span>
+                                )}
+                                {pair.bottle !== null && (
+                                  <span className="flex min-w-[26px] flex-col items-center gap-1 text-[#6B1020]">
+                                    <BottleIcon small />
+                                    <span className="sr-only">Bottiglia</span>
+                                    {formatPrice(pair.bottle)}
+                                  </span>
+                                )}
+                              </span>
+                              <span aria-hidden className="menu-sans self-center text-lg leading-none text-[#9C7A45]">
+                                ›
+                              </span>
+                            </span>
+                          </a>
+                        )}
                       </div>
                       {group.columns && (
                         <div className="menu-sans min-w-9 flex-none whitespace-nowrap text-right text-base text-[#1F2621]">

@@ -50,6 +50,13 @@ export function nb(text: string | null | undefined): string {
 export type MenuVariant = { label: string; cents: number };
 
 // Il campo è JSON nel database: si rilegge in modo difensivo.
+// Provenienza di un vino da mostrare: la regione, e il paese solo se non è
+// l'Italia (in un'enoteca italiana «Italia» non aggiunge nulla).
+export function originLabel(item: { region: string | null; country: string | null }, sep = " · "): string {
+  const country = item.country && item.country.trim().toLowerCase() !== "italia" ? item.country : null;
+  return [item.region, country].filter(Boolean).join(sep);
+}
+
 export function parseVariants(value: unknown): MenuVariant[] | null {
   if (!Array.isArray(value)) return null;
   const list = value.flatMap((v) => {

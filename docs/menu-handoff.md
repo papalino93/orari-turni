@@ -25,8 +25,8 @@ PR #30, #31 (menù, allergeni, incolla in blocco, coperto), #32 (questo document
 
 ## Regola del titolare: numero di versione
 Il titolare vuole **sempre il numero di versione sia sul sito sia nella chat**.
-- Sul sito: etichetta `v0.5.2 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
-- **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.5.2**.
+- Sul sito: etichetta `v0.6.0 · <commit>` (`src/lib/version.ts`, valori iniettati da `next.config.ts`: `version` di `package.json` + primi 7 caratteri di `VERCEL_GIT_COMMIT_SHA`). Compare in fondo a ogni pagina dell'app (`app-shell.tsx`), sotto il modulo di accesso (`login/page.tsx`) e, discreta, nel piede del menù pubblico.
+- **A ogni rilascio aumenta `version` in `package.json`** (minore per una funzione nuova: 0.3.0, 0.4.0…; ultima cifra per correzioni). Oggi: **0.6.0**.
 - In chat: a ogni risposta che riguarda un rilascio scrivi «Versione X.Y.Z» (quella pubblicata in produzione, verificata sul sito).
 
 ## ATTENZIONE: una sola sessione alla volta
@@ -43,7 +43,8 @@ Trovato e corretto: barra sezioni del menù che in fondo alla pagina restava su 
 5. ~~Passo 4: strumenti per i clienti~~ **FATTO (v0.5.0)**: ricerca, filtri, testo grande, «Torna su».
 6. ~~Passo 5: comodità per chi gestisce~~ **FATTO (v0.5.0)**: ricerca di una voce con «Esaurito», anteprima da telefono. Il riquadro «Da fare» non serve: l'unico avviso utile (allergeni) è già in cima alla gestione.
 7. ~~Generatore del QR code~~ **FATTO (v0.5.0)**: «Codice QR» in gestione (SVG/PNG). Il QR stampato (qrco.de/bes4Ad) NON è stato toccato: lo ripunta il titolare dopo aver compilato gli allergeni.
-8. **Modalità servizio**: solo progettare e discutere, NON implementare finché il titolare non conferma.
+8. **Modalità servizio**: implementata ma **NON in produzione** finché il titolare non l'ha vista bene. Il codice sta solo sul branch `claude/modalita-servizio-bozza` (PR in bozza «NON UNIRE»): pagina `/gestione-menu/servizio`, elenco unico con interruttori grandi per «Esaurito», test `service.mjs` (27 controlli). Prima di unirla: ok esplicito del titolare, poi rebase su `main` e versione nuova.
+8b. ~~Abbinamento consigliato~~ **FATTO (v0.6.0)**, vedi sotto.
 9. **Inglese**: oggi solo italiano, ma i dati sono pronti per le traduzioni (colonne `translations`); nessun costo: niente traduzione automatica a pagamento.
 10. **In chiusura, sempre**: giro approfondito di bug e UX su telefono, tablet e PC (menù clienti e gestione), correggere, riassumere al titolare; aggiornare questo documento e il numero di versione.
 
@@ -106,7 +107,16 @@ Nella barra sezioni, a destra, due strumenti discreti; più «Torna su».
 - **Cerca una voce** (`search-ui.tsx`): campo in cima alla gestione, trova in tutto il menù (fisso, eventi, oggi) e segna «Esaurito» con un tocco; toccando il nome si apre la modifica.
 - **Anteprima** (`PreviewSheet` in `side-sheets.tsx`): il menù dei clienti in una cornice da telefono, con «Aggiorna».
 - Test: `scripts/menu-e2e/search.mjs` (11 controlli).
-- **Modalità servizio**: ancora SOLO da progettare (elenco unico per l'Esaurito, interruttori grandi); non implementare senza il via del titolare.
+- **Modalità servizio**: implementata sul branch `claude/modalita-servizio-bozza`, NON in produzione (vedi punto 8 sopra).
+
+### Abbinamento consigliato — FATTO (v0.6.0)
+Deciso con il titolare (2 ottobre): **un solo vino per piatto**, niente striscia «Consigliati», niente pagina «Cosa bevo con…?», **niente etichetta «Consigliato» sui vini** (provata e tolta: si punta solo sull'abbinamento dal piatto al vino).
+- Dati: `MenuItem.pairWineId` (solo piatti del menù fisso; nessuna chiave esterna). Migrazioni `20261006100000_menu_pairing` (aggiunge `pairWineId` e `recommended`) e `20261006110000_menu_drop_recommended` (toglie `recommended`, mai usata in produzione). Le migrazioni già girate sul database condiviso tramite anteprima **non vanno modificate**: si aggiunge una migrazione nuova.
+- Gestione: nella scheda del piatto «Abbinamento consigliato (facoltativo, un vino)»: si cerca un vino del menù fisso per nome, zona o sezione e lo si sceglie; ✕ lo toglie. In elenco: «Abbinamento: Mastrojanni». Server: il vino deve essere di una sezione vini fissa (no eventi, no «Oggi fuori menù»); per piatti di eventi e «Oggi fuori menù» il campo non c'è. Vino eliminato: la scheda lo dice e al salvataggio l'abbinamento cade. Duplica copia l'abbinamento. Storico e Annulla come sempre.
+- Menù: sotto il piatto un riquadro «velatura dorata» (scelto dal titolare tra varie proposte): «ABBINAMENTO CONSIGLIATO», nome del vino in corsivo bordeaux, sottotitolo, regione (e paese se non Italia), prezzi a colonne con calice e bottiglia come nella carta. Il tocco porta al vino e lo illumina; in basso «← Torna a «Piatto»» (`pairing.tsx`) che riporta al piatto e sparisce se si scorre lontano. Vino esaurito/eliminato o piatto esaurito: niente riquadro. Senza JavaScript è un link all'ancora `#v-<id>`.
+- Provenienza: `originLabel()` in `menu-format.ts` mostra la regione e il paese **solo se non è Italia** (vale anche per la riga sotto il vino e per la ricerca).
+- Regione/paese dei vini già in carta: migrazione `20261006120000_menu_wine_origins` (riempie solo i campi vuoti; valori confermati dal titolare: Villa della Torre → Veneto, Colletto → Lombardia, Borgo Canedo → Friuli-Venezia Giulia; Atma White solo «Grecia» e M. Chapoutier «Rouge Clair» solo «Francia», è un Vin de France; Skyphos → Macedonia Centrale · Grecia (migrazione `20261006130000`, IGP Macedonia, Naoussa)). Vini aggiunti o rinominati dopo vanno completati dalla gestione.
+- Test: `scripts/menu-e2e/pairing.mjs` (33 controlli).
 
 ### Codice QR — FATTO (v0.5.0)
 «Codice QR» tra i pulsanti della gestione (`QrSheet`, libreria `qrcode`): indirizzo del sito da cui si sta lavorando + `/menu`, colore nero o bordeaux, download SVG (stampa) e PNG 1600 px. Test: `scripts/menu-e2e/qr.mjs` (8 controlli, legge il QR con `jsqr`; richiede `npm i --no-save sharp jsqr`).
