@@ -672,7 +672,7 @@ function SectionTexts({
     const live = blockStatus(b, today) === "live";
     top.push({
       key: b.id,
-      tag: b.kind === "PRICE" ? "Prezzo" : b.kind === "NOTICE" ? "Avviso" : "Informazione",
+      tag: b.kind === "PRICE" ? "Prezzo" : b.kind === "NOTICE" ? "Avviso" : "Testo",
       title: b.kind === "PRICE" || b.priceCents !== null ? priceLine(b) : b.label,
       text: b.text,
       note: [!live ? "non visibile oggi" : null, others.length ? `anche in ${others.join(", ")}` : null].filter(Boolean).join(" · ") || undefined,

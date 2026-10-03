@@ -21,7 +21,7 @@ export type ParsedRow =
   | { line: number; ok: false; error: string; raw: string };
 
 export const IMPORT_COLUMNS: Record<ImportKind, string[]> = {
-  WINE: ["Nome", "Sottotitolo", "Uvaggio", "Calice", "Bottiglia"],
+  WINE: ["Azienda", "Denominazione", "Uvaggio", "Calice", "Bottiglia"],
   FOOD: ["Nome", "Descrizione", "Prezzo"],
 };
 
@@ -50,10 +50,10 @@ export function parseImport(text: string, kind: ImportKind): { rows: ParsedRow[]
       // Una riga che termina con il separatore genera una cella vuota in più.
       if (cells.length === expected + 1 && cells[cells.length - 1] === "") cells = cells.slice(0, -1);
 
-      // Prima riga "Nome; Sottotitolo; …" = intestazione di una tabella copiata: si salta.
+      // Prima riga "Nome; …" o "Azienda; …" = intestazione di una tabella copiata: si salta.
       if (!headerChecked) {
         headerChecked = true;
-        if (cells[0].toLowerCase() === "nome") return;
+        if (["nome", "azienda"].includes(cells[0].toLowerCase())) return;
       }
 
       const fail = (error: string) => rows.push({ line, ok: false, error, raw: rawLine.trim() });
@@ -70,7 +70,7 @@ export function parseImport(text: string, kind: ImportKind): { rows: ParsedRow[]
 
       if (!input.name) return fail("Manca il nome.");
       if (input.name.length > 120) return fail("Nome troppo lungo (massimo 120 caratteri).");
-      if (input.sub.length > 160) return fail("Sottotitolo troppo lungo (massimo 160 caratteri).");
+      if (input.sub.length > 160) return fail(kind === "WINE" ? "Denominazione troppo lunga (massimo 160 caratteri)." : "Testo troppo lungo (massimo 160 caratteri).");
       if (input.grapes.length > 200) return fail("Uvaggio troppo lungo (massimo 200 caratteri).");
       if (input.description.length > 300) return fail("Descrizione troppo lunga (massimo 300 caratteri).");
 

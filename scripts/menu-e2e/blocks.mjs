@@ -204,7 +204,7 @@ check("ordine: rimesso com'era", o.chiusura < o.coperto);
 await page.getByRole("button", { name: "Taglieri & Pinse" }).first().click();
 await settle(600);
 const texts = (await page.locator("main").innerText()).replace(/\u00a0/g, " ");
-check("sezione: «Testi della sezione» elenca coperto e chiusura cucina", /PREZZO\s*Coperto € 1,00/i.test(texts) && /INFORMAZIONE\s*Si informa/i.test(texts), texts.slice(0, 200));
+check("sezione: «Testi della sezione» elenca coperto e chiusura cucina", /PREZZO\s*Coperto € 1,00/i.test(texts) && /TESTO\s*Si informa/i.test(texts), texts.slice(0, 200));
 await page.getByRole("button", { name: "Modifica" }).filter({ hasText: /^Modifica$/ }).nth(1).click().catch(() => {});
 await dialog().waitFor({ timeout: 5000 }).catch(() => {});
 if (await dialog().count()) {
