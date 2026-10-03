@@ -247,6 +247,7 @@ const box = await dialog().boundingBox();
 check("import @390: foglio entro lo schermo", box && box.width <= 390.5, JSON.stringify(box));
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/editor-import-390.png` });
 await page.keyboard.press("Escape");
+await discardIfAsked(page);
 await dialog().waitFor({ state: "detached" });
 
 // ---------- Azione server import senza permesso

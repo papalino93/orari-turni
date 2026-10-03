@@ -1,6 +1,6 @@
 // Copertina, orari («Aperto ora»), contatti: modifica dalla gestione e effetto
 // sul menù pubblico. Richiede `npm i --no-save sharp` (foto di prova).
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, expandPanels } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, expandPanels } from "./lib.mjs";
 import { execFileSync } from "node:child_process";
 import sharp from "sharp";
 import { mkdtempSync } from "node:fs";
@@ -80,6 +80,7 @@ await dialog().getByRole("button", { name: "Salva", exact: true }).click();
 await settle(900);
 check("contatti: link non https rifiutato", (await dialog().count()) === 1);
 await page.keyboard.press("Escape");
+await discardIfAsked(page);
 await page.getByRole("button", { name: "Modifica i contatti" }).click();
 await dialog().waitFor();
 await dialog().getByLabel("Link per la recensione su Google").fill("");
@@ -178,6 +179,7 @@ await dialog().waitFor();
 const hist = (await dialog().innerText()).replace(/ /g, " ");
 check("storico: compaiono Copertina, Orari e Contatti", /Copertina/.test(hist) && /Orari/.test(hist) && /Contatti/.test(hist));
 await page.keyboard.press("Escape");
+await discardIfAsked(page);
 
 // Permessi
 for (const [user, expected] of [["marta", true], ["francesco", false]]) {
