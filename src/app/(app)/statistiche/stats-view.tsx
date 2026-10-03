@@ -59,14 +59,17 @@ function Ranking({ rows }: { rows: { key: string; label: string; total: number; 
       {rows.map((d, i) => (
         <li key={d.key} className="relative overflow-hidden rounded-lg px-2.5 py-2" title={`${d.label}: ${n(d.total)} aperture in ${d.days} giorni`}>
           <span aria-hidden className="absolute inset-y-0 left-0 rounded-lg bg-accent/15" style={{ width: `${(d.total / max) * 100}%` }} />
-          <span className="relative flex items-baseline gap-3 text-sm">
+          <span className="relative flex items-center gap-3 text-sm">
             <span className="w-5 shrink-0 tabular-nums text-foreground-muted">{i + 1}.</span>
-            <span className="min-w-0 flex-1 truncate capitalize text-foreground">{d.label}</span>
-            <span className="shrink-0 tabular-nums font-medium text-foreground">
-              {n(d.total)} <span className="text-xs font-normal text-foreground-muted">apertur{d.total === 1 ? "a" : "e"}</span>
-            </span>
-            <span className="w-20 shrink-0 text-right text-xs tabular-nums text-foreground-muted">
-              {d.days ? `${d.average.toLocaleString("it-IT", { maximumFractionDigits: 1 })} al giorno` : "—"}
+            <span className="min-w-0 flex-1 capitalize text-foreground">{d.label}</span>
+            {/* Totale sopra, media sotto: il nome del giorno o del mese resta intero anche sul telefono. */}
+            <span className="shrink-0 text-right leading-tight">
+              <span className="block tabular-nums font-medium text-foreground">
+                {n(d.total)} <span className="text-xs font-normal text-foreground-muted">apertur{d.total === 1 ? "a" : "e"}</span>
+              </span>
+              <span className="block text-[11px] tabular-nums text-foreground-muted">
+                {d.days ? `${d.average.toLocaleString("it-IT", { maximumFractionDigits: 1 })} al giorno` : "—"}
+              </span>
             </span>
           </span>
         </li>
@@ -77,15 +80,14 @@ function Ranking({ rows }: { rows: { key: string; label: string; total: number; 
 
 function Heatmap({ heat }: { heat: number[][] }) {
   const max = Math.max(1, ...heat.flat());
-  // Solo le ore in cui il menù viene aperto almeno una volta (più le vicine), per non sprecare spazio.
-  const used = heat[0].map((_, h) => heat.some((row) => row[h] > 0));
-  let first = used.indexOf(true);
-  let last = used.lastIndexOf(true);
-  if (first === -1) {
-    first = 10;
-    last = 23;
-  }
-  const hours = Array.from({ length: last - first + 1 }, (_, i) => first + i);
+  // Le ore partono dalle 5 del mattino, come la giornata del locale (dopo mezzanotte
+  // si continua con 0, 1…), e restano solo quelle in cui il menù è stato aperto:
+  // la sera e il dopo-mezzanotte stanno vicini, senza ore vuote in mezzo da scorrere.
+  const order = Array.from({ length: 24 }, (_, i) => (i + 5) % 24);
+  const used = order.map((h) => heat.some((row) => row[h] > 0));
+  const first = used.indexOf(true);
+  const last = used.lastIndexOf(true);
+  const hours = first === -1 ? order.slice(12, 19) : order.slice(first, last + 1);
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-separate [border-spacing:3px] text-[11px]">
@@ -243,7 +245,7 @@ export function StatsView({
           </Link>
         ))}
         {/* Periodo a scelta: un normale modulo con le due date (funziona anche senza JavaScript). */}
-        <form action="/statistiche" className={`flex flex-wrap items-center gap-2 rounded-full border px-3 py-1 ${period === "custom" ? "border-accent" : "border-border"}`}>
+        <form action="/statistiche" className={`flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 ${period === "custom" ? "border-accent" : "border-border"}`}>
           <label className="flex items-center gap-1.5 text-sm text-foreground-muted">
             Dal
             <input type="date" name="dal" defaultValue={custom.from ?? setting.since ?? ""} max={data.today} className="min-h-9 rounded-lg border border-border bg-surface px-2 text-sm text-foreground" />
