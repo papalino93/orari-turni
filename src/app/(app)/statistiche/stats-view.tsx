@@ -14,11 +14,14 @@ const fmtDay = (day: string) => {
   const [y, m, d] = day.split("-").map(Number);
   return `${d} ${MONTHS[m - 1]}${y !== new Date().getFullYear() ? ` ${y}` : ""}`;
 };
-const n = (v: number) => v.toLocaleString("it-IT");
+// Numeri all'italiana (1.759 · 4,5) scritti a mano: toLocaleString dà risultati
+// diversi sul server e nel browser, e la pagina si ridisegnerebbe.
+const n = (v: number) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+const dec = (v: number) => (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, "").replace(".", ",");
 
 function Card({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-border bg-surface p-4">
+    <section className="min-w-0 rounded-2xl border border-border bg-surface p-4">
       <h2 className="text-sm font-semibold text-foreground">{title}</h2>
       {hint && <p className="mt-0.5 text-xs text-foreground-muted">{hint}</p>}
       <div className="mt-3">{children}</div>
@@ -68,7 +71,7 @@ function Ranking({ rows }: { rows: { key: string; label: string; total: number; 
                 {n(d.total)} <span className="text-xs font-normal text-foreground-muted">apertur{d.total === 1 ? "a" : "e"}</span>
               </span>
               <span className="block text-[11px] tabular-nums text-foreground-muted">
-                {d.days ? `${d.average.toLocaleString("it-IT", { maximumFractionDigits: 1 })} al giorno` : "—"}
+                {d.days ? `${dec(d.average)} al giorno` : "—"}
               </span>
             </span>
           </span>
@@ -89,7 +92,7 @@ function Heatmap({ heat }: { heat: number[][] }) {
   const last = used.lastIndexOf(true);
   const hours = first === -1 ? order.slice(12, 19) : order.slice(first, last + 1);
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full border-separate [border-spacing:3px] text-[11px]">
         <thead>
           <tr>
@@ -293,6 +296,8 @@ export function StatsView({
             </div>
           </div>
 
+          {/* Su schermo largo le due classifiche stanno affiancate. */}
+          <div className="grid gap-4 md:grid-cols-2">
           <Card title="Classifica dei giorni della settimana" hint="Dal giorno con più aperture del menù a quello con meno, nel periodo scelto. A fianco la media per singolo giorno.">
             <Ranking rows={data.dayRanking.map((d) => ({ key: String(d.weekday), label: WEEKDAY_NAMES[d.weekday], total: d.total, average: d.average, days: d.days }))} />
           </Card>
@@ -300,6 +305,7 @@ export function StatsView({
           <Card title="Classifica dei mesi" hint="Dal mese con più aperture del menù a quello con meno, nel periodo scelto (lo stesso mese di anni diversi conta insieme).">
             <Ranking rows={data.monthRanking.map((m) => ({ key: String(m.month), label: MONTH_NAMES[m.month], total: m.total, average: m.average, days: m.days }))} />
           </Card>
+          </div>
 
           <Card title="Giorni e orari" hint="Quando viene aperto il menù: più scuro, più aperture.">
             <Heatmap heat={data.heat} />

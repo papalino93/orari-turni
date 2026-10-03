@@ -388,6 +388,9 @@ export function MenuEditor({
         <button type="button" onClick={() => setSheet({ type: "qr" })} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
           Codice QR
         </button>
+        <a href="/gestione-menu/guida" target="_blank" rel="noopener" className="flex items-center gap-1.5 min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+          Guida <span aria-hidden>↓</span>
+        </a>
         {soldOutCount > 0 && (
           <button type="button" onClick={reactivateAll} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
             Riattiva tutto ({soldOutCount})

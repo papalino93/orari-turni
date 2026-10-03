@@ -37,11 +37,23 @@ const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
 const pages = (pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
 check("PDF A4 di alcune pagine", pages >= 2 && pages <= 12, String(pages));
 
+// «Guida»: il PDF della guida, solo per chi gestisce il menù
+await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+const guideLink = page.getByRole("toolbar", { name: "Strumenti del menù" }).getByRole("link", { name: /Guida/ });
+check("gestione: c'è «Guida»", (await guideLink.count()) === 1 && (await guideLink.getAttribute("href")) === "/gestione-menu/guida");
+const g = await page.request.get(`${BASE}/gestione-menu/guida`);
+const gBody = await g.body();
+check("guida: PDF scaricato", g.status() === 200 && g.headers()["content-type"] === "application/pdf" && gBody.subarray(0, 5).toString() === "%PDF-", `${g.status()} ${g.headers()["content-type"]}`);
+const anon = await (await browser.newContext()).request.get(`${BASE}/gestione-menu/guida`, { maxRedirects: 0 });
+check("guida: senza login non si scarica", anon.status() >= 300 && anon.status() < 400, String(anon.status()));
+
 // Dipendente senza permesso di gestire il menù: rimandato alla sua area
 const emp = await (await browser.newContext()).newPage();
 await login(emp, "francesco", EMP_PW);
 await emp.goto(`${BASE}/gestione-menu/stampa`, { waitUntil: "networkidle", timeout: 120000 });
 check("dipendente senza permesso: rimandata fuori", !emp.url().includes("/stampa"), emp.url());
+const eg = await emp.request.get(`${BASE}/gestione-menu/guida`, { maxRedirects: 0 });
+check("guida: dipendente senza permesso non la scarica", eg.status() >= 300 && eg.status() < 400, String(eg.status()));
 
 DB(`update "MenuItem" set "soldOutDay"=null where id='${SOLD}'`);
 await browser.close();
