@@ -40,6 +40,22 @@ check("cliente: un'apertura", count("open") === 1);
 await pub.reload({ waitUntil: "networkidle" });
 await wait(800);
 check("cliente: ricaricare non conta di nuovo", count("open") === 1);
+// Stesso telefono, nuova scheda (es. QR inquadrato di nuovo) pochi secondi dopo: non conta.
+const pub2 = await pubCtx.newPage();
+await pub2.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
+await wait(800);
+check("cliente: nuova scheda lo stesso giorno non conta di nuovo", count("open") === 1);
+await pub2.close();
+// Il giorno dopo sì: si simula un ricordo di ieri.
+const pub3 = await pubCtx.newPage();
+await pub3.goto(`${BASE}/menu/allergeni`, { waitUntil: "networkidle", timeout: 120000 });
+await pub3.evaluate(() => localStorage.setItem("menu-stat-open", "2000-01-01"));
+await pub3.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
+await wait(800);
+check("cliente: il giorno dopo conta di nuovo", count("open") === 2);
+await pub3.close();
+// Si torna a un'apertura sola, come se fosse sempre lo stesso giorno, per i controlli che seguono.
+DB(`delete from "MenuEvent" where id in (select id from "MenuEvent" where kind='open' order by at desc limit 1)`);
 
 await pub.getByRole("button", { name: "Cerca nel menù", exact: true }).click();
 await pub.locator("input[type=search]").fill("prosecco");
@@ -73,6 +89,13 @@ const staff = await admin.context().newPage();
 await staff.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
 await wait(800);
 check("personale: aperture non contate", count("open") === before);
+// Stesso telefono del personale, ma senza sessione (scaduta, o menù aperto da fuori): non conta lo stesso.
+await admin.context().clearCookies();
+await staff.evaluate(() => localStorage.removeItem("menu-stat-open"));
+await staff.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
+await wait(800);
+check("personale senza sessione: il dispositivo resta escluso", count("open") === before);
+await login(admin, "andrea", ADMIN_PW);
 
 // Anteprima dentro la gestione (riquadro): non conta
 const ctx3 = await browser.newContext({ viewport: { width: 390, height: 844 } });

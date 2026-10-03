@@ -388,7 +388,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Statistiche")}
   </div>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;margin-top:auto">
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Anonime</h3><p>Niente nomi, niente cookie: solo cosa, che giorno e che ora.</p></div>
-    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Solo i clienti</h3><p>Il personale con l'accesso fatto e l'Anteprima non contano.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Solo i clienti</h3><p>Ogni telefono conta una volta al giorno. Personale e Anteprima non contano.</p></div>
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Quando volete</h3><p>Si accende con «Inizia a contare»: meglio dal giorno del QR nuovo.</p></div>
   </div>
   <div style="text-align:center;margin:3mm 0 4mm;font:7.5pt Jost;color:rgba(233,220,196,.7);letter-spacing:.04em">I numeri delle schermate sono di esempio: in produzione si parte da zero.</div>

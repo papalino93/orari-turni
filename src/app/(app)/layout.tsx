@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/app-shell";
+import { StaffDeviceMark } from "@/components/staff-device-mark";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -26,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <AppShell userName={session.user.name} role={role} canEditMenu={canEditMenu}>
+      <StaffDeviceMark />
       {children}
     </AppShell>
   );
