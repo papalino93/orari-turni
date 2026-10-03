@@ -47,6 +47,7 @@ function toEditorSection(s: LoadedSection, dayKey: string): EditorSection {
         allergens: i.allergens,
         allergensReviewed: i.allergensReviewed,
         soldOut: isSoldOut(i, dayKey),
+        textOnly: i.textOnly,
       })),
     })),
   };
@@ -103,6 +104,10 @@ export default async function GestioneMenuPage() {
     endDate: p.endDate,
     hidden: p.hidden,
     imageVersion: p.imageUpdatedAt ? p.imageUpdatedAt.getTime() : null,
+    menuMode: p.menuMode === "FILE" ? "FILE" : "ITEMS",
+    menuNote: p.menuNote,
+    allergenNotice: p.allergenNotice,
+    pages: p.pages,
     // Il titolo dell'evento è quello della pagina: la sezione collegata lo segue.
     section: p.section ? { ...toEditorSection(p.section, dayKey), title: p.title, label: p.title } : null,
   }));

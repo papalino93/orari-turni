@@ -33,7 +33,7 @@ export default async function StampaMenuPage({ searchParams }: { searchParams: P
     .filter((s) => s.groups.length > 0);
   const soldOutCount = menu.reduce((n, s) => n + s.groups.reduce((m, g) => m + g.items.filter((i) => isSoldOut(i, dayKey)).length, 0), 0);
   const hasFood = sections.some((s) => s.kind === "FOOD");
-  const hasUnknown = sections.some((s) => s.kind === "FOOD" && s.groups.some((g) => g.items.some((i) => allergenState(i) === "unknown")));
+  const hasUnknown = sections.some((s) => s.kind === "FOOD" && s.groups.some((g) => g.items.some((i) => !i.textOnly && allergenState(i) === "unknown")));
   const date = new Date(`${dayKey}T12:00:00Z`).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
   const top = blocks.filter((b) => b.placement === "TOP");
   const bottom = blocks.filter((b) => b.placement === "BOTTOM");
@@ -74,6 +74,13 @@ export default async function StampaMenuPage({ searchParams }: { searchParams: P
                   )}
                   <ul className="m-0 list-none p-0">
                     {group.items.map((item) => {
+                      if (item.textOnly) {
+                        return (
+                          <li key={item.id} className="print-avoid border-b border-dotted border-[#1f2420]/15 py-1 text-[12.5px] italic text-[#3F4540]">
+                            {nb(item.name)}
+                          </li>
+                        );
+                      }
                       const sold = isSoldOut(item, dayKey);
                       if (section.kind === "WINE") {
                         const detail = [wineDetail(item), item.grapes, originLabel(item)].filter(Boolean).join(" · ");

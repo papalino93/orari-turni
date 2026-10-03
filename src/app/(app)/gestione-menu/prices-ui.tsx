@@ -64,7 +64,7 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
   const [busy, setBusy] = useState(false);
   const section = sections.find((s) => s.id === sectionId) ?? null;
 
-  const all = sections.flatMap((s) => s.groups.flatMap((g) => g.items.map((item) => ({ item, kind: s.kind, section: s }))));
+  const all = sections.flatMap((s) => s.groups.flatMap((g) => g.items.filter((item) => !item.textOnly).map((item) => ({ item, kind: s.kind, section: s }))));
   const changes = all.filter(({ item }) => draft[item.id] && !same(draft[item.id], base(item)));
   const problems = changes.filter(({ item, kind }) => problem(item, kind, draft[item.id]));
   const perSection = (id: string) => changes.filter((c) => c.section.id === id).length;
@@ -128,7 +128,7 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
               </div>
               {group.items.length === 0 && <p className="py-2 text-xs text-foreground-muted">Nessuna voce.</p>}
               <ul className="divide-y divide-border">
-                {group.items.map((item) => {
+                {group.items.filter((item) => !item.textOnly).map((item) => {
                   const orig = base(item);
                   const d = draft[item.id] ?? orig;
                   const err = draft[item.id] && !same(d, orig) ? problem(item, section.kind, d) : null;

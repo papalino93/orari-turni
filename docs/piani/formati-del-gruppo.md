@@ -3,7 +3,7 @@
 ## Obiettivo
 
 Le birre alla spina dell'Oktoberfest hanno tutte gli stessi formati
-(es. 0,2 l · 0,4 l · Maß 1 l). Invece di scrivere i formati birra per birra,
+(es. 0,2 l · 0,4 l · 1 l). Invece di scrivere i formati birra per birra,
 si scrivono **una volta sul gruppo** e per ogni birra si mettono solo i
 prezzi. Sul menù diventa una **tabella con una colonna per formato**, come
 Calice e Bottiglia per i vini. È uno strumento generale, che serve anche per
@@ -13,8 +13,14 @@ gli eventi futuri e per il menù fisso.
 
 - Nell'intestazione di ogni gruppo, accanto a «Rinomina», un pulsante
   **«Formati»**: si scrivono i nomi delle colonne (da 2 a 4, es. «0,2 l»,
-  «0,4 l», «Maß 1 l»), si riordinano, si tolgono. Vuoto = gruppo normale,
+  «0,4 l», «1 l»), si riordinano, si tolgono. Vuoto = gruppo normale,
   come oggi.
+- Più semplice ancora, dalla **scheda della prima birra**: in «Prezzo» si
+  sceglie **«Più formati»**, si toccano i formati veloci (0,2 l · 0,3 l ·
+  0,4 l · 0,5 l · 1 l) o se ne scrivono altri, con il prezzo accanto. La
+  spunta **«Stessi formati per tutto il gruppo»** (accesa) li rende i formati
+  del gruppo; si spegne per tenerli solo su quella voce. Non compare se nel
+  gruppo ci sono già voci con un prezzo unico.
 - Con i formati del gruppo, la scheda di una voce mostra **una casella di
   prezzo per ogni formato** al posto di «Prezzo» e «+ Aggiungi un formato».
   Casella vuota = quel formato per quella voce non c'è (sul menù «—»).
@@ -34,7 +40,7 @@ gli eventi futuri e per il menù fisso.
 Intestazione del gruppo con i nomi dei formati in colonna (come il calice e
 la bottiglia), poi una riga per birra: nome, descrizione sotto, prezzi
 allineati nelle colonne. Su telefono fino a 4 colonne strette; i nomi lunghi
-(«Maß 1 l») vanno su due righe nell'intestazione. Funziona in menù fisso,
+(«1 l») vanno su due righe nell'intestazione. Funziona in menù fisso,
 eventi e «Oggi fuori menù». Il menù da stampare usa la stessa tabella.
 
 ## Comportamenti e casi limite

@@ -43,7 +43,7 @@ export type ItemInput = {
   // Solo piatti. allergensReviewed false = "da compilare" (non è "nessuno").
   allergens?: string[];
   allergensReviewed?: boolean;
-  // Più formati con prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l): alternativi al prezzo singolo.
+  // Più formati con prezzo (es. birra 0,2 l · 0,4 l · 1 l): alternativi al prezzo singolo.
   variants?: { label: string; price: string }[];
 };
 
@@ -647,6 +647,40 @@ export async function reorder(
     });
     revalidateMenu();
     return { changeId };
+  });
+}
+
+// Riga di solo testo tra le voci di un gruppo (es. «Tutti i piatti con pane fatto
+// in casa»): niente prezzo né allergeni. Si sposta ed elimina come le voci.
+export async function saveTextRow(idInput: string | null, groupIdInput: string, textInput: string): Promise<ActionResult<ChangeResult & { id: string }>> {
+  return runAction(async () => {
+    const editor = await requireMenuEditor();
+    const groupId = parseId(groupIdInput, "gruppo");
+    const text = parseText(textInput, "testo", { max: 300, required: true });
+    const group = await prisma.menuGroup.findFirst({ where: { id: groupId, deletedAt: null } });
+    assert(group, "Gruppo non trovato.");
+    if (idInput) {
+      const id = parseId(idInput, "riga");
+      const row = await prisma.menuItem.findFirst({ where: { id, deletedAt: null, textOnly: true } });
+      assert(row, "Riga non trovata.");
+      if (row.name === text) return { changeId: null, id };
+      const changeId = await prisma.$transaction(async (tx) => {
+        await tx.menuItem.update({ where: { id }, data: { name: text } });
+        return logChange(tx, { actorName: editor.name, action: "UPDATE", entity: "item", entityId: id, label: text.slice(0, 60), before: { name: row.name }, after: { name: text } });
+      });
+      revalidateMenu();
+      return { changeId, id };
+    }
+    const last = await prisma.menuItem.findFirst({ where: { groupId, deletedAt: null }, orderBy: { sortOrder: "desc" } });
+    const result = await prisma.$transaction(async (tx) => {
+      const row = await tx.menuItem.create({
+        data: { groupId, name: text, textOnly: true, allergensReviewed: true, sortOrder: (last?.sortOrder ?? -1) + 1 },
+      });
+      const changeId = await logChange(tx, { actorName: editor.name, action: "CREATE", entity: "item", entityId: row.id, label: text.slice(0, 60), after: { name: text } });
+      return { changeId, id: row.id };
+    });
+    revalidateMenu();
+    return result;
   });
 }
 

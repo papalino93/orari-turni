@@ -77,6 +77,19 @@ const toEl = async (page, loc, offset = 70) => {
   await page.screenshot({ path: `${OUT}/ges-vino-2.png` });
   await ctx.close();
 }
+// Oktoberfest sul telefono, come nei giorni dell'evento (date spostate solo per la foto)
+{
+  const sql = (q) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", q], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
+  const old = sql(`select "startDate"||'|'||"endDate" from "MenuPromo" where id='demo_degust'`).split("|");
+  sql(`update "MenuPromo" set "startDate"=to_char(now() - interval '5 hours','YYYY-MM-DD') where id='demo_degust'`);
+  const { ctx, page } = await mk(390, 797);
+  await page.goto(`${BASE}/menu/p/oktoberfest`, { waitUntil: "networkidle", timeout: 120000 });
+  await page.locator("text=Birre alla spina").first().evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 130));
+  await settle(page, 700);
+  await page.screenshot({ path: `${OUT}/pub-evento-birre.png` });
+  await ctx.close();
+  sql(`update "MenuPromo" set "startDate"='${old[0]}', "endDate"='${old[1]}' where id='demo_degust'`);
+}
 // Menù da stampare (computer)
 {
   const { ctx, page } = await mk(1100, 1300, 1.6);

@@ -33,7 +33,7 @@ export default async function AllergeniPage() {
         .map((g) => ({
           id: g.id,
           title: g.title,
-          items: g.items.map((i) => ({
+          items: g.items.filter((i) => !i.textOnly).map((i) => ({
             id: i.id,
             name: i.name,
             description: i.description,

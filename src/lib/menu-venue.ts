@@ -41,7 +41,7 @@ export const DEFAULT_CONTACTS: Contacts = {
   whatsappMessage: "Ciao! Vorrei prenotare un tavolo per",
   address: "Via dei Rossi 53/C, 50018 Scandicci FI",
   instagram: "https://www.instagram.com/langolo.del.vino_enoteca/",
-  review: "https://share.google/ads9ad7vXNVdN2B4t",
+  review: "https://g.page/r/CQtef5OLe4RQEBM/review",
 };
 
 export const DEFAULT_HERO: Hero = { title: "Carta dei vini\ne Menù" };

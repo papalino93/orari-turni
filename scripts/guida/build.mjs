@@ -260,6 +260,23 @@ pages.push(`<section class="page paper">${chrome(pg(), "Eventi e annunci")}
   <div style="position:absolute;left:0;right:0;text-align:center;bottom:17mm;font:7.5pt Jost;color:#8A8F88;letter-spacing:.04em">Locandine e date sono quelle reali; il menù speciale mostrato è un esempio di prova.</div>
 </section>`);
 
+// · Il menù dell'evento
+pages.push(`<section class="page wine">${chrome(pg(), "Il menù dell'evento")}
+  <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Il menù dell'evento</div>
+  <h2>Voce per voce<br><em>o un PDF già pronto</em></h2>
+  <p class="lead">Per una serata sola si può caricare il menù in PDF o in foto: i clienti lo leggono dentro la pagina dell'evento. Oppure lo si compone voce per voce, con le birre in colonne.</p></div>
+  <div style="position:relative;margin-top:7mm;height:120mm">
+    <div style="position:absolute;left:0;top:0">${mac("mac-evento-menu", 146)}</div>
+    <div style="position:absolute;right:0;top:24mm">${phone("pub-evento-birre", 44)}</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:auto">
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">PDF o foto</h3><p>«PDF o foto», poi <b>Carica PDF o foto</b>: fino a 6 pagine, si riordinano e si tolgono. L'avviso allergeni resta sempre acceso.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Birre in più formati</h3><p>Nella prima birra scegli <b>Più formati</b> e tocca 0,2 l · 0,4 l · 1 l: valgono per tutto il gruppo, nelle altre scrivi solo i prezzi.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Note e righe di testo</h3><p><b>Note del menù</b> in cima; <b>+ Aggiungi testo</b> per una riga senza prezzo tra le voci.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Allergeni in una riga</h3><p>Con l'<b>avviso allergeni unico</b> acceso, i piatti dell'evento non chiedono gli allergeni uno per uno.</p></div>
+  </div>
+</section>`);
+
 // 7 · Allergeni
 const allergens = ["Glutine","Crostacei","Uova","Pesce","Arachidi","Soia","Latte","Frutta a guscio","Sedano","Senape","Sesamo","Solfiti","Lupini","Molluschi"];
 pages.push(`<section class="page paper">${chrome(pg(), "Allergeni")}
@@ -444,7 +461,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Per concludere")}
   <h2>Cosa serve per <em>partire</em></h2></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:7mm">
     <div class="card"><h3>Da fare insieme</h3><ul class="tick" style="margin-top:3mm">
-      <li>Ripuntare il QR stampato alla nuova pagina, poi accendere «Inizia a contare».</li><li>Link della recensione Google e messaggio WhatsApp.</li><li>Allergeni dei due kombucha e testo della pagina allergeni.</li><li>Abbinamenti dei piatti e caratteristiche dei vini ancora da confermare.</li><li>Inserire l'Oktoberfest con la sua locandina.</li></ul></div>
+      <li>Ripuntare il QR stampato a <span style="white-space:nowrap">orari-turni.vercel.app/menu</span>, poi accendere «Inizia a contare».</li><li>Provare il messaggio WhatsApp per prenotare.</li><li>Allergeni dei due kombucha e testo della pagina allergeni.</li><li>Abbinamenti dei piatti e caratteristiche dei vini ancora da confermare.</li><li>Inserire l'Oktoberfest con la sua locandina.</li></ul></div>
     <div class="card"><h3>Idee per il futuro</h3><ul class="tick" style="margin-top:3mm">
       <li>Versione in inglese per i turisti.</li><li>Foto dei piatti e dei vini.</li><li>Un QR dedicato a ogni evento.</li></ul></div>
   </div>
@@ -465,10 +482,10 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Un vino è finito: lo elimino?</h4><p>No, tocca «Esaurito»: sparisce solo per oggi e torna da solo alle 5 del mattino. Elimina solo ciò che non avrete più.</p></div>
 
     <div><h4>Il QR stampato va rifatto quando cambio i prezzi?</h4><p>No: porta sempre alla stessa pagina, che si aggiorna da sola. Va solo ripuntato una volta alla nuova pagina.</p></div>
-    <div><h4>I clienti devono scaricare un'app?</h4><p>No: basta la fotocamera del telefono. Il menù funziona su qualsiasi telefono, tablet o computer.</p></div>
+    <div><h4>Posso caricare il menù di un evento in PDF?</h4><p>Sì: nell'evento scegli «PDF o foto» e «Carica PDF o foto». I clienti vedono le pagine dentro il menù, con l'avviso allergeni.</p></div>
     <div><h4>Un dipendente può segnare gli esauriti?</h4><p>Sì, se in «Dipendenti» gli accendi «Può modificare il menù». Potrà cambiare anche voci e prezzi; ogni modifica resta nello storico con il suo nome.</p></div>
     <div><h4>Se non compilo gli allergeni di un piatto?</h4><p>Il cliente legge «Allergeni da verificare con il personale»: mai un'informazione che sembri sicura quando non lo è.</p></div>
-    <div><h4>Come metto il piatto del giorno?</h4><p>«Oggi fuori menù» e «+ Piatto». Sparisce da solo alle 5; un altro giorno si rimette con «Riproponi».</p></div>
+    <div><h4>Come metto le birre in più formati?</h4><p>Nella prima birra, in «Prezzo», scegli «Più formati» e tocca i formati (es. 0,2 l · 0,4 l · 1 l): diventano le colonne del gruppo e nelle altre birre scrivi solo i prezzi.</p></div>
     <div><h4>Quando compare un evento?</h4><p>La locandina dal giorno scelto (di solito una settimana prima), nella striscia «In evidenza»; nei giorni dell'evento si apre a pagina piena con il menù speciale. Finito, sparisce da solo.</p></div>
     <div><h4>Meglio dal computer o dal telefono?</h4><p>Per le modifiche (vini nuovi, prezzi, ordine, eventi) il computer è più comodo; in sala il telefono basta per «Esaurito» e il piatto del giorno.</p></div>
     <div><h4>Perché non mi salva un vino?</h4><p>Per un vino italiano serve la regione (es. Toscana). Per un vino estero scrivi la nazione e la regione diventa facoltativa.</p></div>

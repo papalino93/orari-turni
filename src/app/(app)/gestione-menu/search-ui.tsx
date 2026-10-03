@@ -35,7 +35,7 @@ export function ItemSearch({
     () =>
       sections.flatMap((s) =>
         s.groups.flatMap((g) =>
-          g.items.map((item) => ({
+          g.items.filter((item) => !item.textOnly).map((item) => ({
             item,
             groupId: g.id,
             kind: s.kind,

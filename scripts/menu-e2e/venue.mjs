@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 
 const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
 const HOURS = `{"showStatus":true,"weekly":[[{"open":"17:00","close":"21:30"}],[{"open":"17:00","close":"21:30"}],[{"open":"10:00","close":"13:00"},{"open":"16:30","close":"22:00"}],[{"open":"10:00","close":"13:00"},{"open":"16:30","close":"22:30"}],[{"open":"10:00","close":"13:00"},{"open":"16:30","close":"22:00"}],[{"open":"10:00","close":"13:00"},{"open":"16:30","close":"22:00"}],[{"open":"16:30","close":"21:00"}]],"exceptions":[]}`;
-const CONTACTS = `{"phone":"338 327 7053","whatsappMessage":"Ciao! Vorrei prenotare un tavolo per","address":"Via dei Rossi 53/C, 50018 Scandicci FI","instagram":"https://www.instagram.com/langolo.del.vino_enoteca/","review":"https://share.google/ads9ad7vXNVdN2B4t"}`;
+const CONTACTS = `{"phone":"338 327 7053","whatsappMessage":"Ciao! Vorrei prenotare un tavolo per","address":"Via dei Rossi 53/C, 50018 Scandicci FI","instagram":"https://www.instagram.com/langolo.del.vino_enoteca/","review":"https://g.page/r/CQtef5OLe4RQEBM/review"}`;
 function reset() {
   DB(`delete from "MenuPromo"`);
   DB(`delete from "MenuChange"`);
@@ -52,7 +52,7 @@ const href = (name) => hrefs.find(([t]) => t === name)?.[1];
 check("contatti: Chiama → tel:+393383277053", href("Chiama") === "tel:+393383277053", String(href("Chiama")));
 check("contatti: WhatsApp con messaggio precompilato", /^https:\/\/wa\.me\/393383277053\?text=Ciao/.test(href("WhatsApp") ?? ""));
 check("contatti: Come arrivare → Google Maps", /google\.com\/maps\/search\/\?api=1&query=Via/.test(href("Come arrivare") ?? ""));
-check("contatti: Lascia una recensione", href("Lascia una recensione") === "https://share.google/ads9ad7vXNVdN2B4t");
+check("contatti: Lascia una recensione", href("Lascia una recensione") === "https://g.page/r/CQtef5OLe4RQEBM/review");
 check("contatti: Instagram", /instagram\.com\/langolo/.test(href("Instagram") ?? ""));
 const small = await pub.locator('section[aria-label="Orari e contatti"] a').evaluateAll((as) => as.filter((a) => a.getBoundingClientRect().height < 44).length);
 check("contatti: pulsanti ≥ 44 px", small === 0, String(small));

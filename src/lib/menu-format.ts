@@ -45,7 +45,7 @@ export function nb(text: string | null | undefined): string {
   return text.replace(/(\d[\d,]*%?) (?=[A-Za-zÀ-ÿ€])/g, "$1\u00A0").replace(/ · /g, "\u00A0· ");
 }
 
-// --- Formati e prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l) -------------------
+// --- Formati e prezzo (es. birra 0,2 l · 0,4 l · 1 l) -------------------
 
 export type MenuVariant = { label: string; cents: number };
 

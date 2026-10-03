@@ -1,6 +1,6 @@
 import { formatPrice, type MenuVariant } from "@/lib/menu-format";
 
-// Più formati con il loro prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l), impilati
+// Più formati con il loro prezzo (es. birra 0,2 l · 0,4 l · 1 l), impilati
 // a destra della voce.
 export function Variants({ variants, soldOut }: { variants: MenuVariant[]; soldOut?: boolean }) {
   return (
@@ -15,7 +15,7 @@ export function Variants({ variants, soldOut }: { variants: MenuVariant[]; soldO
   );
 }
 
-// Formati del gruppo (es. birre 0,2 l · 0,4 l · Maß 1 l): intestazione con i nomi
+// Formati del gruppo (es. birre 0,2 l · 0,4 l · 1 l): intestazione con i nomi
 // in colonna e, per ogni voce, i prezzi allineati sotto («—» se il formato non c'è).
 export function FormatHeader({ formats }: { formats: string[] }) {
   return (

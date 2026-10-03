@@ -106,7 +106,7 @@ export default async function MenuPage() {
 
   const searchItems: SearchItem[] = sections.flatMap((section) =>
     section.groups.flatMap((group) =>
-      group.items.map((item) => {
+      group.items.filter((item) => !item.textOnly).map((item) => {
         const variants = parseVariants(item.variants);
         const price = variants
           ? variants.map((v) => `${v.label} ${formatPrice(v.cents)}`).join(" · ")
@@ -283,6 +283,13 @@ export default async function MenuPage() {
                 </div>
 
                 {group.items.map((item) => {
+                  if (item.textOnly) {
+                    return (
+                      <p key={item.id} className="menu-rule-soft m-0 border-b py-3 text-pretty text-[16.5px] italic leading-normal text-[#3F4540]">
+                        {nb(item.name)}
+                      </p>
+                    );
+                  }
                   const price = group.kind === "WINE" ? item.priceBottleCents : item.priceCents;
                   const variants = parseVariants(item.variants);
                   const pair = group.kind === "FOOD" && !item.soldOut && item.pairWineId ? pairWines.get(item.pairWineId) : undefined;

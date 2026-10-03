@@ -1,4 +1,4 @@
-// Formati del gruppo (birre alla spina 0,2 l · 0,4 l · Maß 1 l): colonne sul gruppo,
+// Formati del gruppo (birre alla spina 0,2 l · 0,4 l · 1 l): colonne sul gruppo,
 // prezzi per colonna nella voce, tabella sul menù, casella vuota = «—», annulla.
 import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
 
@@ -15,34 +15,34 @@ await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 18000
 await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Bevande" }).click();
 const card = p.locator("section", { has: p.locator("h3", { hasText: groupTitle }) }).first();
 await card.getByRole("button", { name: /^Formati/ }).click();
-await card.getByLabel("Formato 1").fill("0,2 l");
+await card.getByLabel("Formato 1", { exact: true }).fill("0,2 l");
 check("un solo formato: «Salva formati» spento", await card.getByRole("button", { name: "Salva formati" }).isDisabled());
 await card.getByLabel("Formato 2").fill("0,4 l");
-await card.getByLabel("Formato 3").fill("Maß 1 l");
+await card.getByLabel("Formato 3", { exact: true }).fill("1 l");
 await card.getByRole("button", { name: "Salva formati" }).click();
 await p.waitForTimeout(1500);
-check("DB: formati salvati sul gruppo", DB(`select formats::text from "MenuGroup" where id='${GROUP}'`) === '["0,2 l", "0,4 l", "Maß 1 l"]', DB(`select formats::text from "MenuGroup" where id='${GROUP}'`));
-check("gestione: il pulsante mostra i formati", /Formati: 0,2 l · 0,4 l · Maß 1 l/.test(await card.innerText()));
+check("DB: formati salvati sul gruppo", DB(`select formats::text from "MenuGroup" where id='${GROUP}'`) === '["0,2 l", "0,4 l", "1 l"]', DB(`select formats::text from "MenuGroup" where id='${GROUP}'`));
+check("gestione: il pulsante mostra i formati", /Formati: 0,2 l · 0,4 l · 1 l/.test(await card.innerText()));
 
 await card.getByRole("button", { name: "+ Aggiungi voce" }).click();
 const dlg = p.locator('[role="dialog"]');
 await dlg.waitFor();
-check("scheda: una casella per formato, niente prezzo singolo", (await dlg.getByLabel("0,2 l", { exact: true }).count()) === 1 && (await dlg.getByLabel("Prezzo (€)").count()) === 0);
+check("scheda: una casella per formato, niente prezzo singolo", (await dlg.getByLabel("Prezzo 0,2 l (€)").count()) === 1 && (await dlg.getByLabel("Prezzo (€)").count()) === 0);
 await dlg.getByLabel("Nome", { exact: true }).fill("Birra Prova Helles");
 await dlg.getByLabel("Descrizione").fill("Paulaner · Helles · 4,9% vol.");
-await dlg.getByLabel("0,2 l", { exact: true }).fill("3,5");
-await dlg.getByLabel("0,4 l", { exact: true }).fill("6");
+await dlg.getByLabel("Prezzo 0,2 l (€)").fill("3,5");
+await dlg.getByLabel("Prezzo 0,4 l (€)").fill("6");
 await dlg.getByRole("radio", { name: "Contiene…" }).click();
 await dlg.getByLabel("Glutine").check();
 await dlg.getByRole("button", { name: "Aggiungi", exact: true }).click();
 await dlg.waitFor({ state: "detached" });
 await p.waitForTimeout(1200);
-check("DB: prezzi salvati per formato (Maß vuoto)", DB(`select variants::text from "MenuItem" where name='Birra Prova Helles'`) === '[{"cents": 350, "label": "0,2 l"}, {"cents": 600, "label": "0,4 l"}]', DB(`select variants::text from "MenuItem" where name='Birra Prova Helles'`));
+check("DB: prezzi salvati per formato (1 l vuoto)", DB(`select variants::text from "MenuItem" where name='Birra Prova Helles'`) === '[{"cents": 350, "label": "0,2 l"}, {"cents": 600, "label": "0,4 l"}]', DB(`select variants::text from "MenuItem" where name='Birra Prova Helles'`));
 
 const pub = await (await b.newContext({ viewport: { width: 390, height: 844 } })).newPage();
 await pub.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
 const sec = (await pub.locator("#bevande").innerText()).replace(/\s+/g, " ");
-check("menù: intestazione con i formati", /0,2 l 0,4 l Maß 1 l/.test(sec), sec.slice(0, 200));
+check("menù: intestazione con i formati", /0,2 l 0,4 l 1 l/.test(sec), sec.slice(0, 200));
 check("menù: prezzi in colonna e «—» per il formato mancante", /Birra Prova Helles[\s\S]*?3,50\s*6\s*—/.test(sec), sec.slice(sec.indexOf("Birra Prova"), sec.indexOf("Birra Prova") + 120));
 const ov = await pub.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 check("menù: niente scorrimento orizzontale a 390 px", ov <= 0, String(ov));
@@ -53,8 +53,43 @@ await p.waitForTimeout(1200);
 check("togli i formati: gruppo normale", DB(`select coalesce(formats::text,'null') from "MenuGroup" where id='${GROUP}'`) === "null");
 await p.locator('[role="status"] button:has-text("Annulla")').last().click();
 await p.waitForTimeout(1500);
-check("annulla: formati di nuovo sul gruppo", DB(`select formats::text from "MenuGroup" where id='${GROUP}'`) === '["0,2 l", "0,4 l", "Maß 1 l"]');
+check("annulla: formati di nuovo sul gruppo", DB(`select formats::text from "MenuGroup" where id='${GROUP}'`) === '["0,2 l", "0,4 l", "1 l"]');
 
+// Prima birra di un gruppo nuovo: «Più formati», formati con un tocco e
+// «Stessi formati per tutto il gruppo» → i formati diventano quelli del gruppo.
+DB(`update "MenuGroup" set "deletedAt"=now() where title='Spina Prova'`);
+await p.reload({ waitUntil: "networkidle" });
+await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Bevande" }).click();
+await p.getByRole("button", { name: "+ Aggiungi gruppo" }).click();
+await p.getByPlaceholder("Nome del gruppo (es. Vini dolci)").fill("Spina Prova");
+await p.getByRole("button", { name: "Aggiungi", exact: true }).click();
+await p.waitForTimeout(1500);
+const spina = p.locator("section", { has: p.locator("h3", { hasText: "Spina Prova" }) }).first();
+await spina.getByRole("button", { name: "+ Aggiungi voce" }).click();
+await dlg.waitFor();
+await dlg.getByRole("radio", { name: "Più formati" }).click();
+const lw = await dlg.getByLabel("Formato 1", { exact: true }).evaluate((e) => e.getBoundingClientRect().width);
+const pw = await dlg.getByLabel("Prezzo del formato 1").evaluate((e) => e.getBoundingClientRect().width);
+check("scheda: casella del formato larga, prezzo stretto", lw > pw && pw >= 90, `${lw} / ${pw}`);
+for (const f of ["0,2 l", "0,4 l", "1 l"]) await dlg.getByRole("button", { name: f, exact: true }).click();
+check("formati veloci: riempiono le righe", (await dlg.getByLabel("Formato 1", { exact: true }).inputValue()) === "0,2 l" && (await dlg.getByLabel("Formato 3", { exact: true }).inputValue()) === "1 l");
+await dlg.getByLabel("Nome", { exact: true }).fill("Birra Prova Weisse");
+await dlg.getByLabel("Prezzo del formato 1").fill("3,5");
+await dlg.getByLabel("Prezzo del formato 2").fill("6");
+await dlg.getByLabel("Prezzo del formato 3").fill("11");
+check("scheda: «Stessi formati per tutto il gruppo» acceso", await dlg.getByRole("checkbox", { name: /Stessi formati per tutto il gruppo/ }).isChecked());
+await dlg.getByRole("radio", { name: "Nessuno" }).click();
+await dlg.getByRole("button", { name: "Aggiungi", exact: true }).click();
+await dlg.waitFor({ state: "detached" });
+await p.waitForTimeout(1500);
+check("DB: formati scritti sul gruppo", DB(`select formats::text from "MenuGroup" where title='Spina Prova' and "deletedAt" is null`) === '["0,2 l", "0,4 l", "1 l"]');
+check("DB: prezzi della prima birra", DB(`select variants::text from "MenuItem" where name='Birra Prova Weisse'`) === '[{"cents": 350, "label": "0,2 l"}, {"cents": 600, "label": "0,4 l"}, {"cents": 1100, "label": "1 l"}]');
+await spina.getByRole("button", { name: "+ Aggiungi voce" }).click();
+await dlg.waitFor();
+check("seconda birra: solo i prezzi per colonna", (await dlg.getByLabel("Prezzo 1 l (€)").count()) === 1 && (await dlg.getByRole("radio", { name: "Più formati" }).count()) === 0);
+check("seconda birra: descrizione da birra", (await dlg.getByLabel("Descrizione").getAttribute("placeholder")).includes("Helles"));
+await dlg.getByRole("button", { name: "Chiudi" }).first().click().catch(() => p.keyboard.press("Escape"));
+DB(`update "MenuGroup" set "deletedAt"=now() where title='Spina Prova'`);
 DB(`update "MenuGroup" set formats=null where id='${GROUP}'`);
 DB(`delete from "MenuItem" where name like 'Birra Prova%'`);
 DB(`delete from "MenuChange"`);

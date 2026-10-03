@@ -302,6 +302,8 @@ model MenuItem {
   enomatic         Boolean   @default(false)
   // Solo vini: caratteristiche (BIO, BIODYNAMIC, VEGAN, NO_ADDED_SULFITES), vedi lib/wine-traits.ts.
   traits           String[]  @default([])
+  // Riga di solo testo tra le voci (nome = testo; niente prezzo né allergeni).
+  textOnly         Boolean   @default(false)
   // Solo piatti: il vino da abbinare («Abbinalo con»), uno per piatto. Niente
   // chiave esterna: se il vino è eliminato o esaurito, il menù non lo mostra.
   pairWineId       String?
@@ -351,14 +353,34 @@ model MenuPromo {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  // Menù speciale: "ITEMS" (voce per voce) o "FILE" (pagine caricate, PDF o foto).
+  menuMode       String        @default("ITEMS")
+  menuNote       String? // note in cima al menù speciale
+  allergenNotice String? // avviso allergeni unico (es. «Allergeni: chiedi al personale»); null = spento
+
   image   MenuPromoImage?
   section MenuSection?
+  pages   MenuPromoPage[]
 
   @@index([endDate])
 }
 
 // Locandina: tabella separata, così i byte non pesano sulle liste (stessa idea
 // di EmployeePhoto). Ridimensionata sul dispositivo prima del caricamento.
+// Pagine del menù speciale caricato (PDF trasformato in immagini nel browser, o foto).
+model MenuPromoPage {
+  id        String    @id @default(cuid())
+  promoId   String
+  promo     MenuPromo @relation(fields: [promoId], references: [id], onDelete: Cascade)
+  sortOrder Int       @default(0)
+  data      Bytes
+  width     Int
+  height    Int
+  createdAt DateTime  @default(now())
+
+  @@index([promoId, sortOrder])
+}
+
 model MenuPromoImage {
   promoId   String    @id
   promo     MenuPromo @relation(fields: [promoId], references: [id], onDelete: Cascade)
