@@ -1,13 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Favicon dell'Angolo del Vino: calice con il baffo, su bordeaux. -->
-  <rect width="512" height="512" rx="112" fill="#5A0E18"/>
-  <rect x="22" y="22" width="468" height="468" rx="94" fill="none" stroke="#C9A96E" stroke-opacity=".45" stroke-width="4"/>
-  <g fill="none" stroke="#F4EEE3" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M178 92h156c6 86-18 158-78 166-60-8-84-80-78-166z"/>
-    <path d="M256 258v122"/>
-    <path d="M190 392c30-14 102-14 132 0"/>
+  <!-- Favicon dell'Angolo del Vino: calice bordeaux con il baffo nero, su bianco (si legge anche a 16 px). -->
+  <rect width="512" height="512" rx="112" fill="#FFFFFF"/>
+  <g fill="none" stroke="#6B1020" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M168 70h176c8 100-22 182-88 192-66-10-96-92-88-192z"/>
+    <path d="M256 262v140"/>
+    <path d="M176 420c34-16 126-16 160 0"/>
   </g>
-  <g fill="#141012" stroke="#E9D9B8" stroke-width="5" stroke-linejoin="round">
+  <g transform="translate(256 200) scale(1.45) translate(-256 -200)" fill="#111111">
     <path d="M256 216C268 186 300 168 338 176C366 182 386 180 402 162C412 150 412 136 402 128C424 128 436 150 430 174C420 210 384 230 342 230C304 230 276 220 256 216Z"/>
     <path transform="translate(512 0) scale(-1 1)" d="M256 216C268 186 300 168 338 176C366 182 386 180 402 162C412 150 412 136 402 128C424 128 436 150 430 174C420 210 384 230 342 230C304 230 276 220 256 216Z"/>
   </g>

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
+import { ZoomableImage } from "@/components/zoomable-image";
 import { resizeToJpeg } from "@/lib/image-resize";
 import { formatPromoDates } from "@/lib/menu-format";
 import {
@@ -142,8 +143,7 @@ export function HeroSheet({ venue, run, onClose }: { venue: EditorVenue; run: Ru
           <p className="mb-1 text-xs font-medium text-foreground-muted">Foto di sfondo</p>
           <div className="flex items-center gap-3">
             {previewUrl || currentUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- anteprima locale della foto scelta
-              <img src={previewUrl ?? currentUrl ?? ""} alt="" className="h-[72px] w-[96px] shrink-0 rounded-lg border border-border object-cover" />
+              <ZoomableImage src={previewUrl ?? currentUrl ?? ""} className="h-[72px] w-[96px] rounded-lg border border-border object-cover" />
             ) : (
               <div className="flex h-[72px] w-[96px] shrink-0 items-center justify-center rounded-lg border border-dashed border-border px-1 text-center text-[11px] text-foreground-muted">
                 Foto predefinita
