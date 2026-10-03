@@ -54,6 +54,21 @@ check("contatti: WhatsApp con messaggio precompilato", /^https:\/\/wa\.me\/39338
 check("contatti: Come arrivare → Google Maps", /google\.com\/maps\/search\/\?api=1&query=Via/.test(href("Come arrivare") ?? ""));
 check("contatti: Lascia una recensione", href("Lascia una recensione") === "https://g.page/r/CQtef5OLe4RQEBM/review");
 check("contatti: Instagram", /instagram\.com\/langolo/.test(href("Instagram") ?? ""));
+// Nella stessa scheda: tornando indietro (es. dopo la recensione su Google) si torna al menù.
+check("contatti: si aprono nella stessa scheda", (await pub.locator('section[aria-label="Orari e contatti"] a[target]').count()) === 0);
+{
+  await pub.route(/g\.page/, (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<h1>Google</h1>" }));
+  const link = pub.getByRole("link", { name: "Lascia una recensione" });
+  await link.scrollIntoViewIfNeeded();
+  const y = await pub.evaluate(() => scrollY);
+  await link.click();
+  await pub.waitForURL(/g\.page/);
+  await pub.goBack({ waitUntil: "networkidle" });
+  await pub.waitForTimeout(600);
+  const back = await pub.evaluate(() => [location.pathname, scrollY]);
+  check("recensione → indietro: di nuovo sul menù, nello stesso punto", back[0] === "/menu" && Math.abs(back[1] - y) < 60, JSON.stringify([y, back]));
+  await pub.unroute(/g\.page/);
+}
 const small = await pub.locator('section[aria-label="Orari e contatti"] a').evaluateAll((as) => as.filter((a) => a.getBoundingClientRect().height < 44).length);
 check("contatti: pulsanti ≥ 44 px", small === 0, String(small));
 

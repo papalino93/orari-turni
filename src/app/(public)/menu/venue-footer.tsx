@@ -1,17 +1,19 @@
 import { mapsHref, telHref, weeklyRows, whatsappHref, type Contacts, type Hours } from "@/lib/menu-venue";
 
 // Orari e contatti a piè di pagina: ogni pulsante compare solo se il dato c'è.
+// Si aprono nella stessa scheda: con «indietro» il cliente torna sempre al menù (in una
+// scheda nuova, ad esempio dopo la recensione su Google, «indietro» non porta da nessuna parte).
 export function VenueInfo({ hours, contacts }: { hours: Hours; contacts: Contacts }) {
   const tel = contacts.phone ? telHref(contacts.phone) : null;
   const wa = contacts.phone ? whatsappHref(contacts.phone, contacts.whatsappMessage) : null;
   const maps = mapsHref(contacts.address);
   const buttons = [
-    tel && { href: tel, label: "Chiama", external: false },
-    wa && { href: wa, label: "WhatsApp", external: true },
-    maps && { href: maps, label: "Come arrivare", external: true },
-    contacts.review && { href: contacts.review, label: "Lascia una recensione", external: true },
-    contacts.instagram && { href: contacts.instagram, label: "Instagram", external: true },
-  ].filter((b): b is { href: string; label: string; external: boolean } => Boolean(b));
+    tel && { href: tel, label: "Chiama" },
+    wa && { href: wa, label: "WhatsApp" },
+    maps && { href: maps, label: "Come arrivare" },
+    contacts.review && { href: contacts.review, label: "Lascia una recensione" },
+    contacts.instagram && { href: contacts.instagram, label: "Instagram" },
+  ].filter((b): b is { href: string; label: string } => Boolean(b));
   const rows = weeklyRows(hours);
   const hasHours = rows.some((r) => r.text !== "Chiuso");
   if (buttons.length === 0 && !hasHours) return null;
@@ -39,7 +41,6 @@ export function VenueInfo({ hours, contacts }: { hours: Hours; contacts: Contact
               href={b.href}
               data-stat-k="contact"
               data-stat-l={b.label}
-              {...(b.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
               className="menu-sans flex min-h-11 items-center rounded-full border border-[#C9A96E]/60 px-4 text-[11px] font-medium uppercase tracking-[0.16em] !text-[#F4EEE3] no-underline"
             >
               {b.label}

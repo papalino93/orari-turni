@@ -112,7 +112,7 @@ export function PromoContent({
           {fileMenu && promo.pages.length > 0 && (
             <div className="mt-7 flex flex-col gap-4">
               {promo.pages.map((p, i) => (
-                <a key={p.id} href={`/menu/p/${promo.slug}/pagina/${p.id}`} target="_blank" rel="noopener" className="block" aria-label={`Apri la pagina ${i + 1} del menù a tutto schermo`}>
+                <a key={p.id} href={`/menu/p/${promo.slug}/pagina/${p.id}`} className="block" aria-label={`Apri la pagina ${i + 1} del menù a tutto schermo`}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- pagina del menù caricato, servita dalla sua rotta */}
                   <img
                     src={`/menu/p/${promo.slug}/pagina/${p.id}`}
