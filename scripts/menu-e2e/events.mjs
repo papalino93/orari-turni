@@ -43,7 +43,7 @@ async function createPromo({ type, title, label, body, start, end, showFrom, wit
   await dialog().getByRole("radio", { name: type === "EVENT" ? "Evento" : "Annuncio", exact: true }).click();
   await dialog().getByLabel("Titolo", { exact: true }).fill(title);
   if (label) await dialog().getByLabel("Tipo").fill(label);
-  if (body) await dialog().getByLabel("Testo").fill(body);
+  if (body) await dialog().getByLabel("Testo", { exact: true }).fill(body);
   if (withImage) await dialog().locator('input[type="file"]').setInputFiles(poster);
   if (type === "EVENT") {
     await dialog().getByLabel("Mostra la locandina dal").fill(showFrom);
