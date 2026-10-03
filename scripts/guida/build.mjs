@@ -148,7 +148,7 @@ const kn = () => String(++_kn).padStart(2, "0");
 const pos = JSON.parse((await import("node:fs")).readFileSync(`${WORK}/img/mac-gestione.json`, "utf8"));
 const gestionePins = [["top", 1], ["tools", 2], ["search", 3], ["oggi", 4], ["info", 5], ["sezioni", 6], ["voci", 7]]
   .filter(([k]) => pos[k])
-  .map(([k, n]) => `<span class="pin" style="left:${Math.max(2.5, pos[k].x - 1.8).toFixed(1)}%;top:${pos[k].y.toFixed(1)}%">${n}</span>`)
+  .map(([k, n]) => `<span class="pin" style="left:${Math.max(2.5, pos[k].x - 2.8).toFixed(1)}%;top:${pos[k].y.toFixed(1)}%">${n}</span>`)
   .join("");
 // Versione e data prese dal progetto: non restano mai indietro.
 const VERSIONE = JSON.parse((await import("node:fs")).readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
