@@ -148,7 +148,7 @@ const kn = () => String(++_kn).padStart(2, "0");
 const pos = JSON.parse((await import("node:fs")).readFileSync(`${WORK}/img/mac-gestione.json`, "utf8"));
 const gestionePins = [["top", 1], ["tools", 2], ["search", 3], ["oggi", 4], ["info", 5], ["sezioni", 6], ["voci", 7]]
   .filter(([k]) => pos[k])
-  .map(([k, n]) => `<span class="pin" style="left:${Math.max(2.5, pos[k].x - 1.8).toFixed(1)}%;top:${pos[k].y.toFixed(1)}%">${n}</span>`)
+  .map(([k, n]) => `<span class="pin" style="left:${Math.max(2.5, pos[k].x - 2.8).toFixed(1)}%;top:${pos[k].y.toFixed(1)}%">${n}</span>`)
   .join("");
 // Versione e data prese dal progetto: non restano mai indietro.
 const VERSIONE = JSON.parse((await import("node:fs")).readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
@@ -381,7 +381,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Strumenti")}
 pages.push(`<section class="page wine">${chrome(pg(), "Statistiche")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Statistiche</div>
   <h2>Quanti aprono il menù,<br><em>quando e per cosa</em></h2>
-  <p class="lead">Solo per il titolare. Giorni e orari più forti, classifica dei giorni della settimana e dei mesi, le parole più cercate e quelle cercate ma non trovate.</p></div>
+  <p class="lead">Solo per il titolare. Divise per tipo, con una barra in alto per saltare da una all'altra: <b>Panoramica</b>, <b>Quando</b>, <b>Cosa cercano</b>, <b>Cosa guardano</b>, <b>Eventi e contatti</b>.</p></div>
   <div style="position:relative;margin-top:8mm;height:126mm">
     <div style="position:absolute;left:0;top:0">${mac("mac-statistiche", 148)}</div>
     <div style="position:absolute;right:0;top:34mm">${phone("ges-stat-giorni", 40)}</div>
@@ -491,6 +491,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Perché non mi salva un vino?</h4><p>Per un vino italiano serve la regione (es. Toscana). Per un vino estero scrivi la nazione e la regione diventa facoltativa.</p></div>
     <div><h4>Devo cambiare tanti prezzi: c'è un modo veloce?</h4><p>Sì: «Tabella prezzi». Si cambiano tutti quelli che servono, anche in sezioni diverse, e si salva una volta sola.</p></div>
     <div><h4>Le statistiche registrano i clienti?</h4><p>No: niente nomi, telefoni o cookie. Si conta solo cosa succede (un'apertura, una ricerca), il giorno e l'ora.</p></div>
+    <div><h4>Chiudo una finestra senza salvare: perdo tutto?</h4><p>No: compare «Modifiche non salvate». Scegli «Salva», «Continua a modificare» o «Esci senza salvare».</p></div>
     <div><h4>Mi serve il menù su carta: come faccio?</h4><p>«Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
 
     <div><h4>Dove trovo il numero di versione?</h4><p>In fondo a ogni pagina, ad esempio «v${VERSIONE}». Se segnali un problema, indicalo.</p></div>

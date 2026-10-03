@@ -1,4 +1,4 @@
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels } from "./lib.mjs";
 
 resetBlocks();
 DB(`delete from \"MenuChange\"`);
@@ -93,6 +93,7 @@ await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
 await settle(800);
 check("validazione: prezzo non valido rifiutato", /non valido/i.test(await toast().innerText()));
 await dialog().getByRole("button", { name: "Chiudi" }).click();
+await discardIfAsked(dialog().page());
 await dialog().waitFor({ state: "detached" });
 
 // ---- Modifica
@@ -112,6 +113,7 @@ await dialog().getByRole("button", { name: "Duplica" }).click();
 await settle(2500);
 check("duplica: si apre la copia per la modifica", /Modifica voce/.test(await dialog().innerText()));
 await dialog().getByRole("button", { name: "Chiudi" }).click();
+await discardIfAsked(dialog().page());
 await dialog().waitFor({ state: "detached" });
 check("duplica: due voci con lo stesso nome", (await page.locator(`button[aria-label="Modifica Vino Prova"]`).count()) === 2);
 
@@ -141,6 +143,7 @@ const prices = DB(`select "priceBottleCents" from "MenuItem" where name='Vino Pr
 check("storico: ripristino riporta l'originale a 32 (la copia resta a 34)", prices[0] === "3200" && prices[1] === "3400", prices.join(","));
 check("storico: voce marcata Annullata", (await dialog().locator("li", { hasText: /Modificato: Vino Prova/ }).first().innerText()).includes("Annullata"));
 await dialog().getByRole("button", { name: "Chiudi" }).click();
+await discardIfAsked(dialog().page());
 
 // ---- Gruppi
 await page.locator("button", { hasText: "+ Aggiungi gruppo" }).click();

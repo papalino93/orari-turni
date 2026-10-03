@@ -44,7 +44,7 @@ export function HistorySheet({
   }
 
   return (
-    <Sheet title="Storico modifiche" onClose={onClose}>
+    <Sheet title="Storico modifiche" onClose={onClose} dirty={false}>
       {history.length === 0 ? (
         <p className="py-6 text-center text-sm text-foreground-muted">Nessuna modifica ancora.</p>
       ) : (
@@ -131,7 +131,7 @@ export function SectionTextsSheet({
 export function PreviewSheet({ onClose }: { onClose: () => void }) {
   const [version, setVersion] = useState(0);
   return (
-    <Sheet title="Anteprima del menù" onClose={onClose}>
+    <Sheet title="Anteprima del menù" onClose={onClose} dirty={false}>
       <div className="space-y-3">
         <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border-4 border-foreground/20 bg-white shadow-lg">
           <iframe
@@ -202,7 +202,7 @@ export function QrSheet({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Sheet title="Codice QR del menù" onClose={onClose}>
+    <Sheet title="Codice QR del menù" onClose={onClose} dirty={false}>
       <div className="space-y-4">
         <div className="mx-auto w-full max-w-[260px] rounded-2xl border border-border bg-white p-3" aria-label="Anteprima del codice QR">
           {svg ? <div className="[&>svg]:h-auto [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} /> : <div className="aspect-square" />}

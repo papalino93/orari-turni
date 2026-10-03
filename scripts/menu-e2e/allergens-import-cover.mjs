@@ -1,4 +1,4 @@
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
 
 // stato pulito (i dati della migrazione restano com'erano)
 DB(`delete from "MenuPromo"`);
@@ -151,6 +151,7 @@ if (await undoToast.count()) {
   await dialog().locator("li", { hasText: /Modificato: Acqua/ }).first().locator("button", { hasText: "Ripristina" }).click();
   await settle(1000);
   await dialog().getByRole("button", { name: "Chiudi" }).click();
+await discardIfAsked(dialog().page());
   await dialog().waitFor({ state: "detached" });
 }
 await settle(1500);
@@ -202,6 +203,7 @@ await dialog().waitFor();
 const hist = await dialog().innerText();
 check("storico: voce 'Aggiunto: 2 voci in «Italia»'", /Aggiunto: 2 voci in «Italia»/.test(hist), hist.split("\n").slice(0, 4).join(" | "));
 await dialog().getByRole("button", { name: "Chiudi" }).click();
+await discardIfAsked(dialog().page());
 await dialog().waitFor({ state: "detached" });
 await page.locator('[role="status"] button:has-text("Annulla")').last().click().catch(() => {});
 await settle(1500);
@@ -213,6 +215,7 @@ if (alive === "2") {
   await dialog().locator("li", { hasText: /Aggiunto: 2 voci/ }).locator("button", { hasText: "Ripristina" }).click();
   await settle(1500);
   await dialog().getByRole("button", { name: "Chiudi" }).click();
+await discardIfAsked(dialog().page());
   check("annulla in blocco dallo storico: entrambe tolte", DB(`select count(*) from "MenuItem" where name in ('Vino Uno','Vino Due') and "deletedAt" is null`) === "0");
 }
 
@@ -231,6 +234,7 @@ await dialog().getByRole("button", { name: "Anteprima" }).click();
 check("import: oltre 100 righe → blocco", /Troppe righe/.test(await dialog().innerText()));
 check("import: oltre 100 righe → Aggiungi disabilitato", await dialog().getByRole("button", { name: /^Aggiungi/ }).isDisabled());
 await dialog().getByRole("button", { name: "Chiudi" }).click();
+await discardIfAsked(dialog().page());
 await dialog().waitFor({ state: "detached" });
 
 // responsive del foglio di importazione
@@ -243,6 +247,7 @@ const box = await dialog().boundingBox();
 check("import @390: foglio entro lo schermo", box && box.width <= 390.5, JSON.stringify(box));
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/editor-import-390.png` });
 await page.keyboard.press("Escape");
+await discardIfAsked(page);
 await dialog().waitFor({ state: "detached" });
 
 // ---------- Azione server import senza permesso
