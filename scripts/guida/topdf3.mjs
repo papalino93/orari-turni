@@ -18,6 +18,12 @@ for (let i = 0; i < 6; i++) {
 }
 const n11 = await page.evaluate(() => new Set([...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family + f.weight + f.style)).size);
 console.log("font:", n11);
+// Senza i caratteri giusti la guida uscirebbe con un carattere di riserva: meglio fermarsi.
+if (n11 < want.length) {
+  console.error(`Caratteri non caricati (${n11} su ${want.length}): controlla la rete e rilancia.`);
+  await browser.close();
+  process.exit(1);
+}
 await page.emulateMedia({ media: "print" });
 await page.waitForTimeout(1500);
 rmSync(`${WORK}/pages`, { recursive: true, force: true });
