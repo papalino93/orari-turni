@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMenuEditor } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
-import { businessDayKey, formatPrice, isSoldOut, parseVariants } from "@/lib/menu-format";
+import { businessDayKey, formatPrice, isSoldOut, parseFormats, parseVariants } from "@/lib/menu-format";
 import { loadBlocks, loadDaily, loadDailyRecent, loadMenu, loadPromosForEditor, loadVenue } from "@/lib/menu";
 import { MenuEditor, type EditorPromo, type EditorSection, type HistoryEntry } from "./menu-editor";
 import type { DailyRecent } from "./daily-ui";
@@ -24,6 +24,7 @@ function toEditorSection(s: LoadedSection, dayKey: string): EditorSection {
       id: g.id,
       title: g.title,
       columns: g.columns,
+      formats: parseFormats(g.formats),
       items: g.items.map((i) => ({
         id: i.id,
         groupId: i.groupId,

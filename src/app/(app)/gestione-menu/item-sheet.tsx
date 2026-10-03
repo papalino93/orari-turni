@@ -101,6 +101,11 @@ export function ItemSheet({
   const [allergenMode, setAllergenMode] = useState<AllergenState>(item ? allergenState(item) : "unknown");
   const [allergens, setAllergens] = useState<string[]>(item?.allergens ?? []);
   const [targetGroup, setTargetGroup] = useState(groupId);
+  // Formati del gruppo (es. birre 0,2 l · 0,4 l · Maß 1 l): un prezzo per colonna.
+  const groupFormats = isWine ? null : (sections.flatMap((x) => x.groups).find((g) => g.id === targetGroup)?.formats ?? null);
+  const [formatPrices, setFormatPrices] = useState<Record<string, string>>(() =>
+    Object.fromEntries((item?.variants ?? []).map((v) => [v.label, formatPrice(v.cents)])),
+  );
   const allergensRef = useRef<HTMLFieldSetElement>(null);
   useEffect(() => {
     if (focusAllergens) allergensRef.current?.scrollIntoView({ block: "center" });
@@ -130,13 +135,15 @@ export function ItemSheet({
           description,
           priceGlass,
           priceBottle,
-          price,
+          price: groupFormats ? "" : price,
           enomatic,
           traits: isWine ? traits : [],
           pairWineId: canPair ? pairWineId : null,
           allergens: allergenMode === "some" ? allergens : [],
           allergensReviewed: allergenMode !== "unknown",
-          variants: variants.filter((v) => v.label.trim() || v.price.trim()),
+          variants: groupFormats
+            ? groupFormats.filter((f) => formatPrices[f]?.trim()).map((f) => ({ label: f, price: formatPrices[f] }))
+            : variants.filter((v) => v.label.trim() || v.price.trim()),
         }),
       // Piatto nuovo senza allergeni: il messaggio lo dice e propone «Compila ora».
       item || isWine || allergenMode !== "unknown" ? (item ? "Voce salvata" : "Voce aggiunta") : "",
@@ -346,6 +353,27 @@ export function ItemSheet({
                 placeholder="Ingredienti, peso…"
               />
             </Field>
+            {groupFormats ? (
+              <div>
+                <p className="mb-1 text-xs font-medium text-foreground-muted">
+                  Prezzi (€) <span className="font-normal">· formati del gruppo; vuoto = non disponibile</span>
+                </p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {groupFormats.map((f) => (
+                    <Field key={f} label={f}>
+                      <input
+                        value={formatPrices[f] ?? ""}
+                        onChange={(e) => setFormatPrices((prev) => ({ ...prev, [f]: e.target.value }))}
+                        inputMode="decimal"
+                        className={inputClass}
+                        placeholder="—"
+                      />
+                    </Field>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
             {variants.length === 0 && (
               <Field label="Prezzo (€)">
                 <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" required className={inputClass} placeholder="es. 13" />
@@ -396,6 +424,9 @@ export function ItemSheet({
                 <p className="mt-1.5 text-[11px] text-foreground-muted">Con i formati il prezzo singolo non serve.</p>
               )}
             </div>
+
+              </>
+            )}
 
             {canPair && <PairPicker wines={wines} value={pairWineId} onChange={setPairWineId} lost={pairLost} />}
 

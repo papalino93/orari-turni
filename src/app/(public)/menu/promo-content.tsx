@@ -5,12 +5,13 @@ import {
   formatPromoDay,
   isPromoMenuVisible,
   nb,
+  parseFormats,
   parseVariants,
   promoStatus,
 } from "@/lib/menu-format";
 import type { loadPromoBySlug } from "@/lib/menu";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
-import { Variants } from "./item-prices";
+import { FormatHeader, FormatPrices, Variants } from "./item-prices";
 import { MenuBlocks } from "./menu-blocks";
 import { Ornament } from "./ornament";
 
@@ -105,6 +106,7 @@ export function PromoContent({
                   {group.title}
                 </div>
                 <div className="mb-2 h-px min-w-3 flex-1 bg-[#D9CEBC]" />
+                {parseFormats(group.formats) && <FormatHeader formats={parseFormats(group.formats)!} />}
               </div>
               {group.items.map((item) => {
                 const soldOut = item.soldOutDay === dayKey;
@@ -125,7 +127,9 @@ export function PromoContent({
                       )}
                       <AllergenMarks item={item} />
                     </div>
-                    {variants ? (
+                    {parseFormats(group.formats) ? (
+                      <FormatPrices formats={parseFormats(group.formats)!} variants={variants} soldOut={soldOut} />
+                    ) : variants ? (
                       <Variants variants={variants} soldOut={soldOut} />
                     ) : (
                       <div className={`menu-sans w-12 flex-none text-right text-base font-medium text-[#6B1020] ${soldOut ? "line-through" : ""}`}>
