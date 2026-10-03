@@ -49,7 +49,7 @@ function PriceInput({ value, original, label, onChange }: { value: string; origi
       aria-invalid={bad || undefined}
       placeholder="—"
       className={`h-10 w-[4.5rem] shrink-0 rounded-lg border px-2 text-right text-base tabular-nums text-foreground outline-none focus:border-accent sm:text-sm ${
-        bad ? "border-danger bg-danger-bg" : changed ? "border-accent bg-accent/10" : "border-border bg-surface-2"
+        bad ? "border-danger bg-danger-bg" : changed ? "border-accent bg-accent/15 font-semibold text-accent" : "border-border bg-surface-2"
       }`}
     />
   );
