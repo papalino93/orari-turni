@@ -39,7 +39,10 @@ autorizzato fino alle 8:00 del 4 ottobre (ora italiana); si pubblica anche di no
 
 ## 6. Gestione a schede (solo anteprime)
 - [ ] Anteprime della gestione divisa in schede in alto (Menù · Eventi · Il locale ·
-      Strumenti), da confrontare con quella di oggi. Si cambia solo se il titolare è convinto
+      Strumenti; nomi chiarissimi, si apre su «Menù»), da confrontare con quella di oggi,
+      in una pagina con immagini (computer, tablet, telefono). Per la scheda Menù il titolare
+      vuole proposte mie (es. ricerca fissa in alto, meno pulsanti per riga, riquadro «Da
+      sistemare», anteprima accanto sul computer). Si cambia solo se il titolare è convinto
       che sia meglio.
 
 ## Messi da parte
