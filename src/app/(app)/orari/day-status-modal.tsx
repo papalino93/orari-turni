@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
@@ -54,10 +55,11 @@ export function DayStatusModal({
     });
   }
 
+  const backdrop = useBackdropClose(onClose);
   return (
     // Vedi lo stesso commento in pdf-export-modal.tsx: scroll sul contenitore
     // esterno, centratura su quello interno.
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" {...backdrop}>
       <div className="flex min-h-full items-end justify-center p-4 sm:items-center">
         <div
           onClick={(e) => e.stopPropagation()}

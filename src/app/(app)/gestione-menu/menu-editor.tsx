@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
-import { blockStatus, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
+import { blockStatus, blockSummary, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
 import { traitLabel } from "@/lib/wine-traits";
 import { isItalianWine } from "@/lib/wine-order";
 import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setSoldOut, undoChange } from "./actions";
@@ -99,7 +99,7 @@ type SheetState =
   | { type: "item"; itemId: string | null; groupId: string; queue?: QueueItem[] }
   | { type: "import"; groupId: string }
   | { type: "texts" }
-  | { type: "block"; id: string | null }
+  | { type: "block"; id: string | null; sectionId?: string }
   | { type: "venue"; kind: VenueSheetKind }
   | { type: "history" }
   | { type: "preview" }
@@ -509,50 +509,15 @@ export function MenuEditor({
               <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
 
               {!activePromo && (
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
-                  <div className="min-w-0 space-y-1 text-sm">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Testi di questa sezione</p>
-                    {section.note && (
-                      <p className="text-foreground">
-                        <span className="text-foreground-muted">Nota: </span>
-                        {section.note}
-                      </p>
-                    )}
-                    {section.addon && (
-                      <p className="text-foreground">
-                        <span className="text-foreground-muted">Avviso{section.addonTitle ? ` · ${section.addonTitle}` : ""}: </span>
-                        {section.addon}
-                      </p>
-                    )}
-                    {sectionBlocks.map((b) => (
-                      <p key={b.id} className="flex items-baseline gap-2 text-foreground">
-                        <span className="min-w-0 flex-1">
-                          <span className="text-foreground-muted">{b.kind === "PRICE" ? "Prezzo: " : b.kind === "NOTICE" ? "Avviso: " : "Informazione: "}</span>
-                          {b.kind === "PRICE" ? priceLine(b) : b.text}
-                          {blockStatus(b, today) !== "live" && <span className="text-foreground-muted"> (non visibile oggi)</span>}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setSheet({ type: "block", id: b.id })}
-                          className="shrink-0 text-[11px] font-medium text-accent hover:underline"
-                        >
-                          Modifica
-                        </button>
-                      </p>
-                    ))}
-                    {!section.note && !section.addon && sectionBlocks.length === 0 && (
-                      <p className="text-foreground-muted">Nessun testo: compaiono solo titolo e voci.</p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSheet({ type: "texts" })}
-                    aria-label="Modifica i testi di questa sezione"
-                    className="min-h-10 shrink-0 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-                  >
-                    Modifica
-                  </button>
-                </div>
+                <SectionTexts
+                  section={section}
+                  blocks={sectionBlocks}
+                  today={today}
+                  sectionLabels={new Map(sectionChoices.map((c) => [c.id, c.label]))}
+                  onEditTexts={() => setSheet({ type: "texts" })}
+                  onEditBlock={(id) => setSheet({ type: "block", id })}
+                  onAddBlock={() => setSheet({ type: "block", id: null, sectionId: section.id })}
+                />
               )}
 
               {section.groups.length > 1 && (
@@ -589,6 +554,8 @@ export function MenuEditor({
                   />
                 );
               })}
+
+              {activePromo && section.groups.length === 0 && <EmptyEventMenu sectionId={section.id} run={run} />}
 
               <NewGroupForm sectionId={section.id} run={run} />
             </>
@@ -649,7 +616,7 @@ export function MenuEditor({
       )}
       {sheet?.type === "venue" && sheet.kind === "contacts" && <ContactsSheet contacts={venue.contacts} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "block" && (sheet.id === null || blockToEdit) && (
-        <BlockSheet key={sheet.id ?? "new"} block={blockToEdit} choices={sectionChoices} run={run} onClose={() => setSheet(null)} />
+        <BlockSheet key={sheet.id ?? `new-${sheet.sectionId ?? ""}`} block={blockToEdit} choices={sectionChoices} forSectionId={sheet.sectionId ?? null} run={run} onClose={() => setSheet(null)} />
       )}
       {sheet?.type === "promo" && (sheet.id === null || promoToEdit) && (
         <PromoSheet
@@ -675,6 +642,110 @@ export function MenuEditor({
       {sheet?.type === "texts" && section && <SectionTextsSheet section={section} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "history" && <HistorySheet history={history} onUndo={undo} onClose={() => setSheet(null)} />}
     </div>
+  );
+}
+
+// «Testi della sezione»: un testo per riga, nell'ordine in cui compare sul menù
+// (sotto il titolo, poi in fondo alla sezione), ognuno con il suo «Modifica».
+function SectionTexts({
+  section,
+  blocks,
+  today,
+  sectionLabels,
+  onEditTexts,
+  onEditBlock,
+  onAddBlock,
+}: {
+  section: EditorSection;
+  blocks: MenuBlockView[];
+  today: string;
+  sectionLabels: Map<string, string>;
+  onEditTexts: () => void;
+  onEditBlock: (id: string) => void;
+  onAddBlock: () => void;
+}) {
+  type Row = { key: string; tag: string; title: string | null; text: string | null; note?: string; dim?: boolean; onEdit: () => void; editLabel: string };
+  const top: Row[] = [];
+  if (section.note) top.push({ key: "note", tag: "Nota", title: null, text: section.note, onEdit: onEditTexts, editLabel: "Modifica la nota sotto il titolo" });
+  for (const b of blocks) {
+    const others = b.sectionIds.filter((id) => id !== section.id).map((id) => sectionLabels.get(id)).filter(Boolean);
+    const live = blockStatus(b, today) === "live";
+    top.push({
+      key: b.id,
+      tag: b.kind === "PRICE" ? "Prezzo" : b.kind === "NOTICE" ? "Avviso" : "Informazione",
+      title: b.kind === "PRICE" || b.priceCents !== null ? priceLine(b) : b.label,
+      text: b.text,
+      note: [!live ? "non visibile oggi" : null, others.length ? `anche in ${others.join(", ")}` : null].filter(Boolean).join(" · ") || undefined,
+      dim: !live,
+      onEdit: () => onEditBlock(b.id),
+      editLabel: `Modifica: ${blockSummary(b)}`,
+    });
+  }
+  const bottom: Row[] = section.addon
+    ? [{ key: "addon", tag: "Avviso", title: section.addonTitle, text: section.addon, onEdit: onEditTexts, editLabel: "Modifica l'avviso a fondo sezione" }]
+    : [];
+
+  const list = (rows: Row[]) => (
+    <ul className="divide-y divide-border">
+      {rows.map((r) => (
+        <li key={r.key} className={`flex items-start gap-3 py-2.5 ${r.dim ? "opacity-60" : ""}`}>
+          {/* Etichetta in colonna da tablet in su; sul telefono sopra il testo, per lasciargli spazio. */}
+          <span className="mt-0.5 hidden w-[5.5rem] shrink-0 sm:block">
+            <span className="inline-block rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">{r.tag}</span>
+          </span>
+          <div className="min-w-0 flex-1">
+            <span className="mb-1 inline-block rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground-muted sm:hidden">{r.tag}</span>
+            {r.title && <p className="text-sm font-medium text-foreground">{r.title}</p>}
+            {r.text && <p className={`line-clamp-2 ${r.title ? "text-xs text-foreground-muted" : "text-sm text-foreground"}`}>{r.text}</p>}
+            {r.note && <p className="mt-0.5 text-[11px] text-foreground-muted/80">{r.note}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={r.onEdit}
+            aria-label={r.editLabel}
+            className="min-h-9 shrink-0 rounded-full border border-border px-3 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          >
+            Modifica
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+
+  return (
+    <section aria-label="Testi della sezione" className="rounded-2xl border border-border bg-surface px-4 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Testi della sezione</p>
+      {top.length === 0 && bottom.length === 0 && <p className="mt-1.5 text-sm text-foreground-muted">Nessun testo: sul menù compaiono solo il titolo e le voci.</p>}
+      {top.length > 0 && (
+        <div className="mt-2">
+          <p className="text-[11px] text-foreground-muted/80">Sotto il titolo</p>
+          {list(top)}
+        </div>
+      )}
+      {bottom.length > 0 && (
+        <div className="mt-2">
+          <p className="text-[11px] text-foreground-muted/80">In fondo alla sezione</p>
+          {list(bottom)}
+        </div>
+      )}
+      <div className="mt-2 flex flex-wrap gap-2 border-t border-border pt-3">
+        <button
+          type="button"
+          onClick={onAddBlock}
+          className="min-h-10 rounded-full border border-dashed border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+        >
+          + Informazione o prezzo
+        </button>
+        <button
+          type="button"
+          onClick={onEditTexts}
+          aria-label="Modifica i testi di questa sezione"
+          className="min-h-10 rounded-full border border-dashed border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+        >
+          {section.note && section.addon ? "Nota e avviso della sezione" : "+ Nota o avviso della sezione"}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -902,6 +973,38 @@ function GroupCard({
       </div>
       )}
     </section>
+  );
+}
+
+// Menù speciale ancora vuoto: si dice cosa fare e si parte con un tocco.
+function EmptyEventMenu({ sectionId, run }: { sectionId: string; run: RunFn }) {
+  const [busy, setBusy] = useState(false);
+  async function add(title: string) {
+    setBusy(true);
+    await run(() => createGroup(sectionId, title), `Gruppo «${title}» aggiunto`);
+    setBusy(false);
+  }
+  return (
+    <div className="rounded-2xl border border-accent/30 bg-accent/5 px-4 py-4">
+      <p className="text-sm font-semibold text-foreground">Il menù speciale è vuoto</p>
+      <p className="mt-1 text-xs text-foreground-muted">
+        Comincia da un gruppo, poi dentro aggiungi le voci con i prezzi (anche con più formati, es. birra 0,2 · 0,4 · 1 l). Sul menù dei clienti si vede
+        nei giorni dell&apos;evento.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {["Da bere", "Da mangiare"].map((t) => (
+          <button
+            key={t}
+            type="button"
+            disabled={busy}
+            onClick={() => add(t)}
+            className="min-h-10 rounded-full bg-accent px-4 text-xs font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+          >
+            + {t}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

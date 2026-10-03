@@ -87,7 +87,7 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
   }
 
   return (
-    <Sheet title="Tabella prezzi" onClose={onClose}>
+    <Sheet title="Tabella prezzi" onClose={onClose} wide>
       <nav aria-label="Sezione" className="-mx-1 mb-3 flex flex-wrap gap-1.5">
         {sections.map((s) => {
           const active = s.id === sectionId;

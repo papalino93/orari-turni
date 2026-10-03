@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useBackdropClose } from "@/lib/use-backdrop-close";
 import {
   addDays,
   addMonths,
@@ -143,6 +144,7 @@ export function PdfExportModal({
     setAnchor(toDateKey(next));
   }
 
+  const backdrop = useBackdropClose(onClose);
   return (
     // Lo scroll vive qui, non sull'elemento che centra il contenuto: centrare
     // con "items-center" E scorrere sullo stesso elemento non vanno d'accordo
@@ -152,7 +154,7 @@ export function PdfExportModal({
     // del contenuto a un offset negativo che lo scroll non può mai coprire.
     // "min-h-full" sull'involucro che centra tiene la struttura identica
     // quando il contenuto ci sta, e la fa scorrere per intero quando no.
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" {...backdrop}>
       {/* Bottom-sheet su mobile + margine per l'area sicura (Home Indicator),
           come gli altri modali dell'app — questo restava sempre centrato,
           l'unica incoerenza su un modale spesso più alto dello schermo su

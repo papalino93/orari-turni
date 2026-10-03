@@ -186,9 +186,13 @@ export const BLOCK_KIND_LABELS: Record<BlockKind, string> = {
 
 // Riassunto di una riga: la voce con prezzo, oppure il testo accorciato.
 export function blockSummary(b: MenuBlockView): string {
-  if (b.kind === "PRICE") return priceLine(b);
   const text = (b.text ?? "").replace(/\s+/g, " ").trim();
-  const head = b.label ? `${b.label}: ` : "";
+  if (b.kind === "PRICE") {
+    const full = text ? `${priceLine(b)} · ${text}` : priceLine(b);
+    return full.length > 90 ? `${full.slice(0, 87)}…` : full;
+  }
+  const title = b.priceCents !== null ? priceLine(b) : b.label;
+  const head = title ? `${title}: ` : "";
   const full = `${head}${text}`;
   return full.length > 90 ? `${full.slice(0, 87)}…` : full;
 }

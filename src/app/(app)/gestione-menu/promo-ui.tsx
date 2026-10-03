@@ -412,12 +412,19 @@ export function PromoSheet({
           </fieldset>
         )}
 
+        {isEvent && !promo && (
+          <p className="rounded-xl border border-accent/30 bg-accent/5 px-3.5 py-3 text-xs leading-relaxed text-foreground">
+            <span className="font-semibold">E il menù speciale?</span> Si compone subito dopo: tocca «Crea evento e componi il menù», si apre la
+            pagina dell&apos;evento e lì aggiungi i gruppi (es. Da bere, Da mangiare) con le voci e i prezzi.
+          </p>
+        )}
+
         <button
           type="submit"
           disabled={busy || !title.trim()}
           className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
-          {busy ? "Salvo…" : promo ? "Salva" : isEvent ? "Crea evento" : "Crea annuncio"}
+          {busy ? "Salvo…" : promo ? "Salva" : isEvent ? "Crea evento e componi il menù" : "Crea annuncio"}
         </button>
       </form>
     </Sheet>

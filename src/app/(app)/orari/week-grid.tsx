@@ -233,13 +233,17 @@ function DayHeaderCell({
       <button
         type="button"
         onClick={() => onManageDay(dateKey)}
-        className={`flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-surface ${
+        // Sul tablet in verticale la data va sotto il giorno: colonne più strette, tutta la settimana in vista.
+        className={`flex flex-col items-center gap-0.5 rounded-lg px-1 py-0.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-surface lg:flex-row lg:gap-1 lg:px-1.5 ${
           closed ? "text-danger" : "text-foreground-muted hover:text-foreground"
         }`}
         title={closed ? "Locale chiuso — clicca per gestire" : "Clicca per chiudere il locale in questa giornata"}
       >
-        {closed ? <LockClosedIcon /> : <LockOpenIcon />}
-        {dayLabel(d)} <span className="font-normal text-foreground-muted">{formatDayMonth(d)}</span>
+        <span className="flex items-center gap-1">
+          {closed ? <LockClosedIcon /> : <LockOpenIcon />}
+          {dayLabel(d)}
+        </span>
+        <span className="font-normal text-foreground-muted">{formatDayMonth(d)}</span>
       </button>
       {today && (
         <span className="rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
@@ -410,18 +414,18 @@ function PeriodTable({
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr>
-            <th className="w-40 border-b border-border bg-surface-2/60 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-foreground">
+            <th className="w-32 border-b border-border bg-surface-2/60 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-foreground lg:w-40">
               {label}
             </th>
             {days.map((d) => {
               const dateKey = toDateKey(d);
               return (
-                <th key={dateKey} className="border-b border-border bg-surface-2/60 px-2 py-2 text-center align-top">
+                <th key={dateKey} className="border-b border-border bg-surface-2/60 px-1 py-2 text-center align-top lg:px-2">
                   <DayHeaderCell d={d} onManageDay={onManageDay} closed={schedule.isClosed(dateKey)} />
                 </th>
               );
             })}
-            <th className="border-b border-border bg-surface-2/60 px-3 py-2.5 text-center text-xs font-medium text-foreground-muted">
+            <th className="border-b border-border bg-surface-2/60 px-2 py-2.5 text-center text-xs font-medium text-foreground-muted lg:px-3">
               Tot. ore
             </th>
           </tr>
@@ -447,7 +451,7 @@ function PeriodTable({
                 return (
                   <td
                     key={dateKey}
-                    className={`cursor-pointer border-b border-border px-2 py-2 align-top transition-colors hover:bg-surface-2 ${
+                    className={`cursor-pointer border-b border-border px-1.5 py-2 align-top transition-colors hover:bg-surface-2 lg:px-2 ${
                       isToday(d) ? "bg-accent/[0.04]" : ""
                     } ${closed ? "bg-surface-2/40" : ""}`}
                     onClick={() => onEdit(emp.id, dateKey)}

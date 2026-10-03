@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, isToday, parseDateKey, toDateKey } from "@/lib/week";
 import { buildSchedule, formatHours, type Block, type Closure, type Leave, type Role } from "@/lib/schedule";
@@ -478,8 +479,9 @@ function RoleChangeModal({
   const toOwner = currentRole === "EMPLOYEE";
   useEscapeToClose(onClose, !pending);
 
+  const backdrop = useBackdropClose(() => !pending && onClose());
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={() => !pending && onClose()}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" {...backdrop}>
       <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-4">
         <div
           onClick={(e) => e.stopPropagation()}
