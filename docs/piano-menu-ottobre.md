@@ -2,7 +2,8 @@
 
 Si pubblica man mano: ogni punto, una volta provato (test, giro su telefono, tablet e
 computer, guida PDF aggiornata), va online da solo, e al titolare si scrive cosa è cambiato.
-Se la sessione si interrompe, si riparte dal primo punto non spuntato.
+Se la sessione si interrompe, si riparte dal primo punto non spuntato. Lavoro autonomo
+autorizzato fino alle 8:00 del 4 ottobre (ora italiana); si pubblica anche di notte.
 
 ## 1. Eventi
 - [ ] Sezione «In evidenza»:
@@ -11,14 +12,14 @@ Se la sessione si interrompe, si riparte dal primo punto non spuntato.
   - 3 o più: il primo in grande (il primo in «Riordina»), gli altri in una fila di locandine piccole.
 - [ ] Annunci (kind NOTICE) separati dagli eventi: una riga sobria sotto la copertina, prima
       degli eventi; si tocca per leggere tutto.
-- [ ] Pagina evento: orario facoltativo dell'evento (es. «dalle 19:00»).
+- [ ] Pagina evento: orario facoltativo, inizio e fine tutti e due facoltativi («Dalle 19:00», «Dalle 19:00 alle 23:00»).
 - [ ] Pagina evento: pulsanti «Prenota» (WhatsApp con messaggio già scritto: evento e data,
       «Siamo in …»), «Aggiungi al calendario» (.ics con data, ora e indirizzo) e «Condividi»
       (condivisione del telefono, altrimenti copia del link).
 - Niente pagina «Tutti gli eventi» (non serve al titolare).
 
 ## 2. Consigliati della casa e abbinamenti per il vino
-- [ ] Segno «Consigliato» su una voce (piatto o vino) dalla gestione, e sotto la copertina una
+- [ ] Segno «Consigliato» (scritta scelta dal titolare) su una voce (piatto o vino) dalla gestione, e sotto la copertina una
       riga «I consigli della casa» con le voci consigliate (massimo 4).
 - [ ] Vino → «Sta bene con…»: da solo l'inverso degli abbinamenti piatto → vino, e in più
       piatti aggiunti o tolti a mano nella scheda del vino.
@@ -30,7 +31,7 @@ Se la sessione si interrompe, si riparte dal primo punto non spuntato.
 ## 4. Costi e ricarichi
 - [ ] Costo d'acquisto della bottiglia, visibile solo al titolare e al consulente (mai sul menù).
 - [ ] Ricarico come moltiplicatore («×3,2») sulla bottiglia e sul calice, calcolato su quanti
-      calici fa una bottiglia (6 di base, modificabile).
+      calici fa una bottiglia (5 di base, modificabile vino per vino).
 
 ## 5. Cambi programmati
 - [ ] Voci stagionali: una voce visibile «dal … al …».
