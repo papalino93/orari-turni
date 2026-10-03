@@ -146,7 +146,8 @@ const promoInclude = {
 export async function loadVisiblePromos(dayKey: string) {
   return prisma.menuPromo.findMany({
     where: { deletedAt: null, hidden: false, showFrom: { lte: dayKey }, endDate: { gte: dayKey } },
-    orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
+    // Prima quelli messi in ordine a mano, poi gli altri per data.
+    orderBy: [{ sortOrder: { sort: "asc", nulls: "last" } }, { startDate: "asc" }, { createdAt: "asc" }],
     include: promoInclude,
   });
 }

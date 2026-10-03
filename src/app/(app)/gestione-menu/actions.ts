@@ -1010,14 +1010,16 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
       if (change.entityId === "*order") {
         const order = (before.order ?? {}) as Record<string, number>;
         for (const [rowId, sortOrder] of Object.entries(order)) {
-          if (entity === "section") await tx.menuSection.updateMany({ where: { id: rowId }, data: { sortOrder } });
+          // Eventi e annunci: null = di nuovo in ordine per data.
+          if (entity === "promo") await tx.menuPromo.updateMany({ where: { id: rowId }, data: { sortOrder: sortOrder as number | null } });
+          else if (entity === "section") await tx.menuSection.updateMany({ where: { id: rowId }, data: { sortOrder } });
           else if (entity === "group") await tx.menuGroup.updateMany({ where: { id: rowId }, data: { sortOrder } });
           else await tx.menuItem.updateMany({ where: { id: rowId }, data: { sortOrder } });
         }
         const undoId = await logChange(tx, {
           actorName: editor.name,
           action: "RESTORE",
-          entity: entity === "section" || entity === "group" ? entity : "item",
+          entity: entity === "section" || entity === "group" || entity === "promo" ? entity : "item",
           entityId: "*order",
           label: change.label,
         });

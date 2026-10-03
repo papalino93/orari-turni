@@ -1,9 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { formatPromoDates } from "@/lib/menu-format";
 import { compareWines } from "@/lib/wine-order";
 import { reorder } from "./actions";
-import type { EditorSection, RunFn } from "./menu-editor";
+import type { EditorPromo, EditorSection, RunFn } from "./menu-editor";
+import { reorderPromos } from "./promo-actions";
+import { STATUS_LABEL, effectiveStatus } from "./promo-ui";
 import { Sheet } from "./sheet";
 
 type Row = { id: string; label: string; detail?: string; region?: string | null; country?: string | null };
@@ -124,27 +127,38 @@ function SortableList({ rows, onChange, onOpen }: { rows: Row[]; onChange: (rows
   );
 }
 
-// «Riordina»: tre livelli (sezioni → gruppi di una sezione → voci di un gruppo).
-// L'ordine si salva tutto insieme con «Salva ordine» e si annulla con un tocco.
+// «Riordina»: tre livelli (sezioni → gruppi di una sezione → voci di un gruppo), più
+// «Eventi e annunci» (l'ordine in «In evidenza»). L'ordine si salva tutto insieme con
+// «Salva ordine» e si annulla con un tocco.
 export function ReorderSheet({
   sections,
+  promos,
+  today,
+  startOnPromos,
   startSectionId,
   run,
   onClose,
 }: {
   sections: EditorSection[];
+  // Eventi e annunci non conclusi, già nell'ordine di «In evidenza».
+  promos: EditorPromo[];
+  today: string;
+  startOnPromos: boolean;
   startSectionId: string | null;
   run: RunFn;
   onClose: () => void;
 }) {
+  const [onPromos, setOnPromos] = useState(startOnPromos);
   const [sectionId, setSectionId] = useState<string | null>(startSectionId);
   const [groupId, setGroupId] = useState<string | null>(null);
   const section = sections.find((s) => s.id === sectionId) ?? null;
   const group = section?.groups.find((g) => g.id === groupId) ?? null;
 
-  const level: "section" | "group" | "item" = group ? "item" : section ? "group" : "section";
+  const level: "promo" | "section" | "group" | "item" = onPromos ? "promo" : group ? "item" : section ? "group" : "section";
   const baseRows: Row[] =
-    level === "section"
+    level === "promo"
+      ? promos.map((p) => ({ id: p.id, label: p.title, detail: `${formatPromoDates(p.startDate, p.endDate)} · ${STATUS_LABEL[effectiveStatus(p, today)].toLowerCase()}` }))
+      : level === "section"
       ? sections.map((s) => ({ id: s.id, label: s.label, detail: `${s.groups.length} grupp${s.groups.length === 1 ? "o" : "i"}` }))
       : level === "group"
         ? (section?.groups ?? []).map((g) => ({ id: g.id, label: g.title, detail: `${g.items.length} voc${g.items.length === 1 ? "e" : "i"}` }))
@@ -163,12 +177,19 @@ export function ReorderSheet({
 
   function go(next: { sectionId: string | null; groupId: string | null }) {
     setDraft(null);
+    setOnPromos(false);
     setSectionId(next.sectionId);
     setGroupId(next.groupId);
   }
 
   async function save() {
     setBusy(true);
+    if (level === "promo") {
+      const result = await run(() => reorderPromos(rows.map((r) => r.id)), "Nuovo ordine salvato: eventi e annunci");
+      setBusy(false);
+      if (result !== null) setDraft(null);
+      return;
+    }
     const parentId = level === "section" ? null : level === "group" ? sectionId : groupId;
     const label = level === "section" ? "sezioni" : level === "group" ? `gruppi di «${section?.label}»` : `«${group?.title}» (${section?.label})`;
     const result = await run(() => reorder(level, parentId, rows.map((r) => r.id)), `Nuovo ordine salvato: ${label}`);
@@ -177,31 +198,67 @@ export function ReorderSheet({
   }
 
   const isWineGroup = level === "item" && section?.kind === "WINE";
+  const promosByHand = promos.some((p) => p.sortOrder !== null);
+
+  async function promosByDate() {
+    setBusy(true);
+    const result = await run(() => reorderPromos([]), "Eventi e annunci di nuovo in ordine per data");
+    setBusy(false);
+    if (result !== null) setDraft(null);
+  }
 
   return (
     <Sheet title="Riordina" onClose={onClose} dirty={changed} onSave={save}>
-      <nav aria-label="Livello" className="mb-3 flex flex-wrap items-center gap-1 text-sm">
-        <button type="button" onClick={() => go({ sectionId: null, groupId: null })} className={`rounded-lg px-2 py-1 ${level === "section" ? "font-semibold text-foreground" : "text-accent hover:underline"}`}>
-          Sezioni
-        </button>
-        {section && (
-          <>
-            <span className="text-foreground-muted">›</span>
-            <button type="button" onClick={() => go({ sectionId: section.id, groupId: null })} className={`rounded-lg px-2 py-1 ${level === "group" ? "font-semibold text-foreground" : "text-accent hover:underline"}`}>
-              {section.label}
+      {promos.length > 1 && (
+        <div role="tablist" aria-label="Cosa riordinare" className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1 text-sm">
+          {[
+            { promo: false, label: "Menù" },
+            { promo: true, label: "Eventi e annunci" },
+          ].map((t) => (
+            <button
+              key={t.label}
+              type="button"
+              role="tab"
+              aria-selected={onPromos === t.promo}
+              onClick={() => {
+                if (onPromos === t.promo) return;
+                setDraft(null);
+                setOnPromos(t.promo);
+              }}
+              className={`min-h-9 rounded-lg px-3 font-medium ${onPromos === t.promo ? "bg-surface text-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"}`}
+            >
+              {t.label}
             </button>
-          </>
-        )}
-        {group && (
-          <>
-            <span className="text-foreground-muted">›</span>
-            <span className="px-2 py-1 font-semibold text-foreground">{group.title}</span>
-          </>
-        )}
-      </nav>
+          ))}
+        </div>
+      )}
+
+      {!onPromos && (
+        <nav aria-label="Livello" className="mb-3 flex flex-wrap items-center gap-1 text-sm">
+          <button type="button" onClick={() => go({ sectionId: null, groupId: null })} className={`rounded-lg px-2 py-1 ${level === "section" ? "font-semibold text-foreground" : "text-accent hover:underline"}`}>
+            Sezioni
+          </button>
+          {section && (
+            <>
+              <span className="text-foreground-muted">›</span>
+              <button type="button" onClick={() => go({ sectionId: section.id, groupId: null })} className={`rounded-lg px-2 py-1 ${level === "group" ? "font-semibold text-foreground" : "text-accent hover:underline"}`}>
+                {section.label}
+              </button>
+            </>
+          )}
+          {group && (
+            <>
+              <span className="text-foreground-muted">›</span>
+              <span className="px-2 py-1 font-semibold text-foreground">{group.title}</span>
+            </>
+          )}
+        </nav>
+      )}
 
       <p className="mb-3 text-xs text-foreground-muted">
-        {level === "section"
+        {level === "promo"
+          ? "L'ordine in «In evidenza», da sinistra a destra: il primo si vede subito sotto la copertina. Un evento nuovo si mette dopo quelli ordinati qui."
+          : level === "section"
           ? "L'ordine delle sezioni sul menù (Oggi fuori menù resta sempre in cima). «Apri» per riordinare i gruppi di una sezione."
           : level === "group"
             ? "L'ordine dei gruppi in questa sezione. «Apri» per riordinare le voci di un gruppo."
@@ -237,6 +294,16 @@ export function ReorderSheet({
             className="min-h-11 rounded-xl border border-border px-3.5 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground"
           >
             Ordina per regione
+          </button>
+        )}
+        {level === "promo" && promosByHand && !changed && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={promosByDate}
+            className="min-h-11 rounded-xl border border-border px-3.5 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          >
+            Torna all&apos;ordine per data
           </button>
         )}
         {changed && (

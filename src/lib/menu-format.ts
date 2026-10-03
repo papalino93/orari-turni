@@ -138,6 +138,15 @@ export function promoStatus(p: PromoDates, today: string): PromoStatus {
   return "scheduled";
 }
 
+// Ordine di eventi e annunci, uguale in «In evidenza» e nella gestione: prima quelli
+// messi in ordine a mano («Riordina»), poi gli altri per data di inizio.
+export function comparePromos(
+  a: { sortOrder: number | null; startDate: string; createdAt: number },
+  b: { sortOrder: number | null; startDate: string; createdAt: number },
+): number {
+  return (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity) || a.startDate.localeCompare(b.startDate) || a.createdAt - b.createdAt;
+}
+
 export function isPosterVisible(p: PromoDates & { hidden: boolean; deletedAt: Date | null }, today: string): boolean {
   return !p.hidden && !p.deletedAt && today >= p.showFrom && today <= p.endDate;
 }
