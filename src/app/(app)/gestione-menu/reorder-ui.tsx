@@ -257,7 +257,7 @@ export function ReorderSheet({
 
       <p className="mb-3 text-xs text-foreground-muted">
         {level === "promo"
-          ? "L'ordine in «In evidenza», da sinistra a destra: il primo si vede subito sotto la copertina. Un evento nuovo si mette dopo quelli ordinati qui."
+          ? "L'ordine in «In evidenza», da sinistra a destra. Nei giorni dell'evento la sua pagina si apre comunque in cima al menù. Un evento nuovo si mette dopo quelli ordinati qui."
           : level === "section"
           ? "L'ordine delle sezioni sul menù (Oggi fuori menù resta sempre in cima). «Apri» per riordinare i gruppi di una sezione."
           : level === "group"
