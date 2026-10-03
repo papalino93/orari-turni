@@ -18,9 +18,17 @@ export function MenuNav({ chips, items }: { chips: Chip[]; items: SearchItem[] }
   const navRef = useRef<HTMLElement>(null);
   const activeRef = useRef(active);
 
+  const lastY = useRef(0);
+
   useEffect(() => {
     function onScroll() {
-      setShowTop(window.scrollY > window.innerHeight * 1.2);
+      // «Torna su» solo mentre si risale: scendendo leggendo il menù non copre i prezzi.
+      const y = window.scrollY;
+      const goingUp = y < lastY.current - 4;
+      const goingDown = y > lastY.current + 4;
+      if (goingUp || goingDown) lastY.current = y;
+      if (y <= window.innerHeight * 1.2 || goingDown) setShowTop(false);
+      else if (goingUp) setShowTop(true);
       let current = chips[0]?.id ?? "";
       for (const chip of chips) {
         const el = document.getElementById(chip.id);

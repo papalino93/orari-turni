@@ -99,7 +99,10 @@ check("torna su: non c'è in cima alla pagina", (await page.getByRole("button", 
 await page.evaluate(() => window.scrollTo(0, 4000));
 await page.waitForTimeout(500);
 const top = page.getByRole("button", { name: "Torna su" });
-check("torna su: compare scorrendo", (await top.count()) === 1);
+check("torna su: scendendo non copre il menù", (await top.count()) === 0);
+await page.evaluate(() => window.scrollTo(0, 3600));
+await page.waitForTimeout(500);
+check("torna su: compare risalendo", (await top.count()) === 1);
 const tb = await top.boundingBox();
 check("torna su: bersaglio ≥ 44 px", tb && tb.width >= 44 && tb.height >= 44);
 await top.click();
