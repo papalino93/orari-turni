@@ -48,3 +48,14 @@ export async function expandPanels(page) {
     if (await toggle.count()) await toggle.first().click();
   }
 }
+
+// Dopo una X o un Esc su una finestra con modifiche: «Esci senza salvare», se lo chiede.
+export async function discardIfAsked(page) {
+  const bar = page.getByRole("alertdialog", { name: "Modifiche non salvate" });
+  try {
+    await bar.waitFor({ timeout: 800 });
+    await bar.getByRole("button", { name: "Esci senza salvare" }).click();
+  } catch {
+    // nessuna domanda: la finestra era già chiusa
+  }
+}

@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-// Finestre con un modulo: se si è cambiato qualcosa, un clic fuori o Esc
-// non buttano via le modifiche in silenzio. Compare invece «Hai modifiche non
+// Finestre con un modulo: se si è cambiato qualcosa, uscire (clic fuori, Esc,
+// la X o «Annulla», ma anche chiudere o ricaricare la pagina) non butta via le modifiche in silenzio. Compare invece «Hai modifiche non
 // salvate» con Salva / Esci senza salvare. Senza modifiche si chiude come sempre.
 //
 // Le modifiche si riconoscono da sole (si scrive in un campo, si sceglie da un
@@ -16,10 +16,24 @@ export function useUnsavedGuard(onClose: () => void, isDirty?: () => boolean) {
   const mark = () => {
     touched.current = true;
   };
+  // Chiudere la scheda del browser o ricaricare con modifiche a metà: avviso del browser.
+  const dirtyRef = useRef(dirty);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  });
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!dirtyRef.current()) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
   return {
     asking,
     stay: () => setAsking(false),
-    // Da usare al posto di onClose per lo sfondo e per Esc (la X e «Annulla» restano scelte esplicite).
+    // Da usare al posto di onClose per sfondo, Esc, X e «Annulla».
     requestClose: () => (dirty() ? setAsking(true) : onClose()),
     // Da mettere sul riquadro della finestra.
     trackProps: {

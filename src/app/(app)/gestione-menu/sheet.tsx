@@ -16,14 +16,18 @@ export function Sheet({
   onClose,
   children,
   wide = false,
+  dirty,
 }: {
   title: string;
   // Schede con tabelle (prezzi): più larghe sul computer.
   wide?: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  // Chi sa con esattezza se c'è qualcosa da salvare (es. «Tabella prezzi», che resta aperta
+  // dopo «Salva tutto») lo dice qui; altrimenti le modifiche si riconoscono da sole.
+  dirty?: boolean;
 }) {
-  const guard = useUnsavedGuard(onClose);
+  const guard = useUnsavedGuard(onClose, dirty === undefined ? undefined : () => dirty);
   const dialogRef = useRef<HTMLDivElement>(null);
   // «Salva» dal riquadro di conferma: invia il modulo della scheda, se ce n'è uno.
   const [hasForm, setHasForm] = useState(false);
@@ -50,8 +54,7 @@ export function Sheet({
             <h2 className="min-w-0 truncate text-base font-semibold text-foreground">{title}</h2>
             <button
               type="button"
-              // La X è una scelta voluta: chiude subito. La conferma serve per i clic fuori e per Esc.
-              onClick={onClose}
+              onClick={requestClose}
               aria-label="Chiudi"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-2 hover:text-foreground"
             >

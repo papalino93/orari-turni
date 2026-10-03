@@ -869,7 +869,7 @@ export function DayEditorModal({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={guard.requestClose}
                   className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground-muted hover:text-foreground"
                 >
                   Annulla

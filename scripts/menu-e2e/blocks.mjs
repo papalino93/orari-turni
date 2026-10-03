@@ -1,6 +1,6 @@
 // Blocchi informativi: creazione dei tre tipi, i tre punti del menù, più sezioni,
 // date, nascondi, ordine, eliminazione e annullamento, eventi, permessi.
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels } from "./lib.mjs";
 
 const biz = (offset = 0) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(
@@ -139,6 +139,7 @@ await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
 await settle(800);
 check("validazione: prezzo non valido è rifiutato", (await dialog().count()) === 1 && /prezzo.*non valido|inserisci il prezzo/i.test(await page.locator("body").innerText()));
 await dialog().getByRole("button", { name: "Chiudi" }).click();
+await discardIfAsked(dialog().page());
 await dialog().waitFor({ state: "detached" });
 check("DB: nessun blocco creato dalle prove rifiutate", Number(DB(`select count(*) from "MenuBlock" where "deletedAt" is null`)) === 7);
 
@@ -210,6 +211,7 @@ await dialog().waitFor({ timeout: 5000 }).catch(() => {});
 if (await dialog().count()) {
   check("sezione: il foglio dei testi non ha più «Mostra il coperto»", !/Mostra il coperto/i.test(await dialog().innerText()));
   await dialog().getByRole("button", { name: "Chiudi" }).click();
+await discardIfAsked(dialog().page());
   await dialog().waitFor({ state: "detached" });
 }
 
@@ -279,6 +281,7 @@ await expandPanels(page);
   check(`foglio @${label}: nessun overflow orizzontale`, o2 <= 0, `delta ${o2}`);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/blocks-${label}.png` });
   await dialog().getByRole("button", { name: "Chiudi" }).click();
+await discardIfAsked(dialog().page());
   await dialog().waitFor({ state: "detached" });
 }
 

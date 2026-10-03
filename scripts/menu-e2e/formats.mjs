@@ -1,6 +1,6 @@
 // Formati del gruppo (birre alla spina 0,2 l · 0,4 l · 1 l): colonne sul gruppo,
 // prezzi per colonna nella voce, tabella sul menù, casella vuota = «—», annulla.
-import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
 
 const GROUP = DB(`select g.id from "MenuGroup" g join "MenuSection" s on s.id=g."sectionId" where s.label='Bevande' and g."deletedAt" is null order by g."sortOrder" limit 1`);
 const groupTitle = DB(`select title from "MenuGroup" where id='${GROUP}'`);
@@ -119,6 +119,7 @@ await dlg.waitFor();
 check("seconda birra: parte già con i prezzi per colonna", (await dlg.getByLabel("Prezzo 1 l (€)").count()) === 1 && (await dlg.getByRole("radio", { name: "Più formati" }).getAttribute("aria-checked")) === "true");
 check("seconda birra: descrizione da birra", (await dlg.getByLabel("Descrizione").getAttribute("placeholder")).includes("Helles"));
 await dlg.getByRole("button", { name: "Chiudi" }).first().click().catch(() => p.keyboard.press("Escape"));
+await discardIfAsked(p);
 DB(`update "MenuGroup" set "deletedAt"=now() where title='Spina Prova'`);
 DB(`update "MenuGroup" set formats=null where id='${GROUP}'`);
 DB(`delete from "MenuItem" where name like 'Birra Prova%'`);

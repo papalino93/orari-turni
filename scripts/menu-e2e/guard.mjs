@@ -34,6 +34,15 @@ check("orari: anche Esc chiede", (await bar().count()) === 1);
 await bar().getByRole("button", { name: "Esci senza salvare" }).click();
 await p.waitForTimeout(400);
 check("orari: «Esci senza salvare» chiude", (await salva().count()) === 0);
+// «Annulla» con una modifica: chiede anche lui
+await p.locator("button", { hasText: /^mar.+/i }).first().click();
+await salva().waitFor();
+await p.locator('input[type="checkbox"]').first().check();
+await p.getByRole("button", { name: "Annulla", exact: true }).last().click();
+await p.waitForTimeout(300);
+check("orari: anche «Annulla» chiede", (await bar().count()) === 1);
+await bar().getByRole("button", { name: "Esci senza salvare" }).click();
+await p.waitForTimeout(300);
 
 // Gestione menù: scheda di una voce
 await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
@@ -53,6 +62,15 @@ check("menù: c'è anche «Salva»", (await bar().getByRole("button", { name: "S
 await bar().getByRole("button", { name: "Esci senza salvare" }).click();
 await p.waitForTimeout(400);
 check("menù: «Esci senza salvare» chiude senza salvare", (await dlg.count()) === 0 && DB(`select count(*) from "MenuItem" where name='Prova modifica non salvata'`) === "0");
+// La X con una modifica: chiede
+await p.locator("section ul li button[aria-label^=\"Modifica \"]:visible").first().click();
+await dlg.waitFor();
+await dlg.getByLabel(/Nome|Azienda/).first().fill("Prova X");
+await dlg.getByRole("button", { name: "Chiudi" }).click();
+await p.waitForTimeout(300);
+check("menù: anche la X chiede", (await bar().count()) === 1);
+await bar().getByRole("button", { name: "Esci senza salvare" }).click();
+await p.waitForTimeout(300);
 
 await b.close();
 const failed = results.filter((r) => !r.ok);

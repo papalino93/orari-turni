@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
 
 resetBlocks();
 // giorno commerciale (cambia alle 5:00 ora italiana)
@@ -68,6 +68,7 @@ check("default: locandina da oggi (7 giorni prima)", (await dialog().getByLabel(
 await dialog().getByLabel("Inizio evento").fill(biz(20));
 check("cambiando l'inizio la locandina segue (-7 giorni)", (await dialog().getByLabel("Mostra la locandina dal").inputValue()) === biz(13));
 await dialog().getByRole("button", { name: "Chiudi" }).click();
+await discardIfAsked(dialog().page());
 await dialog().waitFor({ state: "detached" });
 
 // ---- evento in corso con locandina
