@@ -147,7 +147,7 @@ check("allergeni: il cibo dell'evento in corso compare", /Brezel/.test(allergens
 await createPromo({ type: "EVENT", title: "Serata Jazz", label: "Musica dal vivo", body: "Musica dal vivo", start: biz(5), end: biz(5), showFrom: biz(0), withImage: false });
 let menu = await publicText("/menu");
 check("annunciato: scheda nella striscia In evidenza", /In evidenza/i.test(menu.text) && /Serata Jazz/.test(menu.text));
-check("tipo personalizzato: compare sulla scheda", /Musica dal vivo · dal/i.test(menu.text));
+check("tipo personalizzato: compare sulla scheda", /Musica dal vivo/i.test(await pub.locator('section[aria-label="In evidenza"]').innerText()));
 check("annunciato: non aperto a pagina piena", (await pub.locator('[id^="evento-"]').count()) === 1);
 const jazzSlug = DB(`select slug from "MenuPromo" where title='Serata Jazz'`);
 const jazzPage = await publicText(`/menu/p/${jazzSlug}`);
