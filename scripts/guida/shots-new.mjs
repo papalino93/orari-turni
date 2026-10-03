@@ -1,5 +1,5 @@
 // Schermate delle novità 0.7–0.9: statistiche, tabella prezzi, riordina, scheda vino, menù da stampare.
-import { launch, login, BASE, ADMIN_PW } from "../menu-e2e/lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW } from "../menu-e2e/lib.mjs";
 const OUT = `${WORK}/img`;
 import { execFileSync } from "node:child_process";
 import { WORK } from "./work.mjs";
@@ -52,7 +52,7 @@ const toEl = async (page, loc, offset = 70) => {
   await dialog(page).getByRole("textbox", { name: /^Calice · Mastrojanni/ }).first().fill("9");
   await settle(page, 300);
   await page.screenshot({ path: `${OUT}/ges-prezzi.png` });
-  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape"); await discardIfAsked(page);
   await settle(page, 500);
   // Riordina: i vini di Rossi · Italia, uno «preso» in mano
   await page.getByRole("button", { name: "Riordina", exact: true }).click();
@@ -64,7 +64,7 @@ const toEl = async (page, loc, offset = 70) => {
   await dialog(page).getByRole("button", { name: "Apri Italia" }).click();
   await settle(page, 400);
   await page.screenshot({ path: `${OUT}/ges-riordina.png` });
-  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape"); await discardIfAsked(page);
   await settle(page, 500);
   // Scheda del vino
   await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();

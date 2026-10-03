@@ -1,4 +1,4 @@
-import { launch, login, BASE, ADMIN_PW, expandPanels } from "../menu-e2e/lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW, expandPanels } from "../menu-e2e/lib.mjs";
 import { WORK } from "./work.mjs";
 const OUT = `${WORK}/img`;
 const browser = await launch();
@@ -59,7 +59,7 @@ const scrollTo = async (page, sel, offset = 48) => {
   await page.locator("input[type=search]").fill("sangiovese");
   await settle(page, 600);
   await page.screenshot({ path: `${OUT}/pub-ricerca.png` });
-  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape"); await discardIfAsked(page);
   // Testo grande
   await page.getByRole("button", { name: "Testo più grande" }).click();
   await scrollTo(page, "#bianchi", 48);
@@ -99,7 +99,7 @@ const scrollTo = async (page, sel, offset = 48) => {
   await page.getByRole("button", { name: "Modifica gli orari" }).click();
   await settle(page, 700);
   await page.screenshot({ path: `${OUT}/ges-orari.png` });
-  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape"); await discardIfAsked(page);
   await page.getByRole("button", { name: "Codice QR", exact: true }).click();
   await settle(page, 900);
   // Nella presentazione il QR deve portare al sito vero, non a localhost.
@@ -113,11 +113,11 @@ const scrollTo = async (page, sel, offset = 48) => {
   }, { svg: prodSvg, url: prodUrl });
   await settle(page, 300);
   await page.screenshot({ path: `${OUT}/ges-qr.png` });
-  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape"); await discardIfAsked(page);
   await page.getByRole("button", { name: "Anteprima", exact: true }).click();
   await settle(page, 2500);
   await page.screenshot({ path: `${OUT}/ges-anteprima.png` });
-  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape"); await discardIfAsked(page);
   // Eventi e annunci (archivio, duplica)
   await page.getByRole("button", { name: /Crudité/ }).first().click().catch(() => {});
   await settle(page, 900);
@@ -129,7 +129,7 @@ const scrollTo = async (page, sel, offset = 48) => {
   await page.locator('section[aria-label="Cerca una voce"] li button[aria-label^="Modifica"]').first().click();
   await settle(page, 700);
   await page.screenshot({ path: `${OUT}/ges-voce.png` });
-  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape"); await discardIfAsked(page);
   await settle(page, 500);
   // Abbinamento consigliato nella scheda del piatto
   await page.getByRole("searchbox", { name: "Cerca una voce" }).fill("tagliere classico");

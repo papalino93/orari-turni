@@ -1,4 +1,4 @@
-import { launch, login, BASE, ADMIN_PW } from "../menu-e2e/lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW } from "../menu-e2e/lib.mjs";
 import { WORK } from "./work.mjs";
 const OUT = `${WORK}/img`;
 const browser = await launch();
@@ -18,7 +18,7 @@ const mk = async (w, h) => {
 };
 const settle = (p, ms = 700) => p.waitForTimeout(ms);
 const dialog = (p) => p.locator('[role="dialog"]');
-const close = async (p) => { await p.keyboard.press("Escape"); await settle(p, 500); };
+const close = async (p) => { await p.keyboard.press("Escape"); await discardIfAsked(p); await settle(p, 500); };
 
 {
   const { ctx, page } = await mk(390, 797);

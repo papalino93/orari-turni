@@ -1,7 +1,7 @@
 // Schermate da computer (Mac), tema chiaro, per la guida alla gestione del menù.
 import { writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { launch, login, BASE, ADMIN_PW } from "../menu-e2e/lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW } from "../menu-e2e/lib.mjs";
 import { WORK } from "./work.mjs";
 const OUT = `${WORK}/img`;
 execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", `delete from "MenuEvent" where hour between 5 and 15`], { env: { ...process.env, PGPASSWORD: "orari" } });
@@ -55,7 +55,7 @@ writeFileSync(`${OUT}/mac-gestione.json`, JSON.stringify(parts, null, 1));
 await page.getByRole("button", { name: /^Modifica Avignonesi/ }).first().click();
 await settle(800);
 await shot("vino");
-await page.keyboard.press("Escape");
+await page.keyboard.press("Escape"); await discardIfAsked(page);
 await settle(500);
 // Tabella prezzi
 await page.getByRole("button", { name: "Tabella prezzi" }).click();
@@ -64,7 +64,7 @@ await dialog().getByRole("navigation", { name: "Sezione" }).getByRole("button", 
 await dialog().getByRole("textbox", { name: /^Calice · Mastrojanni/ }).first().fill("9");
 await settle(400);
 await shot("prezzi");
-await page.keyboard.press("Escape");
+await page.keyboard.press("Escape"); await discardIfAsked(page);
 await settle(500);
 // Riordina
 await page.getByRole("button", { name: "Riordina", exact: true }).click();
@@ -76,13 +76,13 @@ await dialog().getByRole("button", { name: "Apri Italia" }).click().catch(async 
 });
 await settle(500);
 await shot("riordina");
-await page.keyboard.press("Escape");
+await page.keyboard.press("Escape"); await discardIfAsked(page);
 await settle(500);
 // Piatto del giorno
 await page.locator('section[aria-label="Oggi fuori menù"]').getByRole("button", { name: "+ Piatto" }).click();
 await settle(700);
 await shot("piatto-giorno");
-await page.keyboard.press("Escape");
+await page.keyboard.press("Escape"); await discardIfAsked(page);
 // Evento: impostazioni del menù speciale e birre con i formati
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 await noBanner();
