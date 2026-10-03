@@ -6,6 +6,7 @@ import { useToast } from "@/components/toast";
 import { ZoomableImage } from "@/components/zoomable-image";
 import { blockSummary, formatPromoDates, promoStatus, type MenuBlockView, type PromoStatus } from "@/lib/menu-format";
 import { resizeToJpeg } from "@/lib/image-resize";
+import { pdfFirstPage } from "@/lib/pdf-pages";
 import { createPromo, deletePromo, duplicatePromo, removePromoImage, savePromoImage, setPromoHidden, updatePromo } from "./promo-actions";
 import { Field, Sheet, dateInputClass, inputClass } from "./sheet";
 import type { EditorPromo, RunFn } from "./menu-editor";
@@ -195,6 +196,29 @@ export function PromoSheet({
   const [file, setFile] = useState<File | null>(null);
   const [removeImage, setRemoveImage] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Locandina in PDF: si trasforma subito in immagine (prima pagina), così si vede l'anteprima.
+  const [pdfNote, setPdfNote] = useState<string | null>(null);
+  const [converting, setConverting] = useState(false);
+
+  async function pick(chosen: File | null) {
+    setRemoveImage(false);
+    setPdfNote(null);
+    if (!chosen || !(chosen.type === "application/pdf" || /\.pdf$/i.test(chosen.name))) {
+      setFile(chosen);
+      return;
+    }
+    setConverting(true);
+    try {
+      const page = await pdfFirstPage(chosen);
+      setFile(new File([page.blob], "locandina.jpg", { type: "image/jpeg" }));
+      setPdfNote(page.pages > 1 ? `Dal PDF ho preso la prima pagina (su ${page.pages}).` : "Locandina presa dal PDF.");
+    } catch {
+      toast.showError("Non riesco a leggere questo PDF. Prova con un'immagine (JPG o PNG).");
+      if (fileInput.current) fileInput.current.value = "";
+    } finally {
+      setConverting(false);
+    }
+  }
 
   const isEvent = kind === "EVENT";
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
@@ -306,7 +330,7 @@ export function PromoSheet({
         </Field>
 
         <div>
-          <p className="mb-1 text-xs font-medium text-foreground-muted">Foto o locandina</p>
+          <p className="mb-1 text-xs font-medium text-foreground-muted">Foto o locandina (immagine o PDF)</p>
           <div className="flex items-center gap-3">
             {previewUrl || currentUrl ? (
               <ZoomableImage src={previewUrl ?? currentUrl ?? ""} label="Ingrandisci la locandina" className="h-[88px] w-[70px] rounded-lg border border-border object-cover" />
@@ -319,25 +343,25 @@ export function PromoSheet({
               <input
                 ref={fileInput}
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf"
+                aria-label="Scegli la foto o la locandina"
                 className="sr-only"
-                onChange={(e) => {
-                  setFile(e.target.files?.[0] ?? null);
-                  setRemoveImage(false);
-                }}
+                onChange={(e) => void pick(e.target.files?.[0] ?? null)}
               />
               <button
                 type="button"
+                disabled={converting}
                 onClick={() => fileInput.current?.click()}
-                className="min-h-11 rounded-full border border-border px-4 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+                className="min-h-11 rounded-full border border-border px-4 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
               >
-                {previewUrl || currentUrl ? "Cambia foto" : "Scegli foto"}
+                {converting ? "Preparo la locandina…" : previewUrl || currentUrl ? "Cambia foto o PDF" : "Scegli foto o PDF"}
               </button>
               {(previewUrl || currentUrl) && (
                 <button
                   type="button"
                   onClick={() => {
                     setFile(null);
+                    setPdfNote(null);
                     setRemoveImage(true);
                     if (fileInput.current) fileInput.current.value = "";
                   }}
@@ -348,7 +372,8 @@ export function PromoSheet({
               )}
             </div>
           </div>
-          <p className="mt-1 text-[11px] text-foreground-muted/80">Meglio verticale (4:5). Si ridimensiona da sola: nessun file pesante.</p>
+          {pdfNote && <p className="mt-1 text-[11px] text-foreground">{pdfNote}</p>}
+          <p className="mt-1 text-[11px] text-foreground-muted/80">Meglio verticale (4:5). Va bene anche un PDF: si usa la prima pagina. Si ridimensiona da sola.</p>
         </div>
 
         <div className="space-y-3">
@@ -420,7 +445,7 @@ export function PromoSheet({
 
         <button
           type="submit"
-          disabled={busy || !title.trim()}
+          disabled={busy || converting || !title.trim()}
           className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
           {busy ? "Salvo…" : promo ? "Salva" : isEvent ? "Crea evento e componi il menù" : "Crea annuncio"}
