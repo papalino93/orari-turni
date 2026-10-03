@@ -461,7 +461,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Per concludere")}
   <h2>Cosa serve per <em>partire</em></h2></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:7mm">
     <div class="card"><h3>Da fare insieme</h3><ul class="tick" style="margin-top:3mm">
-      <li>Ripuntare il QR stampato alla nuova pagina, poi accendere «Inizia a contare».</li><li>Link della recensione Google e messaggio WhatsApp.</li><li>Allergeni dei due kombucha e testo della pagina allergeni.</li><li>Abbinamenti dei piatti e caratteristiche dei vini ancora da confermare.</li><li>Inserire l'Oktoberfest con la sua locandina.</li></ul></div>
+      <li>Ripuntare il QR stampato a orari-turni.vercel.app/menu, poi accendere «Inizia a contare».</li><li>Provare il messaggio WhatsApp per prenotare.</li><li>Allergeni dei due kombucha e testo della pagina allergeni.</li><li>Abbinamenti dei piatti e caratteristiche dei vini ancora da confermare.</li><li>Inserire l'Oktoberfest con la sua locandina.</li></ul></div>
     <div class="card"><h3>Idee per il futuro</h3><ul class="tick" style="margin-top:3mm">
       <li>Versione in inglese per i turisti.</li><li>Foto dei piatti e dei vini.</li><li>Un QR dedicato a ogni evento.</li></ul></div>
   </div>
