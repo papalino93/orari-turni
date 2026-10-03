@@ -72,6 +72,28 @@ check("menù: anche la X chiede", (await bar().count()) === 1);
 await bar().getByRole("button", { name: "Esci senza salvare" }).click();
 await p.waitForTimeout(300);
 
+// «Tabella prezzi»: «Salva» nel riquadro salva davvero (la scheda non ha un modulo)
+await p.getByRole("button", { name: "Tabella prezzi" }).click();
+await dlg.waitFor();
+const cell = dlg.locator("input").first();
+const before = await cell.inputValue();
+const after = before === "13" ? "14" : "13";
+await cell.fill(after);
+await p.keyboard.press("Escape");
+await p.waitForTimeout(300);
+check("prezzi: con un prezzo cambiato Esc chiede, con «Salva»", (await bar().count()) === 1 && (await bar().getByRole("button", { name: "Salva", exact: true }).count()) === 1);
+await bar().getByRole("button", { name: "Salva", exact: true }).click();
+await p.getByText(/Prezzi salvati/).first().waitFor();
+await p.keyboard.press("Escape");
+await p.waitForTimeout(400);
+check("prezzi: «Salva» dal riquadro salva e poi Esc chiude", (await bar().count()) === 0 && (await dlg.count()) === 0);
+await p.getByRole("button", { name: "Tabella prezzi" }).click();
+await dlg.waitFor();
+check("prezzi: il prezzo nuovo è rimasto", (await dlg.locator("input").first().inputValue()) === after);
+await dlg.locator("input").first().fill(before);
+await dlg.getByRole("button", { name: "Salva tutto" }).click();
+await p.getByText(/Prezzi salvati/).first().waitFor();
+
 await b.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);

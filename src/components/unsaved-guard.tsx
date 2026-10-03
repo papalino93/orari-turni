@@ -58,19 +58,28 @@ export function UnsavedBar({ onStay, onDiscard, onSave }: { onStay: () => void; 
       >
         <p className="text-sm font-semibold text-foreground">Hai modifiche non salvate</p>
         <p className="mt-0.5 text-xs text-foreground-muted">Se esci adesso, quello che hai cambiato va perso.</p>
-        <div className="mt-3 flex flex-wrap justify-end gap-2">
+        {/* Sul telefono uno sotto l'altro, a tutta larghezza, con «Salva» per primo e «Esci senza salvare» in fondo. */}
+        <div className="mt-3 grid gap-2 sm:flex sm:justify-end">
           <button
             type="button"
             onClick={onDiscard}
-            className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-danger hover:text-danger"
+            className="order-last min-h-11 rounded-full border border-border px-3.5 text-sm font-medium text-foreground-muted hover:border-danger hover:text-danger sm:order-first sm:min-h-10 sm:text-xs"
           >
             Esci senza salvare
           </button>
-          <button type="button" onClick={onStay} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground hover:border-accent">
+          <button
+            type="button"
+            onClick={onStay}
+            className="min-h-11 rounded-full border border-border px-3.5 text-sm font-medium text-foreground hover:border-accent sm:min-h-10 sm:text-xs"
+          >
             Continua a modificare
           </button>
           {onSave && (
-            <button type="button" onClick={onSave} className="min-h-10 rounded-full bg-accent px-4 text-xs font-semibold text-accent-foreground hover:bg-accent-hover">
+            <button
+              type="button"
+              onClick={onSave}
+              className="order-first min-h-11 rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover sm:order-last sm:min-h-10 sm:text-xs"
+            >
               Salva
             </button>
           )}

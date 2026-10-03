@@ -179,7 +179,7 @@ export function ReorderSheet({
   const isWineGroup = level === "item" && section?.kind === "WINE";
 
   return (
-    <Sheet title="Riordina" onClose={onClose} dirty={changed}>
+    <Sheet title="Riordina" onClose={onClose} dirty={changed} onSave={save}>
       <nav aria-label="Livello" className="mb-3 flex flex-wrap items-center gap-1 text-sm">
         <button type="button" onClick={() => go({ sectionId: null, groupId: null })} className={`rounded-lg px-2 py-1 ${level === "section" ? "font-semibold text-foreground" : "text-accent hover:underline"}`}>
           Sezioni

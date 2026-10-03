@@ -17,6 +17,7 @@ export function Sheet({
   children,
   wide = false,
   dirty,
+  onSave,
 }: {
   title: string;
   // Schede con tabelle (prezzi): più larghe sul computer.
@@ -26,6 +27,8 @@ export function Sheet({
   // Chi sa con esattezza se c'è qualcosa da salvare (es. «Tabella prezzi», che resta aperta
   // dopo «Salva tutto») lo dice qui; altrimenti le modifiche si riconoscono da sole.
   dirty?: boolean;
+  // «Salva» dal riquadro di conferma per le schede senza modulo (es. «Salva tutto»).
+  onSave?: () => void;
 }) {
   const guard = useUnsavedGuard(onClose, dirty === undefined ? undefined : () => dirty);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -71,7 +74,12 @@ export function Sheet({
           onStay={guard.stay}
           onDiscard={onClose}
           onSave={
-            hasForm
+            onSave
+              ? () => {
+                  guard.stay();
+                  onSave();
+                }
+              : hasForm
               ? () => {
                   guard.stay();
                   dialogRef.current?.querySelector("form")?.requestSubmit();
