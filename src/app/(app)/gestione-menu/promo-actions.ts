@@ -212,6 +212,7 @@ export async function duplicatePromo(
       where: { id, deletedAt: null },
       include: {
         image: true,
+        pages: { orderBy: { sortOrder: "asc" } },
         section: {
           include: {
             groups: {
@@ -236,8 +237,14 @@ export async function duplicatePromo(
           imageUpdatedAt: source.image ? new Date() : null,
           imageWidth: source.imageWidth,
           imageHeight: source.imageHeight,
+          menuMode: source.menuMode,
+          menuNote: source.menuNote,
+          allergenNotice: source.allergenNotice,
         },
       });
+      for (const page of source.pages) {
+        await tx.menuPromoPage.create({ data: { promoId: copy.id, sortOrder: page.sortOrder, data: page.data, width: page.width, height: page.height } });
+      }
       if (source.image) {
         await tx.menuPromoImage.create({
           data: { promoId: copy.id, data: source.image.data, mimeType: source.image.mimeType },
@@ -261,7 +268,7 @@ export async function duplicatePromo(
         await copySectionBlocks(tx, source.section.id, section.id, editor.name);
         for (const group of source.section.groups) {
           const newGroup = await tx.menuGroup.create({
-            data: { sectionId: section.id, title: group.title, columns: group.columns, sortOrder: group.sortOrder },
+            data: { sectionId: section.id, title: group.title, columns: group.columns, formats: group.formats ?? undefined, sortOrder: group.sortOrder },
           });
           if (group.items.length > 0) {
             await tx.menuItem.createMany({
@@ -284,6 +291,7 @@ export async function duplicatePromo(
                 traits: item.traits,
                 allergens: item.allergens,
                 allergensReviewed: item.allergensReviewed,
+                textOnly: item.textOnly,
                 sortOrder: item.sortOrder,
               })),
             });
@@ -354,6 +362,96 @@ export async function removePromoImage(idInput: string): Promise<ActionResult> {
       prisma.menuPromoImage.deleteMany({ where: { promoId: id } }),
       prisma.menuPromo.update({ where: { id }, data: { imageUpdatedAt: null, imageWidth: null, imageHeight: null } }),
     ]);
+    revalidateMenu();
+  });
+}
+
+// --- Menù speciale: voce per voce o pagine caricate (PDF/foto), note, avviso allergeni
+
+const MAX_PAGES = 6;
+const DEFAULT_ALLERGEN_NOTICE = "Allergeni: chiedi al personale.";
+
+export async function setPromoMenu(
+  idInput: string,
+  input: { mode: "ITEMS" | "FILE"; note: string; allergenNotice: boolean; allergenText: string },
+): Promise<ActionResult<ChangeResult>> {
+  return runAction(async () => {
+    const editor = await requireMenuEditor();
+    const id = parseId(idInput, "pagina");
+    const promo = await prisma.menuPromo.findFirst({ where: { id, deletedAt: null } });
+    assert(promo && promo.kind === "EVENT", "Evento non trovato.");
+    const mode = parseEnum(input.mode, ["ITEMS", "FILE"] as const, "tipo di menù");
+    const menuNote = parseText(input.note, "note del menù", { max: 600 }) || null;
+    // Con il menù caricato l'avviso è sempre acceso: il sito non conosce gli allergeni del file.
+    const on = mode === "FILE" || Boolean(input.allergenNotice);
+    const allergenNotice = on ? parseText(input.allergenText, "avviso allergeni", { max: 200 }) || DEFAULT_ALLERGEN_NOTICE : null;
+    const before = { menuMode: promo.menuMode, menuNote: promo.menuNote, allergenNotice: promo.allergenNotice };
+    const after = { menuMode: mode, menuNote, allergenNotice };
+    if (JSON.stringify(before) === JSON.stringify(after)) return { changeId: null };
+    const changeId = await prisma.$transaction(async (tx) => {
+      await tx.menuPromo.update({ where: { id }, data: after });
+      return logChange(tx, { actorName: editor.name, action: "UPDATE", entity: "promo", entityId: id, label: `Menù speciale · ${promo.title}`, before, after });
+    });
+    revalidateMenu();
+    return { changeId };
+  });
+}
+
+// Una pagina alla volta (ognuna resta sotto il limite di peso delle azioni):
+// arriva già ridimensionata in JPEG dal browser.
+export async function addPromoPage(formData: FormData): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    await requireMenuEditor();
+    const id = parseId(formData.get("promoId"), "pagina");
+    const promo = await prisma.menuPromo.findFirst({ where: { id, deletedAt: null }, include: { _count: { select: { pages: true } } } });
+    assert(promo && promo.kind === "EVENT", "Evento non trovato.");
+    assert(promo._count.pages < MAX_PAGES, `Al massimo ${MAX_PAGES} pagine.`);
+    const file = formData.get("file");
+    assert(file instanceof Blob && file.size > 0, "Pagina vuota.");
+    assert(file.size <= MAX_IMAGE_BYTES, "La pagina è troppo pesante.");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    assert(bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff, "Formato della pagina non valido.");
+    const width = Number(formData.get("width"));
+    const height = Number(formData.get("height"));
+    assert(Number.isInteger(width) && width >= 100 && width <= 4000 && Number.isInteger(height) && height >= 100 && height <= 6000, "Dimensioni della pagina non valide.");
+    const last = await prisma.menuPromoPage.findFirst({ where: { promoId: id }, orderBy: { sortOrder: "desc" } });
+    const page = await prisma.menuPromoPage.create({ data: { promoId: id, sortOrder: (last?.sortOrder ?? -1) + 1, data: Buffer.from(bytes), width, height } });
+    revalidateMenu();
+    return { id: page.id };
+  });
+}
+
+export async function removePromoPage(pageIdInput: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireMenuEditor();
+    const id = parseId(pageIdInput, "pagina del menù");
+    await prisma.menuPromoPage.deleteMany({ where: { id } });
+    revalidateMenu();
+  });
+}
+
+export async function clearPromoPages(promoIdInput: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireMenuEditor();
+    const id = parseId(promoIdInput, "pagina");
+    await prisma.menuPromoPage.deleteMany({ where: { promoId: id } });
+    revalidateMenu();
+  });
+}
+
+export async function movePromoPage(pageIdInput: string, directionInput: "up" | "down"): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireMenuEditor();
+    const id = parseId(pageIdInput, "pagina del menù");
+    const direction = parseEnum(directionInput, ["up", "down"] as const, "direzione");
+    const page = await prisma.menuPromoPage.findUnique({ where: { id }, select: { promoId: true } });
+    assert(page, "Pagina non trovata.");
+    const pages = await prisma.menuPromoPage.findMany({ where: { promoId: page.promoId }, orderBy: { sortOrder: "asc" }, select: { id: true } });
+    const i = pages.findIndex((p) => p.id === id);
+    const j = direction === "up" ? i - 1 : i + 1;
+    if (j < 0 || j >= pages.length) return;
+    [pages[i], pages[j]] = [pages[j], pages[i]];
+    await prisma.$transaction(pages.map((p, k) => prisma.menuPromoPage.update({ where: { id: p.id }, data: { sortOrder: k } })));
     revalidateMenu();
   });
 }

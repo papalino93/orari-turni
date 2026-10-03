@@ -130,6 +130,7 @@ export async function loadStatsSetting(): Promise<StatsSetting> {
 }
 
 const promoInclude = {
+  pages: { orderBy: { sortOrder: "asc" as const }, select: { id: true, width: true, height: true } },
   section: {
     include: {
       groups: {

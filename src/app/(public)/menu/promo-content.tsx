@@ -36,7 +36,8 @@ export function PromoContent({
   const Heading = inline ? "h2" : "h1";
   const status = promoStatus(promo, dayKey);
   const showMenu = promo.kind === "EVENT" && promo.section && isPromoMenuVisible(promo, dayKey);
-  const groups = showMenu ? (promo.section?.groups ?? []).filter((g) => g.items.length > 0) : [];
+  const fileMenu = promo.menuMode === "FILE";
+  const groups = showMenu && !fileMenu ? (promo.section?.groups ?? []).filter((g) => g.items.length > 0) : [];
 
   return (
     <div>
@@ -98,7 +99,30 @@ export function PromoContent({
               blocks={blocks.filter((b) => b.placement === "SECTIONS" && b.sectionIds.includes(promo.section!.id))}
             />
           )}
-          {groups.length === 0 && <p className="mt-6 text-center italic text-[#5B605A]">Il menù sarà pubblicato a breve.</p>}
+          {promo.menuNote && (
+            <p className="mx-auto mt-5 max-w-[480px] whitespace-pre-line text-balance text-center text-[16.5px] italic leading-normal text-[#3F4540]">{promo.menuNote}</p>
+          )}
+          {fileMenu && promo.pages.length > 0 && (
+            <div className="mt-7 flex flex-col gap-4">
+              {promo.pages.map((p, i) => (
+                <a key={p.id} href={`/menu/p/${promo.slug}/pagina/${p.id}`} target="_blank" rel="noopener" className="block" aria-label={`Apri la pagina ${i + 1} del menù a tutto schermo`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- pagina del menù caricato, servita dalla sua rotta */}
+                  <img
+                    src={`/menu/p/${promo.slug}/pagina/${p.id}`}
+                    alt={`Menù speciale, pagina ${i + 1}`}
+                    width={p.width}
+                    height={p.height}
+                    loading={i === 0 ? "eager" : "lazy"}
+                    className="h-auto w-full rounded-xl border border-[#D9CEBC] bg-white shadow-sm"
+                  />
+                </a>
+              ))}
+              <p className="menu-sans m-0 text-center text-[11px] text-[#5B605A]">Tocca una pagina per vederla più grande.</p>
+            </div>
+          )}
+          {((fileMenu && promo.pages.length === 0) || (!fileMenu && groups.length === 0)) && (
+            <p className="mt-6 text-center italic text-[#5B605A]">Il menù sarà pubblicato a breve.</p>
+          )}
           {groups.map((group) => (
             <div key={group.id} className="mt-9">
               <div className="flex items-end gap-2.5 pb-2.5">
@@ -125,7 +149,7 @@ export function PromoContent({
                       {item.description && (
                         <div className="text-pretty text-[16.5px] leading-[1.45] text-[#3F4540]">{nb(item.description)}</div>
                       )}
-                      <AllergenMarks item={item} />
+                      {!(promo.allergenNotice && !item.allergensReviewed) && <AllergenMarks item={item} />}
                     </div>
                     {parseFormats(group.formats) ? (
                       <FormatPrices formats={parseFormats(group.formats)!} variants={variants} soldOut={soldOut} />
@@ -141,7 +165,12 @@ export function PromoContent({
               })}
             </div>
           ))}
-          {groups.length > 0 && (
+          {promo.allergenNotice && (
+            <div className="mx-auto mt-8 flex max-w-[420px] flex-col items-center gap-1.5 border-y-[3px] border-double border-[#C9A96E] px-3 py-3 text-center">
+              <p className="m-0 text-balance text-[16.5px] font-medium leading-normal text-[#1F2621]">{promo.allergenNotice}</p>
+            </div>
+          )}
+          {groups.length > 0 && !promo.allergenNotice && (
             <div className="-mt-10">
               <AllergenLegend />
             </div>

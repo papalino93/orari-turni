@@ -43,7 +43,7 @@ export type ItemInput = {
   // Solo piatti. allergensReviewed false = "da compilare" (non è "nessuno").
   allergens?: string[];
   allergensReviewed?: boolean;
-  // Più formati con prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l): alternativi al prezzo singolo.
+  // Più formati con prezzo (es. birra 0,2 l · 0,4 l · 1 l): alternativi al prezzo singolo.
   variants?: { label: string; price: string }[];
 };
 

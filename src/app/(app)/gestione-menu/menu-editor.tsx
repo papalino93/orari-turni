@@ -14,6 +14,7 @@ import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
 import { ReorderSheet } from "./reorder-ui";
 import { PricesSheet } from "./prices-ui";
+import { EventMenuPanel } from "./event-menu-ui";
 import { useCollapsedGroups } from "./collapsed-groups";
 import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
 import { ItemSearch } from "./search-ui";
@@ -73,6 +74,10 @@ export type EditorPromo = {
   endDate: string;
   hidden: boolean;
   imageVersion: number | null;
+  menuMode: "ITEMS" | "FILE";
+  menuNote: string | null;
+  allergenNotice: string | null;
+  pages: { id: string; width: number; height: number }[];
   section: EditorSection | null;
 };
 
@@ -508,6 +513,8 @@ export function MenuEditor({
             <>
               <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
 
+              {activePromo && <EventMenuPanel key={activePromo.id} promo={activePromo} run={run} />}
+
               {!activePromo && (
                 <SectionTexts
                   section={section}
@@ -520,6 +527,9 @@ export function MenuEditor({
                 />
               )}
 
+              {/* Con il menù caricato (PDF o foto) gruppi e voci non si vedono: restano salvati. */}
+              {!(activePromo && activePromo.menuMode === "FILE") && (
+              <>
               {section.groups.length > 1 && (
                 <div className="-mb-1 flex justify-end gap-1 text-xs">
                   {section.groups.some((g) => !groupsUi.isClosed(g.id)) && (
@@ -558,6 +568,8 @@ export function MenuEditor({
               {activePromo && section.groups.length === 0 && <EmptyEventMenu sectionId={section.id} run={run} />}
 
               <NewGroupForm sectionId={section.id} run={run} />
+              </>
+              )}
             </>
           )}
         </div>
@@ -783,7 +795,7 @@ function GroupCard({
   const [title, setTitle] = useState(group.title);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [busy, setBusy] = useState(false);
-  // Formati del gruppo (es. birre 0,2 l · 0,4 l · Maß 1 l): null = finestrella chiusa.
+  // Formati del gruppo (es. birre 0,2 l · 0,4 l · 1 l): null = finestrella chiusa.
   const [formatsDraft, setFormatsDraft] = useState<string[] | null>(null);
 
   async function saveFormats(list: string[]) {
@@ -908,7 +920,7 @@ function GroupCard({
         <div className="border-b border-border bg-surface-2/50 px-3 py-3">
           <p className="text-xs font-medium text-foreground">Formati del gruppo</p>
           <p className="mt-0.5 text-[11px] text-foreground-muted">
-            Da 2 a 4 colonne di prezzi uguali per tutte le voci (es. 0,2 l · 0,4 l · Maß 1 l). In ogni voce scrivi solo i prezzi; casella vuota = quel
+            Da 2 a 4 colonne di prezzi uguali per tutte le voci (es. 0,2 l · 0,4 l · 1 l). In ogni voce scrivi solo i prezzi; casella vuota = quel
             formato non c&apos;è.
           </p>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -919,7 +931,7 @@ function GroupCard({
                 onChange={(e) => setFormatsDraft((prev) => prev && prev.map((x, j) => (j === i ? e.target.value : x)))}
                 maxLength={20}
                 aria-label={`Formato ${i + 1}`}
-                placeholder={["es. 0,2 l", "es. 0,4 l", "es. Maß 1 l", "facoltativo"][i]}
+                placeholder={["es. 0,2 l", "es. 0,4 l", "es. 1 l", "facoltativo"][i]}
                 className="min-w-0 rounded-lg border border-border bg-surface px-3 py-2 text-base text-foreground outline-none focus:border-accent sm:text-sm"
               />
             ))}

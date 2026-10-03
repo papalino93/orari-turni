@@ -88,7 +88,7 @@ await dialog().waitFor();
 await dialog().getByLabel("Nome", { exact: true }).fill("Paulaner Helles");
 await dialog().getByLabel("Descrizione").fill("Chiara, rinfrescante");
 check("formati: prezzo singolo richiesto finché non ci sono formati", (await dialog().getByLabel("Prezzo (€)").count()) === 1);
-for (const [i, [l, p]] of [["0,2 l", "3,50"], ["0,4 l", "6"], ["Maß 1 l", "11"]].entries()) {
+for (const [i, [l, p]] of [["0,2 l", "3,50"], ["0,4 l", "6"], ["1 l", "11"]].entries()) {
   await dialog().getByRole("button", { name: "+ Aggiungi un formato" }).click();
   await dialog().getByLabel(`Formato ${i + 1}`, { exact: true }).fill(l);
   await dialog().getByLabel(`Prezzo del formato ${i + 1}`).fill(p);
@@ -119,7 +119,7 @@ const order = await pub.evaluate(() => {
 check("pubblico: evento in corso aperto prima del menù", order.ev && order.before);
 check("pubblico: evento in corso non duplicato nella striscia", !order.strip);
 const live = (await pub.locator('[id^="evento-"]').innerText()).replace(/ /g, " ");
-check("pubblico: menù speciale con formati e prezzi", /Paulaner Helles/.test(live) && /0,2 l\s*3,50/.test(live) && /0,4 l\s*6/.test(live) && /Maß 1 l\s*11/.test(live));
+check("pubblico: menù speciale con formati e prezzi", /Paulaner Helles/.test(live) && /0,2 l\s*3,50/.test(live) && /0,4 l\s*6/.test(live) && /1 l\s*11/.test(live));
 check("pubblico: 'Vai al menù' presente", (await pub.locator('a[href="#carta"]').count()) >= 2);
 check("pubblico: locandina caricata", await pub.locator('[id^="evento-"] img').first().evaluate((i) => i.complete && i.naturalWidth > 0));
 if (SHOTS) {

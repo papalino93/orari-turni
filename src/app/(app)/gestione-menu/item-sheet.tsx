@@ -94,14 +94,14 @@ export function ItemSheet({
   const [pairWineId, setPairWineId] = useState<string | null>(pairLost ? null : (item?.pairWineId ?? null));
   // Gli abbinamenti valgono per i piatti del menù fisso, non per eventi e «Oggi fuori menù».
   const canPair = !isWine && !section.promoId && !section.dailyOnly && wines.length > 0;
-  // Più formati con prezzo (es. birra 0,2 l · 0,4 l · Maß 1 l), alternativi al prezzo singolo.
+  // Più formati con prezzo (es. birra 0,2 l · 0,4 l · 1 l), alternativi al prezzo singolo.
   const [variants, setVariants] = useState<{ label: string; price: string }[]>(
     () => item?.variants?.map((v) => ({ label: v.label, price: formatPrice(v.cents) })) ?? [],
   );
   const [allergenMode, setAllergenMode] = useState<AllergenState>(item ? allergenState(item) : "unknown");
   const [allergens, setAllergens] = useState<string[]>(item?.allergens ?? []);
   const [targetGroup, setTargetGroup] = useState(groupId);
-  // Formati del gruppo (es. birre 0,2 l · 0,4 l · Maß 1 l): un prezzo per colonna.
+  // Formati del gruppo (es. birre 0,2 l · 0,4 l · 1 l): un prezzo per colonna.
   const groupFormats = isWine ? null : (sections.flatMap((x) => x.groups).find((g) => g.id === targetGroup)?.formats ?? null);
   const [formatPrices, setFormatPrices] = useState<Record<string, string>>(() =>
     Object.fromEntries((item?.variants ?? []).map((v) => [v.label, formatPrice(v.cents)])),
