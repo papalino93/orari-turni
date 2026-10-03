@@ -1,7 +1,7 @@
 "use client";
 
 import { IconVenue, PanelHead } from "./panel-head";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
 import { ZoomableImage } from "@/components/zoomable-image";
@@ -31,7 +31,15 @@ export type VenueSheetKind = "hero" | "hours" | "contacts";
 export function VenuePanel({ venue, onOpen }: { venue: EditorVenue; onOpen: (kind: VenueSheetKind) => void }) {
   // Chiuso di default: serve di rado, la lista del menù resta più in alto.
   const [open, setOpen] = useState(false);
-  const status = openStatus(venue.hours, new Date());
+  // Aperto/chiuso sull'orologio del dispositivo, calcolato dopo il primo disegno
+  // (come sul menù dei clienti): così server e browser non si contraddicono.
+  const [status, setStatus] = useState<ReturnType<typeof openStatus>>(null);
+  useEffect(() => {
+    const update = () => setStatus(openStatus(venue.hours, new Date()));
+    update();
+    const timer = setInterval(update, 60_000);
+    return () => clearInterval(timer);
+  }, [venue.hours]);
   const upcoming = venue.hours.exceptions.length;
   const rows: { kind: VenueSheetKind; title: string; summary: string; label: string }[] = [
     {
