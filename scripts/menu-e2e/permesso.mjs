@@ -40,7 +40,7 @@ await p.waitForTimeout(1500);
 check("DB: turno e permesso nello stesso giorno", DB(`select (select string_agg("startTime"||'-'||"endTime", ',') from "ShiftBlock" where "employeeId"='${EMP}' and date='${nextMonday}')||'|'||(select type||':'||quantity from "LeaveEntry" where "employeeId"='${EMP}' and date='${nextMonday}')`) === "16:30-20:00|PERMESSO:2");
 const card = await p.locator("main").innerText();
 check("griglia: si vedono turno e permesso", /16:30–\s*20:00/.test(card) && /\+ Permesso 2 h/.test(card), card.slice(0, 300));
-await p.screenshot({ path: process.env.SHOTDIR ? `${process.env.SHOTDIR}/permesso-griglia.png` : "/dev/null" });
+if (process.env.SHOTDIR) await p.screenshot({ path: `${process.env.SHOTDIR}/permesso-griglia.png` });
 check("griglia: ore della settimana = ore lavorate (3,5)", /\b3,5\b/.test(card), card.match(/[0-9,]+\s*ORE/i)?.[0] ?? "");
 
 // Riaprendo, il permesso c'è già

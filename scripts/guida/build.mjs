@@ -248,7 +248,7 @@ pages.push(`<section class="page wine" style="justify-content:center;gap:14mm">$
 pages.push(`<section class="page paper">${chrome(pg(), "Eventi e annunci")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Eventi e annunci</div>
   <h2>Ogni serata<br><em>ha la sua pagina</em></h2>
-  <p class="lead">Una locandina, un testo, le date. Per le serate con un menù dedicato si compone anche il menù speciale, con più formati e prezzi.</p></div>
+  <p class="lead">Una locandina, un testo, le date. Se la serata ha un menù suo (spunta «Ha un menù dedicato») si compone anche quello, con più formati e prezzi.</p></div>
   <div style="display:flex;gap:9mm;margin-top:8mm;justify-content:center;align-items:flex-start">
     <div style="width:52mm">${phone("pub-evento", 52)}<div class="cap"><span class="nb">1</span><b>Nei giorni dell'evento</b> si apre subito dopo la copertina.</div></div>
     <div style="width:52mm;margin-top:12mm">${phone("pub-evento-pagina", 52)}<div class="cap"><span class="nb">2</span><b>Prima dell'evento</b> la locandina è in evidenza da una settimana.</div></div>
