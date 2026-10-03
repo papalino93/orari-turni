@@ -42,6 +42,10 @@ export function FormatPrices({
   // il prezzo si vede, allineato a destra, invece di una fila di «—».
   price?: number | null;
 }) {
+  // Formati della voce diversi da quelli del gruppo: si mostrano in fila, come senza colonne.
+  if (variants?.length && !variants.some((v) => formats.includes(v.label))) {
+    return <Variants variants={variants} soldOut={soldOut} />;
+  }
   if (!variants?.length && price !== null) {
     return (
       <div className="relative flex flex-none gap-x-2.5">

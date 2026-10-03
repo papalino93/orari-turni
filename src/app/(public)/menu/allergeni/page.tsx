@@ -19,7 +19,7 @@ export default async function AllergeniPage() {
   const [menu, promos, daily] = await Promise.all([loadMenu(), loadVisiblePromos(dayKey), loadDaily(dayKey)]);
   // Il menù speciale di un evento conta finché l'evento è in corso.
   const eventSections = promos.flatMap((p) =>
-    p.kind === "EVENT" && p.section && isPromoMenuVisible(p, dayKey) ? [{ ...p.section, title: p.title }] : [],
+    p.kind === "EVENT" && p.hasMenu && p.menuMode !== "FILE" && p.section && isPromoMenuVisible(p, dayKey) ? [{ ...p.section, title: p.title }] : [],
   );
 
   // Solo i piatti: per i vini vale la nota unica sui solfiti. Un gruppo senza
@@ -29,7 +29,7 @@ export default async function AllergeniPage() {
       id: s.id,
       title: s.title,
       groups: s.groups
-        .filter((g) => g.items.length > 0)
+        .filter((g) => g.items.some((i) => !i.textOnly))
         .map((g) => ({
           id: g.id,
           title: g.title,

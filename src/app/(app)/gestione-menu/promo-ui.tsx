@@ -101,14 +101,16 @@ export function PromoCard({
           <div className="flex flex-wrap items-center gap-2">
             <StatusChip status={status} />
             <span className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">
-              {promo.label || (promo.kind === "EVENT" ? "Evento con menù speciale" : "Annuncio")}
+              {promo.label || (promo.kind === "EVENT" ? (promo.hasMenu ? "Evento con menù speciale" : "Evento") : "Annuncio")}
             </span>
           </div>
           <h2 className="mt-1 break-words text-base font-semibold text-foreground">{promo.title}</h2>
           <p className="text-sm text-foreground-muted">{formatPromoDates(promo.startDate, promo.endDate)}</p>
           <p className="mt-1 text-[11px] text-foreground-muted">
             {promo.kind === "EVENT"
-              ? "Locandina in «In evidenza» dal giorno scelto; il menù speciale solo durante l'evento."
+              ? promo.hasMenu
+                ? "Locandina in «In evidenza» dal giorno scelto; il menù speciale solo durante l'evento."
+                : "Locandina in «In evidenza» dal giorno scelto; nei giorni dell'evento si apre dopo la copertina."
               : "Compare in «In evidenza» dal giorno di inizio fino alla fine."}{" "}
             Dopo la fine sparisce da sola.
           </p>
@@ -177,6 +179,8 @@ export function PromoSheet({
   const toast = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<"NOTICE" | "EVENT">(promo?.kind ?? "EVENT");
+  // Non tutti gli eventi hanno un menù loro (es. una degustazione fuori sede).
+  const [hasMenu, setHasMenu] = useState(promo?.hasMenu ?? true);
   const [title, setTitle] = useState(promo?.title ?? "");
   const [label, setLabel] = useState(promo?.label ?? "");
   const [body, setBody] = useState(promo?.body ?? "");
@@ -236,6 +240,7 @@ export function PromoSheet({
       startDate,
       endDate,
       blockIds: isEvent ? blockIds : undefined,
+      hasMenu: isEvent ? hasMenu : true,
     };
     const result = promo
       ? await run(() => updatePromo(promo.id, input), "Pagina aggiornata")
@@ -275,7 +280,7 @@ export function PromoSheet({
           <div role="radiogroup" aria-label="Che cosa vuoi creare" className="grid grid-cols-2 gap-2">
             {(
               [
-                ["EVENT", "Evento con menù speciale"],
+                ["EVENT", "Evento"],
                 ["NOTICE", "Annuncio"],
               ] as const
             ).map(([value, label]) => (
@@ -419,7 +424,19 @@ export function PromoSheet({
           </p>
         )}
 
-        {isEvent && (promo === null || promo.section !== null) && sectionBlocks.length > 0 && (
+        {isEvent && (
+          <label className="flex items-start gap-3 rounded-xl border border-border px-3 py-2.5">
+            <input type="checkbox" checked={hasMenu} onChange={(e) => setHasMenu(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]" />
+            <span>
+              <span className="block text-sm font-medium text-foreground">Ha un menù dedicato</span>
+              <span className="block text-[11px] text-foreground-muted">
+                Cibo e bevande della serata, voce per voce o in PDF. Senza spunta la pagina mostra solo locandina, testo e date.
+              </span>
+            </span>
+          </label>
+        )}
+
+        {isEvent && hasMenu && (promo === null || promo.section !== null) && sectionBlocks.length > 0 && (
           <fieldset className="rounded-xl border border-border px-3 py-1.5">
             <legend className="px-1 text-[11px] text-foreground-muted">Nel menù speciale mostra anche</legend>
             {sectionBlocks.map((b) => (
@@ -436,7 +453,7 @@ export function PromoSheet({
           </fieldset>
         )}
 
-        {isEvent && !promo && (
+        {isEvent && hasMenu && !promo && (
           <p className="rounded-xl border border-accent/30 bg-accent/5 px-3.5 py-3 text-xs leading-relaxed text-foreground">
             <span className="font-semibold">E il menù speciale?</span> Si compone subito dopo: tocca «Crea evento e componi il menù», si apre la
             pagina dell&apos;evento e lì aggiungi i gruppi (es. Da bere, Da mangiare) con le voci e i prezzi.
@@ -448,7 +465,7 @@ export function PromoSheet({
           disabled={busy || converting || !title.trim()}
           className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
-          {busy ? "Salvo…" : promo ? "Salva" : isEvent ? "Crea evento e componi il menù" : "Crea annuncio"}
+          {busy ? "Salvo…" : promo ? "Salva" : isEvent ? (hasMenu ? "Crea evento e componi il menù" : "Crea evento") : "Crea annuncio"}
         </button>
       </form>
     </Sheet>
@@ -472,7 +489,8 @@ export function DuplicatePromoSheet({
   const length = Math.max(0, diffDays(promo.startDate, promo.endDate));
   const [title, setTitle] = useState(promo.title);
   const nextStart = addDaysKey(today, 7);
-  const [showFrom, setShowFrom] = useState(today);
+  // Evento: locandina da subito; annuncio: compare dal giorno di inizio.
+  const [showFrom, setShowFrom] = useState(promo.kind === "EVENT" ? today : nextStart);
   const [startDate, setStartDate] = useState(nextStart);
   const [endDate, setEndDate] = useState(addDaysKey(nextStart, length));
   const [busy, setBusy] = useState(false);
@@ -510,6 +528,8 @@ export function DuplicatePromoSheet({
                 value={startDate}
                 onChange={(e) => {
                   setStartDate(e.target.value);
+                  // La fine si sposta con l'inizio, mantenendo la durata dell'edizione precedente.
+                  if (e.target.value) setEndDate(addDaysKey(e.target.value, length));
                   if (promo.kind !== "EVENT") setShowFrom(e.target.value);
                 }}
                 required

@@ -105,6 +105,7 @@ export default async function GestioneMenuPage() {
     hidden: p.hidden,
     imageVersion: p.imageUpdatedAt ? p.imageUpdatedAt.getTime() : null,
     menuMode: p.menuMode === "FILE" ? "FILE" : "ITEMS",
+    hasMenu: p.hasMenu,
     menuNote: p.menuNote,
     allergenNotice: p.allergenNotice,
     pages: p.pages,
@@ -118,7 +119,8 @@ export default async function GestioneMenuPage() {
     actorName: h.actorName,
     action: h.action,
     label: h.label,
-    undone: h.undoneById !== null,
+    // Un «Ripristinato» di un'operazione di gruppo (prezzi, ordine, voci incollate) non si ripristina di nuovo.
+    undone: h.undoneById !== null || (h.action === "RESTORE" && h.entityId.startsWith("*")),
   }));
 
   return <MenuEditor sections={sections} daily={{ sections: dailySections, recent }} promos={promos} today={dayKey} blocks={blocks} venue={venueData} history={entries} />;

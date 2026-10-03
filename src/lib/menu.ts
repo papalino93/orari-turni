@@ -11,7 +11,7 @@ import { ValidationError } from "@/lib/validation";
 // Come tryParsePrice, ma lancia un errore leggibile se non è un prezzo.
 export function parsePrice(value: unknown, field: string): number | null {
   const parsed = tryParsePrice(value);
-  if (!parsed.ok) throw new ValidationError(`Prezzo ${field} non valido (esempio: 7 oppure 7,50).`);
+  if (!parsed.ok) throw new ValidationError(`Prezzo ${field ? `${field} ` : ""}non valido (esempio: 7 oppure 7,50).`);
   return parsed.cents;
 }
 

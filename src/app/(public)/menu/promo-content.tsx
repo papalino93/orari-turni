@@ -39,6 +39,7 @@ export function PromoContent({
   // Un evento senza voci né pagine (es. una serata fuori sede) non ha un «menù speciale» da annunciare.
   const hasMenu = Boolean(
     promo.kind === "EVENT" &&
+      promo.hasMenu &&
       promo.section &&
       (promo.menuNote || (fileMenu ? promo.pages.length > 0 : promo.section.groups.some((g) => g.items.length > 0))),
   );
@@ -126,7 +127,7 @@ export function PromoContent({
               <p className="menu-sans m-0 text-center text-[11px] text-[#5B605A]">Tocca una pagina per vederla più grande.</p>
             </div>
           )}
-          {((fileMenu && promo.pages.length === 0) || (!fileMenu && groups.length === 0)) && (
+          {!promo.menuNote && ((fileMenu && promo.pages.length === 0) || (!fileMenu && groups.length === 0)) && (
             <p className="mt-6 text-center italic text-[#5B605A]">Il menù sarà pubblicato a breve.</p>
           )}
           {groups.map((group) => (

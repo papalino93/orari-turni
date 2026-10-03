@@ -73,8 +73,10 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
   const section = sections.find((s) => s.id === sectionId) ?? null;
 
   const formatsOf = (g: EditorSection["groups"][number], kind: "WINE" | "FOOD") => (kind === "FOOD" ? g.formats : null);
-  // Una voce con un prezzo solo in un gruppo con i formati (es. l'acqua) resta a prezzo singolo.
-  const itemFormats = (item: EditorItem, formats: string[] | null) => (formats && (item.variants?.length || item.priceCents === null) ? formats : null);
+  // Una voce con un prezzo solo in un gruppo con i formati (es. l'acqua) resta a prezzo singolo,
+  // e una con formati suoi (nomi diversi dalle colonne) si modifica formato per formato.
+  const itemFormats = (item: EditorItem, formats: string[] | null) =>
+    formats && (item.variants?.length || item.priceCents === null) && !item.variants?.some((v) => !formats.includes(v.label)) ? formats : null;
   const all = sections.flatMap((s) =>
     s.groups.flatMap((g) =>
       g.items.filter((item) => !item.textOnly).map((item) => ({ item, kind: s.kind, section: s, formats: itemFormats(item, formatsOf(g, s.kind)) })),
@@ -184,7 +186,10 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
                         ) : item.variants?.length ? (
                           <span className="shrink-0 text-[11px] text-foreground-muted">{item.variants.length} formati</span>
                         ) : (
-                          <PriceInput value={d.price} original={orig.price} label={`Prezzo · ${item.name}`} onChange={(v) => edit(item, { price: v })} />
+                          <>
+                            {formats && <span className="shrink-0 text-[10px] text-foreground-muted">prezzo unico</span>}
+                            <PriceInput value={d.price} original={orig.price} label={`Prezzo · ${item.name}`} onChange={(v) => edit(item, { price: v })} />
+                          </>
                         )}
                       </div>
                       {section.kind === "FOOD" &&

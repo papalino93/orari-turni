@@ -37,10 +37,10 @@ const publicText = async (path) => {
   return { status: r?.status(), text: (await pub.locator("body").innerText()).replace(/ /g, " ") };
 };
 
-async function createPromo({ type, title, label, body, start, end, showFrom, withImage }) {
+async function createPromo({ type, title, label, body, start, end, showFrom, withImage, noMenu = false }) {
   await page.getByRole("button", { name: "+ Evento o annuncio" }).click();
   await dialog().waitFor();
-  await dialog().getByRole("radio", { name: type === "EVENT" ? "Evento con menù speciale" : "Annuncio" }).click();
+  await dialog().getByRole("radio", { name: type === "EVENT" ? "Evento" : "Annuncio", exact: true }).click();
   await dialog().getByLabel("Titolo", { exact: true }).fill(title);
   if (label) await dialog().getByLabel("Tipo").fill(label);
   if (body) await dialog().getByLabel("Testo").fill(body);
@@ -53,7 +53,8 @@ async function createPromo({ type, title, label, body, start, end, showFrom, wit
     await dialog().getByLabel("Dal", { exact: true }).fill(start);
     await dialog().getByLabel("Al", { exact: true }).fill(end);
   }
-  await dialog().getByRole("button", { name: type === "EVENT" ? "Crea evento" : "Crea annuncio" }).click();
+  if (noMenu) await dialog().getByRole("checkbox", { name: /Ha un menù dedicato/ }).uncheck();
+  await dialog().getByRole("button", { name: type === "EVENT" ? /^Crea evento/ : "Crea annuncio" }).click();
   await dialog().waitFor({ state: "detached" });
   await settle(2000);
 }
@@ -144,7 +145,9 @@ const allergens = await publicText("/menu/allergeni");
 check("allergeni: il cibo dell'evento in corso compare", /Brezel/.test(allergens.text) && /Glutine/.test(allergens.text));
 
 // ---- evento annunciato (non ancora iniziato)
-await createPromo({ type: "EVENT", title: "Serata Jazz", label: "Musica dal vivo", body: "Musica dal vivo", start: biz(5), end: biz(5), showFrom: biz(0), withImage: false });
+await createPromo({ type: "EVENT", title: "Serata Jazz", label: "Musica dal vivo", body: "Musica dal vivo", start: biz(5), end: biz(5), showFrom: biz(0), withImage: false, noMenu: true });
+check("evento senza menù dedicato: salvato così", DB(`select "hasMenu"::text from "MenuPromo" where title='Serata Jazz'`) === "false");
+check("gestione: «Evento senza menù dedicato» al posto del menù speciale", (await page.getByText("Evento senza menù dedicato").count()) === 1 && (await page.getByRole("heading", { name: "Menù speciale" }).count()) === 0);
 let menu = await publicText("/menu");
 check("annunciato: scheda nella striscia In evidenza", /In evidenza/i.test(menu.text) && /Serata Jazz/.test(menu.text));
 check("tipo personalizzato: compare sulla scheda", /Musica dal vivo/i.test(await pub.locator('section[aria-label="In evidenza"]').innerText()));

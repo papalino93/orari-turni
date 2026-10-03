@@ -15,6 +15,7 @@ import { ItemSheet } from "./item-sheet";
 import { ReorderSheet } from "./reorder-ui";
 import { PricesSheet } from "./prices-ui";
 import { EventMenuPanel } from "./event-menu-ui";
+import { setPromoHasMenu } from "./promo-actions";
 import { useCollapsedGroups } from "./collapsed-groups";
 import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
 import { ItemSearch } from "./search-ui";
@@ -79,6 +80,7 @@ export type EditorPromo = {
   menuMode: "ITEMS" | "FILE";
   menuNote: string | null;
   allergenNotice: string | null;
+  hasMenu: boolean;
   pages: { id: string; width: number; height: number }[];
   section: EditorSection | null;
 };
@@ -189,7 +191,7 @@ export function MenuEditor({
   // Piatti con allergeni "da compilare": sul menù dei clienti risultano "da
   // verificare con il personale". Gli eventi già conclusi non contano.
   const liveEventSections = promos.flatMap((p) =>
-    p.section && effectiveStatus(p, today) !== "past" && !p.allergenNotice && p.menuMode !== "FILE" ? [p.section] : [],
+    p.section && p.hasMenu && effectiveStatus(p, today) !== "past" && !p.allergenNotice && p.menuMode !== "FILE" ? [p.section] : [],
   );
   const missingAllergens = [...daily.sections, ...sections, ...liveEventSections].reduce(
     (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed && !i.textOnly).length, 0) : 0),
@@ -217,7 +219,7 @@ export function MenuEditor({
     .filter((s) => s.kind === "WINE")
     .flatMap((s) =>
       s.groups.flatMap((g) =>
-        g.items.map((i) => ({ id: i.id, name: i.name, section: s.label, detail: [i.wineName, wineDetail(i), priceSummary(i, "WINE")].filter(Boolean).join(" · "), soldOut: isSold(i) })),
+        g.items.filter((i) => !i.textOnly).map((i) => ({ id: i.id, name: i.name, section: s.label, detail: [i.wineName, wineDetail(i), priceSummary(i, "WINE")].filter(Boolean).join(" · "), soldOut: isSold(i) })),
       ),
     );
   const wineNames = new Map(wines.map((w) => [w.id, w.name]));
@@ -509,11 +511,13 @@ export function MenuEditor({
 
           {activePromo && activePromo.kind === "NOTICE" && (
             <p className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-foreground-muted">
-              Un annuncio ha testo e foto, senza menù. Per aggiungere un menù speciale con voci e prezzi crea un «Evento con menù speciale».
+              Un annuncio ha testo e foto, senza menù. Per un menù speciale con voci e prezzi crea un «Evento» con la spunta «Ha un menù dedicato».
             </p>
           )}
 
-          {section && (
+          {activePromo && activePromo.kind === "EVENT" && !activePromo.hasMenu && <NoEventMenu promo={activePromo} run={run} />}
+
+          {section && !(activePromo && !activePromo.hasMenu) && (
             <>
               <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
 
@@ -617,7 +621,7 @@ export function MenuEditor({
             ...sections,
             // Menù speciali degli eventi non conclusi (voce per voce), con il nome dell'evento.
             ...promos.flatMap((p) =>
-              p.section && p.menuMode !== "FILE" && effectiveStatus(p, today) !== "past" && p.section.groups.length > 0 ? [{ ...p.section, label: p.title }] : [],
+              p.section && p.hasMenu && p.menuMode !== "FILE" && effectiveStatus(p, today) !== "past" && p.section.groups.length > 0 ? [{ ...p.section, label: p.title }] : [],
             ),
           ]}
           startSectionId={section?.id ?? null}
@@ -1148,6 +1152,29 @@ function GroupCard({
       </div>
       )}
     </section>
+  );
+}
+
+// Evento senza menù dedicato: lo si dice e lo si può aggiungere con un tocco.
+function NoEventMenu({ promo, run }: { promo: EditorPromo; run: RunFn }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="rounded-2xl border border-dashed border-border px-4 py-4">
+      <p className="text-sm font-medium text-foreground">Evento senza menù dedicato</p>
+      <p className="mt-1 text-xs text-foreground-muted">Sul menù compaiono locandina, testo e date. Se la serata ha cibo o bevande sue, aggiungi il menù.</p>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          await run(() => setPromoHasMenu(promo.id, true), "Menù dedicato aggiunto");
+          setBusy(false);
+        }}
+        className="mt-3 min-h-10 rounded-full bg-accent px-4 text-xs font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+      >
+        + Aggiungi un menù dedicato
+      </button>
+    </div>
   );
 }
 

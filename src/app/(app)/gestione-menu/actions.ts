@@ -76,7 +76,7 @@ const RESTORABLE: Record<string, readonly string[]> = {
   item: [...ITEM_KEYS, "soldOutDay", "deletedAt"],
   group: ["title", "columns", "formats", "deletedAt"],
   section: ["note", "addonTitle", "addon"],
-  promo: ["title", "label", "body", "showFrom", "startDate", "endDate", "hidden", "deletedAt"],
+  promo: ["title", "label", "body", "showFrom", "startDate", "endDate", "hidden", "hasMenu", "deletedAt"],
   block: ["kind", "label", "text", "priceCents", "placement", "sectionIds", "startDate", "endDate", "hidden", "deletedAt"],
 };
 
@@ -99,6 +99,7 @@ function parseVariantInput(value: unknown): MenuVariant[] | null {
   if (!Array.isArray(value) || value.length === 0) return null;
   assert(value.length <= 8, "Al massimo 8 formati per voce.");
   return value.map((v: { label?: unknown; price?: unknown }, i) => {
+    assert(typeof v?.label === "string" && v.label.trim(), `Manca il nome del formato ${i + 1} (es. 0,4 l).`);
     const label = parseText(v?.label, `del formato ${i + 1}`, { max: 30, required: true });
     const cents = parsePrice(v?.price, `del formato «${label}»`);
     assert(cents !== null, `Manca il prezzo del formato «${label}».`);
@@ -154,7 +155,7 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput, { requireRegion
   const description = parseText(input.description, "descrizione", { max: 300 }) || null;
   const allergensReviewed = Boolean(input.allergensReviewed);
   const variants = parseVariantInput(input.variants);
-  const priceCents = variants ? null : parsePrice(input.price, "prezzo");
+  const priceCents = variants ? null : parsePrice(input.price, "");
   assert(variants !== null || priceCents !== null, "Inserisci il prezzo, oppure almeno un formato con il suo prezzo.");
   return {
     name,
@@ -844,8 +845,21 @@ export async function setGroupFormats(idInput: string, formatsInput: string[]): 
     const before = parseFormats(group.formats);
     const after = formats.length ? formats : null;
     if (JSON.stringify(before) === JSON.stringify(after)) return { changeId: null };
+    // Stesso numero di formati con nomi corretti (es. «0,2l» → «0,2 l»): i prezzi
+    // delle voci seguono il nuovo nome, così nessuna colonna resta vuota.
+    const renames =
+      before && after && before.length === after.length ? before.map((b, j) => [b, after[j]] as const).filter(([b, a]) => b !== a) : [];
     const changeId = await prisma.$transaction(async (tx) => {
       await tx.menuGroup.update({ where: { id }, data: { formats: after ?? Prisma.DbNull } });
+      if (renames.length > 0) {
+        const items = await tx.menuItem.findMany({ where: { groupId: id, deletedAt: null } });
+        for (const it of items) {
+          const variants = parseVariants(it.variants);
+          if (!variants?.some((v) => renames.some(([b]) => b === v.label))) continue;
+          const next = variants.map((v) => ({ ...v, label: renames.find(([b]) => b === v.label)?.[1] ?? v.label }));
+          await tx.menuItem.update({ where: { id: it.id }, data: { variants: next } });
+        }
+      }
       return logChange(tx, {
         actorName: editor.name,
         action: "UPDATE",
