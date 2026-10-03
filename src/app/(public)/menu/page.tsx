@@ -1,11 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
-import { businessDayKey, formatPrice, isSoldOut, nb, originLabel, parseVariants, promoStatus, wineDetail } from "@/lib/menu-format";
+import { businessDayKey, formatPrice, isSoldOut, nb, originLabel, parseFormats, parseVariants, promoStatus, wineDetail } from "@/lib/menu-format";
 import { loadDaily, loadMenu, loadVenue, loadVisibleBlocks, loadVisiblePromos } from "@/lib/menu";
 import { VERSION_LABEL } from "@/lib/version";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
 import { InEvidenza } from "./in-evidenza";
-import { Variants } from "./item-prices";
+import { FormatHeader, FormatPrices, Variants } from "./item-prices";
 import { MenuBlocks } from "./menu-blocks";
 import { OpenStatusPill } from "./open-status";
 import { VenueInfo } from "./venue-footer";
@@ -269,6 +269,7 @@ export default async function MenuPage() {
                     {group.title}
                   </div>
                   <div className="mb-2 h-px min-w-3 flex-1 bg-[#D9CEBC]" />
+                  {group.kind === "FOOD" && parseFormats(group.formats) && <FormatHeader formats={parseFormats(group.formats)!} />}
                   {group.columns && (
                     <>
                       <div title="Calice" className="flex w-9 flex-none justify-end">
@@ -328,7 +329,9 @@ export default async function MenuPage() {
                           {formatPrice(item.priceGlassCents)}
                         </div>
                       )}
-                      {variants ? (
+                      {group.kind === "FOOD" && parseFormats(group.formats) ? (
+                        <FormatPrices formats={parseFormats(group.formats)!} variants={variants} soldOut={item.soldOut} />
+                      ) : variants ? (
                         <Variants variants={variants} soldOut={item.soldOut} />
                       ) : (
                         <div

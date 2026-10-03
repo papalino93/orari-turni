@@ -261,6 +261,8 @@ model MenuGroup {
   section      MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   title        String
   columns      Boolean     @default(false) // mostra le colonne calice/bottiglia
+  // Formati del gruppo (es. ["0,2 l","0,4 l","Maß 1 l"]): colonne di prezzi sul menù.
+  formats      Json?
   sortOrder    Int         @default(0)
   deletedAt    DateTime? // eliminazione "morbida": recuperabile dallo storico
   translations Json?

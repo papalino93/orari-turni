@@ -7,7 +7,7 @@ import { ALLERGEN_CODES } from "@/lib/allergens";
 import { WINE_TRAIT_CODES, sortTraits } from "@/lib/wine-traits";
 import { insertionIndex, isItalianWine } from "@/lib/wine-order";
 import { diff, logChange, type Fields } from "@/lib/menu-log";
-import { businessDayKey, parseVariants, type MenuVariant } from "@/lib/menu-format";
+import { businessDayKey, parseFormats, parseVariants, type MenuVariant } from "@/lib/menu-format";
 import { MAX_IMPORT_ROWS, type ImportRowInput } from "@/lib/menu-import";
 import { parsePrice, revalidateMenu } from "@/lib/menu";
 import { assert, parseEnum, parseId, parseText, runAction, ValidationError, type ActionResult } from "@/lib/validation";
@@ -74,7 +74,7 @@ const ITEM_KEYS = [
 // anomala possa toccare campi che non c'entrano.
 const RESTORABLE: Record<string, readonly string[]> = {
   item: [...ITEM_KEYS, "soldOutDay", "deletedAt"],
-  group: ["title", "columns", "deletedAt"],
+  group: ["title", "columns", "formats", "deletedAt"],
   section: ["note", "addonTitle", "addon"],
   promo: ["title", "label", "body", "showFrom", "startDate", "endDate", "hidden", "deletedAt"],
   block: ["kind", "label", "text", "priceCents", "placement", "sectionIds", "startDate", "endDate", "hidden", "deletedAt"],
@@ -775,6 +775,38 @@ export async function renameGroup(idInput: string, titleInput: string): Promise<
   });
 }
 
+// Formati del gruppo (colonne di prezzi): da 2 a 4 nomi, oppure nessuno.
+// I prezzi già scritti nelle voci con lo stesso nome di formato restano validi.
+export async function setGroupFormats(idInput: string, formatsInput: string[]): Promise<ActionResult<ChangeResult>> {
+  return runAction(async () => {
+    const editor = await requireMenuEditor();
+    const id = parseId(idInput, "gruppo");
+    assert(Array.isArray(formatsInput) && formatsInput.length <= 4, "Al massimo 4 formati per gruppo.");
+    const formats = formatsInput.map((f, i) => parseText(f, `formato ${i + 1}`, { max: 20 })).filter(Boolean);
+    assert(formats.length === 0 || formats.length >= 2, "Servono almeno 2 formati (oppure nessuno).");
+    assert(new Set(formats.map((f) => f.toLowerCase())).size === formats.length, "Due formati hanno lo stesso nome.");
+    const group = await prisma.menuGroup.findFirst({ where: { id, deletedAt: null } });
+    assert(group, "Gruppo non trovato.");
+    const before = parseFormats(group.formats);
+    const after = formats.length ? formats : null;
+    if (JSON.stringify(before) === JSON.stringify(after)) return { changeId: null };
+    const changeId = await prisma.$transaction(async (tx) => {
+      await tx.menuGroup.update({ where: { id }, data: { formats: after ?? Prisma.DbNull } });
+      return logChange(tx, {
+        actorName: editor.name,
+        action: "UPDATE",
+        entity: "group",
+        entityId: id,
+        label: `Formati · ${group.title}`,
+        before: { formats: before },
+        after: { formats: after },
+      });
+    });
+    revalidateMenu();
+    return { changeId };
+  });
+}
+
 export async function moveGroup(idInput: string, directionInput: "up" | "down"): Promise<ActionResult> {
   return runAction(async () => {
     await requireMenuEditor();
@@ -870,7 +902,7 @@ export async function updateSectionTexts(
 
 function toColumn(key: string, value: unknown): unknown {
   if (key === "deletedAt") return typeof value === "string" ? new Date(value) : null;
-  if (key === "variants") return value === null || value === undefined ? Prisma.DbNull : value;
+  if (key === "variants" || key === "formats") return value === null || value === undefined ? Prisma.DbNull : value;
   if (key === "traits") return Array.isArray(value) ? value : [];
   return value;
 }

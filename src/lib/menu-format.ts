@@ -64,6 +64,13 @@ export function originLabel(item: { region: string | null; country: string | nul
   return [item.region, country].filter(Boolean).join(sep);
 }
 
+// Formati del gruppo: nomi delle colonne, da 2 a 4. Null = gruppo normale.
+export function parseFormats(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const list = value.filter((v): v is string => typeof v === "string" && v.trim() !== "").map((v) => v.trim());
+  return list.length > 0 ? list : null;
+}
+
 export function parseVariants(value: unknown): MenuVariant[] | null {
   if (!Array.isArray(value)) return null;
   const list = value.flatMap((v) => {
