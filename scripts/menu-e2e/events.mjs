@@ -43,7 +43,7 @@ async function createPromo({ type, title, label, body, start, end, showFrom, wit
   await dialog().getByRole("radio", { name: type === "EVENT" ? "Evento" : "Annuncio", exact: true }).click();
   await dialog().getByLabel("Titolo", { exact: true }).fill(title);
   if (label) await dialog().getByLabel("Tipo").fill(label);
-  if (body) await dialog().getByLabel("Testo", { exact: true }).fill(body);
+  if (body) await dialog().getByRole("textbox", { name: /^Testo/ }).fill(body);
   if (withImage) await dialog().locator('input[type="file"]').setInputFiles(poster);
   if (type === "EVENT") {
     await dialog().getByLabel("Mostra la locandina dal").fill(showFrom);
@@ -92,12 +92,12 @@ check("formati: prezzo singolo richiesto finché non ci sono formati", (await di
 // Formati solo su questa voce (il gruppo resta normale): «Più formati» senza
 // «Stessi formati per tutto il gruppo». Il percorso col gruppo è in formats.mjs.
 await dialog().getByRole("radio", { name: "Più formati" }).click();
-await dialog().getByRole("checkbox", { name: /Stessi formati per tutto il gruppo/ }).uncheck();
 for (const [i, [l, p]] of [["0,2 l", "3,50"], ["0,4 l", "6"], ["1 l", "11"]].entries()) {
   if (i >= 2) await dialog().getByRole("button", { name: "+ Aggiungi un formato" }).click();
   await dialog().getByLabel(`Formato ${i + 1}`, { exact: true }).fill(l);
   await dialog().getByLabel(`Prezzo del formato ${i + 1}`).fill(p);
 }
+await dialog().getByRole("checkbox", { name: /Stessi formati per tutto il gruppo/ }).uncheck();
 check("formati: con i formati sparisce il prezzo singolo", (await dialog().getByLabel("Prezzo (€)").count()) === 0);
 await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
 await dialog().waitFor({ state: "detached" });
