@@ -24,8 +24,8 @@ export function InEvidenza({ promos, dayKey }: { promos: StripPromo[]; dayKey: s
 
   // Poster e titolo: più grandi con una scheda sola; con più schede, su telefono
   // si scorrono di lato e da tablet in su stanno in griglia, tutte alte uguali.
-  const poster = single ? "h-[124px] w-[99px] sm:h-[150px] sm:w-[120px]" : "h-[124px] w-[99px]";
-  const titleSize = single ? "text-[27px] sm:text-[32px]" : "text-[25px]";
+  const poster = single ? "h-[140px] w-[112px] sm:h-[170px] sm:w-[136px]" : "h-[140px] w-[112px]";
+  const titleSize = single ? "text-[29px] sm:text-[35px]" : "text-[27px]";
 
   return (
     <section aria-label="In evidenza" className="mx-auto max-w-[720px] pt-8">
@@ -43,8 +43,8 @@ export function InEvidenza({ promos, dayKey }: { promos: StripPromo[]; dayKey: s
             <Link
               key={promo.id}
               href={`/menu/p/${promo.slug}`}
-              className={`flex items-start gap-4 rounded-[16px] border border-[#D9CEBC] bg-[#FBF7EF] p-3 no-underline ${
-                single ? "w-full" : "w-[88%] max-w-[400px] flex-none snap-start sm:w-auto sm:max-w-none"
+              className={`flex items-start gap-4 rounded-[18px] border border-[#D9CEBC] bg-[#FBF7EF] p-3.5 no-underline ${
+                single ? "w-full" : "w-[90%] max-w-[420px] flex-none snap-start sm:w-auto sm:max-w-none"
               }`}
             >
               {promo.imageUpdatedAt ? (
@@ -64,10 +64,10 @@ export function InEvidenza({ promos, dayKey }: { promos: StripPromo[]; dayKey: s
               {/* Tutto allineato in alto e «Scopri» sempre in fondo: due schede
                   affiancate restano in riga anche con titoli di lunghezza diversa. */}
               <div className="flex min-w-0 flex-1 flex-col gap-1.5 self-stretch py-0.5">
-                <div className="menu-sans truncate text-[11px] font-medium uppercase leading-snug tracking-[0.18em] text-[#9C7A45]">{kicker}</div>
-                <div className="menu-sans -mt-1 truncate text-[14px] text-[#4A504B]">{formatPromoDates(promo.startDate, promo.endDate)}</div>
+                <div className="menu-sans truncate text-[12px] font-medium uppercase leading-snug tracking-[0.18em] text-[#9C7A45]">{kicker}</div>
+                <div className="menu-sans -mt-1 truncate text-[15px] text-[#4A504B]">{formatPromoDates(promo.startDate, promo.endDate)}</div>
                 <div className={`menu-serif mt-0.5 line-clamp-3 text-balance font-medium leading-[1.05] text-[#6B1020] ${titleSize}`}>{promo.title}</div>
-                <div className="menu-sans mt-auto pt-1 text-[12px] font-medium uppercase tracking-[0.18em] text-[#6B1020]">Scopri →</div>
+                <div className="menu-sans mt-auto pt-1 text-[13px] font-medium uppercase tracking-[0.18em] text-[#6B1020]">Scopri →</div>
               </div>
             </Link>
           );
