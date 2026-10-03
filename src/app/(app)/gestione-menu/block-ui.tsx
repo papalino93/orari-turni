@@ -1,5 +1,6 @@
 "use client";
 
+import { IconInfo, PanelHead } from "./panel-head";
 import { useState } from "react";
 import {
   BLOCK_KIND_LABELS,
@@ -62,25 +63,26 @@ export function BlocksPanel({
   }
 
   return (
-    <section aria-label="Informazioni del menù" className="mb-5 rounded-2xl border border-border bg-surface px-4 py-3">
-      <div className="flex items-start justify-between gap-3">
+    <section aria-label="Informazioni del menù" className="mb-5 rounded-2xl border border-border bg-surface px-4 py-3.5">
+      <div className="flex items-center justify-between gap-3">
         <button
           type="button"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="flex min-h-10 min-w-0 flex-1 items-start gap-2 text-left"
+          className="flex min-h-10 min-w-0 flex-1 items-center rounded-xl text-left"
         >
-          <span aria-hidden="true" className="mt-0.5 text-foreground-muted">
-            <Chevron up={open} />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Informazioni del menù</span>
-            <span className="mt-0.5 block truncate text-xs text-foreground-muted">
-              {blocks.length === 0
-                ? "Coperto, chiusura cucina, avvisi: nessuna ancora."
-                : `${blocks.length} ${blocks.length === 1 ? "informazione" : "informazioni"}: ${blocks.map((b) => blockSummary(b)).join(" · ")}`}
-            </span>
-          </span>
+          <PanelHead
+            icon={IconInfo}
+            tone="accent"
+            title="Informazioni del menù"
+            chevron={open ? "open" : "closed"}
+            badge={
+              blocks.length > 0 ? (
+                <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent-hover">{blocks.length}</span>
+              ) : undefined
+            }
+            subtitle={blocks.length === 0 ? "Coperto, chiusura cucina, avvisi: nessuna ancora." : blocks.map((b) => blockSummary(b)).join(" · ")}
+          />
         </button>
         <button
           type="button"
