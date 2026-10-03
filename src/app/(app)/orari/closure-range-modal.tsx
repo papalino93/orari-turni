@@ -5,6 +5,7 @@ import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import { useToast, runWithToast } from "@/components/toast";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
+import { UnsavedBar, useUnsavedGuard } from "@/components/unsaved-guard";
 import { closeDateRange } from "./actions";
 
 // Chiudere giorno per giorno va benissimo per un imprevisto isolato, ma per
@@ -20,7 +21,9 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const toast = useToast();
-  useEscapeToClose(onClose, !pending);
+  // Date o motivo cambiati: un clic fuori o Esc non li buttano via in silenzio.
+  const guard = useUnsavedGuard(onClose);
+  useEscapeToClose(guard.asking ? guard.stay : guard.requestClose, !pending);
 
   function submit() {
     // Cancellare i turni di tutti su un intervallo è irreversibile: qui serve
@@ -42,7 +45,7 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
     });
   }
 
-  const backdrop = useBackdropClose(() => !pending && onClose());
+  const backdrop = useBackdropClose(() => !pending && guard.requestClose());
   return (
     // Vedi lo stesso commento in pdf-export-modal.tsx: scroll sul contenitore
     // esterno, centratura su quello interno.
@@ -53,6 +56,7 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
       <div className="flex min-h-full items-end justify-center p-4 sm:items-center">
         <div
           onClick={(e) => e.stopPropagation()}
+          {...guard.trackProps}
           // Vedi lo stesso commento in shared.tsx: area sicura del telefono
           // sul bordo inferiore, solo su mobile.
           className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
@@ -140,6 +144,7 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
         </div>
         </div>
       </div>
+      {guard.asking && <UnsavedBar onStay={guard.stay} onDiscard={onClose} onSave={() => { guard.stay(); submit(); }} />}
     </div>
   );
 }

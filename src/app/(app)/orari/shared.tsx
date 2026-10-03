@@ -7,6 +7,7 @@ import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
 import { entryLabel, formatHours, leaveLabelFor, type DayEntry, type Employee, type Block, type Leave, type LeaveType } from "@/lib/schedule";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
+import { UnsavedBar, useUnsavedGuard } from "@/components/unsaved-guard";
 import { applyDayEntryToDays, saveDayEntry, type DayLeaveInput } from "./actions";
 
 export type { Employee, Block, Leave, LeaveType };
@@ -433,7 +434,6 @@ export function DayEditorModal({
         : entry.kind;
 
   const [mode, setMode] = useState<Mode>(initialMode);
-  useEscapeToClose(onClose);
 
   const existingMattina = entry.blocks.find((b) => b.startTime < POMERIGGIO_MIN);
   const existingPomeriggio = entry.blocks.find((b) => b.startTime >= POMERIGGIO_MIN);
@@ -470,6 +470,11 @@ export function DayEditorModal({
   // giornate chiuse non sono selezionabili: il locale non apre, non c'è
   // turno da assegnare.
   const [extraDays, setExtraDays] = useState<string[]>([]);
+  // Modifiche non salvate: un clic fuori o Esc non le buttano via in silenzio.
+  const snapshot = JSON.stringify({ mode, mattina, pomeriggio, quantity, workPermesso, showWorkPermesso, extraDays });
+  const [initialSnapshot] = useState(snapshot);
+  const guard = useUnsavedGuard(onClose, () => snapshot !== initialSnapshot);
+  useEscapeToClose(guard.asking ? guard.stay : guard.requestClose);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const toast = useToast();
@@ -560,7 +565,7 @@ export function DayEditorModal({
     });
   }
 
-  const backdrop = useBackdropClose(onClose);
+  const backdrop = useBackdropClose(guard.requestClose);
   return (
     // Scroll sul contenitore esterno, centratura/allineamento-a-fondo su
     // quello interno: se il contenuto (mattina+pomeriggio+messaggi) supera
@@ -882,6 +887,16 @@ export function DayEditorModal({
         )}
         </div>
       </div>
+      {guard.asking && (
+        <UnsavedBar
+          onStay={guard.stay}
+          onDiscard={onClose}
+          onSave={() => {
+            guard.stay();
+            save();
+          }}
+        />
+      )}
     </div>
   );
 }
