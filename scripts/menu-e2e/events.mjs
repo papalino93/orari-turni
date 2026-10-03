@@ -61,6 +61,7 @@ async function createPromo({ type, title, label, body, start, end, showFrom, wit
 // ---- default delle date nel foglio di creazione
 await page.getByRole("button", { name: "+ Evento o annuncio" }).click();
 await dialog().waitFor();
+check("scheda nuovo evento: spiega dove si compone il menù", /E il menù speciale\?/.test(await dialog().innerText()));
 check("default: inizio tra 7 giorni", (await dialog().getByLabel("Inizio evento").inputValue()) === biz(7));
 check("default: locandina da oggi (7 giorni prima)", (await dialog().getByLabel("Mostra la locandina dal").inputValue()) === biz(0));
 await dialog().getByLabel("Inizio evento").fill(biz(20));
@@ -73,6 +74,7 @@ await createPromo({ type: "EVENT", title: "Oktoberfest", body: "Birre e cucina b
 check("evento creato: scheda con stato In corso", /In corso/i.test(await page.locator("section", { hasText: "Evento con menù speciale" }).first().innerText()));
 check("DB: evento + sezione collegata + locandina", DB(`select (select count(*) from "MenuPromo" where title='Oktoberfest')||'|'||(select count(*) from "MenuSection" where "promoId" is not null)||'|'||(select count(*) from "MenuPromoImage")`) === "1|1|1");
 const slug = DB(`select slug from "MenuPromo" where title='Oktoberfest'`);
+check("evento appena creato: si apre il suo menù speciale, vuoto, con «+ Da bere» e «+ Da mangiare»", /Il menù speciale è vuoto/.test(await page.locator("body").innerText()) && (await page.getByRole("button", { name: "+ Da bere" }).count()) === 1);
 
 for (const name of ["Birre", "Cucina bavarese"]) {
   await page.locator("button", { hasText: "+ Aggiungi gruppo" }).click();

@@ -62,12 +62,12 @@ export function AppShell({
           voluto); solo il contenuto vero scende sotto di essa. */}
       <header className="sticky top-0 z-30 bg-brand-band pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(0,0,0,0.18)] backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2.5">
+          <div className="flex shrink-0 items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element -- logo statico, non serve l'ottimizzazione di next/image */}
             <img src="/logo.png" alt="L'Angolo del Vino" className="brand-logo-invert h-10 w-auto" />
           </div>
 
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="hidden items-center gap-0.5 md:flex lg:gap-1">
             {navItems.map((item) => {
               const active = pathname?.startsWith(item.href);
               const Icon = item.icon;
@@ -75,7 +75,7 @@ export function AppShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors lg:gap-2 lg:px-3.5 ${
                     active
                       ? "bg-brand-band-active text-brand-band-foreground"
                       : "text-brand-band-foreground-muted hover:text-brand-band-foreground"
@@ -88,7 +88,7 @@ export function AppShell({
             })}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 lg:gap-3">
             {isAdmin && (
               <Link
                 href="/account"
@@ -102,7 +102,8 @@ export function AppShell({
               </Link>
             )}
             <ThemeToggle />
-            <span className="hidden text-sm text-brand-band-foreground-muted sm:block">{userName}</span>
+            {/* Il nome solo dove c'è spazio: sul tablet la barra ha già le voci del menù. */}
+            <span className="hidden text-sm text-brand-band-foreground-muted sm:block md:hidden lg:block">{userName}</span>
             <button
               type="button"
               onClick={() => signOut({ callbackUrl: "/login" })}

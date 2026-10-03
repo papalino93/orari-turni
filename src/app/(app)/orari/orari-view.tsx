@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import {
   addDays,
@@ -337,8 +338,9 @@ function SettingsSheet({
 }) {
   useEscapeToClose(onClose);
 
+  const backdrop = useBackdropClose(onClose);
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" {...backdrop}>
       <div className="flex min-h-full items-end justify-center sm:items-center">
         <div
           onClick={(e) => e.stopPropagation()}

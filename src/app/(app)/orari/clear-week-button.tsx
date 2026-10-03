@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import { useToast, runWithToast } from "@/components/toast";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
@@ -30,6 +31,7 @@ export function ClearWeekButton({
     });
   }
 
+  const backdrop = useBackdropClose(() => !pending && setOpen(false));
   return (
     <>
       <button
@@ -49,7 +51,7 @@ export function ClearWeekButton({
         // contenitore esterno, centratura su quello interno.
         <div
           className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
-          onClick={() => !pending && setOpen(false)}
+          {...backdrop}
         >
           {/* Bottom-sheet su mobile + margine per l'area sicura (Home
               Indicator), come gli altri modali dell'app — questo era rimasto

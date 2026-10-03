@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useMemo, useState, useTransition, type FormEvent } from "react";
+import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
@@ -65,7 +66,8 @@ export function DayCellContent({
         </span>
       )}
       {entry.blocks.map((b) => (
-        <span key={b.id} className="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-foreground">
+        // Sul tablet l'orario può andare a capo dopo il trattino («18:00–» / «23:00»), sul computer resta su una riga.
+        <span key={b.id} className="flex items-center gap-1 text-xs font-medium text-foreground lg:whitespace-nowrap">
           {(b.addedByEmployee || b.originalStartTime) && (
             <span
               className="h-1.5 w-1.5 shrink-0 rounded-full bg-gold"
@@ -76,7 +78,10 @@ export function DayCellContent({
               }
             />
           )}
-          {b.startTime}–{b.endTime}
+          <span>
+            {b.startTime}–<wbr />
+            {b.endTime}
+          </span>
         </span>
       ))}
     </div>
@@ -541,6 +546,7 @@ export function DayEditorModal({
     });
   }
 
+  const backdrop = useBackdropClose(onClose);
   return (
     // Scroll sul contenitore esterno, centratura/allineamento-a-fondo su
     // quello interno: se il contenuto (mattina+pomeriggio+messaggi) supera
@@ -548,7 +554,7 @@ export function DayEditorModal({
     // comunque raggiungibile scorrendo invece di restare tagliato in alto.
     <div
       className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
+      {...backdrop}
     >
       <div className="flex min-h-full items-end justify-center sm:items-center">
         <div

@@ -6,21 +6,29 @@ import { type MenuBlockView, nb, priceLine } from "@/lib/menu-format";
 // mostrare oggi, nell'ordine giusto.
 export function MenuBlockItem({ block }: { block: MenuBlockView }) {
   if (block.kind === "PRICE") {
-    return <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.22em] text-[#6B1020]">{nb(priceLine(block))}</div>;
+    const line = <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.22em] text-[#6B1020]">{nb(priceLine(block))}</div>;
+    if (!block.text) return line;
+    // Con descrizione: la riga del prezzo e, sotto, il testo in corsivo.
+    return (
+      <div className="flex flex-col items-center gap-1">
+        {line}
+        <p className="m-0 whitespace-pre-line text-balance text-[15.5px] italic leading-normal text-[#3F4540]">{block.text}</p>
+      </div>
+    );
   }
+  // Titolo con l'eventuale prezzo accanto (es. «Novità · Oli aromatizzati € 1,50»).
+  const title = block.priceCents !== null ? priceLine(block) : block.label;
   if (block.kind === "NOTICE") {
     return (
       <div className="flex w-full flex-col items-center gap-1.5 border-y-[3px] border-double border-[#C9A96E] px-3 py-3 text-center">
-        {block.label && (
-          <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.3em] text-[#6B1020]">{block.label}</div>
-        )}
+        {title && <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.3em] text-[#6B1020]">{nb(title)}</div>}
         {block.text && <p className="m-0 whitespace-pre-line text-balance text-[16.5px] font-medium leading-normal text-[#1F2621]">{block.text}</p>}
       </div>
     );
   }
   return (
     <div className="flex flex-col items-center gap-1">
-      {block.label && <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.3em] text-[#5B605A]">{block.label}</div>}
+      {title && <div className="menu-sans text-[11px] font-medium uppercase tracking-[0.3em] text-[#5B605A]">{nb(title)}</div>}
       {block.text && <p className="m-0 whitespace-pre-line text-balance text-[16.5px] italic leading-normal text-[#3F4540]">{block.text}</p>}
     </div>
   );

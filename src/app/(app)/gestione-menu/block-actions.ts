@@ -35,9 +35,13 @@ async function parseBlockInput(input: BlockInput) {
     label = parseText(input.label, "nome", { max: 60, required: true });
     priceCents = parsePrice(input.price, "");
     assert(priceCents !== null, "Inserisci il prezzo (esempio: 1 oppure 1,50).");
+    // Descrizione facoltativa sotto la riga del prezzo (es. «Oli all'arancia, basilico o peperoncino»).
+    text = parseText(input.text, "descrizione", { max: 400 }) || null;
   } else {
     label = parseText(input.label, "titoletto", { max: 60 }) || null;
     text = parseText(input.text, "testo", { max: 400, required: true });
+    // Prezzo facoltativo anche per testi e avvisi (es. «Novità · Oli aromatizzati € 1,50»).
+    priceCents = parsePrice(input.price, "");
   }
 
   let sectionIds: string[] = [];

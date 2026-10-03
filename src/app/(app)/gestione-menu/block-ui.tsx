@@ -171,8 +171,8 @@ function Chevron({ up }: { up?: boolean }) {
 
 const KIND_HELP: Record<BlockKind, string> = {
   TEXT: "Un paragrafo in corsivo, per esempio «La cucina chiude circa 40–50 minuti prima della chiusura del negozio».",
-  PRICE: "Una riga con un costo, per esempio «Coperto € 1,00» o «Servizio 10%».",
-  NOTICE: "Un riquadro ben visibile, per esempio «Domenica cucina chiusa».",
+  PRICE: "Una riga con un costo, per esempio «Coperto € 1,00»; sotto si può aggiungere una descrizione.",
+  NOTICE: "Un riquadro ben visibile, per esempio «Domenica cucina chiusa» o una novità con il suo prezzo.",
 };
 
 const PLACEMENT_HELP: Record<BlockPlacement, string> = {
@@ -187,8 +187,11 @@ export function BlockSheet({
   choices,
   run,
   onClose,
+  forSectionId = null,
 }: {
   block: MenuBlockView | null;
+  // Nuovo blocco aggiunto dai «Testi della sezione»: già sotto il titolo di quella sezione.
+  forSectionId?: string | null;
   choices: SectionChoice[];
   run: RunFn;
   onClose: () => void;
@@ -197,8 +200,8 @@ export function BlockSheet({
   const [label, setLabel] = useState(block?.label ?? "");
   const [text, setText] = useState(block?.text ?? "");
   const [price, setPrice] = useState(block?.priceCents != null ? formatMoney(block.priceCents) : "");
-  const [placement, setPlacement] = useState<BlockPlacement>(block?.placement ?? "TOP");
-  const [sectionIds, setSectionIds] = useState<string[]>(block?.sectionIds ?? []);
+  const [placement, setPlacement] = useState<BlockPlacement>(block?.placement ?? (forSectionId ? "SECTIONS" : "TOP"));
+  const [sectionIds, setSectionIds] = useState<string[]>(block?.sectionIds ?? (forSectionId ? [forSectionId] : []));
   const [startDate, setStartDate] = useState(block?.startDate ?? "");
   const [endDate, setEndDate] = useState(block?.endDate ?? "");
   const [hidden, setHidden] = useState(block?.hidden ?? false);
@@ -281,12 +284,22 @@ export function BlockSheet({
             <Field label="Prezzo (€)">
               <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" className={inputClass} placeholder="1,00" />
             </Field>
+            <div className="col-span-2">
+              <Field label="Descrizione (facoltativa)" hint="Compare sotto la riga del prezzo.">
+                <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={400} rows={3} className={inputClass} placeholder="es. Arancia, basilico o peperoncino, da aggiungere alla tartare" />
+              </Field>
+            </div>
           </div>
         ) : (
           <>
-            <Field label={kind === "NOTICE" ? "Titolo (facoltativo)" : "Titoletto (facoltativo)"}>
-              <input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={60} className={inputClass} placeholder={kind === "NOTICE" ? "es. Attenzione" : "es. Cucina"} />
-            </Field>
+            <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
+              <Field label={kind === "NOTICE" ? "Titolo (facoltativo)" : "Titoletto (facoltativo)"}>
+                <input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={60} className={inputClass} placeholder={kind === "NOTICE" ? "es. Novità · Oli aromatizzati" : "es. Cucina"} />
+              </Field>
+              <Field label="Prezzo (facolt.)">
+                <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" className={inputClass} placeholder="es. 1,50" />
+              </Field>
+            </div>
             <Field label="Testo">
               <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={400} rows={4} className={inputClass} />
             </Field>

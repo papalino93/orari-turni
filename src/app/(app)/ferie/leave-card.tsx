@@ -161,7 +161,8 @@ function Stat({
     <div className={`rounded-lg px-3 py-2 ${highlight ? "bg-accent/10" : "bg-surface-2"} ${className ?? ""}`}>
       <p className="text-[10px] uppercase tracking-wide text-foreground-muted">{label}</p>
       <p className={`text-sm font-semibold ${highlight ? "text-accent" : "text-foreground"}`}>
-        {value} <span className="text-xs font-normal text-foreground-muted">{unit}</span>
+        {/* All'italiana: 27,7 e non 27.7 (al massimo due decimali). */}
+        {String(Math.round(value * 100) / 100).replace(".", ",")} <span className="text-xs font-normal text-foreground-muted">{unit}</span>
       </p>
     </div>
   );

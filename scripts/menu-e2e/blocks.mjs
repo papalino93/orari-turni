@@ -83,6 +83,25 @@ const bottomPos = await pub.evaluate(() => {
 });
 check("in fondo: dopo le sezioni e prima della legenda", bottomPos.afterSections && bottomPos.beforeLegend, JSON.stringify(bottomPos));
 
+// ---------- Voce con prezzo e descrizione; avviso con prezzo (richiesta del titolare)
+await openNew();
+await dialog().getByRole("radio", { name: "Voce con prezzo" }).click();
+await dialog().getByLabel("Nome", { exact: true }).fill("Oli aromatizzati");
+await dialog().getByLabel("Prezzo (€)").fill("1,50");
+await dialog().getByLabel("Descrizione (facoltativa)").fill("Arancia, basilico o peperoncino");
+await save();
+t = await publicText();
+check("prezzo con descrizione: riga e descrizione sotto", /oli aromatizzati € 1,50/i.test(t) && t.includes("Arancia, basilico o peperoncino"));
+await openNew();
+await dialog().getByRole("radio", { name: "Avviso" }).click();
+await dialog().getByLabel("Titolo (facoltativo)").fill("Novità · Olio al tartufo");
+await dialog().getByLabel("Prezzo (facolt.)").fill("2");
+await dialog().getByLabel("Testo").fill("Da aggiungere a ogni tartare.");
+await save();
+t = await publicText();
+check("avviso con prezzo: «Novità · Olio al tartufo € 2,00» e il testo", /novità · olio al tartufo € 2,00/i.test(t) && t.includes("Da aggiungere a ogni tartare."));
+check("pannello: riassunto con il prezzo dell'avviso", /Olio al tartufo € 2,00/.test(await panelText()));
+
 // ---------- Testo sotto più sezioni
 await openNew();
 await dialog().getByLabel("Titoletto (facoltativo)").fill("Vini");
@@ -121,7 +140,7 @@ await settle(800);
 check("validazione: prezzo non valido è rifiutato", (await dialog().count()) === 1 && /prezzo.*non valido|inserisci il prezzo/i.test(await page.locator("body").innerText()));
 await dialog().getByRole("button", { name: "Chiudi" }).click();
 await dialog().waitFor({ state: "detached" });
-check("DB: nessun blocco creato dalle prove rifiutate", Number(DB(`select count(*) from "MenuBlock" where "deletedAt" is null`)) === 5);
+check("DB: nessun blocco creato dalle prove rifiutate", Number(DB(`select count(*) from "MenuBlock" where "deletedAt" is null`)) === 7);
 
 // ---------- Date: non ancora visibile / scaduto / oggi
 await page.getByRole("button", { name: /Modifica: Tavolo all'aperto/ }).click();
@@ -181,11 +200,11 @@ await settle();
 o = await order("taglieri");
 check("ordine: rimesso com'era", o.chiusura < o.coperto);
 
-// ---------- «Testi di questa sezione» elenca i blocchi della sezione
+// ---------- «Testi della sezione» elenca i blocchi della sezione, uno per riga
 await page.getByRole("button", { name: "Taglieri & Pinse" }).first().click();
 await settle(600);
 const texts = (await page.locator("main").innerText()).replace(/\u00a0/g, " ");
-check("sezione: «Testi di questa sezione» elenca coperto e chiusura cucina", /Prezzo: Coperto € 1,00/.test(texts) && /Informazione: Si informa/.test(texts));
+check("sezione: «Testi della sezione» elenca coperto e chiusura cucina", /PREZZO\s*Coperto € 1,00/i.test(texts) && /INFORMAZIONE\s*Si informa/i.test(texts), texts.slice(0, 200));
 await page.getByRole("button", { name: "Modifica" }).filter({ hasText: /^Modifica$/ }).nth(1).click().catch(() => {});
 await dialog().waitFor({ timeout: 5000 }).catch(() => {});
 if (await dialog().count()) {

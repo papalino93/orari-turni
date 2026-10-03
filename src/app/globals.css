@@ -93,6 +93,12 @@ html[data-theme="light"] {
   color-scheme: light;
 }
 
+/* Un <fieldset> per natura è largo almeno quanto il suo contenuto: un testo lungo
+   (anche se troncato con «…») lo faceva uscire dal bordo delle schede. */
+fieldset {
+  min-width: 0;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

@@ -39,6 +39,26 @@ check("ricerca: trova Henriot anche col gruppo chiuso", (await page.locator('sec
 await page.getByRole("searchbox", { name: "Cerca una voce" }).fill("");
 await toggle("Champagne").click();
 
+// Selezionare un testo con il mouse e rilasciare fuori dalla scheda non la chiude
+// (segnalato dal titolare: «Testi · Tartare» si chiudeva da sola).
+await page.setViewportSize({ width: 1280, height: 860 });
+await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Tartare" }).click();
+await page.getByRole("button", { name: "Modifica i testi di questa sezione" }).click();
+const dlg = page.locator('[role="dialog"]');
+await dlg.waitFor();
+const field = dlg.getByLabel("Titolo dell'avviso a fondo sezione");
+const fb = await field.boundingBox();
+await page.mouse.move(fb.x + fb.width - 10, fb.y + fb.height / 2);
+await page.mouse.down();
+await page.mouse.move(fb.x - 200, fb.y + fb.height / 2, { steps: 8 });
+await page.mouse.up();
+await page.waitForTimeout(400);
+check("selezione trascinata fuori: la scheda resta aperta", (await dlg.count()) === 1);
+await page.mouse.click(40, 500);
+await page.waitForTimeout(400);
+check("clic sullo sfondo: la scheda si chiude", (await dlg.count()) === 0);
+
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);

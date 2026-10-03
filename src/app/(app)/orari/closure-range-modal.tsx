@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import { useToast, runWithToast } from "@/components/toast";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
@@ -41,12 +42,13 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
     });
   }
 
+  const backdrop = useBackdropClose(() => !pending && onClose());
   return (
     // Vedi lo stesso commento in pdf-export-modal.tsx: scroll sul contenitore
     // esterno, centratura su quello interno.
     <div
       className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
-      onClick={() => !pending && onClose()}
+      {...backdrop}
     >
       <div className="flex min-h-full items-end justify-center p-4 sm:items-center">
         <div

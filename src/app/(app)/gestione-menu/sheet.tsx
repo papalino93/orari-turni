@@ -1,32 +1,38 @@
 "use client";
 
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
+import { useBackdropClose } from "@/lib/use-backdrop-close";
 
-// Foglio a comparsa: dal basso su telefono, finestra centrata su tablet,
-// pannello laterale su schermo largo (dove c'è spazio e la lista dietro resta
-// in vista). Scorre sul contenitore esterno e centra su quello interno — lo
+// Foglio a comparsa: dal basso su telefono, finestra centrata (e più larga su
+// schermo grande) su tablet e computer. Niente pannello laterale stretto: la
+// pagina dietro è velata e non serve tenerla in vista, e i moduli lunghi si
+// leggono meglio al centro. Scorre sul contenitore esterno e centra su quello interno — lo
 // stesso schema degli altri modali dell'app, così un contenuto più alto dello
 // schermo resta sempre raggiungibile (incluso "Chiudi").
 export function Sheet({
   title,
   onClose,
   children,
+  wide = false,
 }: {
   title: string;
+  // Schede con tabelle (prezzi): più larghe sul computer.
+  wide?: boolean;
   onClose: () => void;
   children: React.ReactNode;
 }) {
   useEscapeToClose(onClose);
 
+  const backdrop = useBackdropClose(onClose);
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="flex min-h-full items-end justify-center sm:items-center sm:p-4 lg:items-stretch lg:justify-end lg:p-0">
+    <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/60 backdrop-blur-sm" {...backdrop}>
+      <div className="flex min-h-full items-end justify-center sm:items-center sm:p-6">
         <div
           role="dialog"
           aria-modal="true"
           aria-label={title}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-lg rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5 lg:max-w-md lg:rounded-none lg:rounded-l-2xl"
+          className={`w-full rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6 ${wide ? "max-w-lg lg:max-w-3xl" : "max-w-lg lg:max-w-xl"}`}
         >
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="min-w-0 truncate text-base font-semibold text-foreground">{title}</h2>

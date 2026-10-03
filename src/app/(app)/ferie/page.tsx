@@ -53,7 +53,7 @@ export default async function FeriePage() {
       <h1 className="mb-1 text-xl font-semibold tracking-tight">Ferie & Permessi {year}</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         Se non hai ancora caricato i saldi di partenza di un dipendente, la sua scheda risulta vuota: imposta il saldo
-        dalla scheda stessa oppure fammi leggere le buste paga in chat.
+        dalla scheda stessa con «Imposta saldo».
       </p>
 
       {activeCards.length === 0 && (

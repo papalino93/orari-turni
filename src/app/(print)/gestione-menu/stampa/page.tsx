@@ -160,12 +160,13 @@ function Blocks({ list, className = "" }: { list: MenuBlockView[]; className?: s
     <div className={`space-y-0.5 text-center ${className}`}>
       {list.map((b) =>
         b.kind === "PRICE" ? (
-          <p key={b.id} className="print-sans m-0 text-[10px] uppercase tracking-[0.2em] text-[#6B1020]">
-            {nb(priceLine(b))}
-          </p>
+          <div key={b.id}>
+            <p className="print-sans m-0 text-[10px] uppercase tracking-[0.2em] text-[#6B1020]">{nb(priceLine(b))}</p>
+            {b.text && <p className="m-0 text-[12.5px] italic text-[#3F4540]">{b.text}</p>}
+          </div>
         ) : (
           <p key={b.id} className="m-0 text-[13px] italic text-[#3F4540]">
-            {b.label && <span className="font-semibold not-italic">{b.label}: </span>}
+            {(b.label || b.priceCents !== null) && <span className="font-semibold not-italic">{b.priceCents !== null ? nb(priceLine(b)) : b.label}: </span>}
             {b.text}
           </p>
         ),

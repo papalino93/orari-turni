@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import { ExportCard } from "./export-card";
 import { shareOrDownloadFile } from "@/lib/share-file";
@@ -83,6 +84,7 @@ export function ExportButton({
     }
   }
 
+  const backdrop = useBackdropClose(() => setOpen(false));
   return (
     <>
       <button
@@ -105,7 +107,7 @@ export function ExportButton({
         // sporge sopra il centro (incluso "Chiudi") diventa irraggiungibile.
         <div
           className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
-          onClick={() => setOpen(false)}
+          {...backdrop}
         >
           {/* Bottom-sheet su mobile (come gli altri modali dell'app), non un
               box sempre centrato: su un telefono con Home Indicator gestuale

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import { EmployeeAvatar } from "@/components/avatar";
 import { useToast, runWithToast } from "@/components/toast";
@@ -72,12 +73,13 @@ export function PhotoEditor({
     });
   }
 
+  const backdrop = useBackdropClose(onClose);
   return (
     // Scroll sul contenitore esterno, centratura su quello interno (vedi lo
     // stesso commento in pdf-export-modal.tsx): se il ritaglio foto rendesse
     // il contenuto più alto dello schermo, la parte in eccesso resta comunque
     // raggiungibile scorrendo, invece di restare tagliata senza via d'uscita.
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" {...backdrop}>
       <div className="flex min-h-full items-end justify-center p-4 sm:items-center">
         <div
           onClick={(e) => e.stopPropagation()}

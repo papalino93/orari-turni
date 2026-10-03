@@ -26,6 +26,51 @@ async function tour(name, w, h, theme, user, list) {
   }
   await ctx.close();
 }
+// Schede della gestione aperte (scheda vino, piatto, tabella prezzi, riordina), per vedere come si impaginano.
+async function sheets(name, w, h, theme) {
+  const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+  await ctx.addInitScript((t) => { try { localStorage.setItem("theme", t); } catch {} }, theme);
+  const p = await ctx.newPage();
+  p.setDefaultTimeout(60000);
+  p.on("pageerror", (e) => problems.push(`${name} JS: ${e.message}`));
+  await login(p, "andrea", ADMIN_PW);
+  await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
+  const dlg = p.locator('[role="dialog"]');
+  const snap = async (what) => {
+    await p.waitForTimeout(600);
+    const ov = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (ov > 0) problems.push(`${name} scheda ${what}: scorrimento orizzontale ${ov}px`);
+    await p.screenshot({ path: `${OUT}/${name}_scheda-${what}.png` });
+  };
+  await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+  await p.getByRole("button", { name: /^Modifica Avignonesi/ }).first().click();
+  await snap("vino");
+  await p.keyboard.press("Escape");
+  await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Taglieri" }).click();
+  await p.getByRole("button", { name: /^Modifica Tagliere Classico/ }).first().click();
+  await snap("piatto");
+  await p.keyboard.press("Escape");
+  await p.getByRole("button", { name: "Tabella prezzi" }).click();
+  await snap("prezzi");
+  await p.keyboard.press("Escape");
+  await p.getByRole("button", { name: "Riordina", exact: true }).click();
+  await snap("riordina");
+  await p.keyboard.press("Escape");
+  await p.getByRole("button", { name: "+ Evento o annuncio" }).click();
+  await snap("evento");
+  await p.keyboard.press("Escape");
+  await ctx.close();
+}
+
+await tour("tab-v-chiaro", 820, 1180, "light", ["andrea", ADMIN_PW], pagesAdmin);
+await tour("tab-o-scuro", 1180, 820, "dark", ["andrea", ADMIN_PW], pagesAdmin);
+await tour("tab768-chiaro", 768, 1024, "light", ["andrea", ADMIN_PW], ["/gestione-menu", "/statistiche", "/orari"]);
+await tour("pubtab-v", 820, 1180, "light", null, pagesPub);
+await tour("pubtab-o", 1180, 820, "light", null, ["/menu", "/menu/allergeni"]);
+await sheets("tab-v", 820, 1180, "light");
+await sheets("tab-o", 1180, 820, "dark");
+await sheets("tel", 390, 844, "light");
+await sheets("mac", 1440, 900, "light");
 await tour("adm-tel-scuro", 390, 844, "dark", ["andrea", ADMIN_PW], pagesAdmin);
 await tour("adm-mac-chiaro", 1440, 900, "light", ["andrea", ADMIN_PW], pagesAdmin);
 await tour("dip-tel", 390, 844, "light", ["marta", EMP_PW], ["/", "/mie-ore", "/gestione-menu", "/orari", "/statistiche"]);
