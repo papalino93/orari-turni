@@ -337,7 +337,7 @@ export default async function MenuPage() {
                         </div>
                       )}
                       {group.kind === "FOOD" && parseFormats(group.formats) ? (
-                        <FormatPrices formats={parseFormats(group.formats)!} variants={variants} soldOut={item.soldOut} />
+                        <FormatPrices formats={parseFormats(group.formats)!} variants={variants} soldOut={item.soldOut} price={price ?? null} />
                       ) : variants ? (
                         <Variants variants={variants} soldOut={item.soldOut} />
                       ) : (

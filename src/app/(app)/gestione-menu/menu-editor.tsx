@@ -612,7 +612,18 @@ export function MenuEditor({
         />
       )}
       {sheet?.type === "prices" && (
-        <PricesSheet sections={sections} startSectionId={promoSelected ? null : (section?.id ?? null)} run={run} onClose={() => setSheet(null)} />
+        <PricesSheet
+          sections={[
+            ...sections,
+            // Menù speciali degli eventi non conclusi (voce per voce), con il nome dell'evento.
+            ...promos.flatMap((p) =>
+              p.section && p.menuMode !== "FILE" && effectiveStatus(p, today) !== "past" && p.section.groups.length > 0 ? [{ ...p.section, label: p.title }] : [],
+            ),
+          ]}
+          startSectionId={section?.id ?? null}
+          run={run}
+          onClose={() => setSheet(null)}
+        />
       )}
       {sheet?.type === "reorder" && (
         <ReorderSheet

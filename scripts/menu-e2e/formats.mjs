@@ -46,6 +46,36 @@ check("menù: intestazione con i formati", /0,2 l 0,4 l 1 l/.test(sec), sec.slic
 check("menù: prezzi in colonna e «—» per il formato mancante", /Birra Prova Helles[\s\S]*?3,50\s*6\s*—/.test(sec), sec.slice(sec.indexOf("Birra Prova"), sec.indexOf("Birra Prova") + 120));
 const ov = await pub.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 check("menù: niente scorrimento orizzontale a 390 px", ov <= 0, String(ov));
+const firstSingle = DB(`select name||'|'||"priceCents" from "MenuItem" where "groupId"='${GROUP}' and "deletedAt" is null and "textOnly"=false and variants is null and "priceCents" is not null order by "sortOrder" limit 1`);
+if (firstSingle) {
+  const [singleName, cents] = firstSingle.split("|");
+  const euros = String(Number(cents) / 100).replace(".", ",");
+  const rx = new RegExp(`${singleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^—]{0,40}?\\b${euros}\\b`);
+  check("menù: una voce a prezzo unico nel gruppo con i formati mostra il suo prezzo", rx.test(sec) && !new RegExp(`${singleName}\\s*—\\s*—`).test(sec), sec.slice(sec.indexOf(singleName), sec.indexOf(singleName) + 60));
+}
+
+// Tabella prezzi: una casella per formato
+await p.getByRole("toolbar", { name: "Strumenti del menù" }).getByRole("button", { name: "Tabella prezzi" }).click();
+const dlg2 = p.locator('[role="dialog"]');
+await dlg2.getByRole("button", { name: "Bevande", exact: true }).click();
+check("tabella prezzi: colonne dei formati", (await dlg2.getByLabel("Prezzo · Birra Prova Helles · 1 l").count()) === 1);
+await dlg2.getByLabel("Prezzo · Birra Prova Helles · 1 l").fill("10");
+await dlg2.getByRole("button", { name: "Salva tutto" }).click();
+await p.waitForTimeout(1500);
+check("tabella prezzi: formato aggiunto dalla colonna", DB(`select variants::text from "MenuItem" where name='Birra Prova Helles'`) === '[{"cents": 350, "label": "0,2 l"}, {"cents": 600, "label": "0,4 l"}, {"cents": 1000, "label": "1 l"}]', DB(`select variants::text from "MenuItem" where name='Birra Prova Helles'`));
+await p.keyboard.press("Escape");
+await dlg2.waitFor({ state: "detached" }).catch(() => {});
+
+// Incolla più voci: un prezzo per formato
+await card.getByRole("button", { name: "Incolla più voci" }).click();
+const dlg3 = p.locator('[role="dialog"]');
+check("incolla: colonne con i formati del gruppo", /Nome; Descrizione; 0,2 l; 0,4 l; 1 l/.test(await dlg3.innerText()));
+await dlg3.locator("textarea").fill("Birra Prova Dunkel; Scura · 5% vol.; 4; 7; ");
+await dlg3.getByRole("button", { name: "Anteprima" }).click();
+check("incolla: anteprima con i formati", /0,2 l 4\s*·\s*0,4 l 7\s*·\s*1 l —/.test(await dlg3.innerText()));
+await dlg3.getByRole("button", { name: "Aggiungi 1 voce" }).click();
+await p.waitForTimeout(1500);
+check("incolla: prezzi salvati per formato", DB(`select variants::text from "MenuItem" where name='Birra Prova Dunkel'`) === '[{"cents": 400, "label": "0,2 l"}, {"cents": 700, "label": "0,4 l"}]', DB(`select variants::text from "MenuItem" where name='Birra Prova Dunkel'`));
 
 await card.getByRole("button", { name: /^Formati/ }).click();
 await card.getByRole("button", { name: "Togli i formati" }).click();
@@ -86,7 +116,7 @@ check("DB: formati scritti sul gruppo", DB(`select formats::text from "MenuGroup
 check("DB: prezzi della prima birra", DB(`select variants::text from "MenuItem" where name='Birra Prova Weisse'`) === '[{"cents": 350, "label": "0,2 l"}, {"cents": 600, "label": "0,4 l"}, {"cents": 1100, "label": "1 l"}]');
 await spina.getByRole("button", { name: "+ Aggiungi voce" }).click();
 await dlg.waitFor();
-check("seconda birra: solo i prezzi per colonna", (await dlg.getByLabel("Prezzo 1 l (€)").count()) === 1 && (await dlg.getByRole("radio", { name: "Più formati" }).count()) === 0);
+check("seconda birra: parte già con i prezzi per colonna", (await dlg.getByLabel("Prezzo 1 l (€)").count()) === 1 && (await dlg.getByRole("radio", { name: "Più formati" }).getAttribute("aria-checked")) === "true");
 check("seconda birra: descrizione da birra", (await dlg.getByLabel("Descrizione").getAttribute("placeholder")).includes("Helles"));
 await dlg.getByRole("button", { name: "Chiudi" }).first().click().catch(() => p.keyboard.press("Escape"));
 DB(`update "MenuGroup" set "deletedAt"=now() where title='Spina Prova'`);

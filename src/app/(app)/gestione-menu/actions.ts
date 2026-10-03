@@ -327,9 +327,15 @@ export async function importItems(
     });
     assert(group, "Gruppo non trovato.");
 
+    // Gruppo con i formati: i prezzi per colonna diventano i formati della voce.
+    const formats = group.section.kind === "FOOD" ? parseFormats(group.formats) : null;
     const parsed = rows.map((row, i) => {
       try {
-        return parseItemInput(group.section.kind, { ...row, groupId });
+        const variants =
+          formats && Array.isArray(row.formatPrices)
+            ? formats.flatMap((label, j) => (String(row.formatPrices?.[j] ?? "").trim() ? [{ label, price: String(row.formatPrices?.[j]) }] : []))
+            : undefined;
+        return parseItemInput(group.section.kind, { ...row, groupId, ...(variants ? { variants, price: "" } : {}) });
       } catch (error) {
         if (error instanceof ValidationError) throw new ValidationError(`Voce ${i + 1}: ${error.message}`);
         throw error;
@@ -687,7 +693,8 @@ export async function saveTextRow(idInput: string | null, groupIdInput: string, 
 // «Tabella prezzi»: tanti prezzi in una volta (calice/bottiglia per i vini,
 // prezzo o prezzi dei formati per il resto). Un solo record di storico con i
 // prezzi di prima: «Annulla» li rimette tutti.
-export type PriceChange = { id: string; priceGlass?: string; priceBottle?: string; price?: string; variants?: string[] };
+// `formats`: un prezzo per formato del gruppo (birre 0,2 l · 0,4 l · 1 l), vuoto = non disponibile.
+export type PriceChange = { id: string; priceGlass?: string; priceBottle?: string; price?: string; variants?: string[]; formats?: string[] };
 
 export async function savePrices(changesInput: PriceChange[]): Promise<ActionResult<ChangeResult>> {
   return runAction(async () => {
@@ -697,7 +704,7 @@ export async function savePrices(changesInput: PriceChange[]): Promise<ActionRes
     assert(new Set(ids).size === ids.length, "Elenco non valido.");
     const items = await prisma.menuItem.findMany({
       where: { id: { in: ids }, deletedAt: null },
-      include: { group: { select: { section: { select: { kind: true, label: true } } } } },
+      include: { group: { select: { formats: true, section: { select: { kind: true, label: true } } } } },
     });
     assert(items.length === ids.length, "Il menù è cambiato nel frattempo: chiudi e riapri la tabella dei prezzi.");
 
@@ -712,6 +719,19 @@ export async function savePrices(changesInput: PriceChange[]): Promise<ActionRes
         assert(priceGlassCents !== null || priceBottleCents !== null, `${who}: serve almeno un prezzo (calice o bottiglia).`);
         before[item.id] = { priceGlassCents: item.priceGlassCents, priceBottleCents: item.priceBottleCents };
         after[item.id] = { priceGlassCents, priceBottleCents };
+        continue;
+      }
+      const groupFormats = parseFormats(item.group.formats);
+      if (groupFormats && Array.isArray(change.formats)) {
+        const list = change.formats;
+        assert(list.length === groupFormats.length, "Il menù è cambiato nel frattempo: chiudi e riapri la tabella dei prezzi.");
+        const next = groupFormats.flatMap((label, j) => {
+          const cents = parsePrice(list[j], `del formato «${label}» di ${who}`);
+          return cents === null ? [] : [{ label, cents }];
+        });
+        assert(next.length > 0, `${who}: serve almeno un prezzo.`);
+        before[item.id] = { variants: parseVariants(item.variants), priceCents: item.priceCents };
+        after[item.id] = { variants: next, priceCents: null };
         continue;
       }
       const variants = parseVariants(item.variants);

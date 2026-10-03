@@ -152,7 +152,7 @@ check("annunciato: non aperto a pagina piena", (await pub.locator('[id^="evento-
 const jazzSlug = DB(`select slug from "MenuPromo" where title='Serata Jazz'`);
 const jazzPage = await publicText(`/menu/p/${jazzSlug}`);
 check("tipo personalizzato: compare sulla pagina dell'evento", /musica dal vivo/i.test(jazzPage.text));
-check("annunciato: la pagina dice quando arriva il menù speciale", /menù speciale sarà disponibile dal/i.test(jazzPage.text));
+check("annunciato senza menù: nessuna promessa di «menù speciale»", !/menù speciale sarà disponibile/i.test(jazzPage.text));
 check("allergeni: il menù di un evento non iniziato non compare", !(await publicText("/menu/allergeni")).text.includes("Serata Jazz"));
 
 // ---- annuncio in corso
