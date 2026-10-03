@@ -37,13 +37,16 @@ autorizzato fino alle 8:00 del 4 ottobre (ora italiana); si pubblica anche di no
 - [ ] Voci stagionali: una voce visibile «dal … al …».
 - [ ] Prezzi da una data: nella Tabella prezzi, «questi prezzi partono dal …».
 
-## 6. Gestione a schede (solo anteprime)
-- [ ] Anteprime della gestione divisa in schede in alto (Menù · Eventi · Il locale ·
-      Strumenti; nomi chiarissimi, si apre su «Menù»), da confrontare con quella di oggi,
-      in una pagina con immagini (computer, tablet, telefono). Per la scheda Menù il titolare
-      vuole proposte mie (es. ricerca fissa in alto, meno pulsanti per riga, riquadro «Da
-      sistemare», anteprima accanto sul computer). Si cambia solo se il titolare è convinto
-      che sia meglio.
+## 6. Gestione a schede (decisa: si fa, si pubblica solo se perfetta)
+- [ ] Quattro schede in alto: «Menù» (sezioni, voci, esauriti, Oggi fuori menù) · «Eventi e
+      annunci» · «Orari e contatti» (copertina, orari, contatti, coperto e avvisi) ·
+      «Strumenti» (Tabella prezzi, Riordina, Storico, Anteprima, Menù da stampare, Codice QR,
+      Aggiungi più voci, Guida). Ogni scheda ha una riga che dice cosa c'è dentro. Si apre su «Menù».
+- [ ] Un solo «+ Aggiungi» in alto: «Vino, piatto, evento o annuncio?».
+- [ ] Scheda Menù: ricerca fissa in alto mentre si scorre; riquadro «Da sistemare» (solo se
+      manca qualcosa: allergeni, prezzi, regione) con il pulsante per sistemarlo.
+- Rimandati (il titolare non sapeva): righe più pulite, anteprima accanto sul computer.
+- Anteprime viste dal titolare: https://claude.ai/artifact/RRd4rQeg8eubQd8wb2i7J6
 
 ## Messi da parte
 - Carta intera nuova programmata: più avanti, se il titolare la vuole.
