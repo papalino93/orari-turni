@@ -483,3 +483,38 @@ export async function setPromoHasMenu(idInput: string, hasMenu: boolean): Promis
     return { changeId };
   });
 }
+
+// «Riordina» → «Eventi e annunci»: l'ordine da sinistra a destra in «In evidenza» (e in
+// cima al menù nei giorni dell'evento). Chi è nell'elenco prende il suo posto, gli altri
+// (conclusi) tornano all'ordine per data. Elenco vuoto = tutti di nuovo in ordine per data.
+export async function reorderPromos(idsInput: string[]): Promise<ActionResult<ChangeResult>> {
+  return runAction(async () => {
+    const editor = await requireMenuEditor();
+    assert(Array.isArray(idsInput) && idsInput.length <= 200, "Elenco non valido.");
+    const ids = idsInput.map((x) => parseId(x, "pagina"));
+    const all = await prisma.menuPromo.findMany({ where: { deletedAt: null }, select: { id: true, sortOrder: true } });
+    assert(
+      new Set(ids).size === ids.length && ids.every((id) => all.some((p) => p.id === id)),
+      "Gli eventi sono cambiati nel frattempo: chiudi e riapri «Riordina».",
+    );
+    const before: Record<string, number | null> = Object.fromEntries(all.map((p) => [p.id, p.sortOrder]));
+    const after: Record<string, number | null> = Object.fromEntries(all.map((p) => [p.id, ids.includes(p.id) ? ids.indexOf(p.id) : null]));
+    if (all.every((p) => before[p.id] === after[p.id])) return { changeId: null };
+    const changeId = await prisma.$transaction(async (tx) => {
+      for (const p of all) {
+        if (before[p.id] !== after[p.id]) await tx.menuPromo.update({ where: { id: p.id }, data: { sortOrder: after[p.id] } });
+      }
+      return logChange(tx, {
+        actorName: editor.name,
+        action: "UPDATE",
+        entity: "promo",
+        entityId: "*order",
+        label: ids.length ? "Ordine di eventi e annunci" : "Eventi e annunci in ordine per data",
+        before: { order: before },
+        after: { order: after },
+      });
+    });
+    revalidateMenu();
+    return { changeId };
+  });
+}

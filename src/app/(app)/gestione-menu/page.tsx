@@ -106,6 +106,8 @@ export default async function GestioneMenuPage() {
     imageVersion: p.imageUpdatedAt ? p.imageUpdatedAt.getTime() : null,
     menuMode: p.menuMode === "FILE" ? "FILE" : "ITEMS",
     hasMenu: p.hasMenu,
+    sortOrder: p.sortOrder,
+    createdAt: p.createdAt.getTime(),
     menuNote: p.menuNote,
     allergenNotice: p.allergenNotice,
     pages: p.pages,

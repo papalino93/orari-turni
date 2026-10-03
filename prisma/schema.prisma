@@ -359,6 +359,8 @@ model MenuPromo {
   allergenNotice String? // avviso allergeni unico (es. «Allergeni: chiedi al personale»); null = spento
   // Solo eventi: ha un menù dedicato? Senza, la pagina mostra solo locandina, testo e date.
   hasMenu        Boolean       @default(true)
+  // Posizione scelta a mano («Riordina» → «Eventi e annunci»); null = per data, dopo quelli ordinati.
+  sortOrder      Int?
 
   image   MenuPromoImage?
   section MenuSection?

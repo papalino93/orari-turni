@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
-import { blockStatus, blockSummary, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
+import { blockStatus, blockSummary, comparePromos, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
 import { traitLabel } from "@/lib/wine-traits";
 import { isItalianWine } from "@/lib/wine-order";
 import { createGroup, deleteGroup, deleteItem, moveGroup, moveItem, renameGroup, resetSoldOut, saveTextRow, setGroupFormats, setSoldOut, undoChange } from "./actions";
@@ -81,6 +81,9 @@ export type EditorPromo = {
   menuNote: string | null;
   allergenNotice: string | null;
   hasMenu: boolean;
+  // Posizione scelta in «Riordina» (null = per data) e creazione, per lo stesso ordine di «In evidenza».
+  sortOrder: number | null;
+  createdAt: number;
   pages: { id: string; width: number; height: number }[];
   section: EditorSection | null;
 };
@@ -327,7 +330,7 @@ export function MenuEditor({
   }
   // Eventi conclusi → archivio (restano con locandina, menù e formati, e si possono duplicare).
   const archivePromos = promos.filter((p) => effectiveStatus(p, today) === "past" || (p.hidden && p.endDate < today));
-  const currentPromos = promos.filter((p) => !archivePromos.includes(p));
+  const currentPromos = promos.filter((p) => !archivePromos.includes(p)).sort(comparePromos);
   const promoButton = (p: EditorPromo) => {
     const active = activeSlug === `promo:${p.id}`;
     const status = effectiveStatus(p, today);
@@ -632,6 +635,9 @@ export function MenuEditor({
       {sheet?.type === "reorder" && (
         <ReorderSheet
           sections={sections}
+          promos={currentPromos}
+          today={today}
+          startOnPromos={promoSelected && currentPromos.length > 1}
           startSectionId={promoSelected ? null : (section?.id ?? null)}
           run={run}
           onClose={() => setSheet(null)}
