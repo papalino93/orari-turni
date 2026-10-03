@@ -1,5 +1,6 @@
 "use client";
 
+import { IconVenue, PanelHead } from "./panel-head";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
@@ -53,22 +54,32 @@ export function VenuePanel({ venue, onOpen }: { venue: EditorVenue; onOpen: (kin
     },
   ];
   return (
-    <section aria-label="Il locale" className="mb-5 rounded-2xl border border-border bg-surface px-4 py-3">
+    <section aria-label="Il locale" className="mb-5 rounded-2xl border border-border bg-surface px-4 py-3.5">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex min-h-10 w-full items-start gap-2 text-left"
+        className="flex min-h-10 w-full items-center rounded-xl text-left"
       >
-        <span aria-hidden="true" className={`mt-1 text-foreground-muted transition-transform ${open ? "rotate-180" : ""}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </span>
-        <span className="min-w-0">
-          <span className="block text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Il locale · copertina, orari, contatti</span>
-          <span className="mt-0.5 block truncate text-xs text-foreground-muted">{status ? status.label : "Orari, contatti e copertina del menù"}</span>
-        </span>
+        <PanelHead
+          icon={IconVenue}
+          tone={status ? (status.open ? "success" : "muted") : "muted"}
+          title="Il locale"
+          chevron={open ? "open" : "closed"}
+          badge={
+            status ? (
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  status.open ? "bg-success/15 text-success" : "bg-danger/10 text-danger"
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${status.open ? "bg-success" : "bg-danger"}`} />
+                {status.label}
+              </span>
+            ) : undefined
+          }
+          subtitle="Copertina, orari e contatti che vedono i clienti"
+        />
       </button>
       <ul className={`mt-1 divide-y divide-border ${open ? "" : "hidden"}`}>
         {rows.map((row) => (

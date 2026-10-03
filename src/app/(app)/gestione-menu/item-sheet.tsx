@@ -153,22 +153,33 @@ export function ItemSheet({
   const [allergens, setAllergens] = useState<string[]>(item?.allergens ?? []);
   const [targetGroup, setTargetGroup] = useState(groupId);
   // Formati del gruppo (es. birre 0,2 l · 0,4 l · 1 l): un prezzo per colonna.
-  const groupFormats = isWine ? null : (sections.flatMap((x) => x.groups).find((g) => g.id === targetGroup)?.formats ?? null);
+  const declaredFormats = isWine ? null : (sections.flatMap((x) => x.groups).find((g) => g.id === targetGroup)?.formats ?? null);
+  // Una voce con formati suoi, diversi da quelli del gruppo, si modifica con i suoi
+  // formati: con le colonne del gruppo i prezzi «fuori colonna» andrebbero persi.
+  const ownFormats = Boolean(declaredFormats && item?.variants?.some((v) => !declaredFormats.includes(v.label)));
+  const groupFormats = ownFormats ? null : declaredFormats;
   const [formatPrices, setFormatPrices] = useState<Record<string, string>>(() =>
     Object.fromEntries((item?.variants ?? []).map((v) => [v.label, formatPrice(v.cents)])),
   );
   // «Un prezzo» oppure «Più formati» (birre 0,2 l · 0,4 l · 1 l, calice e bottiglia…).
-  const [priceMode, setPriceMode] = useState<"single" | "formats">(() => (item?.variants?.length ? "formats" : "single"));
+  // In un gruppo con i formati si parte dai formati, ma una voce con un prezzo solo (es. l'acqua) resta possibile.
+  const [priceMode, setPriceMode] = useState<"single" | "formats">(() =>
+    item?.variants?.length ? "formats" : item && item.priceCents !== null ? "single" : groupFormats ? "formats" : "single",
+  );
   const targetGroupData = sections.flatMap((x) => x.groups).find((g) => g.id === targetGroup);
-  // I formati scritti qui diventano quelli del gruppo (le altre birre chiederanno solo i prezzi),
-  // ma solo se le altre voci del gruppo non hanno già un prezzo unico.
-  const othersSinglePrice = (targetGroupData?.items ?? []).some((i) => i.id !== item?.id && !i.textOnly && !i.variants?.length);
-  const [shareFormats, setShareFormats] = useState(true);
-  const formatsMode = Boolean(groupFormats) || priceMode === "formats";
+  const formatsMode = priceMode === "formats";
   const rowLabels = variants.map((v) => v.label.trim()).filter(Boolean);
+  // I formati scritti qui diventano quelli del gruppo (le altre birre chiederanno solo i prezzi),
+  // solo se non tolgono prezzi a nessuno: gruppo senza altre voci, oppure altre voci
+  // con esattamente gli stessi formati.
+  const otherItems = (targetGroupData?.items ?? []).filter((i) => i.id !== item?.id && !i.textOnly);
+  const sameLabels = (list: { label: string }[] | null | undefined) =>
+    Boolean(list?.length) && list!.length === rowLabels.length && list!.every((v, j) => v.label === rowLabels[j]);
+  const canShare = !declaredFormats && (otherItems.length === 0 || otherItems.every((i) => sameLabels(i.variants)));
+  const [shareFormats, setShareFormats] = useState(true);
   // Prezzo di un formato del gruppo (anche se scritto prima, nelle righe dei formati).
   const priceFor = (f: string) => formatPrices[f] ?? variants.find((v) => v.label.trim() === f)?.price ?? "";
-  const willShare =!groupFormats && priceMode === "formats" && shareFormats && !othersSinglePrice && rowLabels.length >= 2 && rowLabels.length <= 4;
+  const willShare = canShare && priceMode === "formats" && shareFormats && rowLabels.length >= 2 && rowLabels.length <= 4;
   const allergensRef = useRef<HTMLFieldSetElement>(null);
   useEffect(() => {
     if (focusAllergens) allergensRef.current?.scrollIntoView({ block: "center" });
@@ -203,11 +214,11 @@ export function ItemSheet({
           pairWineId: canPair ? pairWineId : null,
           allergens: allergenMode === "some" ? allergens : [],
           allergensReviewed: allergenMode !== "unknown",
-          variants: groupFormats
-            ? groupFormats.filter((f) => priceFor(f).trim()).map((f) => ({ label: f, price: priceFor(f) }))
-            : priceMode === "formats"
-              ? variants.filter((v) => v.price.trim()).map((v) => ({ label: v.label.trim(), price: v.price }))
-              : [],
+          variants: !formatsMode
+            ? []
+            : groupFormats
+              ? groupFormats.filter((f) => priceFor(f).trim()).map((f) => ({ label: f, price: priceFor(f) }))
+              : variants.filter((v) => v.price.trim()).map((v) => ({ label: v.label.trim(), price: v.price })),
         });
     const result = await run(
       // Prima i formati del gruppo, poi la voce: le altre birre chiederanno solo i prezzi.
@@ -429,8 +440,7 @@ export function ItemSheet({
             <div className="space-y-2.5 rounded-xl border border-border p-3" role="group" aria-label="Prezzo">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-medium text-foreground">Prezzo</p>
-                {!groupFormats && (
-                  <div role="radiogroup" aria-label="Come si vende" className="grid grid-cols-2 rounded-full border border-border p-0.5">
+                <div role="radiogroup" aria-label="Come si vende" className="grid grid-cols-2 rounded-full border border-border p-0.5">
                     {(
                       [
                         ["single", "Un prezzo"],
@@ -444,7 +454,7 @@ export function ItemSheet({
                         aria-checked={priceMode === value}
                         onClick={() => {
                           setPriceMode(value);
-                          if (value === "formats" && variants.length === 0) setVariants([{ label: "", price: "" }, { label: "", price: "" }]);
+                          if (value === "formats" && !groupFormats && variants.length === 0) setVariants([{ label: "", price: "" }, { label: "", price: "" }]);
                         }}
                         className={`min-h-9 rounded-full px-3.5 text-xs font-medium ${
                           priceMode === value ? "bg-accent text-accent-foreground" : "text-foreground-muted hover:text-foreground"
@@ -454,10 +464,9 @@ export function ItemSheet({
                       </button>
                     ))}
                   </div>
-                )}
               </div>
 
-              {groupFormats ? (
+              {groupFormats && formatsMode ? (
                 <>
                   <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${groupFormats.length}, minmax(0, 1fr))` }}>
                     {groupFormats.map((f) => (
@@ -532,6 +541,11 @@ export function ItemSheet({
                       )
                     );
                   })()}
+                  {ownFormats && (
+                    <p className="text-[11px] text-gold">
+                      Questa voce ha formati diversi da quelli del gruppo ({declaredFormats!.join(" · ")}): sul menù compaiono in fila sotto il nome.
+                    </p>
+                  )}
                   <button
                     type="button"
                     disabled={variants.length >= 8}
@@ -540,7 +554,7 @@ export function ItemSheet({
                   >
                     + Aggiungi un formato
                   </button>
-                  {!othersSinglePrice && (
+                  {canShare && rowLabels.length >= 2 && (
                     <label className="flex items-start gap-2.5 rounded-lg bg-surface-2 px-3 py-2.5 text-xs text-foreground">
                       <input
                         type="checkbox"

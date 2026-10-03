@@ -22,11 +22,13 @@ export type PromoInput = {
   endDate: string;
   // Solo eventi: quali blocchi del menù (coperto, chiusura cucina…) compaiono anche nel menù speciale.
   blockIds?: string[];
+  // Solo eventi: con un menù dedicato (cibo e bevande della serata) oppure senza.
+  hasMenu?: boolean;
 };
 
 const MAX_IMAGE_BYTES = 900 * 1024;
 
-function parsePromoFields(input: Pick<PromoInput, "title" | "label" | "body" | "showFrom" | "startDate" | "endDate">) {
+function parsePromoFields(input: Pick<PromoInput, "title" | "label" | "body" | "showFrom" | "startDate" | "endDate" | "hasMenu">) {
   const title = parseText(input.title, "titolo", { max: 80, required: true });
   const label = parseText(input.label, "tipo", { max: 30 }) || null;
   const body = parseText(input.body, "testo", { max: 600 }) || null;
@@ -35,7 +37,7 @@ function parsePromoFields(input: Pick<PromoInput, "title" | "label" | "body" | "
   const endDate = parseDateKey(input.endDate, "di fine");
   assert(showFrom <= startDate, "«Mostra dal» non può essere dopo l'inizio.");
   assert(startDate <= endDate, "La data di fine non può essere prima dell'inizio.");
-  return { title, label, body, showFrom, startDate, endDate };
+  return { title, label, body, showFrom, startDate, endDate, hasMenu: input.hasMenu !== false };
 }
 
 // Indirizzo stabile e leggibile: resta lo stesso anche se il titolo cambia,
@@ -69,8 +71,9 @@ function snapshot(p: {
   startDate: string;
   endDate: string;
   hidden: boolean;
+  hasMenu: boolean;
 }) {
-  return { title: p.title, label: p.label, body: p.body, showFrom: p.showFrom, startDate: p.startDate, endDate: p.endDate, hidden: p.hidden };
+  return { title: p.title, label: p.label, body: p.body, showFrom: p.showFrom, startDate: p.startDate, endDate: p.endDate, hidden: p.hidden, hasMenu: p.hasMenu };
 }
 
 export async function createPromo(input: PromoInput): Promise<ActionResult<ChangeResult & { id: string }>> {
@@ -225,7 +228,7 @@ export async function duplicatePromo(
       },
     });
     assert(source, "Pagina non trovata.");
-    const fields = parsePromoFields({ ...input, label: source.label ?? "", body: source.body ?? "" });
+    const fields = parsePromoFields({ ...input, label: source.label ?? "", body: source.body ?? "", hasMenu: source.hasMenu });
     const slug = await uniqueSlug(fields.title);
 
     const result = await prisma.$transaction(async (tx) => {
@@ -453,5 +456,30 @@ export async function movePromoPage(pageIdInput: string, directionInput: "up" | 
     [pages[i], pages[j]] = [pages[j], pages[i]];
     await prisma.$transaction(pages.map((p, k) => prisma.menuPromoPage.update({ where: { id: p.id }, data: { sortOrder: k } })));
     revalidateMenu();
+  });
+}
+
+// Aggiunge (o toglie) il menù dedicato a un evento già creato.
+export async function setPromoHasMenu(idInput: string, hasMenu: boolean): Promise<ActionResult<ChangeResult>> {
+  return runAction(async () => {
+    const editor = await requireMenuEditor();
+    const id = parseId(idInput, "pagina");
+    const promo = await prisma.menuPromo.findFirst({ where: { id, deletedAt: null } });
+    assert(promo && promo.kind === "EVENT", "Evento non trovato.");
+    if (promo.hasMenu === Boolean(hasMenu)) return { changeId: null };
+    const changeId = await prisma.$transaction(async (tx) => {
+      await tx.menuPromo.update({ where: { id }, data: { hasMenu: Boolean(hasMenu) } });
+      return logChange(tx, {
+        actorName: editor.name,
+        action: "UPDATE",
+        entity: "promo",
+        entityId: id,
+        label: `${promo.title} · ${hasMenu ? "con menù dedicato" : "senza menù dedicato"}`,
+        before: { hasMenu: promo.hasMenu },
+        after: { hasMenu: Boolean(hasMenu) },
+      });
+    });
+    revalidateMenu();
+    return { changeId };
   });
 }

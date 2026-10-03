@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { addDays, dayLabel, formatDayMonth, formatWeekRange, parseDateKey } from "@/lib/week";
-import { buildSchedule, entryForPeriod, entryLabel, formatHours, PERIOD_LABEL, PERIODS, type Block, type Closure, type Employee, type Leave } from "@/lib/schedule";
+import { buildSchedule, entryForPeriod, entryLabel, formatHours, leaveLabelFor, PERIOD_LABEL, PERIODS, type Block, type Closure, type Employee, type Leave } from "@/lib/schedule";
 import { orderEmployees } from "./shared";
 import { LOGO_DATA_URI } from "@/lib/logo-data-uri";
 
@@ -125,7 +125,12 @@ export const ExportCard = forwardRef<
                           borderLeft: "1px solid #f1e2e0",
                         }}
                       >
-                        <ExportCellLabel kind={entry.kind} text={entry.kind === "TURNO" || entry.kind === "CHIUSO" ? undefined : entryLabel(entry)} blocks={entry.blocks} />
+                        <ExportCellLabel
+                          kind={entry.kind}
+                          text={entry.kind === "TURNO" || entry.kind === "CHIUSO" ? undefined : entryLabel(entry)}
+                          blocks={entry.blocks}
+                          extra={entry.kind === "TURNO" && entry.leave ? leaveLabelFor(entry.leave.type, entry.leave.quantity) : undefined}
+                        />
                       </td>
                     );
                   })}
@@ -153,10 +158,13 @@ function ExportCellLabel({
   kind,
   text,
   blocks,
+  extra,
 }: {
   kind: string;
   text?: string;
   blocks: { startTime: string; endTime: string }[];
+  /** Permesso a ore nello stesso giorno del turno (orario ridotto). */
+  extra?: string;
 }) {
   if (kind === "CHIUSO") {
     return <span style={{ color: "#8a2740", fontWeight: 600 }}>🔒 LOCALE CHIUSO</span>;
@@ -169,6 +177,7 @@ function ExportCellLabel({
             {b.startTime}–{b.endTime}
           </div>
         ))}
+        {extra && <div style={{ color: "#93701f", fontWeight: 600, fontSize: "0.85em", whiteSpace: "nowrap" }}>{extra}</div>}
       </div>
     );
   }

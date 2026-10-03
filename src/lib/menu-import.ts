@@ -14,6 +14,8 @@ export type ImportRowInput = {
   priceGlass: string;
   priceBottle: string;
   price: string;
+  // Gruppo con i formati (birre 0,2 l · 0,4 l · 1 l): un prezzo per formato, vuoto = non disponibile.
+  formatPrices?: string[];
 };
 
 export type ParsedRow =
@@ -27,6 +29,11 @@ export const IMPORT_COLUMNS: Record<ImportKind, string[]> = {
 
 export const MAX_IMPORT_ROWS = 100;
 
+// Colonne attese: con i formati del gruppo, un prezzo per formato al posto di «Prezzo».
+export function importColumns(kind: ImportKind, formats: string[] | null = null): string[] {
+  return kind === "FOOD" && formats?.length ? ["Nome", "Descrizione", ...formats] : IMPORT_COLUMNS[kind];
+}
+
 function detectDelimiter(text: string): string | null {
   if (text.includes("\t")) return "\t";
   if (text.includes(";")) return ";";
@@ -34,9 +41,11 @@ function detectDelimiter(text: string): string | null {
   return null;
 }
 
-export function parseImport(text: string, kind: ImportKind): { rows: ParsedRow[]; tooMany: boolean } {
+export function parseImport(text: string, kind: ImportKind, formats: string[] | null = null): { rows: ParsedRow[]; tooMany: boolean } {
   const delimiter = detectDelimiter(text);
-  const expected = IMPORT_COLUMNS[kind].length;
+  const columns = importColumns(kind, formats);
+  const withFormats = columns !== IMPORT_COLUMNS[kind];
+  const expected = columns.length;
   const rows: ParsedRow[] = [];
   let headerChecked = false;
 
@@ -59,14 +68,16 @@ export function parseImport(text: string, kind: ImportKind): { rows: ParsedRow[]
       const fail = (error: string) => rows.push({ line, ok: false, error, raw: rawLine.trim() });
 
       if (cells.length !== expected) {
-        fail(`Servono ${expected} colonne (${IMPORT_COLUMNS[kind].join("; ")}), ne ho trovate ${cells.length}.`);
+        fail(`Servono ${expected} colonne (${columns.join("; ")}), ne ho trovate ${cells.length}.`);
         return;
       }
 
       const input: ImportRowInput =
         kind === "WINE"
           ? { name: cells[0], sub: cells[1], grapes: cells[2], description: "", priceGlass: cells[3], priceBottle: cells[4], price: "" }
-          : { name: cells[0], sub: "", grapes: "", description: cells[1], priceGlass: "", priceBottle: "", price: cells[2] };
+          : withFormats
+            ? { name: cells[0], sub: "", grapes: "", description: cells[1], priceGlass: "", priceBottle: "", price: "", formatPrices: cells.slice(2) }
+            : { name: cells[0], sub: "", grapes: "", description: cells[1], priceGlass: "", priceBottle: "", price: cells[2] };
 
       if (!input.name) return fail("Manca il nome.");
       if (input.name.length > 120) return fail("Nome troppo lungo (massimo 120 caratteri).");
@@ -80,6 +91,11 @@ export function parseImport(text: string, kind: ImportKind): { rows: ParsedRow[]
         if (!glass.ok) return fail(`Prezzo al calice non valido: «${input.priceGlass}».`);
         if (!bottle.ok) return fail(`Prezzo alla bottiglia non valido: «${input.priceBottle}».`);
         if (glass.cents === null && bottle.cents === null) return fail("Serve almeno un prezzo (calice o bottiglia).");
+      } else if (input.formatPrices) {
+        const prices = input.formatPrices.map((x) => tryParsePrice(x));
+        const bad = prices.findIndex((x) => !x.ok);
+        if (bad !== -1) return fail(`Prezzo non valido per ${columns[bad + 2]}: «${input.formatPrices[bad]}».`);
+        if (prices.every((x) => x.ok && x.cents === null)) return fail("Serve almeno un prezzo.");
       } else {
         const price = tryParsePrice(input.price);
         if (!price.ok) return fail(`Prezzo non valido: «${input.price}».`);

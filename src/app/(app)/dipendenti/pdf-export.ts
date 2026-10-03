@@ -157,7 +157,7 @@ export async function exportEmployeeRangePdf({
       doc.setFontSize(8.5);
       doc.setTextColor(...WINE);
       doc.text("LOCALE CHIUSO", orarioX + 5.5, y + rowH / 2 + 1, { baseline: "middle" });
-    } else if (leave) {
+    } else if (leave && !(leave.type === "PERMESSO" && dayBlocks.length > 0)) {
       const kind = leaveTypeToKind(leave.type);
       const color = col(kind === "FERIE" ? WINE : kind === "PERMESSO" ? GOLD : kind === "MALATTIA" ? DANGER : MUTED);
       const label = leaveLabelFor(leave.type, leave.quantity);
@@ -171,6 +171,13 @@ export async function exportEmployeeRangePdf({
       doc.setTextColor(...TEXT);
       const text = dayBlocks.map((b) => `${b.startTime}–${b.endTime}`).join("   ");
       doc.text(truncate(doc, text, orarioColW - 10), orarioX, y + rowH / 2 + 1, { baseline: "middle" });
+      // Permesso a ore nello stesso giorno (orario ridotto), accanto ai turni.
+      if (leave) {
+        const after = orarioX + doc.getTextWidth(text) + 4;
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...col(GOLD));
+        doc.text(truncate(doc, leaveLabelFor(leave.type, leave.quantity), orarioColW - (after - orarioX) - 2), after, y + rowH / 2 + 1, { baseline: "middle" });
+      }
     } else {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(8.5);

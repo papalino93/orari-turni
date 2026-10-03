@@ -8,18 +8,22 @@ import { Sheet } from "./sheet";
 
 // Prezzi di una voce come testi da modificare: calice e bottiglia (vini),
 // prezzo singolo oppure un prezzo per formato (piatti e bevande).
-type Draft = { glass: string; bottle: string; price: string; variants: string[] };
+// Con i formati del gruppo (birre 0,2 l · 0,4 l · 1 l) `cols` ha un prezzo per
+// colonna del gruppo, vuoto = formato non disponibile.
+type Draft = { glass: string; bottle: string; price: string; variants: string[]; cols: string[] };
 
 const toText = (cents: number | null) => (cents === null ? "" : formatPrice(cents));
-function base(item: EditorItem): Draft {
+function base(item: EditorItem, formats: string[] | null = null): Draft {
   return {
     glass: toText(item.priceGlassCents),
     bottle: toText(item.priceBottleCents),
     price: toText(item.priceCents),
     variants: (item.variants ?? []).map((v) => formatPrice(v.cents)),
+    cols: (formats ?? []).map((f) => toText(item.variants?.find((v) => v.label === f)?.cents ?? null)),
   };
 }
-const same = (a: Draft, b: Draft) => a.glass === b.glass && a.bottle === b.bottle && a.price === b.price && a.variants.join("|") === b.variants.join("|");
+const same = (a: Draft, b: Draft) =>
+  a.glass === b.glass && a.bottle === b.bottle && a.price === b.price && a.variants.join("|") === b.variants.join("|") && a.cols.join("|") === b.cols.join("|");
 const valid = (text: string) => tryParsePrice(text).ok;
 const filled = (text: string) => {
   const p = tryParsePrice(text);
@@ -27,7 +31,11 @@ const filled = (text: string) => {
 };
 
 // Cosa non va in una voce (null = tutto a posto), come lo dirà il server.
-function problem(item: EditorItem, kind: "WINE" | "FOOD", d: Draft): string | null {
+function problem(item: EditorItem, kind: "WINE" | "FOOD", d: Draft, formats: string[] | null = null): string | null {
+  if (formats) {
+    if (!d.cols.every(valid)) return "Prezzo non valido (esempio: 7 oppure 7,50).";
+    return d.cols.some(filled) ? null : "Serve almeno un prezzo.";
+  }
   if (kind === "WINE") {
     if (!valid(d.glass) || !valid(d.bottle)) return "Prezzo non valido (esempio: 7 oppure 7,50).";
     if (!filled(d.glass) && !filled(d.bottle)) return "Serve almeno un prezzo, calice o bottiglia.";
@@ -64,19 +72,29 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
   const [busy, setBusy] = useState(false);
   const section = sections.find((s) => s.id === sectionId) ?? null;
 
-  const all = sections.flatMap((s) => s.groups.flatMap((g) => g.items.filter((item) => !item.textOnly).map((item) => ({ item, kind: s.kind, section: s }))));
-  const changes = all.filter(({ item }) => draft[item.id] && !same(draft[item.id], base(item)));
-  const problems = changes.filter(({ item, kind }) => problem(item, kind, draft[item.id]));
+  const formatsOf = (g: EditorSection["groups"][number], kind: "WINE" | "FOOD") => (kind === "FOOD" ? g.formats : null);
+  // Una voce con un prezzo solo in un gruppo con i formati (es. l'acqua) resta a prezzo singolo,
+  // e una con formati suoi (nomi diversi dalle colonne) si modifica formato per formato.
+  const itemFormats = (item: EditorItem, formats: string[] | null) =>
+    formats && (item.variants?.length || item.priceCents === null) && !item.variants?.some((v) => !formats.includes(v.label)) ? formats : null;
+  const all = sections.flatMap((s) =>
+    s.groups.flatMap((g) =>
+      g.items.filter((item) => !item.textOnly).map((item) => ({ item, kind: s.kind, section: s, formats: itemFormats(item, formatsOf(g, s.kind)) })),
+    ),
+  );
+  const changes = all.filter(({ item, formats }) => draft[item.id] && !same(draft[item.id], base(item, formats)));
+  const problems = changes.filter(({ item, kind, formats }) => problem(item, kind, draft[item.id], formats));
   const perSection = (id: string) => changes.filter((c) => c.section.id === id).length;
 
-  function edit(item: EditorItem, patch: Partial<Draft>) {
-    setDraft((prev) => ({ ...prev, [item.id]: { ...(prev[item.id] ?? base(item)), ...patch } }));
+  function edit(item: EditorItem, patch: Partial<Draft>, formats: string[] | null = null) {
+    setDraft((prev) => ({ ...prev, [item.id]: { ...(prev[item.id] ?? base(item, formats)), ...patch } }));
   }
 
   async function save() {
     setBusy(true);
-    const list: PriceChange[] = changes.map(({ item, kind }) => {
+    const list: PriceChange[] = changes.map(({ item, kind, formats }) => {
       const d = draft[item.id];
+      if (formats) return { id: item.id, formats: d.cols };
       if (kind === "WINE") return { id: item.id, priceGlass: d.glass, priceBottle: d.bottle };
       return item.variants?.length ? { id: item.id, variants: d.variants } : { id: item.id, price: d.price };
     });
@@ -109,11 +127,14 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
       <p className="mb-3 text-xs text-foreground-muted">
         Scrivi il nuovo prezzo (es. 7 oppure 7,50): le caselle cambiate si colorano. Puoi passare da una sezione all&apos;altra e salvare tutto alla fine.
         {section?.kind === "WINE" && " Calice vuoto = non si vende al calice."}
+        {section?.groups.some((g) => g.formats) && " Nei gruppi con i formati (es. birre), casella vuota = formato non disponibile."}
       </p>
 
       {section && (
         <div className="space-y-4">
-          {section.groups.map((group) => (
+          {section.groups.map((group) => {
+            const formats = formatsOf(group, section.kind);
+            return (
             <div key={group.id}>
               <div className="sticky top-0 z-10 -mx-1 flex items-end gap-2 bg-surface px-1 pb-1 pt-1">
                 <p className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-wide text-foreground-muted">{group.title}</p>
@@ -122,6 +143,12 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
                     <span className="w-[4.5rem] shrink-0 text-right text-[11px] text-foreground-muted">Calice €</span>
                     <span className="w-[4.5rem] shrink-0 text-right text-[11px] text-foreground-muted">Bottiglia €</span>
                   </>
+                ) : formats ? (
+                  formats.map((f) => (
+                    <span key={f} className="w-[4.5rem] shrink-0 truncate text-right text-[11px] text-foreground-muted">
+                      {f} €
+                    </span>
+                  ))
                 ) : (
                   <span className="w-[4.5rem] shrink-0 text-right text-[11px] text-foreground-muted">Prezzo €</span>
                 )}
@@ -129,9 +156,10 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
               {group.items.length === 0 && <p className="py-2 text-xs text-foreground-muted">Nessuna voce.</p>}
               <ul className="divide-y divide-border">
                 {group.items.filter((item) => !item.textOnly).map((item) => {
-                  const orig = base(item);
+                  const cols = itemFormats(item, formats);
+                  const orig = base(item, cols);
                   const d = draft[item.id] ?? orig;
-                  const err = draft[item.id] && !same(d, orig) ? problem(item, section.kind, d) : null;
+                  const err = draft[item.id] && !same(d, orig) ? problem(item, section.kind, d, cols) : null;
                   const sub = section.kind === "WINE" ? item.wineName || item.denomination : null;
                   return (
                     <li key={item.id} className="py-1.5">
@@ -145,13 +173,27 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
                             <PriceInput value={d.glass} original={orig.glass} label={`Calice · ${item.name}${sub ? ` ${sub}` : ""}`} onChange={(v) => edit(item, { glass: v })} />
                             <PriceInput value={d.bottle} original={orig.bottle} label={`Bottiglia · ${item.name}${sub ? ` ${sub}` : ""}`} onChange={(v) => edit(item, { bottle: v })} />
                           </>
+                        ) : cols ? (
+                          cols.map((f, j) => (
+                            <PriceInput
+                              key={f}
+                              value={d.cols[j] ?? ""}
+                              original={orig.cols[j] ?? ""}
+                              label={`Prezzo · ${item.name} · ${f}`}
+                              onChange={(val) => edit(item, { cols: d.cols.map((x, k) => (k === j ? val : x)) }, cols)}
+                            />
+                          ))
                         ) : item.variants?.length ? (
                           <span className="shrink-0 text-[11px] text-foreground-muted">{item.variants.length} formati</span>
                         ) : (
-                          <PriceInput value={d.price} original={orig.price} label={`Prezzo · ${item.name}`} onChange={(v) => edit(item, { price: v })} />
+                          <>
+                            {formats && <span className="shrink-0 text-[10px] text-foreground-muted">prezzo unico</span>}
+                            <PriceInput value={d.price} original={orig.price} label={`Prezzo · ${item.name}`} onChange={(v) => edit(item, { price: v })} />
+                          </>
                         )}
                       </div>
                       {section.kind === "FOOD" &&
+                        !cols &&
                         item.variants?.map((v, j) => (
                           <div key={j} className="mt-1 flex items-center gap-2 pl-3">
                             <p className="min-w-0 flex-1 truncate text-xs text-foreground-muted">{v.label}</p>
@@ -169,7 +211,8 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
                 })}
               </ul>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

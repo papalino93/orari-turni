@@ -37,13 +37,13 @@ const publicText = async (path) => {
   return { status: r?.status(), text: (await pub.locator("body").innerText()).replace(/ /g, " ") };
 };
 
-async function createPromo({ type, title, label, body, start, end, showFrom, withImage }) {
+async function createPromo({ type, title, label, body, start, end, showFrom, withImage, noMenu = false }) {
   await page.getByRole("button", { name: "+ Evento o annuncio" }).click();
   await dialog().waitFor();
-  await dialog().getByRole("radio", { name: type === "EVENT" ? "Evento con menù speciale" : "Annuncio" }).click();
+  await dialog().getByRole("radio", { name: type === "EVENT" ? "Evento" : "Annuncio", exact: true }).click();
   await dialog().getByLabel("Titolo", { exact: true }).fill(title);
   if (label) await dialog().getByLabel("Tipo").fill(label);
-  if (body) await dialog().getByLabel("Testo").fill(body);
+  if (body) await dialog().getByRole("textbox", { name: /^Testo/ }).fill(body);
   if (withImage) await dialog().locator('input[type="file"]').setInputFiles(poster);
   if (type === "EVENT") {
     await dialog().getByLabel("Mostra la locandina dal").fill(showFrom);
@@ -53,7 +53,8 @@ async function createPromo({ type, title, label, body, start, end, showFrom, wit
     await dialog().getByLabel("Dal", { exact: true }).fill(start);
     await dialog().getByLabel("Al", { exact: true }).fill(end);
   }
-  await dialog().getByRole("button", { name: type === "EVENT" ? "Crea evento" : "Crea annuncio" }).click();
+  if (noMenu) await dialog().getByRole("checkbox", { name: /Ha un menù dedicato/ }).uncheck();
+  await dialog().getByRole("button", { name: type === "EVENT" ? /^Crea evento/ : "Crea annuncio" }).click();
   await dialog().waitFor({ state: "detached" });
   await settle(2000);
 }
@@ -91,12 +92,12 @@ check("formati: prezzo singolo richiesto finché non ci sono formati", (await di
 // Formati solo su questa voce (il gruppo resta normale): «Più formati» senza
 // «Stessi formati per tutto il gruppo». Il percorso col gruppo è in formats.mjs.
 await dialog().getByRole("radio", { name: "Più formati" }).click();
-await dialog().getByRole("checkbox", { name: /Stessi formati per tutto il gruppo/ }).uncheck();
 for (const [i, [l, p]] of [["0,2 l", "3,50"], ["0,4 l", "6"], ["1 l", "11"]].entries()) {
   if (i >= 2) await dialog().getByRole("button", { name: "+ Aggiungi un formato" }).click();
   await dialog().getByLabel(`Formato ${i + 1}`, { exact: true }).fill(l);
   await dialog().getByLabel(`Prezzo del formato ${i + 1}`).fill(p);
 }
+await dialog().getByRole("checkbox", { name: /Stessi formati per tutto il gruppo/ }).uncheck();
 check("formati: con i formati sparisce il prezzo singolo", (await dialog().getByLabel("Prezzo (€)").count()) === 0);
 await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
 await dialog().waitFor({ state: "detached" });
@@ -144,7 +145,9 @@ const allergens = await publicText("/menu/allergeni");
 check("allergeni: il cibo dell'evento in corso compare", /Brezel/.test(allergens.text) && /Glutine/.test(allergens.text));
 
 // ---- evento annunciato (non ancora iniziato)
-await createPromo({ type: "EVENT", title: "Serata Jazz", label: "Musica dal vivo", body: "Musica dal vivo", start: biz(5), end: biz(5), showFrom: biz(0), withImage: false });
+await createPromo({ type: "EVENT", title: "Serata Jazz", label: "Musica dal vivo", body: "Musica dal vivo", start: biz(5), end: biz(5), showFrom: biz(0), withImage: false, noMenu: true });
+check("evento senza menù dedicato: salvato così", DB(`select "hasMenu"::text from "MenuPromo" where title='Serata Jazz'`) === "false");
+check("gestione: «Evento senza menù dedicato» al posto del menù speciale", (await page.getByText("Evento senza menù dedicato").count()) === 1 && (await page.getByRole("heading", { name: "Menù speciale" }).count()) === 0);
 let menu = await publicText("/menu");
 check("annunciato: scheda nella striscia In evidenza", /In evidenza/i.test(menu.text) && /Serata Jazz/.test(menu.text));
 check("tipo personalizzato: compare sulla scheda", /Musica dal vivo/i.test(await pub.locator('section[aria-label="In evidenza"]').innerText()));
@@ -152,7 +155,7 @@ check("annunciato: non aperto a pagina piena", (await pub.locator('[id^="evento-
 const jazzSlug = DB(`select slug from "MenuPromo" where title='Serata Jazz'`);
 const jazzPage = await publicText(`/menu/p/${jazzSlug}`);
 check("tipo personalizzato: compare sulla pagina dell'evento", /musica dal vivo/i.test(jazzPage.text));
-check("annunciato: la pagina dice quando arriva il menù speciale", /menù speciale sarà disponibile dal/i.test(jazzPage.text));
+check("annunciato senza menù: nessuna promessa di «menù speciale»", !/menù speciale sarà disponibile/i.test(jazzPage.text));
 check("allergeni: il menù di un evento non iniziato non compare", !(await publicText("/menu/allergeni")).text.includes("Serata Jazz"));
 
 // ---- annuncio in corso

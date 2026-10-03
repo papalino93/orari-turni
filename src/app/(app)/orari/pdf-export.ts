@@ -10,6 +10,7 @@ import {
   buildSchedule,
   entryForPeriod,
   entryLabel,
+  leaveLabelFor,
   formatHours,
   PERIOD_LABEL,
   PERIODS,
@@ -89,7 +90,12 @@ export async function exportScheduleWeekPdf({
         const entry = closed ? schedule.entry(emp.id, dateKey) : entryForPeriod(schedule.entry(emp.id, dateKey), period);
         return cellText(
           entry.kind,
-          entry.kind === "TURNO" ? entry.blocks.map((b) => `${b.startTime}–${b.endTime}`).join("\n") : entryLabel(entry),
+          entry.kind === "TURNO"
+            ? [
+                ...entry.blocks.map((b) => `${b.startTime}–${b.endTime}`),
+                ...(entry.leave ? [leaveLabelFor(entry.leave.type, entry.leave.quantity)] : []),
+              ].join("\n")
+            : entryLabel(entry),
         );
       },
     });

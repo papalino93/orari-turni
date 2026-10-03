@@ -231,6 +231,7 @@ export function RevisioneView({
           entry={editingEntry}
           isClosed={schedule.isClosed(editingDate)}
           onClose={() => setEditingDate(null)}
+          selfReview
         />
       )}
     </div>

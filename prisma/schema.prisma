@@ -357,6 +357,8 @@ model MenuPromo {
   menuMode       String        @default("ITEMS")
   menuNote       String? // note in cima al menù speciale
   allergenNotice String? // avviso allergeni unico (es. «Allergeni: chiedi al personale»); null = spento
+  // Solo eventi: ha un menù dedicato? Senza, la pagina mostra solo locandina, testo e date.
+  hasMenu        Boolean       @default(true)
 
   image   MenuPromoImage?
   section MenuSection?

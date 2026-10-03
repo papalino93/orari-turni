@@ -59,7 +59,7 @@ export function HistorySheet({
                   {h.actorName} · {formatWhen(h.at)}
                 </p>
               </div>
-              {h.undone ? (
+              {h.undone && h.action === "RESTORE" ? null : h.undone ? (
                 <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-foreground-muted">
                   Annullata
                 </span>

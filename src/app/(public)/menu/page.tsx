@@ -81,7 +81,7 @@ export default async function MenuPage() {
       .filter((s) => s.kind === "WINE")
       .flatMap((s) =>
         s.groups.flatMap((g) =>
-          g.items.map((w) => [w.id, { name: w.name, zone: [w.wineName, wineDetail(w)].filter(Boolean).join(" · ") || (originLabel(w) ? "" : s.label), origin: originLabel(w), traits: w.traits, glass: w.priceGlassCents, bottle: w.priceBottleCents }] as const),
+          g.items.filter((w) => !w.textOnly).map((w) => [w.id, { name: w.name, zone: [w.wineName, wineDetail(w)].filter(Boolean).join(" · ") || (originLabel(w) ? "" : s.label), origin: originLabel(w), traits: w.traits, glass: w.priceGlassCents, bottle: w.priceBottleCents }] as const),
         ),
       ),
   );
@@ -91,7 +91,13 @@ export default async function MenuPage() {
   const dailyGroups = dailyRows.flatMap((s) =>
     s.groups
       .filter((g) => g.items.length > 0)
-      .map((g) => ({ ...g, kind: s.kind, items: g.items.map((item) => ({ ...item, soldOut: false })) })),
+      // Esaurito anche qui (si segna dalla ricerca della gestione): il vino sparisce, il piatto si vede barrato.
+      .map((g) => ({
+        ...g,
+        kind: s.kind,
+        items: g.items.map((item) => ({ ...item, soldOut: isSoldOut(item, dayKey) })).filter((item) => !(s.kind === "WINE" && item.soldOut)),
+      }))
+      .filter((g) => g.items.length > 0),
   );
   const first = dailyRows[0];
   const sections = [
@@ -337,7 +343,7 @@ export default async function MenuPage() {
                         </div>
                       )}
                       {group.kind === "FOOD" && parseFormats(group.formats) ? (
-                        <FormatPrices formats={parseFormats(group.formats)!} variants={variants} soldOut={item.soldOut} />
+                        <FormatPrices formats={parseFormats(group.formats)!} variants={variants} soldOut={item.soldOut} price={price ?? null} />
                       ) : variants ? (
                         <Variants variants={variants} soldOut={item.soldOut} />
                       ) : (

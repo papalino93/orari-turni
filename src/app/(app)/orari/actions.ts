@@ -113,26 +113,34 @@ export async function saveDayEntry(
       // titolare. Senza questi due controlli il dipendente poteva sia
       // assegnarsi ore di permesso, sia cancellare un'assenza già registrata
       // dal titolare salvando un normale turno sullo stesso giorno.
-      if (leaveInput) {
+      // Eccezione: un permesso a ore in un giorno di lavoro (orario ridotto).
+      // Il dipendente corregge i suoi turni, il permesso resta com'è.
+      if (leaveInput && !(existingLeave?.type === "PERMESSO" && leaveInput.type === "PERMESSO")) {
         assert(
           leaveInput.type === "LIBERO",
           "Ferie, permessi e malattia li registra il titolare: segnala a lui la correzione.",
         );
       }
-      if (existingLeave && existingLeave.type !== "LIBERO") {
+      if (existingLeave && existingLeave.type !== "LIBERO" && existingLeave.type !== "PERMESSO") {
         assert(
           false,
           "Su questo giorno il titolare ha registrato un'assenza: solo lui può modificarla.",
         );
       }
+      if (existingLeave?.type === "PERMESSO") {
+        assert(!leaveInput || leaveInput.type === "PERMESSO", "Su questo giorno c'è un permesso registrato dal titolare: solo lui può toglierlo.");
+      }
     }
 
-    const leave = leaveInput
-      ? {
-          type: parseEnum(leaveInput.type, LEAVE_TYPES, "tipo assenza"),
-          quantity: parseNumber(leaveInput.quantity, "quantità", { min: 0, max: 24 }),
-        }
-      : null;
+    const leave =
+      auth.role === "EMPLOYEE" && existingLeave?.type === "PERMESSO"
+        ? { type: "PERMESSO" as const, quantity: existingLeave.quantity }
+        : leaveInput
+          ? {
+              type: parseEnum(leaveInput.type, LEAVE_TYPES, "tipo assenza"),
+              quantity: parseNumber(leaveInput.quantity, "quantità", { min: 0, max: 24 }),
+            }
+          : null;
 
     if (leave && (leave.type === "FERIE" || leave.type === "PERMESSO")) {
       assert(
@@ -145,7 +153,8 @@ export async function saveDayEntry(
       }
     }
 
-    const blocks = leave
+    // Turni e assenza si escludono, tranne il permesso a ore (orario ridotto).
+    const blocks = leave && leave.type !== "PERMESSO"
       ? []
       : blocksInput.slice(0, 4).map((b) => {
           const startTime = parseTime(b.startTime, "orario di inizio");
@@ -181,7 +190,8 @@ export async function saveDayEntry(
     ];
     if (leave) {
       ops.push(prisma.leaveEntry.create({ data: { employeeId, date, type: leave.type, quantity: leave.quantity } }));
-    } else {
+    }
+    {
       for (const b of blocks) {
         let audit: { addedByEmployee?: boolean; originalStartTime?: string; originalEndTime?: string; editedByEmployeeAt?: Date } = {};
         if (auth.role === "EMPLOYEE") {
@@ -364,7 +374,10 @@ export async function copyPreviousWeek(
           select: { id: true },
         }),
         prisma.shiftBlock.findMany({ where: { date: { in: sourceDates }, ...employeeWhere } }),
-        prisma.leaveEntry.findMany({ where: { date: { in: sourceDates }, type: "LIBERO", ...employeeWhere } }),
+        // Riposi e permessi a ore dei giorni di lavoro (orario ridotto «fino a nuova
+        // comunicazione»): si ripetono come i turni. Ferie, malattia e permessi
+        // di un giorno intero sono fatti di quella settimana e non si copiano.
+        prisma.leaveEntry.findMany({ where: { date: { in: sourceDates }, type: { in: ["LIBERO", "PERMESSO"] }, ...employeeWhere } }),
         prisma.closureDay.findMany({ where: { date: { in: sourceDates } }, select: { date: true } }),
         prisma.closureDay.findMany({ where: { date: { in: targetDates } }, select: { date: true } }),
         prisma.shiftBlock.findMany({
@@ -426,6 +439,19 @@ export async function copyPreviousWeek(
     }
 
     for (const r of sourceRest) {
+      if (r.type === "PERMESSO") {
+        // Solo insieme ai turni dello stesso giorno appena copiati.
+        const permTarget = targetKeyFor.get(toDateKey(r.date));
+        if (!permTarget || !filledCells.has(`${r.employeeId}|${permTarget}`)) continue;
+        ops.push(
+          prisma.leaveEntry.create({
+            data: { employeeId: r.employeeId, date: dateKeyToDate(permTarget), type: "PERMESSO", quantity: r.quantity },
+            select: { id: true },
+          }),
+        );
+        opKinds.push("leave");
+        continue;
+      }
       const targetKey = canFill(r.employeeId, toDateKey(r.date));
       if (!targetKey) continue;
       filledCells.add(`${r.employeeId}|${targetKey}`);
@@ -535,7 +561,8 @@ export async function applyDayEntryToDays(
     // Stessa validazione di saveDayEntry: orari sensati e fasce che non si
     // sovrappongono, verificate una volta sola visto che il contenuto è
     // identico per tutti i giorni selezionati.
-    const blocks = leave
+    // Turni e assenza si escludono, tranne il permesso a ore (orario ridotto).
+    const blocks = leave && leave.type !== "PERMESSO"
       ? []
       : blocksInput.slice(0, 4).map((b) => {
           const startTime = parseTime(b.startTime, "orario di inizio");
@@ -571,10 +598,9 @@ export async function applyDayEntryToDays(
     for (const date of applicableDates) {
       if (leave) {
         ops.push(prisma.leaveEntry.create({ data: { employeeId, date, type: leave.type, quantity: leave.quantity } }));
-      } else {
-        for (const b of blocks) {
-          ops.push(prisma.shiftBlock.create({ data: { employeeId, date, startTime: b.startTime, endTime: b.endTime } }));
-        }
+      }
+      for (const b of blocks) {
+        ops.push(prisma.shiftBlock.create({ data: { employeeId, date, startTime: b.startTime, endTime: b.endTime } }));
       }
     }
     await prisma.$transaction(ops);

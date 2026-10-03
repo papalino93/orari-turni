@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatPrice, tryParsePrice } from "@/lib/menu-format";
-import { IMPORT_COLUMNS, MAX_IMPORT_ROWS, parseImport } from "@/lib/menu-import";
+import { MAX_IMPORT_ROWS, importColumns, parseImport } from "@/lib/menu-import";
 import { importItems } from "./actions";
 import { Field, Sheet, inputClass } from "./sheet";
 import type { EditorSection, RunFn } from "./menu-editor";
@@ -36,7 +36,10 @@ export function ImportSheet({
   const [busy, setBusy] = useState(false);
 
   const kind = section.kind;
-  const parsed = useMemo(() => parseImport(text, kind), [text, kind]);
+  const formats = kind === "FOOD" ? (section.groups.find((g) => g.id === targetGroup)?.formats ?? null) : null;
+  const columns = importColumns(kind, formats);
+  // Calcolo leggero: ci pensa il compilatore di React a non ripeterlo.
+  const parsed = parseImport(text, kind, formats);
   const valid = parsed.rows.filter((r) => r.ok);
   const invalid = parsed.rows.length - valid.length;
   const existing = useMemo(() => {
@@ -74,7 +77,7 @@ export function ImportSheet({
 
           <Field
             label="Elenco da incollare"
-            hint={`Una riga per voce, campi separati da punto e virgola (o colonne di Excel): ${IMPORT_COLUMNS[kind].join("; ")}.${kind === "WINE" ? " Poi apri ogni vino per aggiungere regione, nome del vino e annata: quelli senza regione sono segnalati con «Manca la regione»." : ""}`}
+            hint={`Una riga per voce, campi separati da punto e virgola (o colonne di Excel): ${columns.join("; ")}.${formats ? " Prezzo vuoto = formato non disponibile." : ""}${kind === "WINE" ? " Poi apri ogni vino per aggiungere regione, nome del vino e annata: quelli senza regione sono segnalati con «Manca la regione»." : ""}`}
           >
             <textarea
               value={text}
@@ -82,7 +85,11 @@ export function ImportSheet({
               rows={9}
               spellCheck={false}
               className={`${inputClass} font-mono !text-xs`}
-              placeholder={EXAMPLE[kind]}
+              placeholder={
+                formats
+                  ? `Paulaner Helles; Monaco · Helles · 4,9% vol.; ${["3,50", "6", "11", "8"].slice(0, formats.length).join("; ")}\nHacker-Pschorr Weisse; Weizen · 5,5% vol.; ${["", "6,50", "12", "8"].slice(0, formats.length).join("; ")}`
+                  : EXAMPLE[kind]
+              }
             />
           </Field>
           {kind === "WINE" && (
@@ -144,7 +151,9 @@ export function ImportSheet({
                     <p className="ml-5 text-xs text-foreground-muted">
                       {kind === "WINE"
                         ? `Calice ${priceText(row.input.priceGlass)} · Bottiglia ${priceText(row.input.priceBottle)}`
-                        : `€ ${priceText(row.input.price)}`}
+                        : row.input.formatPrices
+                          ? (formats ?? []).map((f, j) => `${f} ${priceText(row.input.formatPrices?.[j] ?? "")}`).join(" · ")
+                          : `€ ${priceText(row.input.price)}`}
                     </p>
                   </>
                 ) : (

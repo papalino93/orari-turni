@@ -2,12 +2,12 @@ import {
   type MenuBlockView,
   formatPrice,
   formatPromoDates,
-  formatPromoDay,
   isPromoMenuVisible,
   nb,
   parseFormats,
   parseVariants,
   promoStatus,
+  withDay,
 } from "@/lib/menu-format";
 import type { loadPromoBySlug } from "@/lib/menu";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
@@ -35,8 +35,15 @@ export function PromoContent({
 }) {
   const Heading = inline ? "h2" : "h1";
   const status = promoStatus(promo, dayKey);
-  const showMenu = promo.kind === "EVENT" && promo.section && isPromoMenuVisible(promo, dayKey);
   const fileMenu = promo.menuMode === "FILE";
+  // Un evento senza voci né pagine (es. una serata fuori sede) non ha un «menù speciale» da annunciare.
+  const hasMenu = Boolean(
+    promo.kind === "EVENT" &&
+      promo.hasMenu &&
+      promo.section &&
+      (promo.menuNote || (fileMenu ? promo.pages.length > 0 : promo.section.groups.some((g) => g.items.length > 0))),
+  );
+  const showMenu = hasMenu && isPromoMenuVisible(promo, dayKey);
   const groups = showMenu && !fileMenu ? (promo.section?.groups ?? []).filter((g) => g.items.length > 0) : [];
 
   return (
@@ -84,9 +91,9 @@ export function PromoContent({
         <p className="mt-7 text-center text-[16.5px] italic text-[#5B605A]">Questo appuntamento si è concluso. Grazie a chi c&apos;era!</p>
       )}
 
-      {promo.kind === "EVENT" && status !== "live" && status !== "past" && (
+      {hasMenu && status !== "live" && status !== "past" && (
         <p className="mx-auto mt-7 max-w-[420px] border-y px-1 py-3.5 text-center text-[16.5px] italic text-[#3F4540]">
-          Il menù speciale sarà disponibile dal {formatPromoDay(promo.startDate)}.
+          Il menù speciale sarà disponibile {withDay("dal", promo.startDate)}.
         </p>
       )}
 
@@ -120,7 +127,7 @@ export function PromoContent({
               <p className="menu-sans m-0 text-center text-[11px] text-[#5B605A]">Tocca una pagina per vederla più grande.</p>
             </div>
           )}
-          {((fileMenu && promo.pages.length === 0) || (!fileMenu && groups.length === 0)) && (
+          {!promo.menuNote && ((fileMenu && promo.pages.length === 0) || (!fileMenu && groups.length === 0)) && (
             <p className="mt-6 text-center italic text-[#5B605A]">Il menù sarà pubblicato a breve.</p>
           )}
           {groups.map((group) => (
@@ -159,7 +166,7 @@ export function PromoContent({
                       {!(promo.allergenNotice && !item.allergensReviewed) && <AllergenMarks item={item} />}
                     </div>
                     {parseFormats(group.formats) ? (
-                      <FormatPrices formats={parseFormats(group.formats)!} variants={variants} soldOut={soldOut} />
+                      <FormatPrices formats={parseFormats(group.formats)!} variants={variants} soldOut={soldOut} price={item.priceCents} />
                     ) : variants ? (
                       <Variants variants={variants} soldOut={soldOut} />
                     ) : (

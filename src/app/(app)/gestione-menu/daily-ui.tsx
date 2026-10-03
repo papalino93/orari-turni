@@ -1,5 +1,6 @@
 "use client";
 
+import { IconToday, PanelHead } from "./panel-head";
 import { useState } from "react";
 import { allergenState } from "@/lib/allergens";
 import { formatPrice, formatPromoDay } from "@/lib/menu-format";
@@ -54,12 +55,19 @@ export function DailyPanel({
   }
 
   return (
-    <section aria-label="Oggi fuori menù" className="mb-5 rounded-2xl border border-gold/30 bg-gold/[0.04] px-4 py-3">
+    <section aria-label="Oggi fuori menù" className="mb-5 rounded-2xl border border-gold/35 bg-gradient-to-br from-gold/[0.10] to-gold/[0.02] px-4 py-3.5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-gold">Oggi fuori menù</p>
-          <p className="text-[11px] text-foreground-muted">Solo per oggi: spariscono da soli alle 5:00.</p>
-        </div>
+        <PanelHead
+          icon={IconToday}
+          tone="gold"
+          title="Oggi fuori menù"
+          subtitle="Il piatto e il vino del giorno: spariscono da soli alle 5:00."
+          badge={
+            rows.length > 0 ? (
+              <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-semibold text-gold">{rows.length} oggi</span>
+            ) : undefined
+          }
+        />
         <div className="flex gap-2">
           {foodGroup && (
             <button
@@ -83,7 +91,9 @@ export function DailyPanel({
       </div>
 
       {rows.length === 0 ? (
-        <p className="mt-2 text-sm text-foreground-muted">Niente di speciale oggi. Aggiungi un piatto o un vino del giorno.</p>
+        <p className="mt-3 rounded-xl border border-dashed border-gold/30 px-3 py-2.5 text-sm text-foreground-muted">
+          Niente di speciale oggi. Tocca «+ Piatto» o «+ Vino» per proporre qualcosa fuori carta.
+        </p>
       ) : (
         <ul className="mt-1 divide-y divide-border">
           {rows.map(({ item, kind, groupId }) => (
