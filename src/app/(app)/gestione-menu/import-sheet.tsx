@@ -8,7 +8,7 @@ import { Field, Sheet, inputClass } from "./sheet";
 import type { EditorSection, RunFn } from "./menu-editor";
 
 const EXAMPLE: Record<"WINE" | "FOOD", string> = {
-  WINE: "Aquila del Torre; Friulano; 100% Friulano; 6; 30\nMastrojanni; Trebbiano, Toscana Igt; 100% Trebbiano; 6; 30",
+  WINE: "Aquila del Torre; Friuli Colli Orientali Doc; 100% Friulano; 6; 30\nMastrojanni; Rosso di Montalcino Doc; 100% Sangiovese; 8; 40",
   FOOD: "Tagliere Classico; Prosciutto crudo, salame, pecorino; 13\nBurro & Acciughe; 4 pezzi; 10",
 };
 
@@ -74,7 +74,7 @@ export function ImportSheet({
 
           <Field
             label="Elenco da incollare"
-            hint={`Una riga per voce, campi separati da punto e virgola (o colonne di Excel): ${IMPORT_COLUMNS[kind].join("; ")}.`}
+            hint={`Una riga per voce, campi separati da punto e virgola (o colonne di Excel): ${IMPORT_COLUMNS[kind].join("; ")}.${kind === "WINE" ? " Poi apri ogni vino per aggiungere regione, nome del vino e annata: quelli senza regione sono segnalati con «Manca la regione»." : ""}`}
           >
             <textarea
               value={text}

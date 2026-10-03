@@ -234,6 +234,8 @@ export function StatsView({
         </button>
       </section>
 
+      {/* Prima di «Inizia a contare» non c'è nulla da filtrare: niente periodi. */}
+      {setting.since && (
       <nav aria-label="Periodo" className="flex flex-wrap items-center gap-2">
         {PERIODS.filter((p) => p.value !== "custom").map((p) => (
           <Link
@@ -262,6 +264,7 @@ export function StatsView({
           </button>
         </form>
       </nav>
+      )}
       {period === "custom" && data.from && (
         <p className="-mt-2 text-xs text-foreground-muted">
           Periodo: dal {fmtDay(data.from)} al {fmtDay(data.to)}.

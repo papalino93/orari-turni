@@ -159,7 +159,7 @@ pages.push(`<section class="page wine" style="padding:0;align-items:center;justi
   <div style="display:flex;align-items:center;gap:4mm;margin:14mm 0 9mm"><i style="display:block;height:.3mm;width:30mm;background:#C9A96E"></i><b style="display:block;width:2.4mm;height:2.4mm;transform:rotate(45deg);border:.3mm solid #C9A96E"></b><i style="display:block;height:.3mm;width:30mm;background:#C9A96E"></i></div>
   <div class="serif" style="font-family:'Cormorant Garamond';font-style:italic;font-weight:500;font-size:60pt;line-height:1;color:#F7EFE0;">Il menù digitale</div>
   <div class="sans" style="font-family:Jost;letter-spacing:.36em;text-transform:uppercase;font-size:9.5pt;color:#E3D4BC;margin-top:7mm">Carta dei vini · piatti · allergeni · eventi</div>
-  <div style="position:absolute;left:0;right:0;bottom:22mm;font-family:Jost;font-size:8.5pt;letter-spacing:.26em;text-transform:uppercase;color:#C9A96E">Presentazione al titolare · 3 ottobre 2026 · versione 0.9.2</div>
+  <div style="position:absolute;left:0;right:0;bottom:22mm;font-family:Jost;font-size:8.5pt;letter-spacing:.26em;text-transform:uppercase;color:#C9A96E">Presentazione al titolare · 3 ottobre 2026 · versione 0.9.4</div>
 </section>`);
 
 // 2 · In breve
@@ -473,7 +473,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Le statistiche registrano i clienti?</h4><p>No: niente nomi, telefoni o cookie. Si conta solo cosa succede (un'apertura, una ricerca), il giorno e l'ora.</p></div>
     <div><h4>Mi serve il menù su carta: come faccio?</h4><p>«Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
 
-    <div><h4>Dove trovo il numero di versione?</h4><p>In fondo a ogni pagina, ad esempio «v0.9.2». Se segnali un problema, indicalo.</p></div>
+    <div><h4>Dove trovo il numero di versione?</h4><p>In fondo a ogni pagina, ad esempio «v0.9.4». Se segnali un problema, indicalo.</p></div>
   </div>
 </section>`);
 
