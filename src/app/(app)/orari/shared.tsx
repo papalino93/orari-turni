@@ -5,7 +5,7 @@ import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
-import { entryLabel, type DayEntry, type Employee, type Block, type Leave, type LeaveType } from "@/lib/schedule";
+import { entryLabel, formatHours, leaveLabelFor, type DayEntry, type Employee, type Block, type Leave, type LeaveType } from "@/lib/schedule";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { applyDayEntryToDays, saveDayEntry, type DayLeaveInput } from "./actions";
 
@@ -84,6 +84,11 @@ export function DayCellContent({
           </span>
         </span>
       ))}
+      {entry.leave && (
+        <span className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${KIND_STYLE.PERMESSO}`}>
+          + {leaveLabelFor(entry.leave.type, entry.leave.quantity)}
+        </span>
+      )}
     </div>
   );
 }
@@ -400,6 +405,7 @@ export function DayEditorModal({
   onClose,
   onOpenClosureManager,
   applyToDays,
+  selfReview = false,
 }: {
   employee: Employee;
   dateKey: string;
@@ -416,6 +422,8 @@ export function DayEditorModal({
    * registra cosa è cambiato rispetto al pianificato.
    */
   applyToDays?: { dateKey: string; label: string; isClosed: boolean; hasContent: boolean }[];
+  /** Revisione delle proprie ore (Area Dipendenti): ferie e permessi li decide il titolare. */
+  selfReview?: boolean;
 }) {
   const initialMode: Mode =
     entry.kind === "TURNO" || entry.kind === "NON_PIANIFICATO" || entry.kind === "CHIUSO"
@@ -453,6 +461,10 @@ export function DayEditorModal({
   );
 
   const [quantity, setQuantity] = useState(entry.leave?.quantity ?? 1);
+  // Permesso a ore in un giorno di lavoro (orario ridotto, es. 2 h ogni lunedì).
+  const partialPermesso = entry.kind === "TURNO" && entry.leave?.type === "PERMESSO" ? entry.leave.quantity : 0;
+  const [workPermesso, setWorkPermesso] = useState(partialPermesso);
+  const [showWorkPermesso, setShowWorkPermesso] = useState(partialPermesso > 0);
   const [confirmingClear, setConfirmingClear] = useState(false);
   // Altri giorni su cui replicare lo stesso contenuto al salvataggio. Le
   // giornate chiuse non sono selezionabili: il locale non apre, non c'è
@@ -482,7 +494,9 @@ export function DayEditorModal({
   function save() {
     const leave: DayLeaveInput =
       mode === "WORK"
-        ? null
+        ? (selfReview ? partialPermesso : showWorkPermesso ? workPermesso : 0) > 0
+          ? { type: "PERMESSO", quantity: selfReview ? partialPermesso : workPermesso }
+          : null
         : {
             type: mode === "LIBERO" ? "LIBERO" : mode,
             // Solo ferie e permesso hanno una quantità: riposo e malattia sono
@@ -607,7 +621,7 @@ export function DayEditorModal({
             <div className="mb-4 flex flex-wrap gap-2">
               <ModeButton label="Turno" active={mode === "WORK"} onClick={() => setMode("WORK")} />
               <ModeButton label="Riposo" active={mode === "LIBERO"} onClick={() => setMode("LIBERO")} />
-              {employee.role === "EMPLOYEE" && (
+              {employee.role === "EMPLOYEE" && !selfReview && (
                 <>
                   <ModeButton label="Ferie" active={mode === "FERIE"} onClick={() => setMode("FERIE")} accent />
                   <ModeButton label="Permesso" active={mode === "PERMESSO"} onClick={() => setMode("PERMESSO")} gold />
@@ -629,6 +643,60 @@ export function DayEditorModal({
                 <p className="text-xs text-foreground-muted">
                   Mattina 8:00–13:00, pomeriggio 13:00–24:00: due fasce separate, non un orario unico.
                 </p>
+                {employee.role === "EMPLOYEE" &&
+                  (selfReview ? (
+                    partialPermesso > 0 && (
+                      <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-gold">
+                        Permesso di {formatHours(partialPermesso)} registrato dal titolare: resta com&apos;è.
+                      </p>
+                    )
+                  ) : showWorkPermesso ? (
+                    <div className="mt-1 rounded-lg border border-gold/40 bg-gold/5 px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <label htmlFor="ore-permesso" className="text-sm font-medium text-foreground">
+                          Permesso (orario ridotto)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowWorkPermesso(false);
+                            setWorkPermesso(0);
+                          }}
+                          className="min-h-9 rounded-full px-2 text-xs font-medium text-foreground-muted hover:text-danger"
+                        >
+                          Togli
+                        </button>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <input
+                          id="ore-permesso"
+                          type="number"
+                          min={0.5}
+                          max={12}
+                          step={0.5}
+                          value={workPermesso}
+                          onChange={(e) => setWorkPermesso(Number(e.target.value))}
+                          aria-label="Ore di permesso"
+                          className="w-20 rounded-lg border border-border bg-surface-2 px-2 py-2 text-center text-sm outline-none focus:border-accent"
+                        />
+                        <span className="text-sm text-foreground-muted">ore</span>
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-foreground-muted">
+                        Il turno qui sopra sono le ore lavorate; il permesso si scala dal saldo. «Ripeti settimana» lo ripete con il turno finché non lo togli.
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowWorkPermesso(true);
+                        setWorkPermesso((w) => w || 2);
+                      }}
+                      className="text-xs font-medium text-gold hover:underline"
+                    >
+                      + Permesso a ore (orario ridotto)
+                    </button>
+                  ))}
               </div>
             )}
 

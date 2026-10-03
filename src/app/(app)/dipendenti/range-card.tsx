@@ -133,16 +133,23 @@ export function RangeCard({
                 <td style={{ padding: "9px 12px" }}>
                   {closed ? (
                     <span style={{ color: "#8a2740", fontWeight: 600 }}>🔒 Locale chiuso</span>
-                  ) : leave ? (
+                  ) : leave && !(leave.type === "PERMESSO" && dayBlocks.length > 0) ? (
                     <span style={{ color: LEAVE_LABEL[leave.type](leave.quantity).color, fontWeight: 600 }}>
                       {LEAVE_LABEL[leave.type](leave.quantity).text}
                     </span>
                   ) : dayBlocks.length > 0 ? (
-                    dayBlocks.map((b, bi) => (
-                      <span key={bi} style={{ marginRight: 8, whiteSpace: "nowrap" }}>
-                        {b.startTime}–{b.endTime}
-                      </span>
-                    ))
+                    <>
+                      {dayBlocks.map((b, bi) => (
+                        <span key={bi} style={{ marginRight: 8, whiteSpace: "nowrap" }}>
+                          {b.startTime}–{b.endTime}
+                        </span>
+                      ))}
+                      {leave && (
+                        <span style={{ color: LEAVE_LABEL[leave.type](leave.quantity).color, fontWeight: 600, whiteSpace: "nowrap" }}>
+                          {LEAVE_LABEL[leave.type](leave.quantity).text}
+                        </span>
+                      )}
+                    </>
                   ) : (
                     <span style={{ color: "#c2b7b4", fontStyle: "italic" }}>non pianificato</span>
                   )}

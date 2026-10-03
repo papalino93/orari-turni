@@ -82,7 +82,7 @@ export function CopyWeekButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title="Ricopia turni e riposi dalla settimana precedente"
+        title="Ricopia turni, riposi e orari ridotti dalla settimana precedente"
         className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-xs font-medium text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
       >
         <RepeatIcon />
@@ -136,7 +136,7 @@ export function CopyWeekButton({
                 </li>
                 <li className="flex gap-2">
                   <span aria-hidden>–</span>
-                  <span>Ferie, permessi e malattia non si ricopiano: valgono solo per i giorni in cui sono capitati.</span>
+                  <span>Ferie, malattia e permessi di un giorno intero non si ricopiano. Il permesso a ore accanto a un turno (orario ridotto) sì.</span>
                 </li>
               </ul>
               <div className="mt-5 flex justify-end gap-2">

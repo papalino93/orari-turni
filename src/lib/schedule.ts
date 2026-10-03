@@ -58,8 +58,10 @@ export type DayKind =
 export type DayEntry = {
   kind: DayKind;
   blocks: Block[]; // ordinati per orario; sempre vuoto se CHIUSO
+  // Con kind TURNO può esserci un permesso a ore nello stesso giorno (orario
+  // ridotto, es. 16:30–20:00 più 2 h di permesso): si lavora e si scala il permesso.
   leave: Leave | null;
-  hours: number; // 0 per tutto ciò che non è TURNO
+  hours: number; // ore lavorate (i blocchi); 0 per tutto ciò che non è TURNO
   needsVerification: boolean; // turno passato non ancora verificato
   /** Turni rimasti sotto una chiusura: conservati, ignorati da ogni calcolo. */
   suspendedBlocks: Block[];
@@ -96,7 +98,8 @@ export function leaveLabelFor(type: LeaveType, quantity: number): string {
 // Etichetta breve di una casella, usata identica in web, export e PDF.
 export function entryLabel(entry: DayEntry): string {
   if (entry.kind === "TURNO") {
-    return entry.blocks.map((b) => `${b.startTime}–${b.endTime}`).join(" · ");
+    const times = entry.blocks.map((b) => `${b.startTime}–${b.endTime}`).join(" · ");
+    return entry.leave ? `${times} · ${leaveLabelFor(entry.leave.type, entry.leave.quantity)}` : times;
   }
   if (entry.leave) return leaveLabelFor(entry.leave.type, entry.leave.quantity);
   return DAY_KIND_LABEL[entry.kind];
@@ -189,6 +192,20 @@ export function buildSchedule({
           hours: 0,
           needsVerification: false,
           suspendedBlocks: cellBlocks,
+        });
+        continue;
+      }
+
+      // Permesso a ore in un giorno di lavoro: resta un turno (ore, copertura,
+      // verifica come sempre) con il permesso accanto.
+      if (leave && leave.type === "PERMESSO" && cellBlocks.length > 0) {
+        entries.set(k, {
+          kind: "TURNO",
+          blocks: cellBlocks,
+          leave,
+          hours: sumHours(cellBlocks),
+          needsVerification: dateKey < today && cellBlocks.some((b) => !b.confirmed),
+          suspendedBlocks: [],
         });
         continue;
       }
@@ -407,6 +424,8 @@ export function entryForPeriod(entry: DayEntry, period: Period): DayEntry {
   return {
     ...entry,
     blocks,
+    // Il permesso a ore si mostra una volta sola: nella fascia dell'ultimo turno del giorno.
+    leave: entry.leave && periodOf(entry.blocks[entry.blocks.length - 1]) === period ? entry.leave : null,
     hours: sumHours(blocks),
     needsVerification: entry.needsVerification && blocks.some((b) => !b.confirmed),
   };
