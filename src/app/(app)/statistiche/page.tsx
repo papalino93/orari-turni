@@ -11,7 +11,9 @@ export default async function StatistichePage({ searchParams }: { searchParams: 
   const session = await getServerSession(authOptions);
   if (!session?.user || session.user.role === "EMPLOYEE") redirect("/mie-ore");
   const params = await searchParams;
-  const custom = { from: parseDay(params.dal), to: parseDay(params.al) };
+  let custom = { from: parseDay(params.dal), to: parseDay(params.al) };
+  // «Dal» dopo «al»: si scambiano, invece di mostrare un periodo vuoto.
+  if (custom.from && custom.to && custom.from > custom.to) custom = { from: custom.to, to: custom.from };
   // «dal/al» senza p: è comunque un periodo a scelta.
   const period = custom.from || custom.to ? "custom" : parsePeriod(params.p);
   const setting = await loadStatsSetting();

@@ -14,6 +14,7 @@ import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
 import { ReorderSheet } from "./reorder-ui";
 import { PricesSheet } from "./prices-ui";
+import { useCollapsedGroups } from "./collapsed-groups";
 import { DuplicatePromoSheet, effectiveStatus, PromoCard, PromoSheet, StatusChip } from "./promo-ui";
 import { ItemSearch } from "./search-ui";
 import { HistorySheet, PreviewSheet, QrSheet, SectionTextsSheet } from "./side-sheets";
@@ -145,6 +146,7 @@ export function MenuEditor({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const groupsUi = useCollapsedGroups();
   const [, startTransition] = useTransition();
   const [activeSlug, setActiveSlug] = useState(sections[0]?.slug ?? "");
   const [sheet, setSheet] = useState<SheetState>(null);
@@ -550,6 +552,20 @@ export function MenuEditor({
                 </div>
               )}
 
+              {section.groups.length > 1 && (
+                <div className="-mb-1 flex justify-end gap-1 text-xs">
+                  {section.groups.some((g) => !groupsUi.isClosed(g.id)) && (
+                    <button type="button" onClick={() => groupsUi.setMany(section.groups.map((g) => g.id), true)} className="min-h-9 rounded-full px-3 font-medium text-foreground-muted hover:bg-surface-2 hover:text-foreground">
+                      Chiudi tutti i gruppi
+                    </button>
+                  )}
+                  {section.groups.some((g) => groupsUi.isClosed(g.id)) && (
+                    <button type="button" onClick={() => groupsUi.setMany(section.groups.map((g) => g.id), false)} className="min-h-9 rounded-full px-3 font-medium text-foreground-muted hover:bg-surface-2 hover:text-foreground">
+                      Apri tutti i gruppi
+                    </button>
+                  )}
+                </div>
+              )}
               {section.groups.map((group, index) => {
                 return (
                   <GroupCard
@@ -565,6 +581,8 @@ export function MenuEditor({
                     onEdit={(item) => setSheet({ type: "item", itemId: item.id, groupId: group.id })}
                     onAdd={() => setSheet({ type: "item", itemId: null, groupId: group.id })}
                     onImport={() => setSheet({ type: "import", groupId: group.id })}
+                    closed={groupsUi.isClosed(group.id)}
+                    onToggleClosed={() => groupsUi.toggle(group.id)}
                   />
                 );
               })}
@@ -669,6 +687,8 @@ function GroupCard({
   onEdit,
   onAdd,
   onImport,
+  closed,
+  onToggleClosed,
 }: {
   group: EditorGroup;
   kind: "WINE" | "FOOD";
@@ -681,6 +701,9 @@ function GroupCard({
   onEdit: (item: EditorItem) => void;
   onAdd: () => void;
   onImport: () => void;
+  // Gruppo chiuso: si vede solo il titolo (tocco sul titolo per aprirlo).
+  closed: boolean;
+  onToggleClosed: () => void;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(group.title);
@@ -713,7 +736,7 @@ function GroupCard({
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-surface">
-      <header className="flex flex-wrap items-center gap-1 border-b border-border px-3 py-1.5">
+      <header className={`flex flex-wrap items-center gap-1 px-3 py-1.5 ${closed && !confirmingDelete ? "" : "border-b border-border"}`}>
         {renaming ? (
           <form onSubmit={saveTitle} className="flex min-w-0 flex-1 items-center gap-2 py-1">
             <input
@@ -739,8 +762,29 @@ function GroupCard({
           </form>
         ) : (
           <>
-            <h3 className="min-w-0 flex-1 truncate py-1 text-sm font-semibold text-foreground">
-              {group.title} <span className="font-normal text-foreground-muted">· {group.items.length}</span>
+            <h3 className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+              <button
+                type="button"
+                onClick={onToggleClosed}
+                aria-expanded={!closed}
+                aria-controls={`gruppo-${group.id}`}
+                title={closed ? "Apri il gruppo" : "Chiudi il gruppo"}
+                className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg text-left hover:text-accent"
+              >
+                <svg
+                  aria-hidden
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className={`shrink-0 text-foreground-muted transition-transform ${closed ? "-rotate-90" : ""}`}
+                >
+                  <path d="M12 18l-7-9h14z" />
+                </svg>
+                <span className="truncate">
+                  {group.title} <span className="font-normal text-foreground-muted">· {group.items.length}</span>
+                </span>
+              </button>
             </h3>
             <button type="button" onClick={() => setRenaming(true)} className={iconButton} aria-label={`Rinomina ${group.title}`} title="Rinomina">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -784,6 +828,8 @@ function GroupCard({
         </div>
       )}
 
+      {!closed && (
+      <div id={`gruppo-${group.id}`}>
       {group.items.length === 0 ? (
         <p className="px-3 py-4 text-sm text-foreground-muted">Nessuna voce in questo gruppo.</p>
       ) : (
@@ -850,6 +896,8 @@ function GroupCard({
           Incolla più voci
         </button>
       </div>
+      </div>
+      )}
     </section>
   );
 }
