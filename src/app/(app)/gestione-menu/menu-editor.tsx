@@ -6,7 +6,7 @@ import { useToast } from "@/components/toast";
 import { blockStatus, blockSummary, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
 import { traitLabel } from "@/lib/wine-traits";
 import { isItalianWine } from "@/lib/wine-order";
-import { createGroup, deleteGroup, moveGroup, renameGroup, resetSoldOut, setGroupFormats, setSoldOut, undoChange } from "./actions";
+import { createGroup, deleteGroup, deleteItem, moveGroup, moveItem, renameGroup, resetSoldOut, saveTextRow, setGroupFormats, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
 import { BlockSheet, BlocksPanel, type SectionChoice } from "./block-ui";
 import { DailyPanel, type DailyData } from "./daily-ui";
@@ -43,6 +43,8 @@ export type EditorItem = {
   allergens: string[];
   allergensReviewed: boolean;
   soldOut: boolean;
+  // Riga di solo testo tra le voci (nome = testo).
+  textOnly: boolean;
 };
 
 export type EditorGroup = { id: string; title: string; columns: boolean; formats: string[] | null; items: EditorItem[] };
@@ -187,10 +189,10 @@ export function MenuEditor({
   // Piatti con allergeni "da compilare": sul menù dei clienti risultano "da
   // verificare con il personale". Gli eventi già conclusi non contano.
   const liveEventSections = promos.flatMap((p) =>
-    p.section && effectiveStatus(p, today) !== "past" ? [p.section] : [],
+    p.section && effectiveStatus(p, today) !== "past" && !p.allergenNotice && p.menuMode !== "FILE" ? [p.section] : [],
   );
   const missingAllergens = [...daily.sections, ...sections, ...liveEventSections].reduce(
-    (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed).length, 0) : 0),
+    (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed && !i.textOnly).length, 0) : 0),
     0,
   );
   // Piatti con allergeni da compilare, nell'ordine in cui si vedono (sezioni fisse, poi eventi non conclusi):
@@ -199,11 +201,13 @@ export function MenuEditor({
     // «Oggi fuori menù» è in cima alla gestione e del menù: si comincia da lì.
     ...daily.sections.map((s) => ({ key: null, section: s })),
     ...sections.map((s) => ({ key: s.slug, section: s })),
-    ...promos.flatMap((p) => (p.section && effectiveStatus(p, today) !== "past" ? [{ key: `promo:${p.id}`, section: p.section }] : [])),
+    ...promos.flatMap((p) =>
+      p.section && effectiveStatus(p, today) !== "past" && !p.allergenNotice && p.menuMode !== "FILE" ? [{ key: `promo:${p.id}`, section: p.section }] : [],
+    ),
   ].flatMap((target) =>
     target.section.kind === "FOOD"
       ? target.section.groups.flatMap((g) =>
-          g.items.filter((i) => !i.allergensReviewed).map((i) => ({ itemId: i.id, groupId: g.id, name: i.name, key: target.key })),
+          g.items.filter((i) => !i.allergensReviewed && !i.textOnly).map((i) => ({ itemId: i.id, groupId: g.id, name: i.name, key: target.key })),
         )
       : [],
   );
@@ -580,6 +584,7 @@ export function MenuEditor({
           key={sheet.itemId ?? `new-${sheet.groupId}`}
           sections={itemSheetSection.promoId || itemSheetSection.dailyOnly ? [itemSheetSection] : sections}
           section={itemSheetSection}
+          allergenNotice={itemSheetSection.promoId ? (promos.find((p) => p.id === itemSheetSection.promoId)?.allergenNotice ?? null) : null}
           groupId={itemSheetGroup.id}
           item={editingItem}
           wines={wines}
@@ -797,6 +802,66 @@ function GroupCard({
   const [busy, setBusy] = useState(false);
   // Formati del gruppo (es. birre 0,2 l · 0,4 l · 1 l): null = finestrella chiusa.
   const [formatsDraft, setFormatsDraft] = useState<string[] | null>(null);
+  // Riga di solo testo in modifica: id null = nuova.
+  const [textDraft, setTextDraft] = useState<{ id: string | null; text: string } | null>(null);
+
+  async function saveText() {
+    if (!textDraft) return;
+    setBusy(true);
+    const result = await run(() => saveTextRow(textDraft.id, group.id, textDraft.text), textDraft.id ? "Testo salvato" : "Testo aggiunto");
+    setBusy(false);
+    if (result) setTextDraft(null);
+  }
+
+  async function removeText(id: string) {
+    setBusy(true);
+    const result = await run(() => deleteItem(id), "Testo tolto");
+    setBusy(false);
+    if (result) setTextDraft(null);
+  }
+
+  async function moveText(id: string, direction: "up" | "down") {
+    setBusy(true);
+    await run(() => moveItem(id, direction), "");
+    setBusy(false);
+  }
+
+  const textEditor = (id: string | null) =>
+    textDraft && textDraft.id === id ? (
+      <div className="space-y-2 px-3 py-3">
+        <textarea
+          autoFocus
+          value={textDraft.text}
+          onChange={(e) => setTextDraft({ id, text: e.target.value })}
+          maxLength={300}
+          rows={2}
+          aria-label="Testo della riga"
+          placeholder="es. Tutti i piatti sono serviti con pane fatto in casa"
+          className="w-full rounded-lg border border-accent bg-surface-2 px-3 py-2 text-base text-foreground outline-none sm:text-sm"
+        />
+        <div className="flex flex-wrap justify-end gap-2">
+          {id && (
+            <>
+              <button type="button" disabled={busy} onClick={() => moveText(id, "up")} className="mr-auto min-h-10 rounded-full border border-border px-3 text-xs text-foreground-muted">
+                ↑ Su
+              </button>
+              <button type="button" disabled={busy} onClick={() => moveText(id, "down")} className="min-h-10 rounded-full border border-border px-3 text-xs text-foreground-muted">
+                ↓ Giù
+              </button>
+              <button type="button" disabled={busy} onClick={() => removeText(id)} className="min-h-10 rounded-full border border-border px-3 text-xs text-foreground-muted hover:border-danger hover:text-danger">
+                Togli
+              </button>
+            </>
+          )}
+          <button type="button" onClick={() => setTextDraft(null)} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted">
+            Annulla
+          </button>
+          <button type="button" disabled={busy || !textDraft.text.trim()} onClick={saveText} className="min-h-10 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground disabled:opacity-50">
+            {id ? "Salva" : "Aggiungi"}
+          </button>
+        </div>
+      </div>
+    ) : null;
 
   async function saveFormats(list: string[]) {
     setBusy(true);
@@ -981,6 +1046,23 @@ function GroupCard({
       ) : (
         <ul>
           {group.items.map((item) => {
+            if (item.textOnly) {
+              return (
+                <li key={item.id} className="border-b border-border last:border-b-0">
+                  {textEditor(item.id) ?? (
+                    <button
+                      type="button"
+                      onClick={() => setTextDraft({ id: item.id, text: item.name })}
+                      aria-label={`Modifica il testo: ${item.name}`}
+                      className="flex min-h-12 w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-2"
+                    >
+                      <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">Testo</span>
+                      <span className="min-w-0 flex-1 text-sm italic text-foreground">{item.name}</span>
+                    </button>
+                  )}
+                </li>
+              );
+            }
             const sold = isSold(item);
             const secondary = kind === "WINE" ? [item.wineName, wineDetail(item)].filter(Boolean).join(" · ") : item.description;
             return (
@@ -1041,7 +1123,17 @@ function GroupCard({
         >
           Incolla più voci
         </button>
+        {kind === "FOOD" && (
+          <button
+            type="button"
+            onClick={() => setTextDraft({ id: null, text: "" })}
+            className="min-h-11 min-w-[10rem] flex-1 rounded-xl border border-dashed border-border text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+          >
+            + Aggiungi testo
+          </button>
+        )}
       </div>
+      {textEditor(null)}
       </div>
       )}
     </section>

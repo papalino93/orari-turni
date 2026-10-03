@@ -88,8 +88,12 @@ await dialog().waitFor();
 await dialog().getByLabel("Nome", { exact: true }).fill("Paulaner Helles");
 await dialog().getByLabel("Descrizione").fill("Chiara, rinfrescante");
 check("formati: prezzo singolo richiesto finché non ci sono formati", (await dialog().getByLabel("Prezzo (€)").count()) === 1);
+// Formati solo su questa voce (il gruppo resta normale): «Più formati» senza
+// «Stessi formati per tutto il gruppo». Il percorso col gruppo è in formats.mjs.
+await dialog().getByRole("radio", { name: "Più formati" }).click();
+await dialog().getByRole("checkbox", { name: /Stessi formati per tutto il gruppo/ }).uncheck();
 for (const [i, [l, p]] of [["0,2 l", "3,50"], ["0,4 l", "6"], ["1 l", "11"]].entries()) {
-  await dialog().getByRole("button", { name: "+ Aggiungi un formato" }).click();
+  if (i >= 2) await dialog().getByRole("button", { name: "+ Aggiungi un formato" }).click();
   await dialog().getByLabel(`Formato ${i + 1}`, { exact: true }).fill(l);
   await dialog().getByLabel(`Prezzo del formato ${i + 1}`).fill(p);
 }

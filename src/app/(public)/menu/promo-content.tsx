@@ -133,6 +133,13 @@ export function PromoContent({
                 {parseFormats(group.formats) && <FormatHeader formats={parseFormats(group.formats)!} />}
               </div>
               {group.items.map((item) => {
+                if (item.textOnly) {
+                  return (
+                    <p key={item.id} className="menu-rule-soft m-0 border-b py-3 text-pretty text-[16.5px] italic leading-normal text-[#3F4540]">
+                      {nb(item.name)}
+                    </p>
+                  );
+                }
                 const soldOut = item.soldOutDay === dayKey;
                 const variants = parseVariants(item.variants);
                 return (

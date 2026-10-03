@@ -6,7 +6,7 @@ import { formatPrice, originLabel, wineDetail } from "@/lib/menu-format";
 import { WINE_TRAITS } from "@/lib/wine-traits";
 import { isItalianWine } from "@/lib/wine-order";
 import { TraitIcon } from "@/app/(public)/menu/wine-traits";
-import { deleteItem, duplicateItem, moveItem, saveItem } from "./actions";
+import { deleteItem, duplicateItem, moveItem, saveItem, setGroupFormats } from "./actions";
 import { Field, Sheet, inputClass } from "./sheet";
 import type { EditorItem, EditorSection, PairWine, RunFn } from "./menu-editor";
 
@@ -21,6 +21,54 @@ const ITALIAN_REGIONS = [
   "Lombardia", "Marche", "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia", "Toscana", "Trentino", "Umbria", "Valle d'Aosta", "Veneto",
 ];
 const COUNTRIES = ["Italia", "Francia", "Spagna", "Portogallo", "Germania", "Austria", "Slovenia", "Grecia"];
+
+// Formati proposti con un tocco (birre alla spina, vino al calice e in bottiglia…).
+const QUICK_FORMATS = ["0,2 l", "0,3 l", "0,4 l", "0,5 l", "1 l"];
+
+// Una riga «formato · prezzo» nella scheda di una voce.
+function FormatRow({
+  index,
+  row,
+  onChange,
+  onRemove,
+}: {
+  index: number;
+  row: { label: string; price: string };
+  onChange: (next: { label: string; price: string }) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <>
+      <input
+        value={row.label}
+        onChange={(e) => onChange({ ...row, label: e.target.value })}
+        maxLength={20}
+        aria-label={`Formato ${index + 1}`}
+        placeholder={["es. 0,2 l", "es. 0,4 l", "es. 1 l"][index] ?? "es. 0,5 l"}
+        className={inputClass}
+      />
+      <span className="relative block">
+        <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground-muted">€</span>
+        <input
+          value={row.price}
+          onChange={(e) => onChange({ ...row, price: e.target.value })}
+          inputMode="decimal"
+          aria-label={`Prezzo del formato ${index + 1}`}
+          placeholder="—"
+          className={`${inputClass} pl-7`}
+        />
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Togli il formato ${index + 1}`}
+        className="flex h-11 w-11 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-2 hover:text-danger"
+      >
+        ✕
+      </button>
+    </>
+  );
+}
 
 // Un blocco della scheda: titolo piccolo e una riga sopra, per non avere un
 // muro di campi tutti uguali.
@@ -39,6 +87,7 @@ function Block({ title, hint, children, first = false }: { title: string; hint?:
 export function ItemSheet({
   sections,
   section,
+  allergenNotice = null,
   groupId,
   item,
   wines,
@@ -55,6 +104,8 @@ export function ItemSheet({
 }: {
   sections: EditorSection[];
   section: EditorSection;
+  // Evento con l'avviso allergeni unico: i piatti non chiedono gli allergeni.
+  allergenNotice?: string | null;
   groupId: string;
   item: EditorItem | null;
   // Vini del menù fisso, per l'abbinamento consigliato.
@@ -106,6 +157,18 @@ export function ItemSheet({
   const [formatPrices, setFormatPrices] = useState<Record<string, string>>(() =>
     Object.fromEntries((item?.variants ?? []).map((v) => [v.label, formatPrice(v.cents)])),
   );
+  // «Un prezzo» oppure «Più formati» (birre 0,2 l · 0,4 l · 1 l, calice e bottiglia…).
+  const [priceMode, setPriceMode] = useState<"single" | "formats">(() => (item?.variants?.length ? "formats" : "single"));
+  const targetGroupData = sections.flatMap((x) => x.groups).find((g) => g.id === targetGroup);
+  // I formati scritti qui diventano quelli del gruppo (le altre birre chiederanno solo i prezzi),
+  // ma solo se le altre voci del gruppo non hanno già un prezzo unico.
+  const othersSinglePrice = (targetGroupData?.items ?? []).some((i) => i.id !== item?.id && !i.textOnly && !i.variants?.length);
+  const [shareFormats, setShareFormats] = useState(true);
+  const formatsMode = Boolean(groupFormats) || priceMode === "formats";
+  const rowLabels = variants.map((v) => v.label.trim()).filter(Boolean);
+  // Prezzo di un formato del gruppo (anche se scritto prima, nelle righe dei formati).
+  const priceFor = (f: string) => formatPrices[f] ?? variants.find((v) => v.label.trim() === f)?.price ?? "";
+  const willShare =!groupFormats && priceMode === "formats" && shareFormats && !othersSinglePrice && rowLabels.length >= 2 && rowLabels.length <= 4;
   const allergensRef = useRef<HTMLFieldSetElement>(null);
   useEffect(() => {
     if (focusAllergens) allergensRef.current?.scrollIntoView({ block: "center" });
@@ -120,9 +183,8 @@ export function ItemSheet({
   async function submit(e: React.SyntheticEvent, goNext = false) {
     e.preventDefault();
     setBusy(true);
-    const result = await run(
-      () =>
-        saveItem(item?.id ?? null, {
+    const save = () =>
+      saveItem(item?.id ?? null, {
           name,
           groupId: targetGroup,
           sub,
@@ -135,22 +197,32 @@ export function ItemSheet({
           description,
           priceGlass,
           priceBottle,
-          price: groupFormats ? "" : price,
+          price: formatsMode ? "" : price,
           enomatic,
           traits: isWine ? traits : [],
           pairWineId: canPair ? pairWineId : null,
           allergens: allergenMode === "some" ? allergens : [],
           allergensReviewed: allergenMode !== "unknown",
           variants: groupFormats
-            ? groupFormats.filter((f) => formatPrices[f]?.trim()).map((f) => ({ label: f, price: formatPrices[f] }))
-            : variants.filter((v) => v.label.trim() || v.price.trim()),
-        }),
+            ? groupFormats.filter((f) => priceFor(f).trim()).map((f) => ({ label: f, price: priceFor(f) }))
+            : priceMode === "formats"
+              ? variants.filter((v) => v.price.trim()).map((v) => ({ label: v.label.trim(), price: v.price }))
+              : [],
+        });
+    const result = await run(
+      // Prima i formati del gruppo, poi la voce: le altre birre chiederanno solo i prezzi.
+      willShare
+        ? async () => {
+            const formats = await setGroupFormats(targetGroup, rowLabels);
+            return formats.ok ? save() : formats;
+          }
+        : save,
       // Piatto nuovo senza allergeni: il messaggio lo dice e propone «Compila ora».
-      item || isWine || allergenMode !== "unknown" ? (item ? "Voce salvata" : "Voce aggiunta") : "",
+      item || isWine || allergenMode !== "unknown" || allergenNotice ? (item ? "Voce salvata" : "Voce aggiunta") : "",
     );
     setBusy(false);
     if (result) {
-      if (!item && !isWine && allergenMode === "unknown" && result.id) onMissingAllergens?.(result.id, name.trim());
+      if (!item && !isWine && allergenMode === "unknown" && !allergenNotice && result.id) onMissingAllergens?.(result.id, name.trim());
       onClose();
       if (goNext && nextMissing) onNext?.(nextMissing);
     }
@@ -191,7 +263,7 @@ export function ItemSheet({
         maxLength={120}
         required
         className={inputClass}
-        placeholder={isWine ? "es. Avignonesi" : "es. Tagliere Classico"}
+        placeholder={isWine ? "es. Avignonesi" : formatsMode ? "es. Paulaner Helles" : "es. Tagliere Classico"}
       />
     </Field>
   );
@@ -350,83 +422,145 @@ export function ItemSheet({
                 maxLength={300}
                 rows={3}
                 className={inputClass}
-                placeholder="Ingredienti, peso…"
+                placeholder={formatsMode ? "es. Paulaner · Helles · 5,5% vol." : "Ingredienti, peso…"}
               />
             </Field>
-            {groupFormats ? (
-              <div>
-                <p className="mb-1 text-xs font-medium text-foreground-muted">
-                  Prezzi (€) <span className="font-normal">· formati del gruppo; vuoto = non disponibile</span>
-                </p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {groupFormats.map((f) => (
-                    <Field key={f} label={f}>
-                      <input
-                        value={formatPrices[f] ?? ""}
-                        onChange={(e) => setFormatPrices((prev) => ({ ...prev, [f]: e.target.value }))}
-                        inputMode="decimal"
-                        className={inputClass}
-                        placeholder="—"
-                      />
-                    </Field>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <>
-            {variants.length === 0 && (
-              <Field label="Prezzo (€)">
-                <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" required className={inputClass} placeholder="es. 13" />
-              </Field>
-            )}
 
-            <div>
-              <p className="mb-1 text-xs font-medium text-foreground-muted">
-                Formati e prezzi <span className="font-normal">(facoltativo, es. birra 0,2 l · 0,4 l · 1 l)</span>
-              </p>
-              {variants.map((v, i) => (
-                <div key={i} className="mb-2 flex items-center gap-2">
-                  <input
-                    value={v.label}
-                    onChange={(e) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
-                    maxLength={30}
-                    aria-label={`Formato ${i + 1}`}
-                    placeholder="es. 0,4 l"
-                    className={`${inputClass} min-w-0 flex-1`}
-                  />
-                  <input
-                    value={v.price}
-                    onChange={(e) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, price: e.target.value } : x)))}
-                    inputMode="decimal"
-                    aria-label={`Prezzo del formato ${i + 1}`}
-                    placeholder="€"
-                    className={`${inputClass} w-24 shrink-0`}
-                  />
+            <div className="space-y-2.5 rounded-xl border border-border p-3" role="group" aria-label="Prezzo">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-medium text-foreground">Prezzo</p>
+                {!groupFormats && (
+                  <div role="radiogroup" aria-label="Come si vende" className="grid grid-cols-2 rounded-full border border-border p-0.5">
+                    {(
+                      [
+                        ["single", "Un prezzo"],
+                        ["formats", "Più formati"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={priceMode === value}
+                        onClick={() => {
+                          setPriceMode(value);
+                          if (value === "formats" && variants.length === 0) setVariants([{ label: "", price: "" }, { label: "", price: "" }]);
+                        }}
+                        className={`min-h-9 rounded-full px-3.5 text-xs font-medium ${
+                          priceMode === value ? "bg-accent text-accent-foreground" : "text-foreground-muted hover:text-foreground"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {groupFormats ? (
+                <>
+                  <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${groupFormats.length}, minmax(0, 1fr))` }}>
+                    {groupFormats.map((f) => (
+                      <label key={f} className="block min-w-0">
+                        <span className="mb-1 block truncate text-xs font-semibold text-foreground">{f}</span>
+                        <span className="relative block">
+                          <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground-muted">€</span>
+                          <input
+                            value={priceFor(f)}
+                            onChange={(e) => setFormatPrices((prev) => ({ ...prev, [f]: e.target.value }))}
+                            inputMode="decimal"
+                            aria-label={`Prezzo ${f} (€)`}
+                            className={`${inputClass} pl-7`}
+                            placeholder="—"
+                          />
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-foreground-muted">
+                    Formati uguali per tutto il gruppo «{targetGroupData?.title}». Casella vuota = formato non disponibile. Per cambiarli: «Formati» sul
+                    gruppo.
+                  </p>
+                </>
+              ) : priceMode === "single" ? (
+                <label className="block">
+                  <span className="sr-only">Prezzo (€)</span>
+                  <span className="relative block">
+                    <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground-muted">€</span>
+                    <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" required className={`${inputClass} pl-7`} placeholder="es. 13" />
+                  </span>
+                </label>
+              ) : (
+                <>
+                  <div className="grid grid-cols-[minmax(0,1fr)_7rem_2.75rem] items-center gap-x-2 gap-y-2">
+                    <span className="text-[11px] font-medium text-foreground-muted">Formato</span>
+                    <span className="text-[11px] font-medium text-foreground-muted">Prezzo (€)</span>
+                    <span />
+                    {variants.map((v, i) => (
+                      <FormatRow
+                        key={i}
+                        index={i}
+                        row={v}
+                        onChange={(next) => setVariants((prev) => prev.map((x, j) => (j === i ? next : x)))}
+                        onRemove={() => setVariants((prev) => prev.filter((_, j) => j !== i))}
+                      />
+                    ))}
+                  </div>
+                  {(() => {
+                    const free = QUICK_FORMATS.filter((f) => !rowLabels.some((l) => l.toLowerCase() === f.toLowerCase()));
+                    return (
+                      free.length > 0 &&
+                      variants.length < 8 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[11px] text-foreground-muted">Veloci:</span>
+                          {free.map((f) => (
+                            <button
+                              key={f}
+                              type="button"
+                              onClick={() =>
+                                setVariants((prev) => {
+                                  const empty = prev.findIndex((x) => !x.label.trim());
+                                  return empty === -1 ? [...prev, { label: f, price: "" }] : prev.map((x, j) => (j === empty ? { ...x, label: f } : x));
+                                })
+                              }
+                              className="min-h-8 rounded-full border border-border px-2.5 text-xs text-foreground-muted hover:border-accent hover:text-foreground"
+                            >
+                              {f}
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    );
+                  })()}
                   <button
                     type="button"
-                    onClick={() => setVariants((prev) => prev.filter((_, j) => j !== i))}
-                    aria-label={`Togli il formato ${i + 1}`}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-2 hover:text-danger"
+                    disabled={variants.length >= 8}
+                    onClick={() => setVariants((prev) => [...prev, { label: "", price: "" }])}
+                    className="min-h-10 w-full rounded-xl border border-dashed border-border text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-40"
                   >
-                    ✕
+                    + Aggiungi un formato
                   </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                disabled={variants.length >= 8}
-                onClick={() => setVariants((prev) => [...prev, { label: "", price: "" }])}
-                className="min-h-11 w-full rounded-xl border border-dashed border-border text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-40"
-              >
-                + Aggiungi un formato
-              </button>
-              {variants.length > 0 && (
-                <p className="mt-1.5 text-[11px] text-foreground-muted">Con i formati il prezzo singolo non serve.</p>
+                  {!othersSinglePrice && (
+                    <label className="flex items-start gap-2.5 rounded-lg bg-surface-2 px-3 py-2.5 text-xs text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={shareFormats}
+                        onChange={(e) => setShareFormats(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                      />
+                      <span>
+                        Stessi formati per tutto il gruppo «{targetGroupData?.title}»
+                        <span className="block text-[11px] text-foreground-muted">
+                          {rowLabels.length > 4
+                            ? "Per tutto il gruppo al massimo 4 formati: questi restano solo su questa voce."
+                            : "Sul menù diventano colonne; nelle altre voci scrivi solo i prezzi. Consigliato per le birre alla spina."}
+                        </span>
+                      </span>
+                    </label>
+                  )}
+                </>
               )}
             </div>
-
-              </>
-            )}
 
             {canPair && <PairPicker wines={wines} value={pairWineId} onChange={setPairWineId} lost={pairLost} />}
 
@@ -457,7 +591,13 @@ export function ItemSheet({
                 ))}
               </div>
               {allergenMode === "unknown" && (
-                <p className="mt-1.5 text-[11px] text-gold">Finché non è compilato, i clienti vedono «da verificare con il personale».</p>
+                allergenNotice ? (
+                  <p className="mt-1.5 text-[11px] text-foreground-muted">
+                    Non serve: l&apos;evento ha l&apos;avviso unico «{allergenNotice}» in fondo al menù.
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-[11px] text-gold">Finché non è compilato, i clienti vedono «da verificare con il personale».</p>
+                )
               )}
               {allergenMode === "none" && (
                 <p className="mt-1.5 text-[11px] text-foreground-muted">Confermi che il piatto non contiene nessuno dei 14 allergeni.</p>

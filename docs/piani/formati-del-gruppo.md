@@ -15,6 +15,12 @@ gli eventi futuri e per il menù fisso.
   **«Formati»**: si scrivono i nomi delle colonne (da 2 a 4, es. «0,2 l»,
   «0,4 l», «1 l»), si riordinano, si tolgono. Vuoto = gruppo normale,
   come oggi.
+- Più semplice ancora, dalla **scheda della prima birra**: in «Prezzo» si
+  sceglie **«Più formati»**, si toccano i formati veloci (0,2 l · 0,3 l ·
+  0,4 l · 0,5 l · 1 l) o se ne scrivono altri, con il prezzo accanto. La
+  spunta **«Stessi formati per tutto il gruppo»** (accesa) li rende i formati
+  del gruppo; si spegne per tenerli solo su quella voce. Non compare se nel
+  gruppo ci sono già voci con un prezzo unico.
 - Con i formati del gruppo, la scheda di una voce mostra **una casella di
   prezzo per ogni formato** al posto di «Prezzo» e «+ Aggiungi un formato».
   Casella vuota = quel formato per quella voce non c'è (sul menù «—»).
