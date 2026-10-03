@@ -94,6 +94,23 @@ await pub.goto(`${BASE}/menu/p/${slug}`, { waitUntil: "networkidle" });
 text = await pub.locator("body").innerText();
 check("di nuovo voce per voce: le voci tornano", text.includes(firstDish) && (await pub.locator('img[alt^="Menù speciale, pagina"]').count()) === 0);
 
+// Locandina in PDF: si prende la prima pagina come immagine.
+await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await p.getByRole("button", { name: new RegExp(title.slice(0, 8)) }).first().click();
+await p.getByRole("button", { name: "Modifica", exact: true }).first().click();
+const sheet = p.locator('[role="dialog"]');
+await sheet.waitFor();
+check("locandina: il pulsante dice che va bene anche un PDF", (await sheet.getByRole("button", { name: "Scegli foto o PDF" }).count()) === 1);
+await sheet.getByLabel("Scegli la foto o la locandina").setInputFiles(PDF);
+await sheet.getByText("Dal PDF ho preso la prima pagina (su 2).").waitFor();
+check("locandina da PDF: anteprima pronta", (await sheet.getByRole("button", { name: "Ingrandisci la locandina" }).count()) === 1);
+await sheet.getByRole("button", { name: "Salva", exact: true }).click();
+await sheet.waitFor({ state: "detached" });
+await p.waitForTimeout(1500);
+check("locandina da PDF: salvata come immagine", DB(`select "mimeType" from "MenuPromoImage" where "promoId"='${PROMO}'`) === "image/jpeg", DB(`select "mimeType" from "MenuPromoImage" where "promoId"='${PROMO}'`));
+const poster = await pub.request.get(`${BASE}/menu/p/${slug}/immagine?v=1`);
+check("locandina da PDF: si vede sul menù", poster.ok() && (poster.headers()["content-type"] ?? "").includes("image/jpeg"));
+
 DB(`update "MenuPromo" set "menuMode"='ITEMS', "menuNote"=null, "allergenNotice"=null where id='${PROMO}'`);
 DB(`delete from "MenuPromoPage" where "promoId"='${PROMO}'`);
 DB(`delete from "MenuItem" where "textOnly"=true`);

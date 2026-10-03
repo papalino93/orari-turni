@@ -27,7 +27,7 @@ const clean = (v: unknown, max: number) =>
 
 export async function POST(request: NextRequest) {
   const skip = new NextResponse(null, { status: 204 });
-  const staff = request.cookies.getAll().some((c) => c.name.endsWith("next-auth.session-token"));
+  const staff = request.cookies.getAll().some((c) => c.name.includes("next-auth.session-token"));
   if (staff) return skip;
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "?";
   if (tooMany(ip)) return skip;

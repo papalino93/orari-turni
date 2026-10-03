@@ -118,6 +118,13 @@ export function formatPromoDay(key: string): string {
   return `${p.d} ${MONTHS[p.m]}`;
 }
 
+// «dal 3 ottobre» ma «dall'11 ottobre», «all'8», «l'1»: davanti a 1, 8 e 11 si elide.
+export function withDay(word: "dal" | "al" | "il", key: string): string {
+  const elide = [1, 8, 11].includes(Number(dayParts(key).d));
+  const short = { dal: "dall'", al: "all'", il: "l'" }[word];
+  return elide ? `${short}${formatPromoDay(key)}` : `${word} ${formatPromoDay(key)}`;
+}
+
 type PromoDates = { showFrom: string; startDate: string; endDate: string };
 
 // scheduled = non ancora visibile; announced = locandina visibile, evento non
@@ -206,7 +213,7 @@ export function blockSummary(b: MenuBlockView): string {
 
 export function formatBlockDates(startKey: string | null, endKey: string | null): string | null {
   if (!startKey && !endKey) return null;
-  if (startKey && endKey) return startKey === endKey ? `solo il ${formatPromoDay(startKey)}` : `dal ${formatPromoDay(startKey)} al ${formatPromoDay(endKey)}`;
-  if (startKey) return `dal ${formatPromoDay(startKey)}`;
-  return `fino al ${formatPromoDay(endKey as string)}`;
+  if (startKey && endKey) return startKey === endKey ? `solo ${withDay("il", startKey)}` : `${withDay("dal", startKey)} ${withDay("al", endKey)}`;
+  if (startKey) return withDay("dal", startKey);
+  return `fino ${withDay("al", endKey as string)}`;
 }
