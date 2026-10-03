@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
+import { ZoomableImage } from "@/components/zoomable-image";
 import { blockSummary, formatPromoDates, promoStatus, type MenuBlockView, type PromoStatus } from "@/lib/menu-format";
 import { resizeToJpeg } from "@/lib/image-resize";
 import { createPromo, deletePromo, duplicatePromo, removePromoImage, savePromoImage, setPromoHidden, updatePromo } from "./promo-actions";
@@ -85,11 +86,10 @@ export function PromoCard({
     <section className="rounded-2xl border border-border bg-surface p-4">
       <div className="flex gap-3.5">
         {promo.imageVersion ? (
-          // eslint-disable-next-line @next/next/no-img-element -- anteprima della locandina dalla rotta pubblica
-          <img
+          <ZoomableImage
             src={`/menu/p/${promo.slug}/immagine?v=${promo.imageVersion}`}
-            alt=""
-            className="h-[100px] w-[80px] shrink-0 rounded-lg border border-border object-cover"
+            label="Ingrandisci la locandina"
+            className="h-[100px] w-[80px] rounded-lg border border-border object-cover"
           />
         ) : (
           <div className="flex h-[100px] w-[80px] shrink-0 items-center justify-center rounded-lg border border-dashed border-border px-2 text-center text-[11px] text-foreground-muted">
@@ -309,8 +309,7 @@ export function PromoSheet({
           <p className="mb-1 text-xs font-medium text-foreground-muted">Foto o locandina</p>
           <div className="flex items-center gap-3">
             {previewUrl || currentUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- anteprima locale della foto scelta
-              <img src={previewUrl ?? currentUrl ?? ""} alt="" className="h-[88px] w-[70px] shrink-0 rounded-lg border border-border object-cover" />
+              <ZoomableImage src={previewUrl ?? currentUrl ?? ""} label="Ingrandisci la locandina" className="h-[88px] w-[70px] rounded-lg border border-border object-cover" />
             ) : (
               <div className="flex h-[88px] w-[70px] shrink-0 items-center justify-center rounded-lg border border-dashed border-border text-[11px] text-foreground-muted">
                 Nessuna

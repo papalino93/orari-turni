@@ -1,0 +1,23 @@
+// Foto in gestione: un clic la ingrandisce, Esc o un altro clic tornano alla scheda.
+import { launch, login, check, BASE, results, ADMIN_PW } from "./lib.mjs";
+const b = await launch();
+const p = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+await login(p, "andrea", ADMIN_PW);
+await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
+await p.getByRole("button", { name: /Oktoberfest/ }).first().click();
+await p.getByRole("button", { name: "Modifica", exact: true }).first().click();
+const sheet = p.locator('[role="dialog"]').first();
+await sheet.getByRole("button", { name: "Ingrandisci la locandina" }).click();
+const big = p.locator('[role="dialog"][aria-label="Foto ingrandita"]');
+check("clic sulla foto: si ingrandisce", (await big.count()) === 1);
+await p.keyboard.press("Escape");
+await p.waitForTimeout(300);
+check("Esc: chiude l'ingrandimento ma non la scheda", (await big.count()) === 0 && (await p.locator('[role="dialog"]').count()) === 1);
+await p.locator('[role="dialog"]').getByRole("button", { name: "Ingrandisci la locandina" }).click();
+await big.click();
+await p.waitForTimeout(300);
+check("clic sulla foto grande: torna alla scheda", (await big.count()) === 0 && (await p.locator('[role="dialog"]').count()) === 1);
+await b.close();
+const failed = results.filter((r) => !r.ok);
+console.log(`\n${results.length - failed.length}/${results.length} ok`);
+process.exit(failed.length ? 1 : 0);
