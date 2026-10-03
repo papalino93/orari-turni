@@ -319,8 +319,8 @@ export function ItemSheet({
                 <p className="text-sm font-semibold text-foreground">{name.trim()}</p>
                 {wineName.trim() && <p className="text-sm italic text-foreground">{wineName.trim()}</p>}
                 {preview.detail && <p className="text-xs text-foreground-muted">{preview.detail}</p>}
-                {grapes.trim() && <p className="text-xs text-foreground-muted">{grapes.trim()}</p>}
-                {preview.origin && <p className="text-xs text-foreground-muted">{preview.origin}</p>}
+                {preview.origin && <p className="text-[10px] font-medium uppercase tracking-wide text-foreground-muted">{preview.origin}</p>}
+                {grapes.trim() && <p className="text-xs italic text-foreground-muted">{grapes.trim()}</p>}
                 {traits.length > 0 && (
                   <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium text-foreground-muted">
                     {WINE_TRAITS.filter((t) => traits.includes(t.code)).map((t) => (
@@ -498,51 +498,30 @@ export function ItemSheet({
 
         {item && (
           <div className="space-y-3 border-t border-border pt-3.5">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={busy || isFirst}
-                onClick={() => move("up")}
-                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30"
-              >
-                ↑ Sposta su
-              </button>
-              <button
-                type="button"
-                disabled={busy || isLast}
-                onClick={() => move("down")}
-                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30"
-              >
-                ↓ Sposta giù
-              </button>
-              <button
-                type="button"
-                disabled={busy || isFirst}
-                onClick={() => move("top")}
-                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30"
-              >
-                ⤒ In cima
-              </button>
-              <button
-                type="button"
-                disabled={busy || isLast}
-                onClick={() => move("bottom")}
-                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30"
-              >
-                ⤓ In fondo
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={duplicate}
-                className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-50"
-              >
+            {/* Posizione nel gruppo: subito, senza «Salva». */}
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-foreground-muted">Posizione nel gruppo</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <button type="button" disabled={busy || isFirst} onClick={() => move("top")} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30">
+                  ⤒ In cima
+                </button>
+                <button type="button" disabled={busy || isFirst} onClick={() => move("up")} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30">
+                  ↑ Sposta su
+                </button>
+                <button type="button" disabled={busy || isLast} onClick={() => move("down")} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30">
+                  ↓ Sposta giù
+                </button>
+                <button type="button" disabled={busy || isLast} onClick={() => move("bottom")} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30">
+                  ⤓ In fondo
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" disabled={busy} onClick={duplicate} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30">
                 Duplica
               </button>
-            </div>
-
             {confirmingDelete ? (
-              <div className="rounded-xl border border-danger/30 bg-danger-bg p-3">
+              <div className="w-full rounded-xl border border-danger/30 bg-danger-bg p-3">
                 <p className="text-xs text-danger">Eliminare «{item.name}»? Resta recuperabile dallo storico.</p>
                 <div className="mt-2.5 flex justify-end gap-2">
                   <button
@@ -571,6 +550,7 @@ export function ItemSheet({
                 Elimina voce
               </button>
             )}
+            </div>
           </div>
         )}
       </form>

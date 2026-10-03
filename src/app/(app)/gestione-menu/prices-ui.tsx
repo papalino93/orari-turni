@@ -132,7 +132,7 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
                   const orig = base(item);
                   const d = draft[item.id] ?? orig;
                   const err = draft[item.id] && !same(d, orig) ? problem(item, section.kind, d) : null;
-                  const sub = section.kind === "WINE" ? item.wineName : null;
+                  const sub = section.kind === "WINE" ? item.wineName || item.denomination : null;
                   return (
                     <li key={item.id} className="py-1.5">
                       <div className="flex items-center gap-2">

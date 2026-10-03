@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatPrice } from "@/lib/menu-format";
+import { formatPrice, wineDetail } from "@/lib/menu-format";
 import type { EditorItem, EditorSection } from "./menu-editor";
 
 function norm(text: string): string {
@@ -80,6 +80,10 @@ export function ItemSearch({
                       <span className={`block line-clamp-2 break-words text-sm font-medium ${sold ? "text-foreground-muted line-through" : "text-foreground"}`}>
                         {item.name}
                       </span>
+                      {/* Per i vini il nome proprio e la denominazione: «Aquila del Torre» c'è tre volte. */}
+                      {kind === "WINE" && (item.wineName || wineDetail(item)) && (
+                        <span className="block truncate text-xs text-foreground">{[item.wineName, wineDetail(item)].filter(Boolean).join(" · ")}</span>
+                      )}
                       <span className="block text-xs text-foreground-muted">
                         {place} · {priceText(item, kind)}
                       </span>
