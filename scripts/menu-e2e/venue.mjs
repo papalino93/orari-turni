@@ -1,6 +1,6 @@
 // Copertina, orari («Aperto ora»), contatti: modifica dalla gestione e effetto
 // sul menù pubblico. Richiede `npm i --no-save sharp` (foto di prova).
-import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, expandPanels, tool } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, expandPanels, tool, goTab } from "./lib.mjs";
 import { execFileSync } from "node:child_process";
 import sharp from "sharp";
 import { mkdtempSync } from "node:fs";
@@ -204,6 +204,7 @@ for (const [user, expected] of [["marta", true], ["francesco", false]]) {
   await login(p, user, EMP_PW);
   await p.goto(`${BASE}/gestione-menu`, { waitUntil: "domcontentloaded", timeout: 120000 });
   if (expected) {
+    await goTab(p, "Orari e contatti");
     await p.waitForSelector('section[aria-label="Il locale"]');
     check(`permessi: ${user} (con permesso) vede «Il locale»`, true);
   } else {

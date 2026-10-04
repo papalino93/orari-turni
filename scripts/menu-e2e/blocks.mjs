@@ -295,6 +295,7 @@ const mp = await mctx.newPage();
 mp.setDefaultTimeout(60000);
 await login(mp, "marta", EMP_PW);
 await mp.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 120000 });
+await goTab(mp, "Orari e contatti");
 check("permessi: Marta (con permesso) vede e può aggiungere informazioni", await mp.locator('section[aria-label="Informazioni del menù"]').getByRole("button", { name: "+ Aggiungi" }).isVisible());
 const fctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const fp = await fctx.newPage();
