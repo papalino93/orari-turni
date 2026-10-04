@@ -6,27 +6,31 @@ Se la sessione si interrompe, si riparte dal primo punto non spuntato. Lavoro au
 autorizzato fino alle 8:00 del 4 ottobre (ora italiana); si pubblica anche di notte.
 
 ## 1. Eventi
-- [ ] Sezione «In evidenza»:
+- [x] Sezione «In evidenza»:
   - 1 evento: come oggi;
   - 2 eventi: sul telefono uno sotto l'altro, tutti e due interi (sul tablet affiancati);
   - 3 o più: il primo in grande (il primo in «Riordina»), gli altri in una fila di locandine piccole.
-- [ ] Annunci (kind NOTICE) separati dagli eventi: una riga sobria sotto la copertina, prima
+- [x] Annunci (kind NOTICE) separati dagli eventi: una riga sobria sotto la copertina, prima
       degli eventi; si tocca per leggere tutto.
-- [ ] Pagina evento: orario facoltativo, inizio e fine tutti e due facoltativi («Dalle 19:00», «Dalle 19:00 alle 23:00»).
-- [ ] Pagina evento: pulsanti «Prenota» (WhatsApp con messaggio già scritto: evento e data,
+- [x] Pagina evento: orario facoltativo, inizio e fine tutti e due facoltativi («Dalle 19:00», «Dalle 19:00 alle 23:00»).
+- [x] Pagina evento: pulsanti «Prenota» (WhatsApp con messaggio già scritto: evento e data,
       «Siamo in …»), «Aggiungi al calendario» (.ics con data, ora e indirizzo) e «Condividi»
       (condivisione del telefono, altrimenti copia del link).
 - Niente pagina «Tutti gli eventi» (non serve al titolare).
 
+Fatto e pubblicato nella v0.14.0 (4 ottobre, mattina).
+
 ## 2. Consigliati della casa e abbinamenti per il vino
+(Test già scritto, codice da fare: scripts/menu-e2e/recommended.mjs. Campi previsti su
+MenuItem: recommended, pairDishIds, pairHideIds; massimo 4 consigliati.)
 - [ ] Segno «Consigliato» (scritta scelta dal titolare) su una voce (piatto o vino) dalla gestione, e sotto la copertina una
       riga «I consigli della casa» con le voci consigliate (massimo 4).
 - [ ] Vino → «Sta bene con…»: da solo l'inverso degli abbinamenti piatto → vino, e in più
       piatti aggiunti o tolti a mano nella scheda del vino.
 
 ## 3. Duplica una voce
-- [ ] «Duplica» su una voce: si apre una scheda nuova già compilata (nome con «(copia)»), si
-      cambia solo quello che serve.
+- [x] «Duplica» c'era già: ora è in cima alla scheda della voce e la copia si apre con
+      l'avviso «Questa è una copia di …» (v0.14.0).
 
 ## 4. Costi e ricarichi
 - [ ] Costo d'acquisto della bottiglia, visibile solo al titolare e al consulente (mai sul menù).

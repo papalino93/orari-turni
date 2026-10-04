@@ -1,4 +1,4 @@
-import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, tool, goTab } from "./lib.mjs";
 
 // stato pulito (i dati della migrazione restano com'erano)
 DB(`delete from "MenuPromo"`);
@@ -106,7 +106,10 @@ page.setDefaultTimeout(60000);
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 const dialog = () => page.locator('[role="dialog"]');
-const section = (name) => page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+const section = async (name) => {
+  await goTab(page, "Menù");
+  await page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+};
 const row = (name) => page.locator("li", { has: page.locator(`button[aria-label="Modifica ${name}"]`) });
 const settle = (ms = 1200) => page.waitForTimeout(ms);
 const banner = () => page.locator("p", { hasText: /allergeni da compilare/ });
@@ -146,11 +149,12 @@ const undoToast = page.locator('[role="status"] button:has-text("Annulla")').las
 if (await undoToast.count()) {
   await undoToast.click();
 } else {
-  await page.locator("button", { hasText: "Storico" }).click();
+  await tool(page, "Storico");
   await dialog().waitFor();
   await dialog().locator("li", { hasText: /Modificato: Acqua/ }).first().locator("button", { hasText: "Ripristina" }).click();
   await settle(1000);
   await dialog().getByRole("button", { name: "Chiudi" }).click();
+  await goTab(page, "Menù");
 await discardIfAsked(dialog().page());
   await dialog().waitFor({ state: "detached" });
 }
@@ -198,11 +202,12 @@ check("import vini: sul pubblico con prezzi", /Vino Uno[\s\S]{0,200}30/.test(t) 
 check("DB: importate in fondo al gruppo, in ordine", DB(`select string_agg(name, ',' order by "sortOrder") from (select name, "sortOrder" from "MenuItem" where name in ('Vino Uno','Vino Due') and "deletedAt" is null) x`) === "Vino Uno,Vino Due");
 
 // storico + annulla in blocco
-await page.locator("button", { hasText: "Storico" }).click();
+await tool(page, "Storico");
 await dialog().waitFor();
 const hist = await dialog().innerText();
 check("storico: voce 'Aggiunto: 2 voci in «Italia»'", /Aggiunto: 2 voci in «Italia»/.test(hist), hist.split("\n").slice(0, 4).join(" | "));
 await dialog().getByRole("button", { name: "Chiudi" }).click();
+await goTab(page, "Menù");
 await discardIfAsked(dialog().page());
 await dialog().waitFor({ state: "detached" });
 await page.locator('[role="status"] button:has-text("Annulla")').last().click().catch(() => {});
@@ -210,11 +215,12 @@ await settle(1500);
 const alive = DB(`select count(*) from "MenuItem" where name in ('Vino Uno','Vino Due') and "deletedAt" is null`);
 check("annulla in blocco: entrambe le voci tolte con un solo Annulla (o toast scaduto)", alive === "0" || alive === "2", alive);
 if (alive === "2") {
-  await page.locator("button", { hasText: "Storico" }).click();
+  await tool(page, "Storico");
   await dialog().waitFor();
   await dialog().locator("li", { hasText: /Aggiunto: 2 voci/ }).locator("button", { hasText: "Ripristina" }).click();
   await settle(1500);
   await dialog().getByRole("button", { name: "Chiudi" }).click();
+  await goTab(page, "Menù");
 await discardIfAsked(dialog().page());
   check("annulla in blocco dallo storico: entrambe tolte", DB(`select count(*) from "MenuItem" where name in ('Vino Uno','Vino Due') and "deletedAt" is null`) === "0");
 }

@@ -1,4 +1,4 @@
-import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels, tool, goTab } from "./lib.mjs";
 
 resetBlocks();
 DB(`delete from \"MenuChange\"`);
@@ -19,13 +19,15 @@ const page = await ctx.newPage();
 page.setDefaultTimeout(60000);
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
-await expandPanels(page);
 check("editor: titolo Menù", await page.locator("h1:has-text('Menù')").count() === 1);
 const chips = await page.locator('nav[aria-label="Sezioni"] button').allInnerTexts();
 check("editor: 7 sezioni", chips.length === 7, chips.map((c) => c.replace(/\n/g, " ")).join("|"));
 
 const toast = () => page.locator('[role="status"]').last();
-const section = (name) => page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+const section = async (name) => {
+  await goTab(page, "Menù");
+  await page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+};
 const row = (name) => page.locator("li", { has: page.locator(`button[aria-label="Modifica ${name}"]`) });
 const dialog = () => page.locator('[role="dialog"]');
 async function settle(ms = 1200) { await page.waitForTimeout(ms); }
@@ -130,7 +132,7 @@ await settle(1500);
 check("annulla dal toast: copia tornata", (await page.locator(`button[aria-label="Modifica Vino Prova"]`).count()) === 2);
 
 // ---- Storico + ripristina
-await page.locator("button", { hasText: "Storico" }).click();
+await tool(page, "Storico");
 await dialog().waitFor();
 const hist = await dialog().innerText();
 check("storico: elenca le modifiche con autore", /Andrea/.test(hist) && /Vino Prova/.test(hist) && /esaurito/i.test(hist), hist.split("\n").slice(0, 6).join(" | "));
@@ -144,6 +146,7 @@ check("storico: ripristino riporta l'originale a 32 (la copia resta a 34)", pric
 check("storico: voce marcata Annullata", (await dialog().locator("li", { hasText: /Modificato: Vino Prova/ }).first().innerText()).includes("Annullata"));
 await dialog().getByRole("button", { name: "Chiudi" }).click();
 await discardIfAsked(dialog().page());
+await goTab(page, "Menù");
 
 // ---- Gruppi
 await page.locator("button", { hasText: "+ Aggiungi gruppo" }).click();
@@ -186,7 +189,8 @@ await settle(1500);
 t = await publicText();
 check("gruppo: annulla eliminazione lo ripristina con le voci", t.includes("Passito Prova"));
 
-// ---- Testi della sezione
+// ---- Testi della sezione («Informazioni del menù» sta in «Orari e contatti»)
+await expandPanels(page);
 await page.getByRole("button", { name: "Modifica: Coperto € 1,00" }).click();
 await dialog().waitFor();
 await dialog().getByPlaceholder("1,00").fill("2,00");
@@ -235,6 +239,7 @@ if (await later.count()) await later.click();
 // cattura l'id dell'azione "esaurito" mentre Marta lavora, poi riusalo senza permesso
 let actionId = null;
 marta.on("request", (r) => { if (r.method() === "POST" && r.headers()["next-action"] && !actionId) actionId = r.headers()["next-action"]; });
+await goTab(marta, "Menù");
 await marta.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
 await marta.locator("li button[aria-pressed]").first().click();
 await marta.waitForTimeout(1500);

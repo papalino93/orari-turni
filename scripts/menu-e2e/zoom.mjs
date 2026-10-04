@@ -1,6 +1,6 @@
 // Foto in gestione: un clic la ingrandisce, Esc o un altro clic tornano alla scheda.
 import sharp from "sharp";
-import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, goTab } from "./lib.mjs";
 
 // Un evento con locandina, creato qui: il test non dipende da altri dati.
 const today = DB(`select to_char((now() at time zone 'Europe/Rome') - interval '5 hours','YYYY-MM-DD')`);
@@ -12,6 +12,7 @@ const b = await launch();
 const p = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 await login(p, "andrea", ADMIN_PW);
 await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
+await goTab(p, "Eventi e annunci");
 await p.getByRole("button", { name: /Zoom di prova/ }).first().click();
 await p.getByRole("button", { name: "Modifica", exact: true }).first().click();
 const sheet = p.locator('[role="dialog"]').first();

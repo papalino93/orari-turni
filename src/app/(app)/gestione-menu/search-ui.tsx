@@ -24,11 +24,14 @@ export function ItemSearch({
   isSold,
   onToggleSold,
   onEdit,
+  sticky = false,
 }: {
   sections: EditorSection[];
   isSold: (item: EditorItem) => boolean;
   onToggleSold: (item: EditorItem) => void;
   onEdit: (item: EditorItem, groupId: string) => void;
+  // Ferma in alto mentre si scorre (sotto la barra dell'app); i risultati scorrono dentro.
+  sticky?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const rows = useMemo(
@@ -50,7 +53,10 @@ export function ItemSearch({
   const found = tokens.length > 0 ? rows.filter((r) => tokens.every((t) => r.text.includes(t))) : [];
 
   return (
-    <section aria-label="Cerca una voce" className="mb-5">
+    <section
+      aria-label="Cerca una voce"
+      className={sticky ? "sticky top-[calc(4rem+env(safe-area-inset-top))] z-20 -mx-1 mb-4 bg-background px-1 pb-2 pt-2" : "mb-5"}
+    >
       <input
         type="search"
         value={query}
@@ -62,7 +68,11 @@ export function ItemSearch({
         className="min-h-12 w-full rounded-full border border-border bg-surface px-5 text-base text-foreground outline-none placeholder:text-foreground-muted/60 focus:border-accent sm:text-sm"
       />
       {tokens.length > 0 && (
-        <div className="mt-2 rounded-2xl border border-border bg-surface px-4 py-1" role="region" aria-live="polite">
+        <div
+          className={`mt-2 rounded-2xl border border-border bg-surface px-4 py-1 ${sticky ? "max-h-[min(60svh,30rem)] overflow-y-auto shadow-lg" : ""}`}
+          role="region"
+          aria-live="polite"
+        >
           {found.length === 0 ? (
             <p className="py-3 text-sm text-foreground-muted">Nessuna voce trovata.</p>
           ) : (

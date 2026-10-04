@@ -1,7 +1,7 @@
 // Avviso allergeni mancanti: messaggio «mancano gli allergeni» con «Compila ora»
 // dopo aver aggiunto un piatto senza allergeni, e piatti di «Oggi fuori menù»
 // contati nel richiamo e nel percorso «Compila allergeni».
-import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, goTab } from "./lib.mjs";
 
 const clean = () => {
   DB(`delete from "MenuItem" where name in ('Piatto Senza Allergeni','Piatto Con Allergeni')`);
@@ -19,7 +19,10 @@ await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 18
 const dialog = () => page.locator('[role="dialog"]');
 const toast = () => page.locator('[role="status"]');
 const settle = (ms = 1500) => page.waitForTimeout(ms);
-const section = (name) => page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+const section = async (name) => {
+  await goTab(page, "Menù");
+  await page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+};
 const banner = () => page.getByRole("button", { name: /^Compila allergeni \(\d+ da fare\)$/ });
 
 check("partenza: nessun richiamo allergeni", (await banner().count()) === 0);

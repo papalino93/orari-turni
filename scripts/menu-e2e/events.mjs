@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
-import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, newPromo } from "./lib.mjs";
 
 resetBlocks();
 // giorno commerciale (cambia alle 5:00 ora italiana)
@@ -38,7 +38,7 @@ const publicText = async (path) => {
 };
 
 async function createPromo({ type, title, label, body, start, end, showFrom, withImage, noMenu = false }) {
-  await page.getByRole("button", { name: "+ Evento o annuncio" }).click();
+  await newPromo(page);
   await dialog().waitFor();
   await dialog().getByRole("radio", { name: type === "EVENT" ? "Evento" : "Annuncio", exact: true }).click();
   await dialog().getByLabel("Titolo", { exact: true }).fill(title);
@@ -60,7 +60,7 @@ async function createPromo({ type, title, label, body, start, end, showFrom, wit
 }
 
 // ---- default delle date nel foglio di creazione
-await page.getByRole("button", { name: "+ Evento o annuncio" }).click();
+await newPromo(page);
 await dialog().waitFor();
 check("scheda nuovo evento: spiega dove si compone il menù", /E il menù speciale\?/.test(await dialog().innerText()));
 check("default: inizio tra 7 giorni", (await dialog().getByLabel("Inizio evento").inputValue()) === biz(7));

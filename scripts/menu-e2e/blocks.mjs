@@ -1,6 +1,6 @@
 // Blocchi informativi: creazione dei tre tipi, i tre punti del menù, più sezioni,
 // date, nascondi, ordine, eliminazione e annullamento, eventi, permessi.
-import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels, newPromo, goTab } from "./lib.mjs";
 
 const biz = (offset = 0) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(
@@ -202,7 +202,8 @@ o = await order("taglieri");
 check("ordine: rimesso com'era", o.chiusura < o.coperto);
 
 // ---------- «Testi della sezione» elenca i blocchi della sezione, uno per riga
-await page.getByRole("button", { name: "Taglieri & Pinse" }).first().click();
+await goTab(page, "Menù");
+await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Taglieri & Pinse" }).first().click();
 await settle(600);
 const texts = (await page.locator("main").innerText()).replace(/\u00a0/g, " ");
 check("sezione: «Testi della sezione» elenca coperto e chiusura cucina", /PREZZO\s*Coperto € 1,00/i.test(texts) && /TESTO\s*Si informa/i.test(texts), texts.slice(0, 200));
@@ -216,6 +217,7 @@ await discardIfAsked(dialog().page());
 }
 
 // ---------- Elimina e annulla
+await expandPanels(page);
 await page.getByRole("button", { name: /Modifica: Attenzione/ }).click();
 await dialog().waitFor();
 await dialog().getByRole("button", { name: "Elimina informazione" }).click();
@@ -231,7 +233,7 @@ check("annulla: l'avviso torna", t.includes("Domenica cucina chiusa"));
 check("DB: log storico dei blocchi", Number(DB(`select count(*) from "MenuChange" where entity='block'`)) >= 8);
 
 // ---------- Eventi: scelta dei blocchi nel menù speciale
-await page.getByRole("button", { name: "+ Evento o annuncio" }).click();
+await newPromo(page);
 await dialog().waitFor();
 await dialog().getByLabel("Titolo", { exact: true }).fill("Serata Prova");
 await dialog().getByLabel("Mostra la locandina dal").fill(biz(-2));
@@ -255,8 +257,10 @@ const evText = (await pub.locator("body").innerText()).replace(/\u00a0/g, " ");
 check("evento: nel menù speciale compare il coperto", /coperto € 1,00/i.test(evText));
 check("evento: la chiusura cucina non compare (deselezionata)", !/la cucina chiude/i.test(evText));
 // duplica: la copia mostra gli stessi blocchi
+await goTab(page, "Eventi e annunci");
 await page.locator("nav[aria-label='Eventi e annunci'] button", { hasText: "Serata Prova" }).first().click();
 await settle(600);
+await goTab(page, "Eventi e annunci");
 await page.getByRole("button", { name: "Duplica", exact: true }).first().click();
 await dialog().waitFor();
 await dialog().getByLabel("Titolo", { exact: true }).fill("Serata Prova bis");
@@ -291,6 +295,10 @@ const mp = await mctx.newPage();
 mp.setDefaultTimeout(60000);
 await login(mp, "marta", EMP_PW);
 await mp.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 120000 });
+// Il richiamo «Installa l'app» copre la pagina ai dipendenti: si rimanda a più tardi.
+const later = mp.locator("button", { hasText: "Ricordamelo più tardi" });
+if (await later.count()) await later.first().click();
+await goTab(mp, "Orari e contatti");
 check("permessi: Marta (con permesso) vede e può aggiungere informazioni", await mp.locator('section[aria-label="Informazioni del menù"]').getByRole("button", { name: "+ Aggiungi" }).isVisible());
 const fctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const fp = await fctx.newPage();

@@ -1,6 +1,6 @@
 // Caratteristiche dei vini (Biologico, Biodinamico, Vegano, Senza solfiti aggiunti):
 // spunte nella scheda, riga sul menù, filtri della ricerca, abbinamento, annulla.
-import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, tool, goTab } from "./lib.mjs";
 
 const WINE = "menu_itm_033"; // Mastrojanni, Rossi
 const DISH = "menu_itm_051"; // Tagliere Classico
@@ -37,7 +37,10 @@ await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 const dialog = () => page.locator('[role="dialog"]');
 const settle = (ms = 1500) => page.waitForTimeout(ms);
-const section = (name) => page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+const section = async (name) => {
+  await goTab(page, "Menù");
+  await page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+};
 const row = (name) => page.locator("li", { has: page.getByRole("button", { name: `Modifica ${name}`, exact: true }) });
 
 await section("Rossi");
@@ -86,7 +89,7 @@ check("abbinamento: anche nel riquadro", /Bio/.test(box) && /Vegano/.test(box), 
 
 // Annulla dallo storico
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
-await page.getByRole("button", { name: "Storico", exact: true }).click();
+await tool(page, "Storico");
 await dialog().waitFor();
 await dialog().locator("li", { hasText: /Modificato: Mastrojanni/ }).first().getByRole("button", { name: "Ripristina" }).click();
 await settle(2000);

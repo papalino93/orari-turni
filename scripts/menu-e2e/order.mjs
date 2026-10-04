@@ -1,6 +1,6 @@
 // Ordine dei vini per regione: un vino nuovo va al posto della sua regione
 // (Toscana, poi le altre regioni in ordine alfabetico, poi estero), senza rifare l'ordine scelto a mano.
-import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, goTab } from "./lib.mjs";
 
 const GROUP = "menu_grp_3_1"; // Rossi · Italia
 const names = () => DB(`select string_agg(name, ' | ' order by "sortOrder", "createdAt") from "MenuItem" where "groupId"='${GROUP}' and "deletedAt" is null`).split(" | ");
@@ -21,6 +21,7 @@ const settle = (ms = 1500) => page.waitForTimeout(ms);
 
 async function addWine(name, region, country = "") {
   await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+  await goTab(page, "Menù");
   await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
   const card = page.locator("section, div").filter({ has: page.getByText(/^Italia · \d+$/) }).last();
   await card.getByRole("button", { name: "+ Aggiungi vino" }).first().click();

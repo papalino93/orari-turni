@@ -1,6 +1,6 @@
 // Formati del gruppo (birre alla spina 0,2 l · 0,4 l · 1 l): colonne sul gruppo,
 // prezzi per colonna nella voce, tabella sul menù, casella vuota = «—», annulla.
-import { discardIfAsked, launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, results, ADMIN_PW, DB, tool, goTab } from "./lib.mjs";
 
 const GROUP = DB(`select g.id from "MenuGroup" g join "MenuSection" s on s.id=g."sectionId" where s.label='Bevande' and g."deletedAt" is null order by g."sortOrder" limit 1`);
 const groupTitle = DB(`select title from "MenuGroup" where id='${GROUP}'`);
@@ -12,6 +12,7 @@ const p = await (await b.newContext({ viewport: { width: 1280, height: 900 } }))
 p.setDefaultTimeout(30000);
 await login(p, "andrea", ADMIN_PW);
 await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
+await goTab(p, "Menù");
 await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Bevande" }).click();
 const card = p.locator("section", { has: p.locator("h3", { hasText: groupTitle }) }).first();
 await card.getByRole("button", { name: /^Formati/ }).click();
@@ -55,7 +56,7 @@ if (firstSingle) {
 }
 
 // Tabella prezzi: una casella per formato
-await p.getByRole("toolbar", { name: "Strumenti del menù" }).getByRole("button", { name: "Tabella prezzi" }).click();
+await tool(p, "Tabella prezzi");
 const dlg2 = p.locator('[role="dialog"]');
 await dlg2.getByRole("button", { name: "Bevande", exact: true }).click();
 check("tabella prezzi: colonne dei formati", (await dlg2.getByLabel("Prezzo · Birra Prova Helles · 1 l").count()) === 1);
@@ -65,6 +66,7 @@ await p.waitForTimeout(1500);
 check("tabella prezzi: formato aggiunto dalla colonna", DB(`select variants::text from "MenuItem" where name='Birra Prova Helles'`) === '[{"cents": 350, "label": "0,2 l"}, {"cents": 600, "label": "0,4 l"}, {"cents": 1000, "label": "1 l"}]', DB(`select variants::text from "MenuItem" where name='Birra Prova Helles'`));
 await p.keyboard.press("Escape");
 await dlg2.waitFor({ state: "detached" }).catch(() => {});
+await goTab(p, "Menù");
 
 // Incolla più voci: un prezzo per formato
 await card.getByRole("button", { name: "Incolla più voci" }).click();
@@ -89,6 +91,7 @@ check("annulla: formati di nuovo sul gruppo", DB(`select formats::text from "Men
 // «Stessi formati per tutto il gruppo» → i formati diventano quelli del gruppo.
 DB(`update "MenuGroup" set "deletedAt"=now() where title='Spina Prova'`);
 await p.reload({ waitUntil: "networkidle" });
+await goTab(p, "Menù");
 await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Bevande" }).click();
 await p.getByRole("button", { name: "+ Aggiungi gruppo" }).click();
 await p.getByPlaceholder("Nome del gruppo (es. Vini dolci)").fill("Spina Prova");

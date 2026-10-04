@@ -1,6 +1,6 @@
 // «Riordina» (sezioni, gruppi, voci; trascinando o con le frecce; un solo
 // Annulla) e «In cima» / «In fondo» nella scheda della voce.
-import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, tool, goTab } from "./lib.mjs";
 
 const GROUP = "menu_grp_3_1"; // Rossi · Italia
 const sectionsOrder = () => DB(`select string_agg(label, ' | ' order by "sortOrder") from "MenuSection" where "promoId" is null and "dailyOnly"=false`);
@@ -17,7 +17,7 @@ await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 18
 const dialog = () => page.locator('[role="dialog"]');
 const settle = (ms = 1500) => page.waitForTimeout(ms);
 
-await page.getByRole("button", { name: "Riordina", exact: true }).click();
+await tool(page, "Riordina");
 await dialog().waitFor();
 check("si apre «Riordina»", (await dialog().getByRole("heading", { name: "Riordina" }).count()) === 1);
 await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Sezioni" }).click();
@@ -41,7 +41,7 @@ check("annulla: ordine delle sezioni di prima", sectionsOrder() === startSection
 
 // Voci: trascinare l'ultima in cima
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
-await page.getByRole("button", { name: "Riordina", exact: true }).click();
+await tool(page, "Riordina");
 await dialog().waitFor();
 await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Sezioni" }).click();
 await dialog().getByRole("button", { name: "Apri Rossi" }).click();
@@ -80,6 +80,7 @@ await page.keyboard.press("Escape");
 
 // «In cima» e «In fondo» nella scheda
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await goTab(page, "Menù");
 await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
 await page.getByRole("button", { name: `Modifica ${before[3]}`, exact: true }).click();
 await dialog().waitFor();

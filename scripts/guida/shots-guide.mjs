@@ -1,4 +1,4 @@
-import { discardIfAsked, launch, login, BASE, ADMIN_PW } from "../menu-e2e/lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW, tool, goTab, newPromo } from "../menu-e2e/lib.mjs";
 import { WORK } from "./work.mjs";
 const OUT = `${WORK}/img`;
 const browser = await launch();
@@ -44,17 +44,18 @@ const close = async (p) => { await p.keyboard.press("Escape"); await discardIfAs
   // storico con qualche voce
   const sw = page.locator('li button[aria-pressed]').first();
   await sw.click(); await settle(page, 1500); await sw.click(); await settle(page, 1500);
-  await page.getByRole("button", { name: "Storico", exact: true }).click();
+  await tool(page, "Storico");
   await settle(page, 900);
   await page.screenshot({ path: `${OUT}/guide-storico.png` });
   await close(page);
   // + Piatto del giorno
+  await goTab(page, "Menù");
   await page.locator('section[aria-label="Oggi fuori menù"]').getByRole("button", { name: "+ Piatto" }).click();
   await settle(page, 700);
   await page.screenshot({ path: `${OUT}/guide-piatto-giorno.png` });
   await close(page);
   // nuovo evento
-  await page.getByRole("button", { name: "+ Evento o annuncio" }).click();
+  await newPromo(page);
   await settle(page, 800);
   await page.screenshot({ path: `${OUT}/guide-evento.png` });
   await close(page);

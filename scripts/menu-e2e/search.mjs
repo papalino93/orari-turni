@@ -1,5 +1,5 @@
 // Gestione: ricerca di una voce con «Esaurito» a un tocco, e anteprima in cornice da telefono.
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW } from "./lib.mjs";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, tool } from "./lib.mjs";
 import { execFileSync } from "node:child_process";
 
 const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
@@ -46,7 +46,7 @@ const ov = await page.evaluate(() => document.documentElement.scrollWidth - docu
 check("gestione @390: nessun overflow orizzontale", ov <= 0, String(ov));
 
 // Anteprima
-await page.getByRole("button", { name: "Anteprima", exact: true }).click();
+await tool(page, "Anteprima");
 const dlg = page.locator('[role="dialog"][aria-label="Anteprima del menù"]');
 await dlg.waitFor();
 const frame = page.frameLocator('iframe[title="Anteprima del menù dei clienti"]');

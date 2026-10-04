@@ -1,6 +1,6 @@
 // «Tabella prezzi»: più prezzi cambiati insieme (vini e piatti, anche con
 // formati), controlli prima di salvare, un solo «Annulla».
-import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, tool } from "./lib.mjs";
 
 const wine = DB(`select i.id || '|' || i.name || '|' || coalesce(i."priceGlassCents"::text,'') || '|' || coalesce(i."priceBottleCents"::text,'') from "MenuItem" i join "MenuGroup" g on g.id=i."groupId" join "MenuSection" s on s.id=g."sectionId" where s.label='Rossi' and i."deletedAt" is null and i."priceGlassCents" is not null order by g."sortOrder", i."sortOrder" limit 1`).split("|");
 const [wineId, wineName, glass0, bottle0] = wine;
@@ -17,7 +17,7 @@ await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 const dialog = () => page.locator('[role="dialog"]');
 
-await page.getByRole("toolbar", { name: "Strumenti del menù" }).getByRole("button", { name: "Tabella prezzi" }).click();
+await tool(page, "Tabella prezzi");
 await dialog().waitFor();
 check("si apre «Tabella prezzi»", (await dialog().getByRole("heading", { name: "Tabella prezzi" }).count()) === 1);
 const save = dialog().getByRole("button", { name: "Salva tutto" });

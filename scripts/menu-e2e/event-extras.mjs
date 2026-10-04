@@ -1,6 +1,6 @@
 // Eventi, novità di ottobre: annunci in una riga sotto la copertina, «In evidenza» senza
 // scorrere di lato (1, 2, 3+ eventi), orario dell'evento, Prenota / Calendario / Condividi.
-import { launch, login, check, BASE, results, ADMIN_PW, DB, SHOTS } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, SHOTS, goTab } from "./lib.mjs";
 
 const biz = (offset = 0) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(
@@ -104,6 +104,7 @@ const p = await (await b.newContext({ viewport: { width: 1440, height: 900 } }))
 p.setDefaultTimeout(30000);
 await login(p, "andrea", ADMIN_PW);
 await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
+await goTab(p, "Eventi e annunci");
 await p.locator("button", { hasText: /^Serata Due/ }).first().click();
 await p.getByRole("button", { name: "Modifica", exact: true }).first().click();
 const dlg = p.locator('[role="dialog"]');

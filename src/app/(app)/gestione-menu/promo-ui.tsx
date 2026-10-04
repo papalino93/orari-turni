@@ -162,11 +162,14 @@ export function PromoSheet({
   today,
   blocks,
   fixedFoodSectionIds,
+  initialKind,
   run,
   onSaved,
   onClose,
 }: {
   promo: EditorPromo | null;
+  // Nuova pagina: già scelto «Evento» o «Annuncio» (da «+ Aggiungi» o dalla scheda Eventi).
+  initialKind?: "NOTICE" | "EVENT";
   today: string;
   // Informazioni del menù: si sceglie quali mostrare anche nel menù speciale dell'evento.
   blocks: MenuBlockView[];
@@ -178,7 +181,7 @@ export function PromoSheet({
   const router = useRouter();
   const toast = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
-  const [kind, setKind] = useState<"NOTICE" | "EVENT">(promo?.kind ?? "EVENT");
+  const [kind, setKind] = useState<"NOTICE" | "EVENT">(promo?.kind ?? initialKind ?? "EVENT");
   // Non tutti gli eventi hanno un menù loro (es. una degustazione fuori sede).
   const [hasMenu, setHasMenu] = useState(promo?.hasMenu ?? true);
   const [title, setTitle] = useState(promo?.title ?? "");
