@@ -41,13 +41,13 @@ MenuItem: recommended, pairDishIds, pairHideIds; massimo 4 consigliati.)
 - [ ] Voci stagionali: una voce visibile «dal … al …».
 - [ ] Prezzi da una data: nella Tabella prezzi, «questi prezzi partono dal …».
 
-## 6. Gestione a schede (decisa: si fa, si pubblica solo se perfetta)
-- [ ] Quattro schede in alto: «Menù» (sezioni, voci, esauriti, Oggi fuori menù) · «Eventi e
+## 6. Gestione a schede (fatta e pubblicata nella v0.15.0)
+- [x] Quattro schede in alto: «Menù» (sezioni, voci, esauriti, Oggi fuori menù) · «Eventi e
       annunci» · «Orari e contatti» (copertina, orari, contatti, coperto e avvisi) ·
       «Strumenti» (Tabella prezzi, Riordina, Storico, Anteprima, Menù da stampare, Codice QR,
       Aggiungi più voci, Guida). Ogni scheda ha una riga che dice cosa c'è dentro. Si apre su «Menù».
-- [ ] Un solo «+ Aggiungi» in alto: «Vino, piatto, evento o annuncio?».
-- [ ] Scheda Menù: ricerca fissa in alto mentre si scorre; riquadro «Da sistemare» (solo se
+- [x] Un solo «+ Aggiungi» in alto: «Vino, piatto, evento o annuncio?».
+- [x] Scheda Menù: ricerca fissa in alto mentre si scorre; riquadro «Da sistemare» (solo se
       manca qualcosa: allergeni, prezzi, regione) con il pulsante per sistemarlo.
 - Rimandati (il titolare non sapeva): righe più pulite, anteprima accanto sul computer.
 - Anteprime viste dal titolare: https://claude.ai/artifact/RRd4rQeg8eubQd8wb2i7J6
