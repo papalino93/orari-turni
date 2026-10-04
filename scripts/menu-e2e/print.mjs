@@ -40,7 +40,7 @@ check("PDF A4 di alcune pagine", pages >= 2 && pages <= 12, String(pages));
 // «Guida»: il PDF della guida, solo per chi gestisce il menù
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await goTab(page, "Strumenti");
-const guideLink = page.getByRole("list", { name: "Strumenti del menù" }).getByRole("link", { name: /Guida/ });
+const guideLink = page.getByRole("list", { name: "Strumenti del menù" }).getByRole("link", { name: /^Guida \(PDF\)/ });
 check("gestione: c'è «Guida»", (await guideLink.count()) === 1 && (await guideLink.getAttribute("href")) === "/gestione-menu/guida");
 const g = await page.request.get(`${BASE}/gestione-menu/guida`);
 const gBody = await g.body();
