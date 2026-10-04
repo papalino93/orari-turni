@@ -30,8 +30,8 @@ export function Sheet({
   // «Salva» dal riquadro di conferma per le schede senza modulo (es. «Salva tutto»).
   onSave?: () => void;
 }) {
-  const guard = useUnsavedGuard(onClose, dirty === undefined ? undefined : () => dirty);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const guard = useUnsavedGuard(onClose, dirty === undefined ? undefined : () => dirty, dialogRef);
   // «Salva» dal riquadro di conferma: invia il modulo della scheda, se ce n'è uno.
   const [hasForm, setHasForm] = useState(false);
   const requestClose = () => {

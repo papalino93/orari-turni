@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import { useToast, runWithToast } from "@/components/toast";
@@ -22,7 +22,8 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
   const router = useRouter();
   const toast = useToast();
   // Date o motivo cambiati: un clic fuori o Esc non li buttano via in silenzio.
-  const guard = useUnsavedGuard(onClose);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const guard = useUnsavedGuard(onClose, undefined, boxRef);
   useEscapeToClose(guard.asking ? guard.stay : guard.requestClose, !pending);
 
   function submit() {
@@ -55,6 +56,7 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
     >
       <div className="flex min-h-full items-end justify-center p-4 sm:items-center">
         <div
+          ref={boxRef}
           onClick={(e) => e.stopPropagation()}
           {...guard.trackProps}
           // Vedi lo stesso commento in shared.tsx: area sicura del telefono
