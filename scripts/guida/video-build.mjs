@@ -51,7 +51,7 @@ const SCENES = [
       { t: 5.6, shot: "t-pub-evidenza", cap: ["I clienti la vedono subito", "In «In evidenza», sotto la copertina del menù."] },
     ],
     taps: [],
-    cam: [{ t: 0, cx: 384, cy: 512, s: 1 }, { t: 1, cx: 384, cy: 420, s: 1.12 }, { t: 5, cx: 384, cy: 420, s: 1.12 }, { t: 5.8, cx: 384, cy: 512, s: 1 }],
+    cam: [{ t: 0, cx: 384, cy: 512, s: 1 }],
   },
   {
     dev: "l", kicker: "Ordine", title: "Decidi l'ordine", dur: 10.8,
@@ -69,7 +69,7 @@ const SCENES = [
       { t: 5.3, shot: "t-history", cap: ["Un tocco su «Ripristina»", "e la voce torna come prima."] },
     ],
     taps: [{ t: 5.15, box: "t-history-restore" }],
-    cam: [{ t: 0, cx: 384, cy: 512, s: 1 }, { t: 1, cx: 384, cy: 480, s: 1.5 }, { t: 4.2, cx: 384, cy: 480, s: 1.5 }],
+    cam: [{ t: 0, cx: 384, cy: 512, s: 1 }, { t: 1, cx: 384, cy: 520, s: 1.45 }, { t: 4.2, cx: 384, cy: 520, s: 1.45 }],
   },
   {
     dev: "l", kicker: "Strumenti", title: "Gli strumenti", dur: 15,
