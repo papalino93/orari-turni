@@ -295,6 +295,9 @@ const mp = await mctx.newPage();
 mp.setDefaultTimeout(60000);
 await login(mp, "marta", EMP_PW);
 await mp.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 120000 });
+// Il richiamo «Installa l'app» copre la pagina ai dipendenti: si rimanda a più tardi.
+const later = mp.locator("button", { hasText: "Ricordamelo più tardi" });
+if (await later.count()) await later.first().click();
 await goTab(mp, "Orari e contatti");
 check("permessi: Marta (con permesso) vede e può aggiungere informazioni", await mp.locator('section[aria-label="Informazioni del menù"]').getByRole("button", { name: "+ Aggiungi" }).isVisible());
 const fctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
