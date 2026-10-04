@@ -64,11 +64,41 @@ async function sheets(name, w, h, theme) {
   await ctx.close();
 }
 
+// Le quattro schede della gestione (e il «+ Aggiungi»), in ogni formato e tema.
+async function schede(name, w, h, theme) {
+  const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+  await ctx.addInitScript((t) => { try { localStorage.setItem("theme", t); localStorage.setItem("install-dismissed", String(Date.now())); } catch {} }, theme);
+  const p = await ctx.newPage();
+  p.setDefaultTimeout(60000);
+  p.on("pageerror", (e) => problems.push(`${name} JS: ${e.message}`));
+  await login(p, "andrea", ADMIN_PW);
+  await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
+  await p.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+  for (const tab of ["Menù", "Eventi e annunci", "Orari e contatti", "Strumenti"]) {
+    await goTab(p, tab);
+    await p.waitForTimeout(600);
+    const ov = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (ov > 0) problems.push(`${name} scheda «${tab}»: scorrimento orizzontale ${ov}px`);
+    await p.screenshot({ path: `${OUT}/${name}_tab-${tab.split(" ")[0].toLowerCase()}.png`, fullPage: true });
+  }
+  await goTab(p, "Menù");
+  await p.getByRole("button", { name: "+ Aggiungi", exact: true }).click();
+  await p.waitForTimeout(500);
+  await p.screenshot({ path: `${OUT}/${name}_aggiungi.png` });
+  await ctx.close();
+}
+
 await tour("tab-v-chiaro", 820, 1180, "light", ["andrea", ADMIN_PW], pagesAdmin);
 await tour("tab-o-scuro", 1180, 820, "dark", ["andrea", ADMIN_PW], pagesAdmin);
 await tour("tab768-chiaro", 768, 1024, "light", ["andrea", ADMIN_PW], ["/gestione-menu", "/statistiche", "/orari"]);
 await tour("pubtab-v", 820, 1180, "light", null, pagesPub);
 await tour("pubtab-o", 1180, 820, "light", null, ["/menu", "/menu/allergeni"]);
+await schede("sc-tel-chiaro", 390, 844, "light");
+await schede("sc-tel-scuro", 390, 844, "dark");
+await schede("sc-tabv-chiaro", 820, 1180, "light");
+await schede("sc-tabo-scuro", 1180, 820, "dark");
+await schede("sc-pc-chiaro", 1440, 900, "light");
+await schede("sc-pc-scuro", 1440, 900, "dark");
 await sheets("tab-v", 820, 1180, "light");
 await sheets("tab-o", 1180, 820, "dark");
 await sheets("tel", 390, 844, "light");
