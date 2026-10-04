@@ -1,4 +1,4 @@
-// Fotografa video.html fotogramma per fotogramma (30 al secondo, 1080×1920) e lo trasforma in MP4.
+// Fotografa video.html (la timeline GSAP, window.render(t)) fotogramma per fotogramma (30 al secondo, 1080×1920) e lo trasforma in MP4.
 //   node video-render.mjs [file.mp4]       → di solito .tmp-guida/video/guida.mp4
 //   node video-render.mjs --stills 1,5,9   → solo alcune immagini in .tmp-guida/video/stills (per controllare)
 // Il lavoro è diviso tra WORKERS browser (di solito 2) che scrivono pezzi MP4, poi uniti senza ricodificare.
@@ -23,7 +23,7 @@ const launch = () => chromium.launch({
 async function open(browser) {
   const page = await (await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 })).newPage();
   await page.goto(`file://${dir}/video.html`, { waitUntil: "load", timeout: 120000 });
-  const want = ["500 20px 'Cormorant Garamond'", "600 20px 'Cormorant Garamond'", "italic 400 20px 'Cormorant Garamond'", "400 12px Jost", "500 12px Jost", "600 12px Jost"];
+  const want = ["500 20px 'Cormorant Garamond'", "600 20px 'Cormorant Garamond'", "italic 500 20px 'Cormorant Garamond'", "400 12px Jost", "500 12px Jost", "600 12px Jost", "400 12px Geist", "500 12px Geist", "600 12px Geist"];
   await page.evaluate((w) => Promise.allSettled(w.map((f) => document.fonts.load(f, "Aàèéìòù0123456789«»"))), want);
   if (!(await page.evaluate((w) => w.every((f) => document.fonts.check(f, "Aàè")), want))) throw new Error("Caratteri non caricati (scripts/guida/assets/fonts).");
   await page.evaluate(() => window.fit());

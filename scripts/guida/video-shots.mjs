@@ -2,14 +2,14 @@
 // Come i test: database di prova + `next dev -p 3100` accesi, dati di esempio da setup.mjs.
 // Scrive in .tmp-guida/video: le immagini e video-data.json (riquadri da toccare, in px dello schermo).
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
-import { discardIfAsked, launch, login, BASE, ADMIN_PW, goTab, tool } from "../menu-e2e/lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW, goTab, tool, DB } from "../menu-e2e/lib.mjs";
 import { WORK } from "./work.mjs";
 
 const OUT = `${WORK}/video`;
 mkdirSync(OUT, { recursive: true });
 // l = finestra del browser sul computer (alta, così nel video si legge); lw = portatile in orizzontale (solo per l'introduzione)
-const SIZE = { p: [390, 780], t: [768, 1024], l: [1100, 1180], lw: [1280, 800] };
-const DSF = { p: 3, t: 2.5, l: 2, lw: 2 };
+const SIZE = { p: [390, 780], t: [768, 1024], l: [1100, 1180], lw: [1280, 800], c: [390, 780] };
+const DSF = { p: 3, t: 2.5, l: 2, lw: 2, c: 3 };
 const browser = await launch();
 // ONLY=p,t,l,lw rifotografa solo quei dispositivi (tiene il resto di video-data.json)
 const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
@@ -20,7 +20,7 @@ const data = { size: SIZE, shots: { ...(prev?.shots ?? {}) }, boxes: { ...(prev?
 // Una «sessione» è un dispositivo: contesto, pagina e le funzioni per fotografare.
 async function session(kind, { admin = true } = {}) {
   const [w, h] = SIZE[kind];
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: DSF[kind], locale: "it-IT", timezoneId: "Europe/Rome", hasTouch: kind === "p" || kind === "t", isMobile: kind === "p" });
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: DSF[kind], locale: "it-IT", timezoneId: "Europe/Rome", hasTouch: kind === "p" || kind === "t" || kind === "c", isMobile: kind === "p" || kind === "c" });
   await ctx.clock.setFixedTime(new Date("2026-10-04T19:30:00+02:00"));
   await ctx.addInitScript(() => {
     try { localStorage.setItem("install-banner-dismissed", "1"); localStorage.setItem("theme", "light"); localStorage.setItem("menu-staff-device", "1"); } catch {}
@@ -208,6 +208,41 @@ if (run("p")) {
   await esaurito.first().click();
   await s.shot("list-rossi-esaurito");
   await s.page.locator('[role="status"]').first().waitFor({ state: "detached", timeout: 15000 }).catch(() => {});
+  await s.page.context().close();
+}
+
+// ---- Menù dei clienti da telefono: com'è prima e dopo che un vino è esaurito, copertina, «In evidenza»
+if (run("c")) {
+  const s = await session("c", { admin: false });
+  await s.page.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 180000 });
+  await s.settle(1400);
+  await s.shot("top");
+  const rowTop = () => s.page.evaluate(() => {
+    const el = [...document.querySelectorAll("*")].find((e) => e.children.length === 0 && e.textContent.trim() === "Avignonesi");
+    return el.parentElement.parentElement.getBoundingClientRect().top + scrollY;
+  });
+  const y = Math.round((await rowTop()) - 240);
+  await s.page.evaluate((v) => window.scrollTo(0, v), y);
+  await s.settle(900);
+  const row = await s.page.evaluate(() => {
+    const el = [...document.querySelectorAll("*")].find((e) => e.children.length === 0 && e.textContent.trim() === "Avignonesi");
+    const r = el.parentElement.parentElement.getBoundingClientRect();
+    return { x: r.x, y: r.y, w: r.width, h: r.height };
+  });
+  data.boxes["c-row"] = row;
+  await s.shot("before");
+  DB(`update "MenuItem" set "soldOutDay"='2026-10-04' where name='Avignonesi'`);
+  await s.page.reload({ waitUntil: "networkidle" });
+  await s.settle(1400);
+  await s.page.evaluate((v) => window.scrollTo(0, v), y);
+  await s.settle(900);
+  await s.shot("after");
+  DB(`update "MenuItem" set "soldOutDay"=null where name='Avignonesi'`);
+  await s.page.reload({ waitUntil: "networkidle" });
+  await s.settle(1200);
+  await s.page.evaluate(() => { const el = document.querySelector('section[aria-label="In evidenza"]'); window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 12); });
+  await s.settle(900);
+  await s.shot("evidenza");
   await s.page.context().close();
 }
 
