@@ -8,9 +8,10 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
     NEXT_PUBLIC_BUILD_SHA: (process.env.VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7),
   },
-  // La guida in PDF viene letta dal disco dalla route /gestione-menu/guida.
+  // La guida (PDF e video) viene letta dal disco dalle route /gestione-menu/guida e /gestione-menu/guida/video.
   outputFileTracingIncludes: {
     "/gestione-menu/guida": ["./docs/guida/Guida-gestione-menu.pdf"],
+    "/gestione-menu/guida/video": ["./docs/guida/Guida-gestione-menu.mp4"],
   },
 };
 

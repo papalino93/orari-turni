@@ -44,7 +44,7 @@ for (const [label, w, h] of [["computer", 1440, 900], ["telefono", 390, 844]]) {
   // Strumenti
   await goTab(p, "Strumenti");
   const tools = (await p.getByRole("list", { name: "Strumenti del menù" }).getByRole("listitem").allInnerTexts()).map((t) => t.split("\n")[0].trim());
-  check(`${label}: Strumenti, tutti gli strumenti`, ["Tabella prezzi", "Riordina", "Storico", "Anteprima", "Menù da stampare", "Codice QR", "Statistiche", "Guida (PDF)"].every((n) => tools.includes(n)), tools.join("|"));
+  check(`${label}: Strumenti, tutti gli strumenti`, ["Tabella prezzi", "Riordina", "Storico", "Anteprima", "Menù da stampare", "Codice QR", "Statistiche", "Guida (PDF)", "Guida (video)"].every((n) => tools.includes(n)), tools.join("|"));
   await p.getByRole("list", { name: "Strumenti del menù" }).getByRole("button", { name: /^Storico/ }).click();
   check(`${label}: Strumenti apre lo Storico`, (await p.getByRole("dialog", { name: "Storico" }).count()) === 1);
   await p.keyboard.press("Escape");

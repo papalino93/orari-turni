@@ -18,6 +18,12 @@ Prima di pubblicarla, sempre:
   browser mostra le ombre come riquadri grigi su iPhone;
 - la gestione si fotografa da computer (Mac), il menù dei clienti da telefono.
 
+Anche la **guida animata** (`docs/guida/Guida-gestione-menu.mp4`, pulsante «Guida (video)»)
+va aggiornata nello stesso rilascio quando cambiano le cose che mostra (schede, «+ Aggiungi»,
+esaurito, eventi, riordina, storico, strumenti) e comunque per il numero di versione:
+`scripts/guida/genera-video.sh`, istruzioni in `scripts/guida/LEGGIMI.md`. Controlla le
+scene come immagini (`video-render.mjs --stills …`) prima di pubblicarla.
+
 # Giro bug e UX
 
 Prima di ogni rilascio fai da solo il giro, senza aspettare segnalazioni:

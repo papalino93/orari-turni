@@ -547,7 +547,7 @@ export function MenuEditor({
       )}
 
       {tab === "strumenti" && (
-        <ul aria-label="Strumenti del menù" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <ul aria-label="Strumenti del menù" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
             { label: "Tabella prezzi", hint: "Cambia tanti prezzi insieme, anche di sezioni diverse, e salva una volta sola.", onClick: () => setSheet({ type: "prices" }) },
             { label: "Riordina", hint: "L'ordine di sezioni, gruppi, voci ed eventi sul menù.", onClick: () => setSheet({ type: "reorder" }) },
@@ -557,6 +557,7 @@ export function MenuEditor({
             { label: "Codice QR", hint: "Il QR del menù da stampare (SVG e PNG).", onClick: () => setSheet({ type: "qr" }) },
             { label: "Statistiche", hint: "Quante persone aprono il menù, quando e cosa cercano.", href: "/statistiche" },
             { label: "Guida (PDF)", hint: "Come si usa la gestione, passo per passo.", href: "/gestione-menu/guida", download: true },
+            { label: "Guida (video)", hint: "Un minuto e mezzo: le cose principali, animate.", href: "/gestione-menu/guida/video", download: true },
           ].map((tool) => (
             <li key={tool.label} className="flex">
             {tool.href ? (

@@ -52,6 +52,11 @@ MenuItem: recommended, pairDishIds, pairHideIds; massimo 4 consigliati.)
 - Rimandati (il titolare non sapeva): righe più pulite, anteprima accanto sul computer.
 - Anteprime viste dal titolare: https://claude.ai/artifact/RRd4rQeg8eubQd8wb2i7J6
 
+## 7. Guida animata (v0.16.0)
+- [x] Video verticale di circa un minuto e mezzo (schede, aggiungere un vino, esaurito, eventi,
+      ordine, storico, strumenti), con schermate da telefono, tablet e computer; pulsante
+      «Guida (video)» in «Strumenti», accanto a «Guida (PDF)». Idea presa dall'esempio del titolare.
+
 ## Messi da parte
 - Carta intera nuova programmata: più avanti, se il titolare la vuole.
 - Permesso limitato per il nuovo dipendente: il titolare decide più avanti.
