@@ -500,8 +500,17 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
   </div>
 </section>`);
 
+// Caratteri in locale (scripts/guida/assets/fonts → .tmp-guida/jpg/fonts): la guida non ha bisogno di rete.
+const FONT_FACES = [
+  ["Cormorant Garamond", 400, "normal", "cormorant-garamond-latin-400-normal"], ["Cormorant Garamond", 500, "normal", "cormorant-garamond-latin-500-normal"],
+  ["Cormorant Garamond", 600, "normal", "cormorant-garamond-latin-600-normal"], ["Cormorant Garamond", 400, "italic", "cormorant-garamond-latin-400-italic"],
+  ["Cormorant Garamond", 500, "italic", "cormorant-garamond-latin-500-italic"], ["EB Garamond", 400, "normal", "eb-garamond-latin-400-normal"],
+  ["EB Garamond", 500, "normal", "eb-garamond-latin-500-normal"], ["EB Garamond", 400, "italic", "eb-garamond-latin-400-italic"],
+  ["Jost", 400, "normal", "jost-latin-400-normal"], ["Jost", 500, "normal", "jost-latin-500-normal"], ["Jost", 600, "normal", "jost-latin-600-normal"],
+].map(([f, w, st, file]) => `@font-face{font-family:'${f}';font-weight:${w};font-style:${st};src:url(jpg/fonts/${file}.woff2) format('woff2')}`).join("\n");
+
 const html = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Il menù digitale · L'Angolo del Vino</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<style>${FONT_FACES}</style>
 <style>${css}</style></head><body>${pages.join("\n")}</body></html>`;
 writeFileSync(`${WORK}/pdf2.html`, html);
 console.log("pdf2.html", pages.length, "pagine");

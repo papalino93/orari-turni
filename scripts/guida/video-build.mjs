@@ -1,293 +1,285 @@
-// Scrive .tmp-guida/video/video.html: la guida animata (720×1280, come il video di esempio).
-// Ogni scena sta su un dispositivo (p = telefono, t = tablet, l = computer) e ha un elenco di
-// schermate (da video-shots.mjs) con tocchi, zoom e didascalie a tempo. Sul computer, sotto lo
-// schermo c'è una «lente» che ingrandisce la parte che si sta usando.
-// Il tempo è deterministico: window.render(t) disegna il fotogramma al secondo t (video-render.mjs).
+// Scrive .tmp-guida/video/video.html: la guida animata, verticale 1080×1920 (9:16).
+// Ogni capitolo sta su un dispositivo (p = telefono, t = tablet, l = finestra del browser sul
+// computer) e racconta una cosa con schermate vere (da video-shots.mjs): camera che si
+// avvicina, dito o puntatore che tocca, riquadro evidenziato, etichetta e didascalia grande.
+// Il motore delle animazioni è video-engine.js (window.render(t), deterministico).
+//
+// Come si modifica:
+//  - testi e tempi: SCENES qui sotto (steps = schermata e didascalia a tempo; taps = tocchi;
+//    notes = riquadri da evidenziare senza toccare; cam = [secondo, riquadro o [x, y], ingrandimento]);
+//  - aspetto: gli stili CSS più sotto; animazioni: video-engine.js.
 import { readFileSync, writeFileSync } from "node:fs";
 import { WORK } from "./work.mjs";
 
 const dir = `${WORK}/video`;
 const data = JSON.parse(readFileSync(`${dir}/video-data.json`, "utf8"));
 const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+const engine = readFileSync(new URL("./video-engine.js", import.meta.url), "utf8");
 
-// steps: [{t, shot, cap:[titolo, testo]}] = cambio schermata e didascalia
-// taps:  [{t, box}] = dito che tocca il riquadro `box` (video-data.json) al secondo t
-// cam:   [{t, cx, cy, s}] o [{t, box, s}] = punto al centro e ingrandimento (sul computer: della lente)
+const INTRO = 7.5, OUTRO = 8.5;
+
+// Dove sta la schermata nel video (px del video) e come si incornicia
+const G = {
+  p: { ox: 260, oy: 300, w: 560, h: 1120 },
+  t: { ox: 140, oy: 290, w: 800, h: 1066 },
+  l: { ox: 48, oy: 356, w: 984, h: 1056 },
+};
+const NAME = { p: "Da telefono", t: "Da tablet", l: "Da computer" };
+
+// Camera «larga» di ogni dispositivo e movimenti tipici
+const WIDE = { p: [195, 390, 1], t: [384, 512, 1], l: [550, 560, 1.2] };
+
 const SCENES = [
   {
-    dev: "l", kicker: "Le schede", title: "Tutto in quattro schede", dur: 13.6,
+    dev: "l", kicker: "Le schede", title: "Tutto in quattro schede", dur: 15.2,
     steps: [
       { t: 0, shot: "l-tab-menu", cap: ["Menù", "Sezioni, voci, esauriti e «Oggi fuori menù»."] },
-      { t: 3.7, shot: "l-tab-eventi", cap: ["Eventi e annunci", "Locandine, date, orari e il menù della serata."] },
-      { t: 7.1, shot: "l-tab-orari", cap: ["Orari e contatti", "Copertina, orari, contatti, coperto e avvisi."] },
-      { t: 10.5, shot: "l-tab-strumenti", cap: ["Strumenti", "Prezzi, ordine, storico, stampa, QR e guida."] },
+      { t: 4.55, shot: "l-tab-eventi", cap: ["Eventi e annunci", "Locandine, date, orari e il menù della serata."] },
+      { t: 8.25, shot: "l-tab-orari", cap: ["Orari e contatti", "Copertina, orari, contatti, coperto e avvisi."] },
+      { t: 11.95, shot: "l-tab-strumenti", cap: ["Strumenti", "Prezzi, ordine, storico, stampa, QR e guida."] },
     ],
-    taps: [{ t: 3.55, box: "l-tab-eventi" }, { t: 6.95, box: "l-tab-orari" }, { t: 10.35, box: "l-tab-strumenti" }],
-    cam: [{ t: 0, box: "l-tab-menu", s: 1.9 }, { t: 2.6, box: "l-tab-menu", s: 1.9 }, { t: 3.5, box: "l-tab-eventi", s: 1.9 }, { t: 6, box: "l-tab-eventi", s: 1.9 }, { t: 6.9, box: "l-tab-orari", s: 1.9 }, { t: 9.4, box: "l-tab-orari", s: 1.9 }, { t: 10.3, box: "l-tab-strumenti", s: 1.9 }],
+    taps: [
+      { t: 4.2, box: "l-tab-eventi", label: "Clicca «Eventi e annunci»" },
+      { t: 7.9, box: "l-tab-orari", label: "Clicca «Orari e contatti»" },
+      { t: 11.6, box: "l-tab-strumenti", label: "Clicca «Strumenti»" },
+    ],
+    notes: [{ t0: 1.9, t1: 3.6, box: "l-tab-menu", label: "Qui sei nella scheda «Menù»" }],
+    cam: [
+      [0, WIDE.l, 1.2], [1.1, WIDE.l, 1.2], [2, "l-tab-menu", 1.9], [3, "l-tab-menu", 1.9], [3.7, "l-tab-eventi", 1.9], [4.9, "l-tab-eventi", 1.9],
+      [5.9, WIDE.l, 1.2], [6.3, WIDE.l, 1.2], [7.2, "l-tab-orari", 1.9], [8.5, "l-tab-orari", 1.9], [9.5, WIDE.l, 1.2], [9.9, WIDE.l, 1.2],
+      [10.9, "l-tab-strumenti", 1.9], [12.2, "l-tab-strumenti", 1.9], [13.2, WIDE.l, 1.2], [15.2, WIDE.l, 1.2],
+    ],
   },
   {
-    dev: "p", kicker: "Aggiungere", title: "Aggiungi un vino", dur: 11.6,
+    dev: "p", kicker: "Aggiungere", title: "Aggiungi un vino", dur: 22,
     steps: [
       { t: 0, shot: "p-tab-menu", cap: ["Un solo pulsante", "«+ Aggiungi»: vino, piatto, evento o annuncio."] },
-      { t: 3.9, shot: "p-add-choice", cap: ["Che cosa vuoi aggiungere?", "Scegli il tipo: la finestra ti guida."] },
-      { t: 7.5, shot: "p-add-form", cap: ["Scegli la sezione", "Poi compili la scheda del vino e salvi."] },
+      { t: 3.95, shot: "p-add-choice", cap: ["Che cosa vuoi aggiungere?", "Scegli «Un vino»: la finestra ti guida passo passo."] },
+      { t: 7.55, shot: "p-add-form", cap: ["In quale sezione?", "Per esempio «Rossi»."] },
+      { t: 10.75, shot: "p-add-group", cap: ["E in quale gruppo?", "Per esempio «Italia»: così il vino va al suo posto in carta."] },
+      { t: 13.55, shot: "p-add-fields", cap: ["Compila la scheda", "Azienda, annata, uvaggio, regione e prezzi di calice e bottiglia."] },
+      { t: 16.6, shot: "p-add-filled", cap: ["Compila la scheda", "Azienda, annata, uvaggio, regione e prezzi di calice e bottiglia."] },
+      { t: 19.1, shot: "p-add-save", cap: ["Poi «Aggiungi»", "Il vino compare subito sul menù dei clienti."] },
     ],
-    taps: [{ t: 3.75, box: "p-add-top" }, { t: 7.35, box: "p-add-wine" }],
-    cam: [{ t: 0, cx: 195, cy: 390, s: 1 }, { t: 1, cx: 190, cy: 192, s: 1.4 }, { t: 3.3, cx: 190, cy: 192, s: 1.4 }, { t: 4.3, cx: 195, cy: 390, s: 1 }],
+    taps: [
+      { t: 3.6, box: "p-add-top", label: "Tocca «+ Aggiungi»" },
+      { t: 7.2, box: "p-add-wine", label: "Tocca «Un vino»" },
+      { t: 10.4, box: "p-add-section", label: "Tocca «Rossi»" },
+      { t: 13.2, box: "p-add-group", label: "Tocca «Italia»" },
+    ],
+    notes: [{ t0: 19.5, t1: 21.6, box: "p-add-save", label: "Tocca «Aggiungi»" }],
+    cam: [
+      [0, WIDE.p, 1], [1.0, WIDE.p, 1], [2.2, [150, 192], 1.5], [4.3, [150, 192], 1.5],
+      [5.2, "p-add-wine", 1.12], [8.2, "p-add-wine", 1.12], [8.9, "p-add-section", 1.12], [11.3, "p-add-section", 1.12],
+      [11.9, "p-add-group", 1.12], [14.0, "p-add-group", 1.12],
+      [15.2, [195, 330], 1.35], [18.0, [195, 520], 1.2], [19.2, "p-add-save", 1.5], [22, "p-add-save", 1.5],
+    ],
   },
   {
-    dev: "p", kicker: "Esauriti", title: "Esaurito in un tocco", dur: 10.4,
+    dev: "p", kicker: "Esauriti", title: "Esaurito in un tocco", dur: 10.5,
     steps: [
       { t: 0, shot: "p-list-rossi", cap: ["Il vino è finito?", "Tocca «Esaurito»: sul menù dei clienti il vino sparisce."] },
-      { t: 4.4, shot: "p-list-rossi-esaurito", cap: ["Fatto, e si può annullare", "Toccato per sbaglio? Premi «Annulla» nell'avviso."] },
+      { t: 4.65, shot: "p-list-rossi-esaurito", cap: ["Fatto, e si può annullare", "Toccato per sbaglio? Premi «Annulla» nell'avviso."] },
     ],
-    taps: [{ t: 4.25, box: "p-sold" }],
-    cam: [{ t: 0, cx: 195, cy: 390, s: 1 }, { t: 1, cx: 240, cy: 352, s: 1.25 }, { t: 3.7, cx: 240, cy: 352, s: 1.25 }, { t: 5.2, cx: 195, cy: 470, s: 1.12 }],
+    taps: [{ t: 4.3, box: "p-sold", label: "Tocca «Esaurito»" }],
+    cam: [[0, WIDE.p, 1], [1.0, WIDE.p, 1], [2.3, [195, 252], 1.15], [4.9, [195, 252], 1.15], [6, [195, 560], 1.25], [10.5, [195, 560], 1.25]],
   },
   {
-    dev: "t", kicker: "Eventi", title: "Eventi e annunci", dur: 11.4,
+    dev: "t", kicker: "Eventi", title: "Eventi e annunci", dur: 12,
     steps: [
       { t: 0, shot: "t-events-list", cap: ["Crea una serata", "Locandina, date, orario e il menù dell'evento."] },
-      { t: 5.6, shot: "t-pub-evidenza", cap: ["I clienti la vedono subito", "In «In evidenza», sotto la copertina del menù."] },
+      { t: 6.4, shot: "t-pub-evidenza", cap: ["I clienti la vedono subito", "In «In evidenza», sotto la copertina del menù."] },
     ],
     taps: [],
-    cam: [{ t: 0, cx: 384, cy: 512, s: 1 }],
+    notes: [
+      { t0: 1.4, t1: 3.7, box: "t-new-event", label: "Qui crei una serata" },
+      { t0: 3.9, t1: 6.0, box: "t-special-menu", label: "E qui il suo menù" },
+    ],
+    cam: [[0, WIDE.t, 1], [0.9, WIDE.t, 1], [1.5, "t-new-event", 1.5], [3.7, "t-new-event", 1.5], [4.4, "t-special-menu", 1.4], [6.0, "t-special-menu", 1.4], [7, [384, 260], 1.25], [12, [384, 330], 1.1]],
   },
   {
-    dev: "l", kicker: "Ordine", title: "Decidi l'ordine", dur: 10.8,
+    dev: "l", kicker: "Ordine", title: "Decidi l'ordine", dur: 10.5,
     steps: [
       { t: 0, shot: "l-reorder-1", cap: ["Il primo viene prima", "Sul menù il primo evento sta più a sinistra."] },
-      { t: 4.8, shot: "l-reorder-2", cap: ["Sposta con le frecce", "Poi «Salva ordine»: sul menù cambia subito."] },
+      { t: 4.95, shot: "l-reorder-2", cap: ["Sposta con le frecce", "Poi «Salva ordine»: sul menù cambia subito."] },
     ],
-    taps: [{ t: 4.65, box: "l-reorder-down" }],
-    cam: [{ t: 0, cx: 640, cy: 410, s: 2 }, { t: 1.2, cx: 640, cy: 410, s: 2 }, { t: 3.4, box: "l-reorder-down", s: 2.4 }, { t: 4.5, box: "l-reorder-down", s: 2.4 }, { t: 5.6, cx: 640, cy: 410, s: 2 }],
+    taps: [{ t: 4.6, box: "l-reorder-down", label: "Clicca la freccia giù" }],
+    cam: [[0, [550, 590], 1.0], [1.0, [550, 590], 1.0], [2.0, [550, 580], 1.8], [3.6, "l-reorder-down", 2.0], [6.5, "l-reorder-down", 2.0], [7.6, [550, 580], 1.7], [10.5, [550, 580], 1.7]],
   },
   {
-    dev: "t", kicker: "Storico", title: "Se sbagli, torni indietro", dur: 9.4,
+    dev: "t", kicker: "Storico", title: "Se sbagli, torni indietro", dur: 10.5,
     steps: [
       { t: 0, shot: "t-history", cap: ["Lo Storico ricorda tutto", "Ogni modifica, con chi l'ha fatta e quando."] },
-      { t: 5.3, shot: "t-history", cap: ["Un tocco su «Ripristina»", "e la voce torna come prima."] },
+      { t: 4.65, shot: "t-history-restored", cap: ["Un tocco e torna com'era", "«Ripristina»: la voce è di nuovo come prima."] },
     ],
-    taps: [{ t: 5.15, box: "t-history-restore" }],
-    cam: [{ t: 0, cx: 384, cy: 512, s: 1 }, { t: 1, cx: 384, cy: 520, s: 1.45 }, { t: 4.2, cx: 384, cy: 520, s: 1.45 }],
+    taps: [{ t: 4.3, box: "t-history-restore", label: "Tocca «Ripristina»" }],
+    cam: [[0, WIDE.t, 1], [0.9, WIDE.t, 1], [1.8, [384, 500], 1.5], [3.4, "t-history-restore", 1.7], [5.2, "t-history-restore", 1.7], [6.2, [384, 500], 1.45], [10.5, [384, 500], 1.45]],
   },
   {
-    dev: "l", kicker: "Strumenti", title: "Gli strumenti", dur: 15,
+    dev: "l", kicker: "Strumenti", title: "Gli strumenti", dur: 16.5,
     steps: [
       { t: 0, shot: "l-strumenti", cap: ["Tutto quello che serve", "Prezzi, anteprima, QR da stampare."] },
-      { t: 3.3, shot: "l-prices", cap: ["Tabella prezzi", "Cambi tanti prezzi insieme e salvi una volta sola."] },
-      { t: 6.6, shot: "l-strumenti", cap: ["Tabella prezzi", "Cambi tanti prezzi insieme e salvi una volta sola."] },
-      { t: 7.9, shot: "l-preview", cap: ["Anteprima", "Il menù come lo vede il cliente, anche in un giorno scelto."] },
-      { t: 11, shot: "l-strumenti", cap: ["Anteprima", "Il menù come lo vede il cliente, anche in un giorno scelto."] },
-      { t: 12.2, shot: "l-qr", cap: ["Codice QR", "Da stampare, in nero o bordeaux."] },
+      { t: 3.55, shot: "l-prices", cap: ["Tabella prezzi", "Cambi tanti prezzi insieme e salvi una volta sola."] },
+      { t: 6.8, shot: "l-strumenti", cap: ["Tabella prezzi", "Cambi tanti prezzi insieme e salvi una volta sola."] },
+      { t: 7.95, shot: "l-preview", cap: ["Anteprima", "Il menù come lo vede il cliente, anche in un giorno scelto."] },
+      { t: 11.2, shot: "l-strumenti", cap: ["Anteprima", "Il menù come lo vede il cliente, anche in un giorno scelto."] },
+      { t: 12.35, shot: "l-qr", cap: ["Codice QR", "Da stampare, in nero o bordeaux."] },
     ],
-    taps: [{ t: 3.15, box: "l-tool-prices" }, { t: 7.75, box: "l-tool-preview" }, { t: 12.05, box: "l-tool-qr" }],
+    taps: [
+      { t: 3.2, box: "l-tool-prices", label: "Clicca «Tabella prezzi»" },
+      { t: 7.6, box: "l-tool-preview", label: "Clicca «Anteprima»" },
+      { t: 12.0, box: "l-tool-qr", label: "Clicca «Codice QR»" },
+    ],
     cam: [
-      { t: 0, cx: 640, cy: 300, s: 1.5 }, { t: 1.6, cx: 640, cy: 300, s: 1.5 }, { t: 2.5, box: "l-tool-prices", s: 2 }, { t: 3.2, box: "l-tool-prices", s: 2 },
-      { t: 4.1, cx: 640, cy: 400, s: 1.5 }, { t: 6.2, cx: 640, cy: 400, s: 1.5 },
-      { t: 7.1, box: "l-tool-preview", s: 2 }, { t: 7.8, box: "l-tool-preview", s: 2 },
-      { t: 8.7, cx: 640, cy: 400, s: 1.5 }, { t: 10.8, cx: 640, cy: 400, s: 1.5 },
-      { t: 11.5, box: "l-tool-qr", s: 2 }, { t: 12.1, box: "l-tool-qr", s: 2 },
-      { t: 13, cx: 640, cy: 400, s: 1.5 },
+      [0, [550, 330], 1.5], [1.0, [550, 330], 1.5], [2.0, "l-tool-prices", 2.0], [3.7, "l-tool-prices", 2.0], [4.2, [550, 480], 1.4], [6.1, [550, 480], 1.4],
+      [6.5, "l-tool-preview", 2.0], [8.1, "l-tool-preview", 2.0], [8.7, [550, 560], 1.5], [10.4, [550, 560], 1.5],
+      [10.9, "l-tool-qr", 2.0], [12.5, "l-tool-qr", 2.0], [13.1, [550, 540], 1.7], [16.5, [550, 540], 1.7],
     ],
   },
 ];
-const INTRO = 5.4, OUTRO = 5.6;
 
-// Dispositivi: dimensione della schermata fotografata, finestra nel video e cornice.
-const DEV = {
-  p: { name: "Da telefono", shot: [390, 780], views: [{ win: [400, 800], x: 160, y: 215, zoom: true }], frame: { x: 150, y: 205, pad: 10, r: 56, rin: 46 } },
-  t: { name: "Da tablet", shot: [768, 1024], views: [{ win: [564, 752], x: 78, y: 236, zoom: true }], frame: { x: 64, y: 222, pad: 14, r: 40, rin: 28 } },
-  l: { name: "Da computer", shot: [1280, 800], views: [{ win: [640, 400], x: 40, y: 236, zoom: false }, { win: [640, 330], x: 40, y: 745, zoom: true, lens: true }], frame: { x: 28, y: 224, pad: 12, r: 22, rin: 10, base: true } },
+// ---------- markup ----------
+const shotsOf = (s) => [...new Set(s.steps.map((x) => x.shot))];
+const img = (n) => `<img data-n="${n}" src="${data.shots[n]}">`;
+const camHTML = (s) => `<div class="cam" style="width:${data.size[s.dev][0]}px;height:${data.size[s.dev][1]}px">${shotsOf(s).map(img).join("")}<div class="dim"></div><div class="ring"></div><div class="rip"></div><div class="rip"></div><div class="finger"></div><svg class="arrow" viewBox="0 0 22 32"><path d="M2 2 L2 25 L8 20 L12 30 L16.5 28 L12.5 18.5 L20 18.5 Z" fill="#161214" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></svg></div>`;
+const devHTML = (s) => {
+  const g = G[s.dev];
+  const win = (extra) => `<div class="win" ${extra}>${camHTML(s)}</div>`;
+  if (s.dev === "p") return `<div class="dev bz" style="left:242px;top:282px;width:596px;height:1156px;border-radius:92px"><i class="sb" style="left:-5px;top:230px;height:84px"></i><i class="sb" style="left:-5px;top:340px;height:84px"></i><i class="sb" style="right:-5px;top:300px;height:130px"></i>${win(`style="left:18px;top:18px;width:560px;height:1120px;border-radius:74px"`)}</div>`;
+  if (s.dev === "t") return `<div class="dev bz" style="left:118px;top:268px;width:844px;height:1110px;border-radius:66px">${win(`style="left:22px;top:22px;width:800px;height:1066px;border-radius:46px"`)}</div>`;
+  return `<div class="dev br" style="left:48px;top:300px;width:984px;height:1112px"><div class="bar"><u></u><u></u><u></u><span>orari-turni.vercel.app/gestione-menu</span></div>${win(`style="left:0;top:56px;width:984px;height:1056px"`)}</div>`;
+};
+const num = (i) => String(i + 1).padStart(2, "0");
+const sceneHTML = (s, i) => {
+  const caps = new Set(s.steps.map((x) => x.cap.join("|")));
+  return `<div class="scene" id="s${i}">
+  <div class="wm">${num(i)}</div>
+  <div class="hd"><div class="kick">Capitolo ${i + 1} · ${s.kicker}</div><div class="badge">${NAME[s.dev]}</div><div class="ttl"><span>${s.title}</span></div></div>
+  ${devHTML(s)}
+  <div class="call"><span></span><i></i></div>
+  <div class="cap"><div class="st"><b></b><span class="dots">${[...caps].map(() => "<i></i>").join("")}</span></div><div class="ct"></div><div class="cx"></div></div>
+  <div class="foot"><img src="../jpg/logo.png"></div>
+</div>`;
 };
 
-const imgs = (s) => [...new Set(s.steps.map((x) => x.shot))];
-const view = (s, v) => `<div class="win${v.lens ? " lenswin" : ""}" style="left:${v.x}px;top:${v.y}px;width:${v.win[0]}px;height:${v.win[1]}px;border-radius:${v.lens ? 18 : DEV[s.dev].frame.rin}px"><div class="cam">${imgs(s).map((n) => `<img data-n="${n}" src="${data.shots[n]}">`).join("")}<div class="lensbox"></div><div class="ring"></div><div class="dot"></div><div class="pulse"></div></div></div>`;
-const deviceHTML = (s) => {
-  const d = DEV[s.dev], f = d.frame, main = d.views[0];
-  const frame = `<div class="bezel" style="left:${f.x}px;top:${f.y}px;width:${main.win[0] + 2 * f.pad}px;height:${main.win[1] + 2 * f.pad}px;border-radius:${f.r}px"></div>${f.base ? `<div class="base" style="left:${f.x - 22}px;top:${f.y + main.win[1] + 2 * f.pad - 2}px;width:${main.win[0] + 2 * f.pad + 44}px"></div>` : ""}`;
-  return frame + d.views.map((v) => view(s, v)).join("") + (d.views.length > 1 ? `<div class="lenslabel" style="left:40px;top:${d.views[0].y + d.views[0].win[1] + 44}px">Ingrandimento</div>` : "");
-};
-
-const html = `<!doctype html><html lang="it"><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
+const css = `
+@font-face{font-family:'Cormorant Garamond';font-weight:500;font-style:normal;src:url(../jpg/fonts/cormorant-garamond-latin-500-normal.woff2) format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-weight:600;font-style:normal;src:url(../jpg/fonts/cormorant-garamond-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-weight:500;font-style:italic;src:url(../jpg/fonts/cormorant-garamond-latin-500-italic.woff2) format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-weight:400;font-style:italic;src:url(../jpg/fonts/cormorant-garamond-latin-400-italic.woff2) format('woff2')}
+@font-face{font-family:'Jost';font-weight:400;src:url(../jpg/fonts/jost-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Jost';font-weight:500;src:url(../jpg/fonts/jost-latin-500-normal.woff2) format('woff2')}
+@font-face{font-family:'Jost';font-weight:600;src:url(../jpg/fonts/jost-latin-600-normal.woff2) format('woff2')}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:720px;height:1280px;overflow:hidden;background:#2a0509}
-#stage{position:relative;width:720px;height:1280px;overflow:hidden;color:#F4EEE3;font-family:'Jost',sans-serif;
- background:radial-gradient(ellipse 90% 45% at 50% 38%,rgba(150,30,50,.38),transparent 70%),radial-gradient(ellipse 80% 30% at 50% 100%,rgba(201,169,110,.10),transparent 70%),linear-gradient(180deg,#4a0a14 0%,#2e060b 55%,#1b0306 100%)}
-.frame{position:absolute;inset:14px;border:1px solid rgba(201,169,110,.38);pointer-events:none;z-index:50}
-.frame i{position:absolute;width:9px;height:9px;background:#C9A96E;transform:rotate(45deg)}
-.frame i:nth-child(1){left:-5px;top:-5px}.frame i:nth-child(2){right:-5px;top:-5px}.frame i:nth-child(3){left:-5px;bottom:-5px}.frame i:nth-child(4){right:-5px;bottom:-5px}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#240407}
+#stage{position:relative;width:1080px;height:1920px;overflow:hidden;color:#F4EEE3;font-family:'Jost',sans-serif;background:linear-gradient(180deg,#4d0b16 0%,#310710 50%,#1a0306 100%)}
+#glow{position:absolute;left:-220px;top:180px;width:1520px;height:1200px;background:radial-gradient(ellipse at 50% 45%,rgba(170,36,58,.46),transparent 62%)}
+#glow2{position:absolute;left:-100px;top:1250px;width:1280px;height:800px;background:radial-gradient(ellipse at 50% 60%,rgba(201,169,110,.13),transparent 65%)}
+#grain{display:none}
+#vig{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 48%,transparent 55%,rgba(8,1,3,.5) 100%);z-index:55;pointer-events:none}
+.frame{position:absolute;inset:26px;border:1px solid rgba(201,169,110,.34);pointer-events:none;z-index:58}
+.frame i{position:absolute;width:12px;height:12px;background:#C9A96E;transform:rotate(45deg)}
+.frame i:nth-child(1){left:-7px;top:-7px}.frame i:nth-child(2){right:-7px;top:-7px}.frame i:nth-child(3){left:-7px;bottom:-7px}.frame i:nth-child(4){right:-7px;bottom:-7px}
 .scene{position:absolute;inset:0;display:none}
-#bar{position:absolute;left:46px;right:46px;top:46px;height:4px;background:rgba(244,238,227,.16);border-radius:2px;z-index:40}
-#bar b{display:block;height:100%;width:0;background:#C9A96E;border-radius:2px}
-.kick{position:absolute;left:46px;right:46px;top:68px;display:flex;justify-content:space-between;font-size:19px;letter-spacing:.3em;text-transform:uppercase;color:#C9A96E;font-weight:500}
-.ttl{position:absolute;left:46px;right:46px;top:98px;font-family:'Cormorant Garamond',serif;font-weight:500;font-size:56px;line-height:1.05;color:#F7EFE0;white-space:nowrap}
-.chip{position:absolute;left:46px;top:166px;font-size:16px;letter-spacing:.22em;text-transform:uppercase;color:rgba(244,238,227,.82);border:1px solid rgba(201,169,110,.55);border-radius:999px;padding:4px 14px 3px}
-.bezel{position:absolute;background:linear-gradient(145deg,#3a3a3d,#0d0d0e 55%,#232326);box-shadow:0 24px 60px rgba(0,0,0,.5),inset 0 0 0 1.5px rgba(255,255,255,.16)}
-.base{position:absolute;height:14px;border-radius:0 0 18px 18px;background:linear-gradient(180deg,#9b9ba0,#5d5d62);box-shadow:0 14px 30px rgba(0,0,0,.45)}
+#prog{position:absolute;left:72px;right:72px;top:62px;height:6px;display:flex;gap:8px;z-index:40}
+#prog i{flex:1;background:rgba(244,238,227,.16);border-radius:3px;overflow:hidden}
+#prog b{display:block;height:100%;width:0;background:linear-gradient(90deg,#B8955A,#E6C98A);border-radius:3px}
+.wm{position:absolute;right:56px;top:40px;font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:400;font-size:420px;line-height:1;color:#C9A96E;opacity:0}
+.hd{position:absolute;left:72px;right:72px;top:98px;z-index:5}
+.kick{font-size:28px;letter-spacing:.3em;text-transform:uppercase;color:#C9A96E;font-weight:500}
+.badge{position:absolute;right:0;top:-4px;font-size:23px;letter-spacing:.2em;text-transform:uppercase;color:rgba(244,238,227,.88);border:1.5px solid rgba(201,169,110,.6);border-radius:999px;padding:7px 22px 6px;background:rgba(0,0,0,.18)}
+.ttl{margin-top:12px;overflow:hidden;height:122px;padding-top:4px}
+.ttl span{display:inline-block;white-space:nowrap;font-family:'Cormorant Garamond',serif;font-weight:500;font-size:96px;line-height:1.1;color:#F7EFE0}
+.dev{position:absolute;z-index:3}
+.bz{background:linear-gradient(145deg,#4b4b50,#0c0c0d 45%,#2b2b30);box-shadow:0 50px 110px rgba(0,0,0,.6),0 0 0 2px rgba(255,255,255,.07) inset,0 0 0 1px #000}
+.bz .sb{position:absolute;width:6px;border-radius:3px;background:#2c2c30}
+.br{border-radius:30px;overflow:hidden;background:#EAE5DB;box-shadow:0 50px 110px rgba(0,0,0,.6),0 0 0 1.5px rgba(255,255,255,.14)}
+.bar{position:absolute;left:0;right:0;top:0;height:56px;background:linear-gradient(180deg,#F1ECE2,#E3DDD1);border-bottom:1px solid rgba(0,0,0,.12);display:flex;align-items:center;padding:0 22px}
+.bar u{width:16px;height:16px;border-radius:50%;margin-right:10px;background:#ED6A5E}.bar u:nth-child(2){background:#F4BF4F}.bar u:nth-child(3){background:#61C554}
+.bar span{position:absolute;left:50%;transform:translateX(-50%);font-size:22px;color:#6c655a;background:rgba(255,255,255,.7);padding:5px 30px 4px;border-radius:999px;letter-spacing:.01em}
 .win{position:absolute;overflow:hidden;background:#fff}
-.lenswin{border:2px solid #C9A96E;box-shadow:0 0 0 4px rgba(201,169,110,.18),0 18px 40px rgba(0,0,0,.45)}
-.lenslabel{position:absolute;font-size:15px;letter-spacing:.26em;text-transform:uppercase;color:#C9A96E}
 .cam{position:absolute;left:0;top:0;transform-origin:0 0}
-.cam img{position:absolute;left:0;top:0;display:block}
-.ring{position:absolute;border-style:solid;border-color:#C9A96E;opacity:0;z-index:5}
-.dot{position:absolute;border-radius:50%;background:rgba(40,40,44,.38);border-style:solid;border-color:rgba(255,255,255,.92);opacity:0;z-index:6}
-.pulse{position:absolute;border-radius:50%;border-style:solid;border-color:rgba(201,169,110,.95);opacity:0;z-index:6}
-.lensbox{position:absolute;border-style:solid;border-color:#C9A96E;background:rgba(201,169,110,.12);z-index:4;display:none}
-.capw{position:absolute;left:40px;right:40px;top:1086px}
-.ct{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:46px;line-height:1.05;color:#F7EFE0}
-.cx{margin-top:10px;font-size:27px;line-height:1.34;color:rgba(244,238,227,.78);font-weight:400;max-width:640px}
-.mid{position:absolute;left:0;right:0;text-align:center}
-#intro .logo{position:absolute;left:190px;top:120px;width:340px;filter:brightness(0) invert(.94) sepia(.18)}
-#intro .t1{top:290px;font-family:'Cormorant Garamond',serif;font-weight:500;font-size:58px;color:#F7EFE0}
-#intro .t2{top:372px;font-size:25px;color:#C9A96E;letter-spacing:.05em}
-#intro .t3{top:1180px;font-size:19px;letter-spacing:.3em;text-transform:uppercase;color:rgba(244,238,227,.6)}
-.idev{position:absolute;overflow:hidden;background:#fff;box-shadow:0 20px 50px rgba(0,0,0,.5);outline:8px solid #1a1a1c}
-.idev img{display:block;width:100%;height:100%;object-fit:cover;object-position:top left}
-#intro .lap{left:80px;top:500px;width:560px;height:350px;border-radius:10px}
-#intro .tab{left:34px;top:790px;width:250px;height:333px;border-radius:18px;outline-width:9px}
-#intro .pho{left:470px;top:760px;width:170px;height:340px;border-radius:24px;outline-width:7px}
-#outro .logo{position:absolute;left:170px;top:300px;width:380px;filter:brightness(0) invert(.94) sepia(.18)}
-#outro .t1{top:560px;font-family:'Cormorant Garamond',serif;font-weight:500;font-size:72px;color:#F7EFE0}
-#outro .t2{top:690px;font-size:29px;line-height:1.45;color:rgba(244,238,227,.85)}
-#outro .t2 b{color:#C9A96E;font-weight:500}
-#outro .t3{top:1130px;font-size:19px;letter-spacing:.3em;text-transform:uppercase;color:rgba(244,238,227,.6)}
-</style></head><body><div id="stage">
+.cam img{position:absolute;left:0;top:0;display:block;width:100%;height:100%;opacity:0}
+.dim{position:absolute;opacity:0;z-index:3}
+.ring{position:absolute;border-style:solid;border-color:#E2C48A;opacity:0;z-index:5}
+.rip{position:absolute;border-radius:50%;border-style:solid;border-color:rgba(226,196,138,.95);opacity:0;z-index:6}
+.finger{position:absolute;border-radius:50%;border-style:solid;border-color:rgba(255,255,255,.95);background:rgba(40,28,32,.42);box-shadow:0 0 0 3px rgba(0,0,0,.12);opacity:0;z-index:7}
+.arrow{position:absolute;opacity:0;z-index:7;filter:drop-shadow(0 3px 5px rgba(0,0,0,.4))}
+.call{position:absolute;display:none;z-index:30;font-weight:600;font-size:36px;letter-spacing:.01em;color:#3a0710;background:linear-gradient(180deg,#EBD197,#C9A96E);padding:17px 36px 16px;border-radius:999px;white-space:nowrap;box-shadow:0 16px 44px rgba(0,0,0,.5),0 0 0 3px rgba(255,255,255,.2)}
+.call i{position:absolute;width:26px;height:26px;background:#C9A96E;transform:translateX(-50%) rotate(45deg);margin-left:0}
+.call.up i{bottom:-11px;background:#C9A96E}.call.down i{top:-11px;background:#EBD197}
+.cap{position:absolute;left:72px;right:72px;top:1470px;z-index:20}
+.st{display:flex;align-items:center;gap:22px;font-size:24px;letter-spacing:.28em;text-transform:uppercase;color:#C9A96E;font-weight:500}
+.dots i{display:inline-block;width:34px;height:5px;border-radius:3px;background:rgba(244,238,227,.22);margin-right:8px;vertical-align:middle}
+.dots i.on{width:62px;background:#C9A96E}.dots i.done{background:rgba(201,169,110,.6)}
+.ct{margin-top:16px;font-family:'Cormorant Garamond',serif;font-weight:600;font-size:82px;line-height:1.04;color:#F7EFE0}
+.cx{margin-top:14px;font-size:42px;line-height:1.3;color:rgba(244,238,227,.9);max-width:936px}
+.foot{position:absolute;left:0;right:0;top:1846px;text-align:center;z-index:5}
+.foot img{width:150px;opacity:.5;filter:brightness(0) invert(.94) sepia(.18)}
+.logo{position:absolute;filter:brightness(0) invert(.94) sepia(.18);opacity:0}
+.rule{position:absolute;left:0;right:0;height:14px;display:flex;align-items:center;justify-content:center;gap:20px}
+.rule i{display:block;height:1.5px;width:0;background:linear-gradient(90deg,transparent,#C9A96E)}
+.rule i:last-child{background:linear-gradient(270deg,transparent,#C9A96E)}
+.rule b{width:12px;height:12px;background:#C9A96E;transform:rotate(45deg);opacity:0}
+.mask{position:absolute;left:0;right:0;text-align:center;overflow:hidden;height:134px;font-family:'Cormorant Garamond',serif;font-weight:500;color:#F7EFE0;line-height:1.1}
+.mask span{display:inline-block;transform:translateY(118%)}
+.ver{position:absolute;left:0;right:0;text-align:center;font-size:26px;letter-spacing:.34em;text-transform:uppercase;color:rgba(244,238,227,.62);opacity:0}
+#intro .logo{left:280px;top:170px;width:520px}
+#intro .mask{font-size:122px}
+#intro .sub{position:absolute;left:0;right:0;top:748px;text-align:center;font-size:35px;letter-spacing:.05em;color:#C9A96E;opacity:0}
+.idv{position:absolute;opacity:0}
+.idv .scr{overflow:hidden;background:#fff;box-shadow:0 36px 80px rgba(0,0,0,.55)}
+.idv .scr img{display:block;width:100%;height:100%;object-fit:cover;object-position:top left}
+#i-lap{left:84px;top:960px;width:912px}
+#i-lap .scr{width:912px;height:580px;border:15px solid #19191b;border-radius:26px}
+#i-lap .base{position:absolute;left:-46px;top:576px;width:1004px;height:22px;border-radius:0 0 22px 22px;background:linear-gradient(180deg,#a3a3a8,#5a5a5f);box-shadow:0 22px 40px rgba(0,0,0,.45)}
+#i-tab{left:30px;top:1290px;width:372px}
+#i-tab .scr{width:372px;height:490px;border:13px solid #161618;border-radius:38px}
+#i-pho{left:802px;top:1240px;width:240px}
+#i-pho .scr{width:240px;height:470px;border:11px solid #121214;border-radius:40px}
+#intro .ver{top:1800px}
+#outro .logo{left:300px;top:190px;width:480px}
+#outro .mask{font-size:138px;top:440px}
+.tip{position:absolute;left:96px;right:96px;display:flex;gap:34px;align-items:flex-start;opacity:0}
+.tip .n{flex:none;width:92px;height:92px;border-radius:50%;border:2px solid #C9A96E;color:#C9A96E;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:56px;font-weight:500;background:rgba(0,0,0,.16)}
+.tip .tt{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:66px;line-height:1.05;color:#F7EFE0}
+.tip .tx{margin-top:10px;font-size:40px;line-height:1.3;color:rgba(244,238,227,.88)}
+.tip b{color:#E2C48A;font-weight:500}
+#outro .ver{top:1690px}
+#outro .where{position:absolute;left:0;right:0;top:1770px;text-align:center;font-size:24px;letter-spacing:.3em;text-transform:uppercase;color:rgba(244,238,227,.4)}
+`;
+
+const html = `<!doctype html><html lang="it"><head><meta charset="utf-8"><style>${css}</style></head><body><div id="stage">
+<div id="glow"></div><div id="glow2"></div>
 <div class="frame"><i></i><i></i><i></i><i></i></div>
-<div id="bar"><b></b></div>
+<div id="prog">${SCENES.map(() => "<i><b></b></i>").join("")}</div>
 <div class="scene" id="intro">
   <img class="logo" src="../jpg/logo.png">
-  <div class="mid t1">Guida alla gestione del menù</div>
-  <div class="mid t2">Funziona uguale da computer, tablet e telefono</div>
-  <div class="idev lap" id="i-lap"><img src="${data.shots["l-tab-menu"]}"></div>
-  <div class="idev tab" id="i-tab"><img src="${data.shots["t-tab-menu"]}"></div>
-  <div class="idev pho" id="i-pho"><img src="${data.shots["p-tab-menu"]}"></div>
-  <div class="mid t3">Versione ${pkg.version}</div>
+  <div class="rule" style="top:392px"><i></i><b></b><i></i></div>
+  <div class="mask" style="top:450px"><span>Guida alla</span></div>
+  <div class="mask" style="top:580px"><span>gestione del menù</span></div>
+  <div class="sub">Funziona uguale da computer, tablet e telefono</div>
+  <div class="idv" id="i-lap"><div class="scr"><img src="${data.shots["lw-tab-menu"]}"></div><div class="base"></div></div>
+  <div class="idv" id="i-tab"><div class="scr"><img src="${data.shots["t-tab-menu"]}"></div></div>
+  <div class="idv" id="i-pho"><div class="scr"><img src="${data.shots["p-tab-menu"]}"></div></div>
+  <div class="ver">Versione ${pkg.version}</div>
 </div>
-${SCENES.map((s, i) => `<div class="scene" id="s${i}">
-  <div class="kick"><span>${s.kicker}</span><span>${i + 1}/${SCENES.length}</span></div>
-  <div class="ttl">${s.title}</div>
-  <div class="chip">${DEV[s.dev].name}</div>
-  ${deviceHTML(s)}
-  <div class="capw"><div class="ct"></div><div class="cx"></div></div>
-</div>`).join("\n")}
+${SCENES.map(sceneHTML).join("\n")}
 <div class="scene" id="outro">
   <img class="logo" src="../jpg/logo.png">
-  <div class="mid t1">Ora tocca a te</div>
-  <div class="mid t2">Se ti blocchi, apri <b>Strumenti</b><br>e tocca <b>Guida (PDF)</b>:<br>c'è tutto, passo per passo.</div>
-  <div class="mid t3">Versione ${pkg.version}</div>
+  <div class="rule" style="top:402px"><i></i><b style="opacity:1"></b><i></i></div>
+  <div class="mask" style="top:440px"><span>Ora tocca a te</span></div>
+  <div class="tip" style="top:710px"><div class="n">1</div><div><div class="tt">Ti blocchi?</div><div class="tx">In <b>Strumenti</b> trovi <b>Guida (PDF)</b> e <b>Guida (video)</b>.</div></div></div>
+  <div class="tip" style="top:1010px"><div class="n">2</div><div><div class="tt">Hai sbagliato?</div><div class="tx"><b>Storico</b> e poi <b>Ripristina</b>: la voce torna com'era.</div></div></div>
+  <div class="tip" style="top:1310px"><div class="n">3</div><div><div class="tt">Vuoi controllare?</div><div class="tx">«<b>Vedi menù</b>» mostra subito quello che vedono i clienti.</div></div></div>
+  <div class="ver">Versione ${pkg.version}</div>
+  <div class="where">L'Angolo del Vino · Scandicci</div>
 </div>
+<div id="vig"></div><div id="grain"></div>
 </div>
 <script>
-const SCENES = ${JSON.stringify(SCENES)};
-const DEV = ${JSON.stringify(DEV)};
-const SIZE = ${JSON.stringify(data.size)};
-const BOX = ${JSON.stringify(data.boxes)};
-const INTRO = ${INTRO}, OUTRO = ${OUTRO};
-const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
-const ease = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
-const starts = []; let acc = INTRO;
-for (const s of SCENES) { starts.push(acc); acc += s.dur; }
-window.TOTAL = acc + OUTRO;
-const $ = (id) => document.getElementById(id);
-const bar = document.querySelector("#bar b");
-// i keyframe «box» diventano il centro del riquadro
-for (const s of SCENES) for (const k of s.cam) if (k.box) { const b = BOX[k.box]; k.cx = b.x + b.w / 2; k.cy = b.y + b.h / 2; }
-function camAt(kf, t) {
-  let a = kf[0], b = kf[0];
-  for (let i = 0; i < kf.length; i++) { if (kf[i].t <= t) { a = kf[i]; b = kf[Math.min(i + 1, kf.length - 1)]; } }
-  const u = a === b ? 1 : ease((t - a.t) / (b.t - a.t));
-  return { cx: a.cx + (b.cx - a.cx) * u, cy: a.cy + (b.cy - a.cy) * u, s: a.s + (b.s - a.s) * u };
-}
-function show(el, op, dy = 0) { el.style.display = op > 0 ? "block" : "none"; el.style.opacity = op; el.style.transform = dy ? "translateY(" + dy + "px)" : ""; }
-const px = (n) => n + "px";
-window.render = (t) => {
-  let prog = 0;
-  // introduzione: i tre dispositivi arrivano uno dopo l'altro
-  const intro = $("intro");
-  show(intro, t < INTRO ? ease(t / 0.8) * (1 - ease((t - (INTRO - 0.5)) / 0.5)) : 0);
-  intro.querySelector(".logo").style.transform = "scale(" + (0.94 + 0.06 * ease(t / 1.6)) + ")";
-  [["i-lap", 0.7], ["i-tab", 1.5], ["i-pho", 2.2]].forEach(([id, at]) => {
-    const e = ease((t - at) / 0.8);
-    const el = $(id); el.style.opacity = e; el.style.transform = "translateY(" + (1 - e) * 40 + "px)";
-  });
-  SCENES.forEach((s, i) => {
-    const el = $("s" + i), lt = t - starts[i];
-    if (lt < 0 || lt > s.dur) { el.style.display = "none"; return; }
-    const op = ease(lt / 0.5) * (1 - ease((lt - (s.dur - 0.4)) / 0.4));
-    show(el, op, (1 - ease(lt / 0.6)) * 22);
-    prog = (i + clamp(lt / s.dur)) / SCENES.length;
-    // schermata corrente e precedente
-    let idx = 0;
-    s.steps.forEach((st, k) => { if (st.t <= lt) idx = k; });
-    const cur = s.steps[idx], prev = s.steps[idx - 1], next = s.steps[idx + 1];
-    const p = ease((lt - cur.t) / 0.4);
-    const dev = DEV[s.dev], sh = SIZE[s.dev];
-    const c = camAt(s.cam, lt);
-    // tocco in corso
-    let on = null;
-    for (const tp of s.taps) if (lt > tp.t - 1.25 && lt < tp.t + 0.5) on = tp;
-    el.querySelectorAll(".win").forEach((win, vi) => {
-      const v = dev.views[vi];
-      win.querySelectorAll("img").forEach((img) => {
-        const n = img.dataset.n;
-        let o = 0, z = 0;
-        if (n === cur.shot) { o = prev && prev.shot !== cur.shot ? p : 1; z = 2; }
-        else if (prev && n === prev.shot) { o = 1; z = 1; }
-        img.style.opacity = o; img.style.zIndex = z;
-        img.style.width = px(sh[0]); img.style.height = px(sh[1]);
-      });
-      const cam = win.querySelector(".cam");
-      // vista fissa (schermo intero del computer) o vista che segue la camera
-      const view = v.zoom ? c : { cx: sh[0] / 2, cy: sh[1] / 2, s: 1 };
-      const K = v.win[0] / sh[0];
-      let sc = K * view.s;
-      const visW = v.win[0] / sc, visH = v.win[1] / sc;
-      const cx = clamp(view.cx, visW / 2, sh[0] - visW / 2), cy = clamp(view.cy, visH / 2, sh[1] - visH / 2);
-      const tx = v.zoom ? v.win[0] / 2 - cx * sc : (v.win[0] - sh[0] * sc) / 2, ty = v.zoom ? v.win[1] / 2 - cy * sc : (v.win[1] - sh[1] * sc) / 2;
-      cam.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + sc + ")";
-      cam.style.width = px(sh[0]); cam.style.height = px(sh[1]);
-      const u = 1 / sc;  // 1 px del video, in px della schermata
-      const ring = cam.querySelector(".ring"), dot = cam.querySelector(".dot"), pulse = cam.querySelector(".pulse"), lens = cam.querySelector(".lensbox");
-      // riquadro della lente sullo schermo intero
-      if (!v.zoom && dev.views.length > 1) {
-        const lk = dev.views[1].win[0] / sh[0] * c.s;
-        const lw = dev.views[1].win[0] / lk, lh = dev.views[1].win[1] / lk;
-        const lx = clamp(c.cx, lw / 2, sh[0] - lw / 2) - lw / 2, ly = clamp(c.cy, lh / 2, sh[1] - lh / 2) - lh / 2;
-        Object.assign(lens.style, { display: "block", left: px(lx), top: px(ly), width: px(lw), height: px(lh), borderWidth: px(2.5 * u), borderRadius: px(10 * u) });
-      }
-      if (on) {
-        const b = BOX[on.box], d = lt - on.t;
-        const a = ease((d + 1.25) / 0.45) * (1 - ease((d - 0.1) / 0.35));
-        Object.assign(ring.style, { left: px(b.x - 5 * u), top: px(b.y - 5 * u), width: px(b.w + 10 * u), height: px(b.h + 10 * u), borderWidth: px(3 * u), borderRadius: px(14 * u), boxShadow: "0 0 0 " + px(3 * u) + " rgba(201,169,110,.28),0 0 " + px(22 * u) + " rgba(201,169,110,.7)", opacity: a });
-        // il dito arriva dal basso a destra, preme, e lascia un'onda
-        const arrive = ease((d + 1.0) / 0.9), press = d > -0.18 && d < 0.05 ? 0.82 : 1;
-        const ds = 46 * u, dx = b.x + b.w / 2 + (1 - arrive) * 60 * u, dy = b.y + b.h / 2 + (1 - arrive) * 90 * u;
-        Object.assign(dot.style, { left: px(dx), top: px(dy), width: px(ds), height: px(ds), borderWidth: px(2 * u), opacity: ease((d + 1.0) / 0.4) * (1 - ease((d - 0.15) / 0.3)), transform: "translate(-50%,-50%) scale(" + press + ")" });
-        const w = clamp(d / 0.5);
-        Object.assign(pulse.style, { left: px(b.x + b.w / 2), top: px(b.y + b.h / 2), width: px(ds), height: px(ds), borderWidth: px(3 * u), opacity: d > 0 ? 1 - w : 0, transform: "translate(-50%,-50%) scale(" + (1 + w * 2.4) + ")" });
-      } else { ring.style.opacity = 0; dot.style.opacity = 0; pulse.style.opacity = 0; }
-    });
-    // didascalia
-    const capEl = el.querySelector(".capw");
-    const fin = ease((lt - cur.t) / 0.45), fout = next ? 1 - ease((lt - (next.t - 0.3)) / 0.3) : 1;
-    const changed = !prev || prev.cap[0] !== cur.cap[0] || prev.cap[1] !== cur.cap[1];
-    capEl.querySelector(".ct").textContent = cur.cap[0];
-    capEl.querySelector(".cx").textContent = cur.cap[1];
-    const sameNext = next && next.cap[0] === cur.cap[0] && next.cap[1] === cur.cap[1];
-    capEl.style.opacity = (changed ? fin : 1) * (sameNext ? 1 : fout);
-    capEl.style.transform = "translateY(" + ((changed ? 1 - fin : 0) * 14) + "px)";
-  });
-  // chiusura
-  const outro = $("outro"), ot = t - acc;
-  show(outro, ot > -0.4 ? ease((ot + 0.4) / 0.7) : 0);
-  if (t > acc - 0.4) prog = 1;
-  bar.style.width = (prog * 100) + "%";
-  document.querySelector("#bar").style.opacity = t < INTRO - 0.3 ? 0 : 1;
-};
-window.render(0);
+const CFG = ${JSON.stringify({ SCENES, G, SIZE: data.size, BOX: data.boxes, INTRO, OUTRO })};
+${engine}
 </script></body></html>`;
 writeFileSync(`${dir}/video.html`, html);
 const total = INTRO + SCENES.reduce((n, s) => n + s.dur, 0) + OUTRO;

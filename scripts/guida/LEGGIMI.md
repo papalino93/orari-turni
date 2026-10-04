@@ -33,9 +33,11 @@ computer. Quelle del menù dei clienti restano da telefono.
 
 ## La guida animata (video)
 
-Oltre al PDF c'è `docs/guida/Guida-gestione-menu.mp4`: un video verticale (720×1280, circa
-un minuto e mezzo) con le schermate vere della gestione da telefono, tablet e computer (sul
-computer, una «lente» sotto lo schermo ingrandisce la parte che si tocca). Si guarda dal
+Oltre al PDF c'è `docs/guida/Guida-gestione-menu.mp4`: un video verticale (1080×1920, circa
+un minuto e cinquanta) con le schermate vere della gestione da telefono, tablet e computer:
+camera che si avvicina a ciò che si usa, dito (o puntatore sul computer) che tocca, riquadro
+evidenziato con un'etichetta («Tocca «Esaurito»»), didascalie grandi con «Passo 1 di 3», sette
+capitoli con barra di avanzamento, introduzione e chiusura con la versione. Si guarda dal
 pulsante **Guida (video)** in «Strumenti» (route `/gestione-menu/guida/video`, solo per chi
 gestisce il menù, con supporto a «Range» perché su iPhone parta).
 
@@ -46,12 +48,16 @@ gestisce il menù, con supporto a «Range» perché su iPhone parta).
 2. `E2E_ADMIN_PASSWORD=… E2E_EMPLOYEE_PASSWORD=… bash scripts/guida/genera-video.sh`
    (cancella e ricrea i dati di esempio, come per il PDF).
 
-Pezzi: `video-shots.mjs` (fotografa le schermate e i riquadri da toccare), `video-build.mjs`
-(scene, tocchi, zoom e didascalie a tempo: **qui si cambiano testi e scene**; scrive
-`video.html`) e `video-render.mjs` (un fotogramma ogni 1/30 di secondo → MP4; con
-`--stills 5,20,40` salva solo alcune immagini per controllare). I caratteri sono quelli del
-PDF: se non si caricano (rete) si ferma, basta rilanciare.
+Pezzi: `video-shots.mjs` (fotografa le schermate in alta risoluzione e i riquadri da toccare;
+`ONLY=p,t,l,lw` rifà solo quei dispositivi), `video-build.mjs` (capitoli, tocchi, note,
+camera e didascalie a tempo: **qui si cambiano testi, tempi e stile**; scrive `video.html`),
+`video-engine.js` (le animazioni, deterministiche: `window.render(t)`) e `video-render.mjs`
+(un fotogramma ogni 1/30 di secondo, con due browser in parallelo → pezzi MP4 uniti; con
+`--stills 5,20,40` salva solo alcune immagini per controllare). I caratteri (Cormorant
+Garamond e Jost) sono in `assets/fonts`: il video non ha bisogno di rete.
+Sul computer lo schermo fotografato è una finestra alta (1100×1180) di proposito: così
+nel video si legge; il portatile in orizzontale serve solo all'introduzione.
 
 Prima di pubblicarlo guarda **tutte le scene** come immagini (`--stills`): testi e pulsanti
 con gli stessi nomi del sito, niente testo tagliato, tocchi sul pulsante giusto, versione
-nell'introduzione e nella chiusura. Il peso deve restare sotto i 12 MB (ora circa 4).
+nell'introduzione e nella chiusura. Il peso deve restare sotto i 12 MB (`CRF=23 node video-render.mjs` per alleggerirlo).
