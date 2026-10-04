@@ -1,6 +1,6 @@
 // Blocchi informativi: creazione dei tre tipi, i tre punti del menù, più sezioni,
 // date, nascondi, ordine, eliminazione e annullamento, eventi, permessi.
-import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels, newPromo } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels, newPromo, goTab } from "./lib.mjs";
 
 const biz = (offset = 0) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(
