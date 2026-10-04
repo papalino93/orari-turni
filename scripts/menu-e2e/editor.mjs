@@ -189,7 +189,8 @@ await settle(1500);
 t = await publicText();
 check("gruppo: annulla eliminazione lo ripristina con le voci", t.includes("Passito Prova"));
 
-// ---- Testi della sezione
+// ---- Testi della sezione («Informazioni del menù» sta in «Orari e contatti»)
+await expandPanels(page);
 await page.getByRole("button", { name: "Modifica: Coperto € 1,00" }).click();
 await dialog().waitFor();
 await dialog().getByPlaceholder("1,00").fill("2,00");
