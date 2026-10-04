@@ -94,6 +94,7 @@ export function SectionTextsSheet({
   const [addonTitle, setAddonTitle] = useState(section.addonTitle ?? "");
   const [addon, setAddon] = useState(section.addon ?? "");
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState<"note" | "addon" | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -103,18 +104,59 @@ export function SectionTextsSheet({
     if (result) onClose();
   }
 
+  // «Elimina»: toglie subito la nota o l'avviso (e solo quello) dal menù; l'altro resta com'è.
+  async function remove(what: "note" | "addon") {
+    setBusy(true);
+    const result = await run(
+      () =>
+        updateSectionTexts(
+          section.id,
+          what === "note" ? { note: "", addonTitle: section.addonTitle ?? "", addon: section.addon ?? "" } : { note: section.note ?? "", addonTitle: "", addon: "" },
+        ),
+      what === "note" ? "Nota eliminata" : "Avviso eliminato",
+    );
+    setBusy(false);
+    if (result) onClose();
+  }
+
+  const deleteButton = (what: "note" | "addon", label: string, question: string) =>
+    confirming === what ? (
+      <div className="rounded-xl border border-danger/30 bg-danger-bg p-3">
+        <p className="text-xs text-danger">{question}</p>
+        <div className="mt-2.5 flex justify-end gap-2">
+          <button type="button" onClick={() => setConfirming(null)} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground">
+            No, tienila
+          </button>
+          <button type="button" disabled={busy} onClick={() => remove(what)} className="min-h-10 rounded-full bg-danger px-3.5 text-xs font-semibold text-white disabled:opacity-50">
+            Sì, elimina
+          </button>
+        </div>
+      </div>
+    ) : (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => setConfirming(what)}
+        className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-danger hover:text-danger disabled:opacity-50"
+      >
+        {label}
+      </button>
+    );
+
   return (
     <Sheet title={`Testi · ${section.title}`} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3.5">
         <Field label="Nota sotto il titolo" hint="es. orario di chiusura della cucina. Vuoto = nessuna nota.">
           <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={3} className={inputClass} />
         </Field>
+        {section.note && deleteButton("note", "Elimina la nota", "Eliminare la nota sotto il titolo? Resta recuperabile dallo storico.")}
         <Field label="Titolo dell'avviso a fondo sezione">
           <input value={addonTitle} onChange={(e) => setAddonTitle(e.target.value)} maxLength={120} className={inputClass} />
         </Field>
         <Field label="Testo dell'avviso a fondo sezione">
           <textarea value={addon} onChange={(e) => setAddon(e.target.value)} maxLength={500} rows={4} className={inputClass} />
         </Field>
+        {(section.addon || section.addonTitle) && deleteButton("addon", "Elimina l'avviso", "Eliminare l'avviso a fondo sezione? Resta recuperabile dallo storico.")}
         <button
           type="submit"
           disabled={busy}

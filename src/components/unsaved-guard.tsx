@@ -6,13 +6,44 @@ import { useEffect, useRef, useState } from "react";
 // la X o «Annulla», ma anche chiudere o ricaricare la pagina) non butta via le modifiche in silenzio. Compare invece «Hai modifiche non
 // salvate» con Salva / Esci senza salvare. Senza modifiche si chiude come sempre.
 //
-// Le modifiche si riconoscono da sole (si scrive in un campo, si sceglie da un
-// elenco, si tocca una scelta tipo «Turno / Riposo» o una spunta); chi conosce
-// meglio il proprio stato può passare `isDirty`.
-export function useUnsavedGuard(onClose: () => void, isDirty?: () => boolean) {
+// Le modifiche si riconoscono da sole: si è toccato qualcosa e il contenuto dei campi
+// (testi, numeri, elenchi, spunte) è diverso da quando la finestra si è aperta. Scegliere
+// soltanto il tipo di una voce (es. «Testo / Voce con prezzo / Avviso») non conta, e nemmeno
+// scrivere qualcosa e poi rimetterlo com'era. Chi conosce meglio il proprio stato può passare
+// `isDirty`.
+function formSnapshot(root: HTMLElement | null): string {
+  if (!root) return "";
+  const parts: string[] = [];
+  root.querySelectorAll<HTMLElement>("input, textarea, select, [role=switch], [role=checkbox], [aria-pressed]").forEach((el) => {
+    if (el instanceof HTMLInputElement) {
+      if (el.type === "radio") return;
+      parts.push(el.type === "checkbox" ? `c:${el.checked}` : el.type === "file" ? `f:${el.files?.length ?? 0}` : `v:${el.value}`);
+    } else if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
+      parts.push(`v:${el.value}`);
+    } else {
+      parts.push(`a:${el.getAttribute("aria-checked") ?? el.getAttribute("aria-pressed")}`);
+    }
+  });
+  return parts.join("\u0001");
+}
+
+export function useUnsavedGuard(onClose: () => void, isDirty?: () => boolean, watch?: React.RefObject<HTMLElement | null>) {
   const touched = useRef(false);
+  const initial = useRef<string | null>(null);
   const [asking, setAsking] = useState(false);
-  const dirty = () => (isDirty ? isDirty() : touched.current);
+  const dirty = () => {
+    if (isDirty) return isDirty();
+    if (!touched.current) return false;
+    // Con la finestra da osservare conta solo se il contenuto dei campi è cambiato davvero.
+    return watch?.current ? formSnapshot(watch.current) !== initial.current : true;
+  };
+  // Il contenuto di partenza si fotografa appena la finestra è disegnata.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      initial.current = formSnapshot(watch?.current ?? null);
+    }, 0);
+    return () => clearTimeout(id);
+  }, [watch]);
   const mark = () => {
     touched.current = true;
   };
