@@ -492,7 +492,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Perché non mi salva un vino?</h4><p>Per un vino italiano serve la regione (es. Toscana). Per un vino estero scrivi la nazione e la regione diventa facoltativa.</p></div>
     <div><h4>Devo cambiare tanti prezzi: c'è un modo veloce?</h4><p>Sì: in «Strumenti», «Tabella prezzi». Si cambiano tutti quelli che servono, anche in sezioni diverse, e si salva una volta sola.</p></div>
     <div><h4>Le statistiche registrano i clienti?</h4><p>No: niente nomi, telefoni o cookie. Si conta solo cosa succede (un'apertura, una ricerca), il giorno e l'ora.</p></div>
-    <div><h4>Chiudo una finestra senza salvare: perdo tutto?</h4><p>No: compare «Modifiche non salvate». Scegli «Salva», «Continua a modificare» o «Esci senza salvare».</p></div>
+    <div><h4>Chiudo una finestra senza salvare: perdo tutto?</h4><p>No: se hai scritto o cambiato qualcosa compare «Modifiche non salvate» (scegli «Salva», «Continua a modificare» o «Esci senza salvare»). Se non hai toccato niente, si chiude subito.</p></div>
     <div><h4>Mi serve il menù su carta: come faccio?</h4><p>In «Strumenti», «Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
 
     <div><h4>Dove trovo il numero di versione?</h4><p>In fondo a ogni pagina, ad esempio «v${VERSIONE}». Se segnali un problema, indicalo.</p></div>
