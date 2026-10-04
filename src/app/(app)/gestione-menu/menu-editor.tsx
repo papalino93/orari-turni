@@ -557,7 +557,7 @@ export function MenuEditor({
             { label: "Codice QR", hint: "Il QR del menù da stampare (SVG e PNG).", onClick: () => setSheet({ type: "qr" }) },
             { label: "Statistiche", hint: "Quante persone aprono il menù, quando e cosa cercano.", href: "/statistiche" },
             { label: "Guida (PDF)", hint: "Come si usa la gestione, passo per passo.", href: "/gestione-menu/guida", download: true },
-            { label: "Guida (video)", hint: "Un minuto e mezzo: le cose principali, animate.", href: "/gestione-menu/guida/video", download: true },
+            { label: "Guida (video)", hint: "Circa tre minuti: le cose principali, animate.", href: "/gestione-menu/guida/video", download: true },
           ].map((tool) => (
             <li key={tool.label} className="flex">
             {tool.href ? (

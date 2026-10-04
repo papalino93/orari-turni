@@ -382,7 +382,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Strumenti")}
 pages.push(`<section class="page wine">${chrome(pg(), "Statistiche")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Statistiche</div>
   <h2>Quanti aprono il menù,<br><em>quando e per cosa</em></h2>
-  <p class="lead">Solo per il titolare. Divise per tipo, con una barra in alto per saltare da una all'altra: <b>Panoramica</b>, <b>Quando</b>, <b>Cosa cercano</b>, <b>Cosa guardano</b>, <b>Eventi e contatti</b>.</p></div>
+  <p class="lead">Solo per il titolare. In cima c'è sempre il numero di <b>oggi</b>; scegli un periodo (<b>Ieri</b>, <b>Settimana scorsa</b>, un mese, due date) o tocca un giorno in <b>Giorno per giorno</b>, e con <b>Scarica per Excel</b> tieni i numeri. Poi una barra per saltare tra <b>Panoramica</b>, <b>Quando</b>, <b>Cosa cercano</b>, <b>Cosa guardano</b>, <b>Eventi e contatti</b>.</p></div>
   <div style="position:relative;margin-top:8mm;height:126mm">
     <div style="position:absolute;left:0;top:0">${mac("mac-statistiche", 148)}</div>
     <div style="position:absolute;right:0;top:34mm">${phone("ges-stat-giorni", 40)}</div>
@@ -495,13 +495,22 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Chiudo una finestra senza salvare: perdo tutto?</h4><p>No: se hai scritto o cambiato qualcosa compare «Modifiche non salvate» (scegli «Salva», «Continua a modificare» o «Esci senza salvare»). Se non hai toccato niente, si chiude subito.</p></div>
     <div><h4>Mi serve il menù su carta: come faccio?</h4><p>In «Strumenti», «Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
 
-    <div><h4>C'è una guida in video?</h4><p>Sì: in «Strumenti», «Guida (video)»: un minuto e mezzo, con le cose principali da computer, tablet e telefono.</p></div>
+    <div><h4>C'è una guida in video?</h4><p>Sì: in «Strumenti», «Guida (video)»: circa tre minuti, con le cose principali da telefono, tablet e computer (chiaro e scuro).</p></div>
     <div><h4>Dove trovo il numero di versione?</h4><p>In fondo a ogni pagina, ad esempio «v${VERSIONE}». Se segnali un problema, indicalo.</p></div>
   </div>
 </section>`);
 
+// Caratteri in locale (scripts/guida/assets/fonts → .tmp-guida/jpg/fonts): la guida non ha bisogno di rete.
+const FONT_FACES = [
+  ["Cormorant Garamond", 400, "normal", "cormorant-garamond-latin-400-normal"], ["Cormorant Garamond", 500, "normal", "cormorant-garamond-latin-500-normal"],
+  ["Cormorant Garamond", 600, "normal", "cormorant-garamond-latin-600-normal"], ["Cormorant Garamond", 400, "italic", "cormorant-garamond-latin-400-italic"],
+  ["Cormorant Garamond", 500, "italic", "cormorant-garamond-latin-500-italic"], ["EB Garamond", 400, "normal", "eb-garamond-latin-400-normal"],
+  ["EB Garamond", 500, "normal", "eb-garamond-latin-500-normal"], ["EB Garamond", 400, "italic", "eb-garamond-latin-400-italic"],
+  ["Jost", 400, "normal", "jost-latin-400-normal"], ["Jost", 500, "normal", "jost-latin-500-normal"], ["Jost", 600, "normal", "jost-latin-600-normal"],
+].map(([f, w, st, file]) => `@font-face{font-family:'${f}';font-weight:${w};font-style:${st};src:url(jpg/fonts/${file}.woff2) format('woff2')}`).join("\n");
+
 const html = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Il menù digitale · L'Angolo del Vino</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<style>${FONT_FACES}</style>
 <style>${css}</style></head><body>${pages.join("\n")}</body></html>`;
 writeFileSync(`${WORK}/pdf2.html`, html);
 console.log("pdf2.html", pages.length, "pagine");

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rigenera la guida animata (docs/guida/Guida-gestione-menu.mp4): un video verticale 720×1280,
+# Rigenera la guida animata (docs/guida/Guida-gestione-menu.mp4): un video verticale 1080×1920,
 # 30 fotogrammi al secondo, con le schermate vere della gestione (telefono, tablet, computer).
 # Serve: il database locale di prova e `next dev -p 3100` accesi, come per i test in
 # scripts/menu-e2e (vedi LEGGIMI.md), e ffmpeg (`pip install imageio-ffmpeg`, oppure FFMPEG=…).

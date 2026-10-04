@@ -238,6 +238,97 @@ function Bars({ data, label, height = 120, edges }: { data: { key: string; count
   );
 }
 
+const weekdayOf = (day: string) => (new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7;
+const fmtDayLong = (day: string) => `${WEEKDAY_NAMES[weekdayOf(day)]} ${fmtDay(day)}`;
+
+// Aperture di oggi, sempre in cima: con ieri e lo stesso giorno della settimana scorsa a confronto.
+function TodayCard({ stats, today, counting, since }: { stats: StatsData["todayStats"]; today: string; counting: boolean; since: string | null }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  return (
+    <section aria-label="Aperture di oggi" className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-2xl border border-accent/40 bg-gradient-to-br from-accent/15 to-accent/[0.03] px-4 py-4">
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-foreground-muted">
+          Aperture di oggi · <span className="inline-block first-letter:uppercase">{fmtDayLong(today)}</span>
+        </p>
+        <p className="mt-1 text-4xl font-semibold tabular-nums text-foreground">{n(stats.today)}</p>
+        {!counting && <p className="mt-1 text-xs text-foreground-muted">{since ? "Conteggio in pausa." : "Il conteggio non è ancora iniziato."}</p>}
+      </div>
+      <dl className="flex gap-6 text-sm">
+        <div>
+          <dt className="text-xs text-foreground-muted">Ieri</dt>
+          <dd className="font-medium tabular-nums text-foreground">{n(stats.yesterday)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-foreground-muted">{WEEKDAY_NAMES[weekdayOf(today)]} {weekdayOf(today) === 6 ? "scorsa" : "scorso"}</dt>
+          <dd className="font-medium tabular-nums text-foreground">{n(stats.lastWeek)}</dd>
+        </div>
+      </dl>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => startTransition(() => router.refresh())}
+        className="ml-auto min-h-10 rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-60"
+      >
+        {pending ? "Aggiorno…" : "Aggiorna"}
+      </button>
+    </section>
+  );
+}
+
+// Ogni giorno del periodo scelto, dal più recente: si tocca un giorno per vederlo da solo.
+const PAGE = 14;
+function DayByDay({ data, exportHref }: { data: StatsData; exportHref: string }) {
+  const [shown, setShown] = useState(PAGE);
+  const rows = data.daily;
+  const total = rows.reduce((a, r) => a + r.count, 0);
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <Card title="Giorno per giorno" hint="Le aperture di ogni giorno del periodo scelto, dal più recente. Tocca un giorno per vederlo da solo.">
+      <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <p className="text-sm text-foreground">
+          <span className="font-semibold tabular-nums">{n(total)}</span> <span className="text-foreground-muted">apertur{total === 1 ? "a" : "e"} in {n(rows.length)} giorn{rows.length === 1 ? "o" : "i"}</span>
+          {rows.length > 1 && <span className="text-foreground-muted"> · {dec(total / rows.length)} al giorno</span>}
+        </p>
+        <a href={exportHref} download className="ml-auto flex min-h-10 items-center rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+          Scarica per Excel
+        </a>
+      </div>
+      {rows.length === 0 ? (
+        <Empty />
+      ) : (
+        <>
+          <ol className="space-y-1">
+            {rows.slice(0, shown).map((r) => (
+              <li key={r.day}>
+                <Link
+                  href={`/statistiche?dal=${r.day}&al=${r.day}`}
+                  title={`${fmtDayLong(r.day)}: ${n(r.count)} apertur${r.count === 1 ? "a" : "e"}`}
+                  className="relative flex min-h-10 items-center overflow-hidden rounded-lg px-2.5 py-1.5 hover:bg-surface-2"
+                >
+                  <span aria-hidden className="absolute inset-y-0 left-0 rounded-lg bg-accent/15" style={{ width: `${(r.count / max) * 100}%` }} />
+                  <span className="relative flex w-full items-baseline justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate text-foreground first-letter:uppercase">
+                      {fmtDayLong(r.day)}
+                      {r.day === data.today && <span className="ml-2 rounded-full bg-accent/20 px-2 py-0.5 text-[11px] font-medium normal-case text-accent-hover">oggi</span>}
+                    </span>
+                    <span className="shrink-0 tabular-nums font-medium text-foreground">{n(r.count)}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+          {rows.length > shown && (
+            <button type="button" onClick={() => setShown((v) => v + PAGE * 2)} className="mt-3 min-h-10 rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+              Mostra altri giorni ({n(rows.length - shown)})
+            </button>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
 export function StatsView({
   period,
   setting,
@@ -292,6 +383,8 @@ export function StatsView({
 
   const change =
     data.prevOpens === null || data.prevOpens === 0 ? null : Math.round(((data.opens - data.prevOpens) / data.prevOpens) * 100);
+  // «Scarica per Excel»: lo stesso periodo della pagina.
+  const exportHref = period === "custom" && data.from ? `/statistiche/giorni?dal=${data.from}&al=${data.to}` : `/statistiche/giorni?p=${period}`;
   const hasData = data.opens > 0 || data.weeks.some((w) => w.count > 0);
 
   return (
@@ -325,6 +418,8 @@ export function StatsView({
         </button>
       </section>
 
+      <TodayCard stats={data.todayStats} today={data.today} counting={enabled} since={setting.since} />
+
       {/* Prima di «Inizia a contare» non c'è nulla da filtrare: niente periodi. */}
       {setting.since && (
       <nav aria-label="Periodo" className="flex flex-wrap items-center gap-2">
@@ -356,9 +451,34 @@ export function StatsView({
         </form>
       </nav>
       )}
+      {setting.since && (
+        <nav aria-label="Scorciatoie" className="-mt-2 flex flex-wrap items-center gap-2">
+          {data.shortcuts.map((c) => {
+            const on = period === "custom" && data.from === c.dal && data.to === c.al;
+            return (
+              <Link
+                key={c.label}
+                href={`/statistiche?dal=${c.dal}&al=${c.al}`}
+                aria-current={on ? "page" : undefined}
+                className={`flex min-h-9 items-center rounded-full border px-3 text-sm ${on ? "border-accent bg-accent text-accent-foreground" : "border-border text-foreground-muted hover:border-accent hover:text-foreground"}`}
+              >
+                {c.label}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
       {period === "custom" && data.from && (
         <p className="-mt-2 text-xs text-foreground-muted">
-          Periodo: dal {fmtDay(data.from)} al {fmtDay(data.to)}.
+          {data.from === data.to ? (
+            <>
+              Giorno: <span className="inline-block first-letter:uppercase">{fmtDayLong(data.from)}</span>.
+            </>
+          ) : (
+            <>
+              Periodo: dal {fmtDay(data.from)} al {fmtDay(data.to)}.
+            </>
+          )}
         </p>
       )}
 
@@ -417,6 +537,7 @@ export function StatsView({
                 />
               )}
             </Card>
+            <DayByDay data={data} exportHref={exportHref} />
           </Group>
 
           <Group id="quando" title="Quando" text="In che giorni e a che ore i clienti aprono il menù: utile per turni, eventi e «Oggi fuori menù».">

@@ -145,7 +145,27 @@ export async function loadStats(period: Period, since: string | null, custom?: {
     .filter((m) => m.days > 0)
     .sort((a, b) => b.total - a.total || b.average - a.average);
 
-  return { today, to, from, dayRanking, monthRanking, opens, prevOpens, heat, weeks, weekdays, best, bestDay, searches, empty, picks, pairs, sections, events, contacts };
+  // Giorno per giorno: ogni giorno del periodo scelto, dal più recente (anche quelli a zero).
+  const daily: { day: string; count: number }[] = [];
+  for (let d = to; d >= start; d = addDays(d, -1)) daily.push({ day: d, count: perDay.get(d) ?? 0 });
+
+  // Oggi, ieri e lo stesso giorno della settimana scorsa: sempre in vista in cima alla pagina.
+  const todayStats = { today: perDay.get(today) ?? 0, yesterday: perDay.get(addDays(today, -1)) ?? 0, lastWeek: perDay.get(addDays(today, -7)) ?? 0 };
+
+  // Scorciatoie per scegliere un periodo con un tocco.
+  const mondayNow = weekStart(today);
+  const monthFirst = `${today.slice(0, 8)}01`;
+  const prevMonthLast = addDays(monthFirst, -1);
+  const shortcuts = [
+    { label: "Oggi", dal: today, al: today },
+    { label: "Ieri", dal: addDays(today, -1), al: addDays(today, -1) },
+    { label: "Questa settimana", dal: mondayNow, al: today },
+    { label: "Settimana scorsa", dal: addDays(mondayNow, -7), al: addDays(mondayNow, -1) },
+    { label: "Questo mese", dal: monthFirst, al: today },
+    { label: "Mese scorso", dal: `${prevMonthLast.slice(0, 8)}01`, al: prevMonthLast },
+  ];
+
+  return { today, to, from, start, daily, todayStats, shortcuts, dayRanking, monthRanking, opens, prevOpens, heat, weeks, weekdays, best, bestDay, searches, empty, picks, pairs, sections, events, contacts };
 }
 
 export type StatsData = Awaited<ReturnType<typeof loadStats>>;

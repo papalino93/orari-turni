@@ -10,7 +10,8 @@ export const EMP_PW = need("E2E_EMPLOYEE_PASSWORD");
 export const BASE = "http://localhost:3100";
 export const SHOTS = process.env.SHOTS;
 export async function launch() {
-  return chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox"] });
+  // Lingua italiana anche per i campi data (altrimenti il browser senza testa li scrive 07/27/2026).
+  return chromium.launch({ executablePath: process.env.CHROME_PATH || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox", "--lang=it"], env: { ...process.env, LANGUAGE: "it", LANG: "it_IT.UTF-8" } });
 }
 export async function login(page, username, password) {
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle", timeout: 120000 });

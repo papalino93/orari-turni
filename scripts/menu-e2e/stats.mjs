@@ -126,6 +126,33 @@ await admin.goto(`${BASE}/statistiche?dal=2020-01-01&al=2020-01-31`, { waitUntil
 const old = await admin.locator("body").innerText();
 check("dal… al…: periodo nel passato senza aperture", /Aperture del menù\s*0\b/.test(old), old.slice(0, 300).replace(/\n/g, " | "));
 
+// Oggi sempre in vista, giorno per giorno, scorciatoie, scarico per Excel
+await admin.goto(`${BASE}/statistiche`, { waitUntil: "networkidle" });
+const todayCard = await admin.getByRole("region", { name: "Aperture di oggi" }).innerText();
+check("oggi: riquadro sempre in cima con le aperture di oggi", /Aperture di oggi[\s\S]*?\b1\b/.test(todayCard) && /Ieri/.test(todayCard), todayCard.replace(/\n/g, " | "));
+check("scorciatoie: Oggi, Ieri, settimana e mese", (await admin.getByRole("navigation", { name: "Scorciatoie" }).getByRole("link").count()) === 6);
+const dayList = admin.locator("section", { has: admin.getByRole("heading", { name: "Giorno per giorno", exact: true }) });
+check("giorno per giorno: oggi in elenco con 1 apertura", /oggi\s*1\b/.test((await dayList.first().innerText()).replace(/\n/g, " ")));
+await dayList.first().locator("ol li a").first().click();
+await admin.waitForURL(/dal=\d{4}-\d{2}-\d{2}&al=\d{4}-\d{2}-\d{2}/);
+check("un giorno: tocco su un giorno lo mostra da solo", /Giorno:/.test(await admin.locator("body").innerText()) && new URL(admin.url()).searchParams.get("dal") === new URL(admin.url()).searchParams.get("al"), admin.url());
+await admin.getByRole("navigation", { name: "Scorciatoie" }).getByRole("link", { name: "Questo mese" }).click();
+await admin.waitForURL(/dal=\d{4}-\d{2}-01&al=/);
+await admin.getByText(/Periodo: dal |Giorno: /).first().waitFor({ timeout: 60000 }).catch(() => {});
+// Il conteggio è iniziato oggi: il periodo non parte mai prima di «Inizia a contare», quindi oggi resta il solo giorno mostrato.
+check("questo mese: periodo scelto con la scorciatoia", /dal=\d{4}-\d{2}-01/.test(admin.url()) && /(Periodo: dal |Giorno: )/.test(await admin.locator("body").innerText()), (await admin.locator("body").innerText()).match(/(Periodo|Giorno):[^\n]*/g)?.join(" | ") + " " + admin.url());
+const csv = await admin.request.get(`${BASE}/statistiche/giorni?p=all`);
+const csvText = await csv.text();
+check("Excel: file con giorno, giorno della settimana e aperture", csv.status() === 200 && /text\/csv/.test(csv.headers()["content-type"]) && /Giorno;Giorno della settimana;Aperture del menù/.test(csvText) && /;1\r?\n?$/m.test(csvText), `${csv.status()} ${csvText.slice(0, 120).replace(/\r?\n/g, " | ")}`);
+{
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p = await c.newPage();
+  await login(p, "marta", EMP_PW);
+  const r = await p.request.get(`${BASE}/statistiche/giorni?p=all`, { maxRedirects: 0 });
+  check("Excel: il dipendente non lo scarica", r.status() >= 300 && r.status() < 400 && !(await r.text()).includes("Giorno;"), String(r.status()));
+  await c.close();
+}
+
 // Spegnere: non si conta più
 await admin.getByRole("switch", { name: "Inizia a contare" }).click();
 await wait(1500);
