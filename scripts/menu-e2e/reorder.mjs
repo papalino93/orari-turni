@@ -1,6 +1,6 @@
 // «Riordina» (sezioni, gruppi, voci; trascinando o con le frecce; un solo
 // Annulla) e «In cima» / «In fondo» nella scheda della voce.
-import { launch, login, check, BASE, results, ADMIN_PW, DB, tool } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, tool, goTab } from "./lib.mjs";
 
 const GROUP = "menu_grp_3_1"; // Rossi · Italia
 const sectionsOrder = () => DB(`select string_agg(label, ' | ' order by "sortOrder") from "MenuSection" where "promoId" is null and "dailyOnly"=false`);
@@ -80,6 +80,7 @@ await page.keyboard.press("Escape");
 
 // «In cima» e «In fondo» nella scheda
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await goTab(page, "Menù");
 await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
 await page.getByRole("button", { name: `Modifica ${before[3]}`, exact: true }).click();
 await dialog().waitFor();

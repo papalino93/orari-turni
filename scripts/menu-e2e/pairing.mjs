@@ -1,7 +1,7 @@
 // «Abbinamento consigliato» sui piatti: gestione, menù dei clienti (tocco che
 // porta al vino e «Torna a …»), vino esaurito o eliminato, annulla, duplica,
 // campo assente dove non serve, permessi.
-import { launch, login, check, BASE, results, ADMIN_PW, EMP_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, EMP_PW, DB, goTab } from "./lib.mjs";
 
 const WINE = "menu_itm_033"; // Mastrojanni, Rossi
 const DISH = "menu_itm_051"; // Tagliere Classico
@@ -39,7 +39,10 @@ await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 const dialog = () => page.locator('[role="dialog"]');
 const settle = (ms = 1500) => page.waitForTimeout(ms);
-const section = (name) => page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+const section = async (name) => {
+  await goTab(page, "Menù");
+  await page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+};
 const row = (name) => page.locator("li", { has: page.getByRole("button", { name: `Modifica ${name}`, exact: true }) });
 
 // ---- Il vino non ha il campo dell'abbinamento
@@ -174,6 +177,7 @@ await page.keyboard.press("Escape");
   await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 120000 });
   const later = p.locator("button", { hasText: "Ricordamelo più tardi" });
   if (await later.count()) await later.click();
+  await goTab(p, "Menù");
   await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Taglieri" }).click();
   await p.getByRole("button", { name: "Modifica Tagliere Premium", exact: true }).click();
   check("permessi: la dipendente con permesso vede l'abbinamento", (await p.getByLabel("Cerca un vino da abbinare").count()) === 1);

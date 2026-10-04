@@ -1,6 +1,6 @@
 // Gestione: i gruppi (Champagne, Metodo classico…) si chiudono e si aprono; la
 // scelta resta su quel browser anche ricaricando.
-import { launch, login, check, BASE, results, ADMIN_PW } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, goTab } from "./lib.mjs";
 
 const browser = await launch();
 const page = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
@@ -8,6 +8,7 @@ page.setDefaultTimeout(60000);
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 const openSection = async () => {
+  await goTab(page, "Menù");
   await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Bollicine" }).click();
 };
 await openSection();
@@ -43,6 +44,7 @@ await toggle("Champagne").click();
 // (segnalato dal titolare: «Testi · Tartare» si chiudeva da sola).
 await page.setViewportSize({ width: 1280, height: 860 });
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await goTab(page, "Menù");
 await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Tartare" }).click();
 await page.getByRole("button", { name: "Modifica i testi di questa sezione" }).click();
 const dlg = page.locator('[role="dialog"]');

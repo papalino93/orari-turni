@@ -1,7 +1,7 @@
 // Giro fotografico per i controlli di bug e UX: tutte le pagine, titolare e dipendente,
 // telefono e computer, tema chiaro e scuro. Segnala errori JS e pagine più larghe dello
 // schermo. Uso: node scripts/menu-e2e/giro.mjs <cartella-foto>
-import { discardIfAsked, launch, login, BASE, ADMIN_PW, EMP_PW, tool, newPromo } from "./lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW, EMP_PW, tool, newPromo, goTab } from "./lib.mjs";
 const OUT = process.argv[2];
 const b = await launch();
 const pagesAdmin = ["/", "/orari", "/dipendenti", "/ferie", "/mie-ore", "/account", "/installa", "/gestione-menu", "/statistiche", "/gestione-menu/stampa"];
@@ -42,10 +42,12 @@ async function sheets(name, w, h, theme) {
     if (ov > 0) problems.push(`${name} scheda ${what}: scorrimento orizzontale ${ov}px`);
     await p.screenshot({ path: `${OUT}/${name}_scheda-${what}.png` });
   };
+  await goTab(p, "Menù");
   await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
   await p.getByRole("button", { name: /^Modifica Avignonesi/ }).first().click();
   await snap("vino");
   await p.keyboard.press("Escape"); await discardIfAsked(p);
+  await goTab(p, "Menù");
   await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Taglieri" }).click();
   await p.getByRole("button", { name: /^Modifica Tagliere Classico/ }).first().click();
   await snap("piatto");

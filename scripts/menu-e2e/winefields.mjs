@@ -1,6 +1,6 @@
 // Vini: azienda, nome del vino, denominazione e annata in campi separati
 // (dati divisi dalla migrazione) e come compaiono sul menù.
-import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, goTab } from "./lib.mjs";
 
 const ID = "menu_itm_032"; // Tenuta Argentiera · Villa Donoratico · Bolgheri Doc · 2023
 DB(`update "MenuItem" set name='Tenuta Argentiera', "wineName"='Villa Donoratico', denomination='Bolgheri Doc', vintage='2023', sub=null where id='${ID}'`);
@@ -21,6 +21,7 @@ page.setDefaultTimeout(60000);
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 const dialog = () => page.locator('[role="dialog"]');
+await goTab(page, "Menù");
 await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
 check("elenco gestione: «Villa Donoratico · Bolgheri Doc · 2023»", /Villa Donoratico · Bolgheri Doc · 2023/.test(await page.locator("li", { has: page.getByRole("button", { name: "Modifica Tenuta Argentiera", exact: true }) }).innerText()));
 await page.getByRole("button", { name: "Modifica Tenuta Argentiera", exact: true }).click();
@@ -41,6 +42,7 @@ check("annulla: annata di nuovo 2023", DB(`select vintage from "MenuItem" where 
 // Vino con il vecchio sottotitolo: la scheda lo mostra per spostarlo
 DB(`update "MenuItem" set sub='Vecchio testo' where id='${ID}'`);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await goTab(page, "Menù");
 await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
 await page.getByRole("button", { name: "Modifica Tenuta Argentiera", exact: true }).click();
 await dialog().waitFor();
@@ -51,6 +53,7 @@ DB(`update "MenuItem" set sub=null where id='${ID}'`);
 // Regione obbligatoria per i vini italiani (non per gli esteri)
 DB(`delete from "MenuItem" where name like 'Prova Regione%'`);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await goTab(page, "Menù");
 await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
 await page.getByRole("button", { name: "+ Aggiungi vino" }).first().click();
 await dialog().waitFor();
@@ -69,6 +72,7 @@ check("estero senza regione: salvato", DB(`select count(*) from "MenuItem" where
 // Un vino italiano senza regione arrivato da «Incolla più voci»: la gestione lo segnala.
 DB(`update "MenuItem" set country=null where name='Prova Regione IT'`);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await goTab(page, "Menù");
 await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
 check("gestione: «Manca la regione»", /Manca la regione/.test(await page.locator("li", { has: page.getByRole("button", { name: "Modifica Prova Regione IT", exact: true }) }).innerText()));
 DB(`delete from "MenuItem" where name like 'Prova Regione%'`);

@@ -24,7 +24,10 @@ const chips = await page.locator('nav[aria-label="Sezioni"] button').allInnerTex
 check("editor: 7 sezioni", chips.length === 7, chips.map((c) => c.replace(/\n/g, " ")).join("|"));
 
 const toast = () => page.locator('[role="status"]').last();
-const section = (name) => page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+const section = async (name) => {
+  await goTab(page, "Menù");
+  await page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+};
 const row = (name) => page.locator("li", { has: page.locator(`button[aria-label="Modifica ${name}"]`) });
 const dialog = () => page.locator('[role="dialog"]');
 async function settle(ms = 1200) { await page.waitForTimeout(ms); }
@@ -235,6 +238,7 @@ if (await later.count()) await later.click();
 // cattura l'id dell'azione "esaurito" mentre Marta lavora, poi riusalo senza permesso
 let actionId = null;
 marta.on("request", (r) => { if (r.method() === "POST" && r.headers()["next-action"] && !actionId) actionId = r.headers()["next-action"]; });
+await goTab(marta, "Menù");
 await marta.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
 await marta.locator("li button[aria-pressed]").first().click();
 await marta.waitForTimeout(1500);

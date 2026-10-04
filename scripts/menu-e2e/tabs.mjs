@@ -61,6 +61,7 @@ for (const [label, w, h] of [["computer", 1440, 900], ["telefono", 390, 844]]) {
   await p.keyboard.press("Escape");
   await discardIfAsked(p);
   // «+ Aggiungi» accanto alla sezione
+  await goTab(p, "Menù");
   await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
   await p.getByRole("button", { name: /^\+ Aggiungi un vino in «Rossi»/ }).click();
   check(`${label}: «+ Aggiungi» della sezione chiede solo il gruppo`, (await dlg.getByRole("heading", { name: "In quale gruppo di «Rossi»?" }).count()) === 1);
