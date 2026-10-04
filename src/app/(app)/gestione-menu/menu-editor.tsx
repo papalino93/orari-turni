@@ -438,7 +438,7 @@ export function MenuEditor({
               tab === t.id ? "border border-accent bg-accent/15 shadow-sm" : "border border-transparent hover:bg-surface/60"
             }`}
           >
-            <span className="text-sm font-semibold leading-tight text-foreground">{t.label}</span>
+            <span className="text-sm font-semibold leading-tight text-gold">{t.label}</span>
             <span className="hidden text-[11px] leading-snug text-foreground-muted sm:block">{t.hint}</span>
           </button>
         ))}
