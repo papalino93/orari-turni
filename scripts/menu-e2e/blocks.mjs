@@ -202,7 +202,8 @@ o = await order("taglieri");
 check("ordine: rimesso com'era", o.chiusura < o.coperto);
 
 // ---------- «Testi della sezione» elenca i blocchi della sezione, uno per riga
-await page.getByRole("button", { name: "Taglieri & Pinse" }).first().click();
+await goTab(page, "Menù");
+await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Taglieri & Pinse" }).first().click();
 await settle(600);
 const texts = (await page.locator("main").innerText()).replace(/\u00a0/g, " ");
 check("sezione: «Testi della sezione» elenca coperto e chiusura cucina", /PREZZO\s*Coperto € 1,00/i.test(texts) && /TESTO\s*Si informa/i.test(texts), texts.slice(0, 200));
@@ -216,6 +217,7 @@ await discardIfAsked(dialog().page());
 }
 
 // ---------- Elimina e annulla
+await expandPanels(page);
 await page.getByRole("button", { name: /Modifica: Attenzione/ }).click();
 await dialog().waitFor();
 await dialog().getByRole("button", { name: "Elimina informazione" }).click();
@@ -255,8 +257,10 @@ const evText = (await pub.locator("body").innerText()).replace(/\u00a0/g, " ");
 check("evento: nel menù speciale compare il coperto", /coperto € 1,00/i.test(evText));
 check("evento: la chiusura cucina non compare (deselezionata)", !/la cucina chiude/i.test(evText));
 // duplica: la copia mostra gli stessi blocchi
+await goTab(page, "Eventi e annunci");
 await page.locator("nav[aria-label='Eventi e annunci'] button", { hasText: "Serata Prova" }).first().click();
 await settle(600);
+await goTab(page, "Eventi e annunci");
 await page.getByRole("button", { name: "Duplica", exact: true }).first().click();
 await dialog().waitFor();
 await dialog().getByLabel("Titolo", { exact: true }).fill("Serata Prova bis");
