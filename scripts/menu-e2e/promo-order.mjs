@@ -1,7 +1,7 @@
 // Ordine di eventi e annunci: di base per data, poi a mano da «Riordina» → «Eventi e
 // annunci». Il primo è il più a sinistra in «In evidenza»; si annulla e si torna all'ordine
 // per data.
-import { launch, login, check, BASE, results, ADMIN_PW, DB, tool } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, tool, goTab } from "./lib.mjs";
 
 // giorno commerciale (cambia alle 5:00 ora italiana)
 const biz = (offset = 0) =>
@@ -71,6 +71,7 @@ check("menù: A è il primo a sinistra", (await strip()) === "ACB", await strip(
 await p.keyboard.press("Escape");
 await p.waitForTimeout(400);
 await p.reload({ waitUntil: "networkidle" });
+await goTab(p, "Eventi e annunci");
 const side = (await p.locator("button", { hasText: /^Ordine Prova/ }).allInnerTexts()).map((t) => t.match(/Prova ([ABC])/)?.[1]).join("");
 check("gestione: l'elenco degli eventi segue l'ordine", side === "ACB", side);
 
