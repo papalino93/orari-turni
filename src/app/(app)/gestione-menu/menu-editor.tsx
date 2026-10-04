@@ -435,10 +435,10 @@ export function MenuEditor({
             aria-controls="scheda-contenuto"
             onClick={() => openTab(t.id)}
             className={`flex min-h-11 min-w-0 flex-col items-start justify-center rounded-xl px-3 py-2 text-left transition-colors ${
-              tab === t.id ? "bg-surface shadow-sm" : "hover:bg-surface/60"
+              tab === t.id ? "border border-accent bg-accent/15 shadow-sm" : "border border-transparent hover:bg-surface/60"
             }`}
           >
-            <span className={`text-sm font-semibold leading-tight ${tab === t.id ? "text-accent" : "text-foreground"}`}>{t.label}</span>
+            <span className="text-sm font-semibold leading-tight text-foreground">{t.label}</span>
             <span className="hidden text-[11px] leading-snug text-foreground-muted sm:block">{t.hint}</span>
           </button>
         ))}
