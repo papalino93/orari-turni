@@ -382,7 +382,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Strumenti")}
 pages.push(`<section class="page wine">${chrome(pg(), "Statistiche")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Statistiche</div>
   <h2>Quanti aprono il menù,<br><em>quando e per cosa</em></h2>
-  <p class="lead">Solo per il titolare. Divise per tipo, con una barra in alto per saltare da una all'altra: <b>Panoramica</b>, <b>Quando</b>, <b>Cosa cercano</b>, <b>Cosa guardano</b>, <b>Eventi e contatti</b>.</p></div>
+  <p class="lead">Solo per il titolare. In cima c'è sempre il numero di <b>oggi</b>; scegli un periodo (<b>Ieri</b>, <b>Settimana scorsa</b>, un mese, due date) o tocca un giorno in <b>Giorno per giorno</b>, e con <b>Scarica per Excel</b> tieni i numeri. Poi una barra per saltare tra <b>Panoramica</b>, <b>Quando</b>, <b>Cosa cercano</b>, <b>Cosa guardano</b>, <b>Eventi e contatti</b>.</p></div>
   <div style="position:relative;margin-top:8mm;height:126mm">
     <div style="position:absolute;left:0;top:0">${mac("mac-statistiche", 148)}</div>
     <div style="position:absolute;right:0;top:34mm">${phone("ges-stat-giorni", 40)}</div>
@@ -495,7 +495,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Chiudo una finestra senza salvare: perdo tutto?</h4><p>No: se hai scritto o cambiato qualcosa compare «Modifiche non salvate» (scegli «Salva», «Continua a modificare» o «Esci senza salvare»). Se non hai toccato niente, si chiude subito.</p></div>
     <div><h4>Mi serve il menù su carta: come faccio?</h4><p>In «Strumenti», «Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
 
-    <div><h4>C'è una guida in video?</h4><p>Sì: in «Strumenti», «Guida (video)»: un minuto e mezzo, con le cose principali da computer, tablet e telefono.</p></div>
+    <div><h4>C'è una guida in video?</h4><p>Sì: in «Strumenti», «Guida (video)»: circa tre minuti, con le cose principali da telefono, tablet e computer (chiaro e scuro).</p></div>
     <div><h4>Dove trovo il numero di versione?</h4><p>In fondo a ogni pagina, ad esempio «v${VERSIONE}». Se segnali un problema, indicalo.</p></div>
   </div>
 </section>`);

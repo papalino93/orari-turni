@@ -2,7 +2,7 @@
 // L'interfaccia è ridisegnata in HTML (non sono screenshot): così tutto si muove — tocchi, righe che scorrono, finestre.
 // Solo il menù dei clienti è fotografato (CFG.SHOTS). Lo include video-build.mjs, che prima definisce CFG.
 // Deterministico: niente timer, niente animazioni CSS, niente callback (le scritte si «digitano» con caratteri che compaiono).
-const { VERSION, SHOTS, ROW } = CFG;
+const { VERSION, SHOTS, ROW, BX } = CFG;
 gsap.registerPlugin(DrawSVGPlugin);
 const stage = document.getElementById("stage");
 const M = gsap.timeline({ paused: true, defaults: { lazy: false } });
@@ -18,7 +18,7 @@ const pop = (e, t, d = 0.55) => M.fromTo(e, { autoAlpha: 0, scale: 0.6 }, { auto
 function pos(e, root) { const a = e.getBoundingClientRect(), b = root.getBoundingClientRect(), k = b.width / root.offsetWidth; return [(a.left - b.left + a.width / 2) / k, (a.top - b.top + a.height / 2) / k]; }
 // scritte «digitate»: ogni carattere compare a turno
 function typeInto(host, text, t0, dur) {
-  host.innerHTML = [...text].map((c) => `<u>${c === " " ? "&nbsp;" : c}</u>`).join("");
+  host.innerHTML = [...text].map((c) => `<u>${c}</u>`).join("");
   const us = host.querySelectorAll("u");
   M.fromTo(us, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.001, stagger: dur / us.length }, t0);
 }
@@ -35,37 +35,39 @@ function words(host, text) {
 }
 
 // ───────────────────────── scheletro di ogni capitolo ─────────────────────────
-const BGS = [
-  "radial-gradient(1100px 1100px at 85% 8%,#8a1c3a 0%,transparent 62%),radial-gradient(1000px 1000px at 5% 95%,#3b0707 0%,transparent 66%),#240707",
-  "radial-gradient(1100px 1000px at 10% 12%,#6b1a2c 0%,transparent 60%),radial-gradient(1000px 1000px at 95% 95%,#2b1013 0%,transparent 66%),#1d0d0f",
-  "radial-gradient(1200px 1100px at 90% 20%,#7f1730 0%,transparent 60%),radial-gradient(1000px 900px at 0% 100%,#44090c 0%,transparent 66%),#260808",
-  "radial-gradient(1100px 1000px at 15% 5%,#5e1738 0%,transparent 60%),radial-gradient(1100px 1000px at 100% 100%,#2a0a1c 0%,transparent 66%),#1f0a14",
-  "radial-gradient(1100px 1000px at 90% 10%,#76231d 0%,transparent 60%),radial-gradient(1000px 1000px at 0% 100%,#2e0c0a 0%,transparent 66%),#220a08",
-  "radial-gradient(1100px 1100px at 15% 10%,#7a1230 0%,transparent 60%),radial-gradient(1000px 1000px at 100% 100%,#380808 0%,transparent 66%),#240606",
-  "radial-gradient(1200px 1100px at 80% 5%,#8a1c3a 0%,transparent 62%),radial-gradient(1000px 1000px at 0% 100%,#3a0606 0%,transparent 66%),#210606",
-];
+// Un capitolo = una chiave, un titolo, una durata, un colore d'accento e un fondo (sempre su base vino).
+const bgOf = (c1, c2, base) => `radial-gradient(1100px 1100px at 85% 8%,${c1} 0%,transparent 62%),radial-gradient(1000px 1000px at 5% 95%,${c2} 0%,transparent 66%),${base}`;
 const CH = [
-  { n: "Esaurito in un tocco", dur: 16.5 },
-  { n: "Tutto in quattro schede", dur: 10 },
-  { n: "Aggiungi un vino", dur: 21.5 },
-  { n: "Eventi e annunci", dur: 14.5 },
-  { n: "Decidi l’ordine", dur: 9.5 },
-  { n: "Se sbagli, torni indietro", dur: 9.5 },
-  { n: "Strumenti e codice QR", dur: 13.5 },
+  { k: "esaurito", n: "Esaurito in un tocco", dur: 15, acc: "#e8b95a", bg: bgOf("#8a1c3a", "#3b0707", "#240707"), wipe: "#3a0808" },
+  { k: "schede", n: "Tutto in quattro schede", dur: 9.5, acc: "#7fd8c4", bg: bgOf("#14575a", "#3b0e1a", "#0f2a2c"), wipe: "#0f3436" },
+  { k: "vino", n: "Aggiungi un vino", dur: 18.5, acc: "#f4a9bb", bg: bgOf("#8a1c4a", "#44090c", "#2a0818"), wipe: "#4a0a22" },
+  { k: "eventi", n: "Eventi e annunci", dur: 13.5, acc: "#ffb36b", bg: bgOf("#8a4a14", "#3a1208", "#2c1204"), wipe: "#4a2008" },
+  { k: "prenota", n: "Prenota dall’evento", dur: 14, acc: "#62e38d", bg: bgOf("#127a4c", "#06281c", "#08261a"), wipe: "#0a3a28" },
+  { k: "clienti", n: "Il menù dei tuoi clienti", dur: 17.5, acc: "#e9c37a", bg: bgOf("#8a1c2c", "#3a0808", "#2a0808"), wipe: "#4a0a14" },
+  { k: "contatti", n: "Orari, contatti e recensioni", dur: 13.5, acc: "#9bbcff", bg: bgOf("#26408a", "#0c1236", "#0c1230"), wipe: "#111a48" },
+  { k: "ordine", n: "Decidi l’ordine", dur: 10, acc: "#cfa6ff", bg: bgOf("#5a2a8a", "#1c0a30", "#1c0a2c"), wipe: "#2a1048" },
+  { k: "storico", n: "Se sbagli, torni indietro", dur: 10.5, acc: "#ff9f8e", bg: bgOf("#8a2a22", "#2a0a0a", "#2a0a0c"), wipe: "#4a1210" },
+  { k: "qr", n: "Il codice QR", dur: 11.5, acc: "#e8b95a", bg: bgOf("#8a1c3a", "#3a0606", "#210606"), wipe: "#3a0808" },
+  { k: "mac", n: "Dal computer: prezzi e stampa", dur: 14.6, acc: "#8fd0ff", bg: bgOf("#1f4a78", "#0a121e", "#0f1822"), wipe: "#16263a" },
+  { k: "stats", n: "Le statistiche", dur: 24, acc: "#7fe0a8", bg: bgOf("#0f5a45", "#06140f", "#08201a"), wipe: "#0c3326" },
 ];
+const idx = (k) => CH.findIndex((c) => c.k === k);
 const INTRO = 6.2, OUTRO = 7;
 const starts = []; let acc = INTRO; for (const c of CH) { starts.push(acc); acc += c.dur; }
 const END = acc + OUTRO; window.TOTAL = END;
+const BGS = CH.map((c) => c.bg);
 
 const wipe = el("div", "wipe", null, stage);
 el("div", "edge", null, wipe);
 gsap.set(wipe, { yPercent: 100 });
-function wipeAt(t) { // tenda che passa tra un capitolo e l'altro: t = istante in cui cambia scena
+function wipeAt(t, color = "#3a0808") { // tenda che passa tra un capitolo e l'altro: t = istante in cui cambia scena
+  M.fromTo(wipe, { backgroundColor: color }, { backgroundColor: color, duration: 0.001 }, t - 0.52);
   M.fromTo(wipe, { yPercent: 100 }, { yPercent: 0, duration: 0.5, ease: "power3.in" }, t - 0.5);
   M.fromTo(wipe, { yPercent: 0 }, { yPercent: -100, duration: 0.55, ease: "power3.out" }, t);
 }
 function mkScene(i, t0, dur, bgIdx) {
   const s = el("div", "sc", null, stage);
+  s.style.setProperty("--acc", CH[bgIdx]?.acc || "#d4af6a");
   el("div", "bg", null, s).style.background = BGS[bgIdx];
   s.style.zIndex = 5;
   vis(s, t0, t0 + dur);
@@ -73,7 +75,7 @@ function mkScene(i, t0, dur, bgIdx) {
 }
 function chapter(i) {
   const t0 = starts[i], c = CH[i], s = mkScene(i, t0, c.dur, i);
-  wipeAt(t0);
+  wipeAt(t0, c.wipe);
   // numero gigante dietro, appena visibile
   const big = el("div", "bignum", String(i + 1).padStart(2, "0"), s);
   M.fromTo(big, { autoAlpha: 0, x: 80 }, { autoAlpha: 0.07, x: 0, duration: 1.4, ease: "power3.out" }, t0 + 0.3);
@@ -196,13 +198,14 @@ const ROWS = [
   // i sette capitoli, come icone che entrano
   const chips = el("div", "ichips", null, s);
   const ICONS = ["Esaurito", "Schede", "Aggiungi", "Eventi", "Ordine", "Storico", "QR"];
-  const cels = CH.map((c, i) => el("div", "ichip", `<b>${i + 1}</b>${c.n}`, chips));
+  const SHORT = ["Esaurito", "Le schede", "Nuovo vino", "Eventi", "Prenotazioni", "Menù clienti", "Contatti", "Ordine", "Storico", "QR", "Dal computer", "Statistiche"];
+  const cels = CH.map((c, i) => el("div", "ichip", `<b>${i + 1}</b>${SHORT[i]}`, chips));
   M.fromTo(cels, { autoAlpha: 0, y: 40, scale: 0.9 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, ease: "back.out(1.8)", stagger: 0.18 }, 3.0);
 }
 
 // ═════════════════════════ 1 · ESAURITO IN UN TOCCO ═════════════════════════
 {
-  const i = 0, T = starts[i], s = chapter(i), k = 1.6;
+  const i = idx("esaurito"), T = starts[i], s = chapter(i), k = 1.6;
   const world = el("div", "world", null, s);          // i due telefoni stanno in un «mondo» che la camera sposta
   const AX = (W - 420 * k) / 2, GAP = 130, BX = AX + 420 * k + GAP, PY = 250, PAN = -(BX - AX);
   const A = phone(world, AX, PY, k, "admin"), B = phone(world, BX, PY, k, "cust");
@@ -261,7 +264,7 @@ const ROWS = [
 
 // ═════════════════════════ 2 · QUATTRO SCHEDE ═════════════════════════
 {
-  const i = 1, T = starts[i], s = chapter(i);
+  const i = idx("schede"), T = starts[i], s = chapter(i);
   const CARDS = [
     ["Menù", "Sezioni, voci, esauriti, Oggi fuori menù", `<path d="M18 8h28c0 14-4 24-14 26-10-2-14-12-14-26zM32 34v18M22 54h20"/>`],
     ["Eventi e annunci", "Locandine, date, menù delle serate", `<rect x="10" y="14" width="44" height="40" rx="6"/><path d="M10 26h44M22 8v10M42 8v10M32 32l3 6 6.500 1-4.700 4.500 1.200 6.500L32 47l-6 3 1.200-6.500-4.700-4.500 6.500-1z"/>`],
@@ -291,7 +294,7 @@ const ROWS = [
 
 // ═════════════════════════ 3 · AGGIUNGI UN VINO ═════════════════════════
 {
-  const i = 2, T = starts[i], s = chapter(i), k = 1.58;
+  const i = idx("vino"), T = starts[i], s = chapter(i), k = 1.58;
   const P = phone(s, (W - 420 * k) / 2, 215, k, "admin");
   P.pg.innerHTML = `
     <div class="pgm"><h1>Menù</h1><p class="sub">Quello che cambi qui compare subito sul menù dei clienti (quello del QR).</p>
@@ -433,7 +436,7 @@ const ROWS = [
 
 // ═════════════════════════ 4 · EVENTI E ANNUNCI ═════════════════════════
 {
-  const i = 3, T = starts[i], s = chapter(i), k = 1.6;
+  const i = idx("eventi"), T = starts[i], s = chapter(i), k = 1.6;
   const world = el("div", "world", null, s);
   const AX = (W - 420 * k) / 2, GAP = 130, BX = AX + 420 * k + GAP, PY = 250, PAN = -(BX - AX);
   const A = phone(world, AX, PY, k, "admin"), B = phone(world, BX, PY, k, "cust");
@@ -445,7 +448,10 @@ const ROWS = [
       <div class="ec c1"><div class="ex"><div><em class="bd g">IN CORSO</em> <small>ANNUNCIO</small></div><h3>Lunedì 12 chiusi per ferie</h3><div class="d">4–14 ottobre</div><p>Una riga sotto la copertina del menù dei clienti.</p></div></div>
       <div class="ec c2"><img src="../jpg/locandina-oktoberfest.png"><div class="ex"><div><em class="bd">ANNUNCIATO</em> <small>BIRRE, CIBO E MUSICA</small></div><h3>Oktoberfest</h3><div class="d">12–13 ottobre</div><p>Compare in «in evidenza» dal giorno scelto.</p></div></div>
       <div class="eact"><span class="btn sm">Modifica</span><span class="btn sm">Duplica</span><span class="btn sm">Nascondi</span><span class="btn sm">Apri la pagina ↗</span><span class="btn sm">Elimina</span></div></div></div>`;
+  A.pg.insertAdjacentHTML("beforeend", `<div class="fk"><div class="srch">Cerca un piatto o una bottiglia…</div><div class="grp" style="margin:14px 0 0"><div class="gh"><b>▾</b> Bollicine <span>· 8</span></div><div class="row"><div class="nm"><span class="n">Franciacorta Brut</span></div><span class="s1">€ 38</span></div><div class="row"><div class="nm"><span class="n">Prosecco Valdobbiadene</span></div><span class="s1">€ 24</span></div><div class="row"><div class="nm"><span class="n">Champagne Blanc de Blancs</span></div><span class="s1">€ 72</span></div></div></div>`);
   const q = (sel) => A.pg.querySelector(sel);
+  const fk = q(".fk");
+  M.fromTo(fk, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.2 }, T + 3.9);
   const pgm = q(".pgm"), evp = q(".evp"), cards = [".c0", ".c1", ".c2"].map((x) => q(x));
   const tab1 = q("#tab1"), pl0 = q("#pl0"), pl1 = q("#pl1"), pl2 = q("#pl2");
   const pT1 = at(A, tab1), pl1p = at(A, pl1), pl2p = at(A, pl2);
@@ -507,114 +513,9 @@ function dialog(s, w, h, title, x, y, scale) {
   return d;
 }
 
-// ═════════════════════════ 5 · DECIDI L'ORDINE ═════════════════════════
-{
-  const i = 4, T = starts[i], s = chapter(i), k = 2.0;
-  const w = 450, h = 372, X = (W - w * k) / 2, Y = 300;
-  const d = dialog(s, w, h, "Riordina", X, Y, k);
-  const db = d.querySelector(".db");
-  db.innerHTML = `<div class="seg2"><b>Menù</b><b class="on">Eventi e annunci</b></div><p class="hint">L’ordine in «in evidenza», da sinistra a destra. Nel giorni dell’evento la sua pagina si apre comunque in cima al menù.</p>
-    <div class="rl"></div><div class="sv"><span class="btn pri big dis">Salva ordine</span></div>`;
-  db.querySelector(".hint").textContent = "L’ordine in «in evidenza», da sinistra a destra. Nei giorni dell’evento la sua pagina si apre in cima al menù.";
-  const rl = db.querySelector(".rl");
-  const ITEMS = [["Crudité & Champagne", "4 ottobre · in corso"], ["Lunedì 12 chiusi per ferie", "4–14 ottobre · in corso"], ["Oktoberfest", "12–13 ottobre · annunciato"]];
-  const RH = 60;
-  const els = ITEMS.map((it, j) => { const r = el("div", "rr", `<span class="grip">≡</span><div><b>${it[0].replace("&", "&amp;")}</b><small>${it[1]}</small></div><div class="ar"><i class="up">↑</i><i class="dn">↓</i></div>`, rl); r.style.top = j * RH + "px"; return r; });
-  rl.style.height = RH * 3 + "px";
-  // le tre locandine sotto, che si riordinano insieme
-  const strip = el("div", "strip", null, s);
-  const labels = ["Crudité & Champagne", "Lunedì 12 chiusi per ferie", "Oktoberfest"];
-  const chips = labels.map((l, j) => { const c = el("div", "sch", `${l.replace("&", "&amp;")}`, strip); c.style.left = j * 330 + "px"; return c; });
-  tag(s, "L’ORDINE CHE VEDONO I CLIENTI", 60, 1110, T + 2.4, 960);
-  // posizioni
-  gsap.set(chips, {});
-  const saveBtn = db.querySelector(".sv .btn");
-  const up2 = els[2].querySelector(".up");
-  const [u0x, u0y] = pos(up2, d); // coordinate nel dialogo (senza scala)
-  const dc = (x, y) => [X + x * k, Y + y * k];
-  M.fromTo(d, { autoAlpha: 0, y: 160, scale: k * 0.9 }, { autoAlpha: 1, y: 0, scale: k, duration: 0.9, ease: "expo.out" }, T + 1.3);
-  M.fromTo(strip, { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.7, ease: "expo.out" }, T + 1.8);
-  const cur = cursor(s);
-  const c0 = dc(u0x, u0y);
-  curStart(cur, c0[0] + 200, c0[1] + 500, c0[0] + 30, c0[1] + 120, T + 2.2, 0.9);
-  curMove(cur, c0[0], c0[1], T + 3.0, 0.5);
-  cap(s, T + 2.4, T + 6.0, "PASSO 1 DI 2", "Con le *frecce ↑ ↓* sposti le voci", 1450);
-  // primo ↑: Oktoberfest (riga 3) sale in seconda posizione
-  const sw = (a, b, t) => { // a sale, b scende
-    M.fromTo(a, { y: a.__y }, { y: a.__y - RH, duration: 0.45, ease: "power3.inOut" }, t); M.fromTo(b, { y: b.__y }, { y: b.__y + RH, duration: 0.45, ease: "power3.inOut" }, t);
-    a.__y -= RH; b.__y += RH;
-  };
-  els.forEach((e) => (e.__y = 0));
-  tap(cur, T + 3.6); press(up2, T + 3.6);
-  sw(els[2], els[1], T + 3.7);
-  M.fromTo(chips[2], { x: 0 }, { x: -330, duration: 0.55, ease: "power3.inOut" }, T + 3.7); M.fromTo(chips[1], { x: 0 }, { x: 330, duration: 0.55, ease: "power3.inOut" }, T + 3.7);
-  curMove(cur, c0[0], c0[1] - RH * k, T + 4.3, 0.4);
-  tap(cur, T + 4.8); press(up2, T + 4.8);
-  sw(els[2], els[0], T + 4.9);
-  M.fromTo(chips[2], { x: -330 }, { x: -660, duration: 0.55, ease: "power3.inOut" }, T + 4.9); M.fromTo(chips[0], { x: 0 }, { x: 330, duration: 0.55, ease: "power3.inOut" }, T + 4.9);
-  // il pulsante «Salva ordine» si accende, tocco
-  M.fromTo(saveBtn, { opacity: 0.4 }, { opacity: 1, duration: 0.3 }, T + 5.0);
-  const [sx, sy] = pos(saveBtn, d); const sc = dc(sx, sy);
-  curMove(cur, sc[0], sc[1], T + 5.55, 0.6);
-  cap(s, T + 6.0, T + 9.3, "PASSO 2 DI 2", "Tocca *«Salva ordine»*", 1450);
-  tap(cur, T + 6.3); press(saveBtn, T + 6.3);
-  M.fromTo(d, { autoAlpha: 1, y: 0 }, { autoAlpha: 0, y: 40, duration: 0.4, ease: "power2.in" }, T + 6.7);
-  M.fromTo(strip, { scale: 1 }, { scale: 1.0, duration: 0.01 }, T + 6.7);
-  curEnd(cur, T + 6.6, 0.3);
-  // la fila ordinata resta in vista e si illumina
-  M.fromTo(chips, { backgroundColor: "#faf6f0" }, { backgroundColor: "#f6e2a8", duration: 0.25, stagger: 0.12 }, T + 6.9);
-  M.fromTo(chips, { backgroundColor: "#f6e2a8" }, { backgroundColor: "#faf6f0", duration: 0.6 }, T + 7.7);
-}
-
-// ═════════════════════════ 6 · STORICO ═════════════════════════
-{
-  const i = 5, T = starts[i], s = chapter(i), k = 2.0;
-  const w = 450, h = 292, X = (W - w * k) / 2, Y = 320;
-  const d = dialog(s, w, h, "Storico modifiche", X, Y, k);
-  const db = d.querySelector(".db");
-  db.innerHTML = `<div class="hl"></div>`;
-  const hl = db.querySelector(".hl");
-  const RH = 62;
-  const LOG = [["Segnato esaurito: <b>Pol Roger</b>"], ["Segnato esaurito: <b>Henriot</b>"], ["Segnato esaurito: <b>De Villepin</b>"]];
-  const newRow = el("div", "lg new", `<div><span>Ripristinato: <b>Pol Roger</b></span><small>Andrea · 04/10, 18:58</small></div><i class="bg2">Annullata</i>`, hl); newRow.querySelector(".bg2").style.display = "none";
-  newRow.querySelector(".bg2").remove();
-  const rows = LOG.map((l, j) => { const r = el("div", "lg", `<div><span>${l[0]}</span><small>Andrea · 04/10, 18:56</small></div><i class="rb">Ripristina</i>`, hl); r.style.top = j * RH + "px"; return r; });
-  newRow.style.top = "0px";
-  hl.style.height = RH * 4 + "px";
-  rows.forEach((r) => (r.__y = 0));
-  // nel punto di partenza, la lista è: 3 righe (pos 0..2); dopo il ripristino la nuova riga è in cima e le altre scendono
-  const rb0 = rows[0].querySelector(".rb"); const [rx, ry] = pos(rb0, d);
-  const dc = (x, y) => [X + x * k, Y + y * k];
-  const p0 = dc(rx, ry);
-  M.fromTo(d, { autoAlpha: 0, y: 160 }, { autoAlpha: 1, y: 0, duration: 0.9, ease: "expo.out" }, T + 1.3);
-  const cur = cursor(s);
-  curStart(cur, p0[0] + 200, p0[1] + 500, p0[0] + 40, p0[1] + 120, T + 2.2, 0.9);
-  curMove(cur, p0[0], p0[1], T + 3.0, 0.5);
-  callout(s, "Tocca «Ripristina»", p0[0] - 60, p0[1] - 50, T + 2.9, T + 4.3);
-  cap(s, T + 2.4, T + 5.8, "PASSO 1 DI 2", "Apri *«Storico»* e trova la modifica", 1400);
-  tap(cur, T + 3.7); press(rb0, T + 3.7);
-  // la riga diventa «Annullata», entra la nuova in cima
-    const bdg = el("i", "bg2", "Annullata", rows[0]); bdg.style.cssText = "position:absolute;right:0;top:50%;margin-top:-17px";
-  M.fromTo(rb0, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.2 }, T + 3.85);
-  M.fromTo(bdg, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.25 }, T + 3.9);
-  rows.forEach((r, j) => M.fromTo(r, { y: 0 }, { y: RH, duration: 0.55, ease: "power3.inOut" }, T + 4.2));
-  M.fromTo(newRow, { autoAlpha: 0, y: -20, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.55, ease: "back.out(1.6)" }, T + 4.35);
-  M.fromTo(newRow, { backgroundColor: "#f6e2a8" }, { backgroundColor: "rgba(246,226,168,0)", duration: 1.6, ease: "power2.out" }, T + 4.4);
-  const toast = el("div", "toast2", "✓ Modifica annullata", s);
-  M.fromTo(toast, { autoAlpha: 0, y: 60, scale: 0.8 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.55, ease: "back.out(2)" }, T + 4.7);
-  M.fromTo(toast, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3 }, T + 8.8);
-  curEnd(cur, T + 4.4, 0.3);
-  // freccia di «annulla» che gira
-  const un = el("div", "undo", `<svg viewBox="0 0 64 64"><path d="M22 18L12 28l10 10"/><path d="M12 28h26a14 14 0 010 28H26"/></svg>`, s);
-  M.fromTo(un, { autoAlpha: 0, scale: 0.4, rotation: -90 }, { autoAlpha: 1, scale: 1, rotation: 0, duration: 0.8, ease: "back.out(1.8)" }, T + 5.0);
-  M.fromTo(un.querySelectorAll("path"), { drawSVG: "0%" }, { drawSVG: "100%", duration: 0.8, ease: "power2.inOut", stagger: 0.2 }, T + 5.05);
-  M.fromTo(un, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3 }, T + 8.8);
-  cap(s, T + 5.8, T + 9.3, "PASSO 2 DI 2", "Tocca *«Ripristina»*: torna com’era", 1400);
-}
-
 // ═════════════════════════ 7 · STRUMENTI E QR ═════════════════════════
 {
-  const i = 6, T = starts[i], s = chapter(i);
+  const i = idx("qr"), T = starts[i], s = chapter(i);
   const TOOLS = [
     ["Tabella prezzi", "Cambia tanti prezzi insieme, anche di sezioni diverse, e salva una volta sola."],
     ["Riordina", "L’ordine di sezioni, gruppi, voci ed eventi sul menù."],
@@ -627,7 +528,7 @@ function dialog(s, w, h, title, x, y, scale) {
   const tiles = TOOLS.map(([n, d], j) => { const t = el("div", "tool" + (j === 5 ? " qr" : ""), `<b>${n}</b><span>${d}</span>`, grid); t.style.left = 60 + (j % 2) * 490 + "px"; t.style.top = 300 + Math.floor(j / 2) * 285 + "px"; return t; });
   tiles.forEach((t, j) => M.fromTo(t, { autoAlpha: 0, y: 100, scale: 0.92 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.8, ease: "expo.out" }, T + 1.4 + j * 0.12));
   vis(grid, T + 1.3, T + 4.75);
-  cap(s, T + 2.4, T + 4.8, "TUTTO A PORTATA DI MANO", "Prezzi, storico, stampa e *codice QR*", 1290);
+  cap(s, T + 2.4, T + 4.8, "TUTTO A PORTATA DI MANO", "Prezzi, storico, stampa e *codice QR*", 1370);
   // il riquadro del QR si ingrandisce nella finestra
   const qt = tiles[5];
   M.fromTo(qt, { scale: 1, backgroundColor: "#faf6f0" }, { scale: 1.06, backgroundColor: "#f6e2a8", duration: 0.4, ease: "power3.out" }, T + 3.9);
@@ -655,6 +556,381 @@ function dialog(s, w, h, title, x, y, scale) {
   M.fromTo(menuImg, { autoAlpha: 0, scale: 1.04 }, { autoAlpha: 1, scale: 1, duration: 0.6, ease: "power2.out" }, T + 11.4);
   M.fromTo(cam, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.5 }, T + 11.6);
   cap(s, T + 8.2, T + 13.2, "IL CLIENTE", "Inquadra e trova il *menù aggiornato*", 1600);
+}
+
+// ═════════════════════════ utilità: portatile (schermo 1280×800) ═════════════════════════
+function device(s, X, Y, k, o = {}) {
+  const w = o.w || 1280, h = o.h || 800, cls = o.cls || "mac", isMac = cls === "mac";
+  const root = el("div", cls, `<div class="lid"><div class="mscreen"><div class="mcam"></div></div>${isMac ? '<i class="cam0"></i>' : ""}</div>${isMac ? '<div class="mbase"><i></i></div>' : ""}`, s);
+  root.style.left = X + "px"; root.style.top = Y + "px";
+  gsap.set(root, { scale: k, transformOrigin: "0 0" });
+  const cam = root.querySelector(".mcam");
+  gsap.set(cam, { transformOrigin: "0 0" });
+  const d = { root, cam, k, X, Y, w, h };
+  // layer a schermo intero (le foto)
+  d.layer = (name) => { const im = el("img", "ml", null, cam); im.src = SHOTS[name]; return im; };
+  // la camera si avvicina a un riquadro (coordinate dello schermo)
+  d.zoom = (box, t, dur = 0.9, sc = 1.8) => {
+    const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+    const x = Math.min(0, Math.max(w * (1 - sc), w / 2 - cx * sc)), y = Math.min(0, Math.max(h * (1 - sc), h / 2 - cy * sc));
+    M.to(cam, { x, y, scale: sc, duration: dur, ease: "power3.inOut" }, t);
+  };
+  d.reset = (t, dur = 0.9) => M.to(cam, { x: 0, y: 0, scale: 1, duration: dur, ease: "power3.inOut" }, t);
+  // riquadro che evidenzia un punto
+  d.ring = (box, t0, t1, pad = 8) => {
+    const r = el("div", "mring", null, cam);
+    Object.assign(r.style, { left: box.x - pad + "px", top: box.y - pad + "px", width: box.w + 2 * pad + "px", height: box.h + 2 * pad + "px" });
+    M.fromTo(r, { autoAlpha: 0, scale: 1.18 }, { autoAlpha: 1, scale: 1, duration: 0.45, ease: "back.out(2)" }, t0);
+    M.fromTo(r, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3 }, t1);
+    return r;
+  };
+  d.cursor = () => { const c = cursor(cam); c.classList.add("sm"); return c; };
+  return d;
+}
+const mac = (s, X, Y, k) => device(s, X, Y, k);
+const tablet = (s, X, Y, k) => device(s, X, Y, k, { w: 768, h: 1024, cls: "tabl" });
+const ctr = (b) => [b.x + b.w / 2, b.y + b.h / 2];
+const chip3 = (s, text, t0, t1, y) => { const c = callout(s, text, W / 2, y, t0, t1); return c; };
+const starSvg = `<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.500 9.400l6.600-.8z"/></svg>`;
+
+// ═════════════════════════ 8 · DECIDI L'ORDINE (computer, tema scuro) ═════════════════════════
+{
+  const i = idx("ordine"), T = starts[i], s = chapter(i), mk = 0.78;
+  const Mc = mac(s, (W - 1328 * mk) / 2, 470, mk);
+  const L1 = Mc.layer("m-reorder-1"), L2 = Mc.layer("m-reorder-2");
+  M.fromTo(L2, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T);
+  M.fromTo(Mc.root, { autoAlpha: 0, y: 800, rotation: -3 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 1.0, ease: "expo.out" }, T + 1.3);
+  const dl = BX["m-reorder-dlg"], dn = BX["m-reorder-down"], sv = BX["m-reorder-save"];
+  Mc.zoom({ x: 230, y: 250, w: 820, h: 480 }, T + 2.3, 1.0, 1.45);
+  cap(s, T + 2.4, T + 6.0, "PASSO 1 DI 2", "Con le *frecce ↑ ↓* sposti le voci", 1370);
+  const cur = Mc.cursor(), dc = ctr(dn);
+  curStart(cur, dc[0] + 160, dc[1] + 200, dc[0] + 30, dc[1] + 50, T + 3.0, 0.8);
+  curMove(cur, dc[0], dc[1], T + 3.7, 0.5);
+  Mc.ring(dn, T + 3.6, T + 4.6, 5);
+  tap(cur, T + 4.3);
+  M.fromTo(L2, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.25 }, T + 4.55);
+  const sc = ctr(sv);
+  curMove(cur, sc[0], sc[1], T + 5.4, 0.6);
+  cap(s, T + 6.0, T + 9.7, "PASSO 2 DI 2", "Tocca *«Salva ordine»*", 1370);
+  Mc.ring(sv, T + 6.0, T + 7.2, 6);
+  tap(cur, T + 6.6);
+  curEnd(cur, T + 7.0, 0.3);
+  const ok = el("div", "okp", `<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.500"/></svg>Ordine salvato`, s);
+  M.fromTo(ok, { autoAlpha: 0, scale: 0.7, y: 30 }, { autoAlpha: 1, scale: 1, y: 0, duration: 0.55, ease: "back.out(2)" }, T + 7.2);
+  M.fromTo(ok, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3 }, T + 9.4);
+}
+
+// ═════════════════════════ 9 · STORICO (tablet, tema scuro) ═════════════════════════
+{
+  const i = idx("storico"), T = starts[i], s = chapter(i), tk = 1.1;
+  const Tb = tablet(s, (W - 820 * tk) / 2, 285, tk);
+  const H0 = Tb.layer("t-history"), H1 = Tb.layer("t-history-restored");
+  M.fromTo(H1, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T);
+  M.fromTo(Tb.root, { autoAlpha: 0, y: 900, rotation: 3 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 1.0, ease: "expo.out" }, T + 1.3);
+  const rb = BX["t-history-restore"], rc = ctr(rb);
+  Tb.zoom({ x: 40, y: 330, w: 690, h: 420 }, T + 2.4, 1.0, 1.5);
+  const cur = Tb.cursor();
+  curStart(cur, rc[0] + 140, rc[1] + 220, rc[0] + 30, rc[1] + 60, T + 3.0, 0.9);
+  curMove(cur, rc[0], rc[1], T + 4.4, 0.6);
+  cap(s, T + 2.4, T + 5.9, "PASSO 1 DI 2", "Apri *«Storico»* e trova la modifica", 1500);
+  Tb.ring(rb, T + 4.9, T + 6.3, 6);
+  cap(s, T + 5.9, T + 10.1, "PASSO 2 DI 2", "Tocca *«Ripristina»*: torna com’era", 1500);
+  tap(cur, T + 6.0);
+  M.fromTo(H1, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.15 }, T + 6.15);
+  curEnd(cur, T + 6.4, 0.3);
+  Tb.zoom({ x: 40, y: 380, w: 690, h: 560 }, T + 6.6, 1.0, 1.3);
+}
+
+// ═════════════════════════ 5 · PRENOTA DALL'EVENTO ═════════════════════════
+{
+  const i = idx("prenota"), T = starts[i], s = chapter(i), k = 1.58;
+  const P = phone(s, (W - 420 * k) / 2, 215, k, "cust");
+  const scr = P.scr;
+  const top = el("img", "full", null, scr); top.src = SHOTS["c-ev-top"];
+  const act = el("img", "full", null, scr); act.src = SHOTS["c-ev-actions"];
+  // WhatsApp: schermata della chat con il messaggio già scritto
+  const MSG = BX["c-wa-text"].replace(/^[^?]*\?text=/, "").trim();
+  const wa = el("div", "wa", `<div class="wh"><i class="back">‹</i><span class="av">AV</span><div><b>L’Angolo del Vino</b><small>in linea</small></div></div>
+    <div class="wchat"><div class="wday">OGGI</div><div class="wbub"><span class="wt"></span><em>19:31 <u>✓✓</u></em></div></div>
+    <div class="wbar"><div class="wbox"><span class="wtype"></span></div><i class="wsend"><svg viewBox="0 0 24 24"><path d="M3 20l18-8L3 4v6l11 2-11 2z"/></svg></i></div>`, scr);
+  const wbub = wa.querySelector(".wbub"), wsend = wa.querySelector(".wsend"), wtype = wa.querySelector(".wtype");
+  wa.querySelector(".wt").textContent = MSG + "…";
+  const calSheet = el("div", "cal", `<div class="ch"><span>Annulla</span><b>Nuovo evento</b><span class="add">Aggiungi</span></div>
+    <div class="crow big">Oktoberfest</div><div class="crow"><small>Inizio</small><b>12 ott 2026, 18:00</b></div><div class="crow"><small>Fine</small><b>13 ott 2026, 23:30</b></div><div class="crow"><small>Calendario</small><b>● L’Angolo del Vino</b></div>`, scr);
+  const shareSheet = el("div", "shr", `<div class="sh1"><b>Oktoberfest</b><small>orari-turni.vercel.app/menu</small></div><div class="sh2"><i>Messaggi</i><i>WhatsApp</i><i>Mail</i><i>Copia link</i></div>`, scr);
+  const dim = el("div", "dim", null, scr); dim.style.zIndex = 40; scr.insertBefore(dim, calSheet);
+  calSheet.style.zIndex = 50; shareSheet.style.zIndex = 50;
+  M.fromTo(wa, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T);
+  M.fromTo(act, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T);
+  M.fromTo(calSheet, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T);
+  M.fromTo(shareSheet, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T);
+  M.fromTo(wbub, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T);
+  phoneIn(P, T + 1.45, 1.0, 1200);
+  const cur = cursor(P.ph);
+  const o = (b) => [b.x + b.w / 2 + 15, b.y + b.h / 2 + 15];
+  const pb = o(BX["c-ev-book"]), pc = o(BX["c-ev-cal"]), ps = o(BX["c-ev-share"]);
+  // 1) si scende ai pulsanti
+  M.fromTo(act, { autoAlpha: 0, y: 500 }, { autoAlpha: 1, y: 0, duration: 0.9, ease: "power3.inOut" }, T + 2.4);
+  M.fromTo(top, { y: 0 }, { y: -500, duration: 0.9, ease: "power3.inOut" }, T + 2.4);
+  cap(s, T + 2.3, T + 5.2, "PRENOTARE", "Ogni evento ha il suo *«Prenota»*", 1580);
+  curStart(cur, pb[0] + 120, pb[1] + 420, pb[0] + 40, pb[1] + 120, T + 3.0, 0.9);
+  curMove(cur, pb[0], pb[1], T + 3.7, 0.5);
+  tap(cur, T + 4.3);
+  M.fromTo(act, { filter: "brightness(1)" }, { filter: "brightness(0.92)", duration: 0.1 }, T + 4.3);
+  M.fromTo(act, { filter: "brightness(0.92)" }, { filter: "brightness(1)", duration: 0.3 }, T + 4.4);
+  // 2) si apre WhatsApp con il messaggio già scritto
+  M.fromTo(wa, { autoAlpha: 0, x: 60 }, { autoAlpha: 1, x: 0, duration: 0.55, ease: "power3.out" }, T + 4.7);
+  typeInto(wtype, MSG, T + 5.3, 1.7);
+  cap(s, T + 5.2, T + 9.0, "WHATSAPP", "Il messaggio è *già scritto*: basta inviare", 1580);
+  curMove(cur, 345, 735, T + 6.9, 0.6);
+  tap(cur, T + 7.7); press(wsend, T + 7.7);
+  M.fromTo(wbub, { autoAlpha: 0, y: 24, scale: 0.9 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.5, ease: "back.out(1.8)" }, T + 7.9);
+  M.fromTo(wtype.parentNode, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.2 }, T + 7.85);
+  // 3) calendario
+  M.fromTo(wa, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3 }, T + 9.0);
+  curMove(cur, pc[0], pc[1], T + 9.2, 0.6);
+  cap(s, T + 9.0, T + 12.2, "CALENDARIO", "Si aggiunge *al calendario*", 1580);
+  tap(cur, T + 10.0); 
+  M.fromTo(dim, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, T + 10.2);
+  M.fromTo(calSheet, { autoAlpha: 0, yPercent: 40 }, { autoAlpha: 1, yPercent: 0, duration: 0.6, ease: "expo.out" }, T + 10.2);
+  curMove(cur, 330, 215, T + 10.8, 0.5);
+  tap(cur, T + 11.4);
+  M.fromTo(calSheet, { autoAlpha: 1, yPercent: 0 }, { autoAlpha: 0, yPercent: 40, duration: 0.4, ease: "power3.in" }, T + 11.8);
+  M.fromTo(dim, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3 }, T + 11.9);
+  // 4) condividi
+  curMove(cur, ps[0], ps[1], T + 12.1, 0.5);
+  cap(s, T + 12.2, T + 14.2, "CONDIVIDI", "E si manda *agli amici*", 1580);
+  tap(cur, T + 12.7);
+  M.fromTo(dim, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, T + 12.85);
+  M.fromTo(shareSheet, { autoAlpha: 0, yPercent: 40 }, { autoAlpha: 1, yPercent: 0, duration: 0.6, ease: "expo.out" }, T + 12.85);
+  curEnd(cur, T + 13.2, 0.3);
+}
+
+// ═════════════════════════ 6 · IL MENÙ DEI TUOI CLIENTI ═════════════════════════
+{
+  const i = idx("clienti"), T = starts[i], s = chapter(i), k = 1.5;
+  const PX = 96, PY = 230;
+  const P = phone(s, PX, PY, k, "cust");
+  const scr = P.scr;
+  const TALL = BX["c-tall"].h;
+  // pagina che scorre sotto la barra delle sezioni
+  const pw = el("div", "pagew", null, scr); const tall = el("img", "tall", null, pw); tall.src = SHOTS["c-tall"]; tall.style.height = TALL + "px";
+  const nav = el("div", "navs", `<img src="${SHOTS["c-nav-bollicine"]}">`, scr);
+  const SCROLL = TALL - 731 + 0;
+  // il calice che si riempie mentre si scorre
+  const gl = el("div", "glass", `<svg viewBox="0 0 120 250"><defs><clipPath id="bowl"><path d="M22 12H98C98 78 84 118 60 128 36 118 22 78 22 12Z"/></clipPath>
+      <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b3294d"/><stop offset="1" stop-color="#5a0f26"/></linearGradient></defs>
+      <g clip-path="url(#bowl)"><rect class="wine" x="0" y="12" width="120" height="120" fill="url(#wg)"/></g>
+      <path class="gline" d="M22 12H98C98 78 84 118 60 128 36 118 22 78 22 12Z"/><path class="gline" d="M60 128V214M32 224C46 214 74 214 88 224"/>
+      <path class="shine" d="M32 24C33 56 40 84 50 100"/></svg>
+      <div class="gl1">sfoglia</div>`, s);
+  gl.style.left = "790px"; gl.style.top = "560px";
+  const wine = gl.querySelector(".wine");
+  gsap.set(wine, { transformOrigin: "50% 100%" });
+  const sparks = [[-34, -20], [128, -6], [10, -60], [100, -56]].map(([x, y]) => { const e = el("i", "spark", starSvg, gl); e.style.left = 30 + x + "px"; e.style.top = 30 + y + "px"; return e; });
+  M.fromTo(gl, { autoAlpha: 0, y: 40, scale: 0.8 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.8, ease: "back.out(1.6)" }, T + 2.0);
+  M.fromTo(wine, { scaleY: 0.03 }, { scaleY: 1, duration: 4.4, ease: "sine.inOut" }, T + 2.4);
+  M.fromTo(tall, { y: 0 }, { y: -SCROLL, duration: 4.4, ease: "sine.inOut" }, T + 2.4);
+  M.fromTo(sparks, { autoAlpha: 0, scale: 0.2, rotation: -40 }, { autoAlpha: 1, scale: 1, rotation: 0, duration: 0.5, ease: "back.out(2.4)", stagger: 0.1 }, T + 6.9);
+  M.fromTo(sparks, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.5 }, T + 8.6);
+  M.fromTo(gl, { autoAlpha: 1 }, { autoAlpha: 0, x: 40, duration: 0.5 }, T + 9.2);
+  phoneIn(P, T + 1.45, 1.0, 1200);
+  cap(s, T + 2.3, T + 6.8, "SFOGLIARE", "Un menù che *si sfoglia* con piacere", 1580);
+  // ricerca (ridisegnata): scrive, trova, filtra
+  const ROWS_S = BX["c-search-rows"], PRICE = { "Castello di Meleto": [7, 35], Avignonesi: [5, 25], "Castello del Trebbio": [7, 35], Mastrojanni: [8, 40], "One Belvedere": [5, 25], "Tenuta Fertuna": [6, 30] };
+  const so = el("div", "sov", `<div class="sin"><div class="sbox"><span class="stype"></span></div><b>CHIUDI</b></div>
+    <div class="schips"><i>AL CALICE</i><i>ENOMATIC</i><i class="bio">BIO</i><i>BIODINAMICO</i></div>
+    <div class="sres"><div class="sempty">Scrivi il nome di un vino, un vitigno, una zona o un ingrediente.</div><div class="scount">6 RISULTATI</div><ul></ul></div>`, scr);
+  const ul = so.querySelector("ul");
+  const rws = ROWS_S.map((r) => { const nm = r[0], pr = PRICE[nm] || [7, 35]; const bio = r.some((x) => /Biologico/.test(x));
+    const li = el("li", bio ? "bio" : "", `<div><b>${nm}</b><span>${r[1]}</span>${r.length > 3 ? `<span class="tr">${r[2]}</span>` : ""}<small>${r[r.length - 1].toUpperCase()}</small></div><em>Calice ${pr[0]} · Bott. ${pr[1]}</em>`, ul); return li; });
+  const sty = so.querySelector(".stype"), sempty = so.querySelector(".sempty"), scount = so.querySelector(".scount"), bioChip = so.querySelector(".bio");
+  const pSearch = [379, 39];
+  const cur = cursor(P.ph);
+  curStart(cur, pSearch[0] - 40, pSearch[1] + 500, pSearch[0] - 10, pSearch[1] + 90, T + 6.4, 0.9);
+  curMove(cur, pSearch[0], pSearch[1], T + 6.9, 0.45);
+  tap(cur, T + 7.4);
+  M.fromTo(so, { autoAlpha: 0, y: -20 }, { autoAlpha: 1, y: 0, duration: 0.45, ease: "power3.out" }, T + 7.6);
+  M.fromTo(sempty, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.2 }, T + 8.4);
+  M.fromTo(scount, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T + 7.6);
+  M.fromTo(scount, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, T + 9.6);
+  typeInto(sty, "sangiovese", T + 8.0, 1.0);
+  M.fromTo(rws, { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: "power3.out", stagger: 0.09 }, T + 9.2);
+  cap(s, T + 6.8, T + 12.0, "CERCARE", "Un vino, un vitigno, *una zona*", 1580);
+  // filtro «Bio»
+  const bio = BX["c-search-chips"].find((c) => c.t === "Bio");
+  curMove(cur, bio.x + bio.w / 2 + 15, bio.y + bio.h / 2 + 15, T + 10.2, 0.55);
+  tap(cur, T + 10.9); press(bioChip, T + 10.9);
+  M.fromTo(bioChip, { backgroundColor: "rgba(107,16,32,0)", color: "#5b605a" }, { backgroundColor: "#6b1020", color: "#f4eee3", duration: 0.2 }, T + 10.95);
+  const keep = rws.filter((r) => r.classList.contains("bio")), drop = rws.filter((r) => !r.classList.contains("bio"));
+  M.fromTo(drop, { autoAlpha: 1, height: "auto" }, { autoAlpha: 0, height: 0, paddingTop: 0, paddingBottom: 0, borderTopWidth: 0, duration: 0.5, ease: "power3.inOut", stagger: 0.05 }, T + 11.15);
+  M.fromTo(keep, { backgroundColor: "rgba(201,169,110,0)" }, { backgroundColor: "rgba(201,169,110,0.35)", duration: 0.3, yoyo: true, repeat: 1 }, T + 11.5);
+  // abbinamento: dal piatto al vino
+  M.fromTo(so, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3 }, T + 12.1);
+  const pb = el("img", "full", null, scr); pb.src = SHOTS["c-pair-before"];
+  const pa = el("img", "full", null, scr); pa.src = SHOTS["c-pair-after"];
+  M.fromTo(pb, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, T + 12.1);
+  M.fromTo(pa, { autoAlpha: 0, y: 700 }, { autoAlpha: 0, y: 700, duration: 0.001 }, T + 12.0);
+  M.fromTo(pa, { autoAlpha: 0, y: 700 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: "power3.inOut" }, T + 14.6);
+  M.fromTo(pb, { y: 0 }, { y: -700, duration: 0.8, ease: "power3.inOut" }, T + 14.6);
+  const pt = BX["c-pair-tile"], ptc = [pt.x + pt.w / 2 + 15, pt.y + pt.h / 2 + 15];
+  M.fromTo(cur, { autoAlpha: 1 }, { autoAlpha: 1, duration: 0.001 }, T + 12.0);
+  curMove(cur, ptc[0], ptc[1], T + 12.9, 0.6);
+  callout(s, "Abbinamento consigliato", P.X + ptc[0] * k, P.Y + (ptc[1] - 40) * k, T + 13.0, T + 14.5);
+  tap(cur, T + 14.1);
+  curEnd(cur, T + 15.2, 0.3);
+  cap(s, T + 12.0, T + 17.3, "ABBINARE", "Dal piatto al *vino giusto*", 1580);
+}
+
+// ═════════════════════════ 7 · ORARI, CONTATTI E RECENSIONI ═════════════════════════
+{
+  const i = idx("contatti"), T = starts[i], s = chapter(i), mk = 0.78;
+  const Mc = mac(s, (W - 1328 * mk) / 2, 470, mk);
+  const base = Mc.layer("m-orari");
+  const dlgL = Mc.layer("m-contatti");
+  M.fromTo(dlgL, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T);
+  const mod = BX["m-mod-contatti"], modBtn = { x: mod.x + mod.w - 120, y: mod.y + 24, w: 104, h: 42 };
+  M.fromTo(Mc.root, { autoAlpha: 0, y: 700, rotation: -3 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 1.0, ease: "expo.out" }, T + 1.5);
+  Mc.zoom({ x: 40, y: 600, w: 700, h: 180 }, T + 2.4, 1.0, 1.8);
+  cap(s, T + 2.3, T + 6.6, "UNA VOLTA SOLA", "Imposti *orari e contatti*", 1370);
+  const cur = Mc.cursor(); const mc = ctr(modBtn);
+  Mc.zoom({ x: 600, y: 640, w: 680, h: 160 }, T + 3.7, 0.9, 1.8);
+  curStart(cur, mc[0] - 260, mc[1] - 160, mc[0] - 50, mc[1] - 40, T + 3.6, 0.8);
+  curMove(cur, mc[0], mc[1], T + 4.3, 0.45);
+  Mc.ring(modBtn, T + 4.2, T + 5.0, 6);
+  tap(cur, T + 4.8);
+  curEnd(cur, T + 5.1, 0.2);
+  M.fromTo(dlgL, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, T + 5.1);
+  Mc.zoom({ x: 210, y: 0, w: 860, h: 800 }, T + 5.4, 0.9, 1.12);
+  // il telefono del cliente con i pulsanti in fondo
+  M.fromTo(Mc.root, { autoAlpha: 1, x: 0 }, { autoAlpha: 0, x: -260, duration: 0.5, ease: "power3.in" }, T + 6.7);
+  const k = 1.5, P = phone(s, (W - 420 * k) / 2, 235, k, "cust");
+  const f = el("img", "full", null, P.scr); f.src = SHOTS["c-footer"];
+  M.fromTo(P.ph, { autoAlpha: 0, y: 1000, rotation: 3 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 1.0, ease: "expo.out" }, T + 6.9);
+  cap(s, T + 6.8, T + 10.4, "I CLIENTI", "Chiamano, scrivono, *arrivano*", 1580);
+  const FB = BX["c-footer"]; const F = (n) => FB.find((b) => b.t === n);
+  const ringF = (b, t0, t1) => { const r = el("div", "fring", null, P.scr); Object.assign(r.style, { left: b.x - 5 + "px", top: b.y - 5 + "px", width: b.w + 10 + "px", height: b.h + 10 + "px" });
+    M.fromTo(r, { autoAlpha: 0, scale: 1.15 }, { autoAlpha: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, t0); M.fromTo(r, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.25 }, t1); };
+  [["Chiama", 8.0], ["WhatsApp", 8.6], ["Come arrivare", 9.2]].forEach(([n, t]) => ringF(F(n), T + t, T + t + 0.8));
+  // recensione: tocco e stelle
+  const rv = F("Lascia una recensione");
+  const cur2 = cursor(P.ph); const rc = [rv.x + rv.w / 2 + 15, rv.y + rv.h / 2 + 15];
+  curStart(cur2, rc[0] + 80, rc[1] + 300, rc[0] + 40, rc[1] + 80, T + 9.4, 0.7);
+  curMove(cur2, rc[0], rc[1], T + 10.0, 0.4);
+  ringF(rv, T + 10.1, T + 11.2);
+  tap(cur2, T + 10.5); curEnd(cur2, T + 10.9, 0.2);
+  const rev = el("div", "revw", `<div class="stars">${[0, 1, 2, 3, 4].map(() => `<i>${starSvg}</i>`).join("")}</div><b>Lascia una recensione</b><span>Un minuto: aiuta chi ancora non vi conosce</span>`, s);
+  M.fromTo(rev, { autoAlpha: 0, scale: 0.8, y: 60 }, { autoAlpha: 1, scale: 1, y: 0, duration: 0.6, ease: "expo.out" }, T + 10.9);
+  const sts = rev.querySelectorAll("i");
+  M.fromTo(sts, { scale: 0, rotation: -60 }, { scale: 1, rotation: 0, duration: 0.5, ease: "back.out(2.6)", stagger: 0.14 }, T + 11.2);
+  M.fromTo(sts, { color: "#4a3a2a" }, { color: "#ffc94a", duration: 0.3, stagger: 0.14 }, T + 11.25);
+  cap(s, T + 10.4, T + 13.3, "RECENSIONI", "E lasciano una *recensione*", 1580);
+}
+
+// ═════════════════════════ 10 · DAL COMPUTER ═════════════════════════
+{
+  const i = idx("mac"), T = starts[i], s = chapter(i), mk = 0.78;
+  const Mc = mac(s, (W - 1328 * mk) / 2, 470, mk);
+  const L0 = Mc.layer("m-strumenti"), Lp0 = Mc.layer("m-prices-0"), Lp1 = Mc.layer("m-prices-1"), Lpv = Mc.layer("m-preview"), Lst = Mc.layer("m-stampa");
+  [Lp0, Lp1, Lpv, Lst].forEach((l) => M.fromTo(l, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T));
+  M.fromTo(Mc.root, { autoAlpha: 0, y: 800, rotation: 3 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 1.0, ease: "expo.out" }, T + 1.5);
+  const cur = Mc.cursor();
+  const tp = BX["m-tool-prices"], tc = ctr(tp);
+  // prezzi
+  cap(s, T + 2.3, T + 8.4, "PREZZI", "Cambi *tanti prezzi* insieme", 1370);
+  Mc.zoom({ x: 8, y: tp.y - 20, w: 700, h: 190 }, T + 2.5, 0.9, 1.5);
+  curStart(cur, tc[0] + 300, tc[1] + 250, tc[0] + 90, tc[1] + 60, T + 2.9, 0.8);
+  curMove(cur, tc[0], tc[1], T + 3.6, 0.4);
+  Mc.ring(tp, T + 3.5, T + 4.5, 6);
+  tap(cur, T + 4.1);
+  M.fromTo(Lp0, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, T + 4.4);
+  Mc.zoom({ x: 600, y: 380, w: 660, h: 250 }, T + 4.6, 0.9, 1.8);
+  const cell = BX["m-prices-cell"], cc = ctr(cell);
+  curMove(cur, cc[0], cc[1], T + 5.2, 0.5);
+  tap(cur, T + 5.8);
+  const ov = el("div", "cellov", "<span></span>", Mc.cam); Object.assign(ov.style, { left: cell.x + "px", top: cell.y + "px", width: cell.w + "px", height: cell.h + "px" });
+  M.fromTo(ov, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 }, T + 5.9);
+  typeInto(ov.firstChild, "11", T + 6.0, 0.35);
+  M.fromTo(Lp1, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.2 }, T + 6.5);
+  M.fromTo(ov, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.1 }, T + 6.6);
+  const sv = BX["m-prices-save"], sc = ctr(sv);
+  Mc.zoom({ x: 700, y: 640, w: 580, h: 160 }, T + 6.5, 0.8, 1.8);
+  curMove(cur, sc[0], sc[1], T + 7.0, 0.5);
+  Mc.ring(sv, T + 7.3, T + 8.4, 6);
+  tap(cur, T + 7.8);
+  curEnd(cur, T + 8.2, 0.2);
+  // anteprima
+  M.fromTo(Lpv, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, T + 8.5);
+  Mc.reset(T + 8.4, 0.8);
+  cap(s, T + 8.4, T + 11.3, "ANTEPRIMA", "Il menù *come lo vede il cliente*", 1370);
+  Mc.zoom({ x: 340, y: 60, w: 600, h: 680 }, T + 9.4, 1.0, 1.18);
+  // stampa
+  M.fromTo(Lst, { autoAlpha: 1, y: 800 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: "power3.inOut" }, T + 11.3);
+  Mc.reset(T + 11.2, 0.6);
+  cap(s, T + 11.3, T + 14.2, "STAMPA", "Un foglio A4 sempre *aggiornato*", 1370);
+  const sb = BX["m-stampa-btn"] || { x: 1060, y: 14, w: 130, h: 40 }, sbc = ctr(sb);
+  Mc.zoom({ x: 700, y: 0, w: 580, h: 240 }, T + 12.2, 0.9, 1.9);
+  const cur3 = Mc.cursor(); curStart(cur3, sbc[0] - 200, sbc[1] + 200, sbc[0] - 30, sbc[1] + 50, T + 12.6, 0.6);
+  curMove(cur3, sbc[0], sbc[1], T + 13.1, 0.4); Mc.ring(sb, T + 13.0, T + 14.0, 6); tap(cur3, T + 13.6); curEnd(cur3, T + 14.0, 0.2);
+}
+
+// ═════════════════════════ 12 · LE STATISTICHE (computer, tema scuro) ═════════════════════════
+{
+  const i = idx("stats"), T = starts[i], s = chapter(i), mk = 0.78;
+  const Mc = mac(s, (W - 1328 * mk) / 2, 470, mk);
+  const L0 = Mc.layer("m-stats"), LS = Mc.layer("m-stats-s"), LW = Mc.layer("m-stats-week"), LD = Mc.layer("m-stats-days"), LY = Mc.layer("m-stats-day"), G1 = Mc.layer("m-stats-g1"), G2 = Mc.layer("m-stats-g2");
+  [LS, LW, LD, LY, G1, G2].forEach((l) => M.fromTo(l, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T));
+  const show = (l, t, d = 0.35) => M.fromTo(l, { autoAlpha: 0 }, { autoAlpha: 1, duration: d }, t);
+  M.fromTo(Mc.root, { autoAlpha: 0, y: 800, rotation: 3 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 1.0, ease: "expo.out" }, T + 1.4);
+  const cur = Mc.cursor();
+  // 1) oggi, sempre in vista
+  const today = BX["m-stats-today"];
+  cap(s, T + 2.3, T + 5.7, "OGGI", "Le aperture di *oggi*, sempre in vista", 1370);
+  Mc.zoom({ x: 40, y: 430, w: 700, h: 210 }, T + 2.5, 1.0, 1.8);
+  Mc.ring(today, T + 3.4, T + 5.2, 6);
+  // 2) un periodo: scorciatoia «Settimana scorsa» (la pagina scorre un po')
+  const sw = BX["m-stats-sc-week"], swc = ctr(sw);
+  M.fromTo(LS, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, T + 5.4);
+  Mc.zoom({ x: 280, y: 440, w: 700, h: 200 }, T + 5.5, 0.9, 1.8);
+  curStart(cur, swc[0] + 240, swc[1] + 160, swc[0] + 40, swc[1] + 40, T + 5.9, 0.8);
+  curMove(cur, swc[0], swc[1], T + 6.5, 0.4);
+  Mc.ring(sw, T + 6.5, T + 7.6, 6);
+  tap(cur, T + 7.0);
+  show(LW, T + 7.15);
+  cap(s, T + 5.7, T + 9.6, "OGNI PERIODO", "Una *settimana*, un mese, i giorni che vuoi", 1370);
+  Mc.zoom({ x: 40, y: 150, w: 700, h: 560 }, T + 7.6, 1.0, 1.4);
+  Mc.ring(BX["m-stats-kpi1w"], T + 8.5, T + 9.4, 6);
+  // 3) giorno per giorno
+  show(LD, T + 9.7, 0.4);
+  const ex = BX["m-stats-excel"], dr = BX["m-stats-dd-row"], drc = ctr(dr), exc = ctr(ex);
+  Mc.reset(T + 9.5, 0.6);
+  Mc.zoom({ x: 64, y: 200, w: 1152, h: 520 }, T + 10.0, 1.0, 1.1);
+  cap(s, T + 9.6, T + 13.6, "GIORNO PER GIORNO", "Tocca un *giorno* e vedi il suo numero", 1370);
+  curMove(cur, drc[0], drc[1], T + 10.3, 0.7);
+  Mc.ring(dr, T + 10.9, T + 12.3, 4);
+  tap(cur, T + 11.6);
+  show(LY, T + 11.85);
+  Mc.zoom({ x: 40, y: 150, w: 700, h: 560 }, T + 12.3, 1.0, 1.4);
+  Mc.ring(BX["m-stats-kpi1d"], T + 13.0, T + 13.7, 6);
+  // 4) e le statistiche si possono scaricare
+  cap(s, T + 13.6, T + 17.2, "PER TE", "I numeri restano tuoi: *scarichi* tutto per Excel", 1370);
+  M.fromTo(LY, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3 }, T + 13.7);
+  Mc.zoom({ x: 640, y: 220, w: 640, h: 200 }, T + 13.9, 0.9, 1.8);
+  curMove(cur, exc[0], exc[1], T + 14.3, 0.6);
+  Mc.ring(ex, T + 14.7, T + 16.7, 6);
+  tap(cur, T + 15.3);
+  curEnd(cur, T + 15.8, 0.3);
+  // 5) e ancora: quando guardano il menù, cosa cercano
+  show(G1, T + 17.3, 0.4);
+  Mc.reset(T + 17.0, 0.5);
+  cap(s, T + 17.2, T + 20.4, "QUANDO", "I giorni e le *ore più forti*", 1370);
+  Mc.zoom(BX["m-stats-card-giorni-e-orari"], T + 17.7, 1.0, 1.08);
+  show(G2, T + 20.5, 0.4);
+  Mc.reset(T + 20.3, 0.5);
+  cap(s, T + 20.4, T + 23.7, "COSA CERCANO", "Le parole cercate, e *quelle non trovate*", 1370);
+  const nf = BX["m-stats-card-cercate-ma-non-trovate"];
+  Mc.zoom({ x: 64, y: 313, w: 1152, h: 522 }, T + 20.9, 1.0, 1.1);
+  Mc.ring(nf, T + 21.7, T + 23.4, 6);
 }
 
 // ═════════════════════════ OUTRO ═════════════════════════

@@ -8,8 +8,10 @@ import { WORK } from "./work.mjs";
 const OUT = `${WORK}/video`;
 mkdirSync(OUT, { recursive: true });
 // l = finestra del browser sul computer (alta, così nel video si legge); lw = portatile in orizzontale (solo per l'introduzione)
-const SIZE = { p: [390, 780], t: [768, 1024], l: [1100, 1180], lw: [1280, 800], c: [390, 780] };
-const DSF = { p: 3, t: 2.5, l: 2, lw: 2, c: 3 };
+const SIZE = { p: [390, 780], t: [768, 1024], l: [1100, 1180], lw: [1280, 800], c: [390, 780], m: [800, 500] };
+// tema di ogni dispositivo: computer e tablet scuri (come si usano davvero), telefoni chiari
+const THEME = { p: "light", t: "dark", l: "dark", lw: "dark", c: "light", m: "dark" };
+const DSF = { p: 3, t: 2.5, l: 2, lw: 2, c: 3, m: 3.2 };
 const browser = await launch();
 // ONLY=p,t,l,lw rifotografa solo quei dispositivi (tiene il resto di video-data.json)
 const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
@@ -18,18 +20,18 @@ const prev = ONLY && existsSync(`${OUT}/video-data.json`) ? JSON.parse(readFileS
 const data = { size: SIZE, shots: { ...(prev?.shots ?? {}) }, boxes: { ...(prev?.boxes ?? {}) } };
 
 // Una «sessione» è un dispositivo: contesto, pagina e le funzioni per fotografare.
-async function session(kind, { admin = true } = {}) {
+async function session(kind, { admin = true, theme = THEME[kind] } = {}) {
   const [w, h] = SIZE[kind];
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: DSF[kind], locale: "it-IT", timezoneId: "Europe/Rome", hasTouch: kind === "p" || kind === "t" || kind === "c", isMobile: kind === "p" || kind === "c" });
   await ctx.clock.setFixedTime(new Date("2026-10-04T19:30:00+02:00"));
-  await ctx.addInitScript(() => {
-    try { localStorage.setItem("install-banner-dismissed", "1"); localStorage.setItem("theme", "light"); localStorage.setItem("menu-staff-device", "1"); } catch {}
+  await ctx.addInitScript((th) => {
+    try { localStorage.setItem("install-banner-dismissed", "1"); localStorage.setItem("theme", th); localStorage.setItem("menu-staff-device", "1"); } catch {}
     document.addEventListener("DOMContentLoaded", () => {
       const st = document.createElement("style");
       st.textContent = "nextjs-portal{display:none!important} a[href=\"/gestione-menu/servizio\"]{display:none!important} html{scroll-behavior:auto!important}";
       document.head.appendChild(st);
     });
-  });
+  }, theme);
   const page = await ctx.newPage();
   page.setDefaultTimeout(60000);
   const settle = (ms = 700) => page.waitForTimeout(ms);
@@ -48,7 +50,8 @@ async function session(kind, { admin = true } = {}) {
     },
     box: async (name, locator) => {
       const b = await locator.first().boundingBox();
-      data.boxes[`${kind}-${name}`] = { x: b.x, y: b.y, w: b.width, h: b.height };
+      const f = kind === "m" ? 1.6 : 1; // il Mac è fotografato a 800×500 e mostrato su uno schermo 1280×800
+      data.boxes[`${kind}-${name}`] = { x: b.x * f, y: b.y * f, w: b.width * f, h: b.height * f };
     },
     tabs: () => page.getByRole("tablist", { name: "Parti della gestione" }).getByRole("tab"),
   };
@@ -244,6 +247,184 @@ if (run("c")) {
   await s.settle(900);
   await s.shot("evidenza");
   await s.page.context().close();
+}
+
+
+// ---- Menù dei clienti: cose che si possono fare (ricerca con filtri, abbinamento, scorrere, pagina evento, contatti)
+if (run("c2")) {
+  const s = await session("c", { admin: false });
+  const P = s.page;
+  const hide = () => P.addStyleTag({ content: 'button[aria-label="Torna su"]{display:none!important}' });
+  await P.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 180000 });
+  await hide(); await s.settle(1400);
+  // scorrere: una lunga immagine della sezione Bollicine (+ l'inizio dei Bianchi) e le barre con la sezione attiva
+  const ys = await P.evaluate(() => Object.fromEntries(["bollicine", "bianchi", "rossi"].map((id) => [id, Math.round(document.getElementById(id).getBoundingClientRect().top + scrollY)])));
+  data.boxes["c-sec-y"] = ys;
+  for (const id of ["bollicine", "bianchi"]) {
+    await P.evaluate((y) => window.scrollTo(0, y - 49), ys[id]);
+    await s.settle(900);
+    await s.shot(`nav-${id}`);
+  }
+  await P.evaluate((v) => window.scrollTo(0, v), 0); await s.settle(500);
+  const H = 3300;
+  await P.screenshot({ path: `${OUT}/c-tall.png`, fullPage: true, clip: { x: 0, y: ys.bollicine - 24, width: 390, height: H } });
+  data.shots["c-tall"] = "c-tall.png"; data.boxes["c-tall"] = { y0: ys.bollicine - 24, h: H };
+  // ricerca
+  await P.evaluate(() => window.scrollTo(0, 0)); await s.settle(400);
+  await P.evaluate((v) => window.scrollTo(0, v), ys.bollicine - 49); await s.settle(600);
+  await P.getByRole("button", { name: "Cerca nel menù" }).click(); await s.settle(900);
+  await s.shot("search-0");
+  const inp = P.getByRole("searchbox", { name: "Cerca nel menù" });
+  await s.box("search-input", inp);
+  await inp.fill("sangiovese"); await s.settle(900);
+  await s.shot("search-1");
+  data.boxes["c-search-rows"] = await P.evaluate(() => [...document.querySelectorAll('[role="dialog"] li button')].slice(0, 6).map((b) => [...b.querySelectorAll("span span")].map((x) => x.textContent.trim()).filter(Boolean)));
+  data.boxes["c-search-chips"] = await P.evaluate(() => [...document.querySelectorAll('[role="dialog"] button[aria-pressed]')].map((b) => { const r = b.getBoundingClientRect(); return { t: b.textContent.trim(), x: r.x, y: r.y, w: r.width, h: r.height }; }));
+  await P.getByRole("button", { name: "Al calice" }).click(); await s.settle(800);
+  await s.shot("search-2");
+  data.boxes["c-search-rows2"] = await P.evaluate(() => [...document.querySelectorAll('[role="dialog"] li button')].slice(0, 6).map((b) => [...b.querySelectorAll("span span")].map((x) => x.textContent.trim()).filter(Boolean)));
+  await P.keyboard.press("Escape").catch(() => {});
+  // abbinamento: dal piatto al vino
+  await P.goto(`${BASE}/menu`, { waitUntil: "networkidle" }); await hide(); await s.settle(1200);
+  const pair = P.locator("a[data-pair-from]").first();
+  await pair.evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 520));
+  await s.settle(800);
+  await s.shot("pair-before");
+  await s.box("pair-tile", pair);
+  data.boxes["c-pair-text"] = await pair.innerText();
+  await pair.click(); await P.waitForTimeout(250);
+  await s.shot("pair-after");
+  // pagina di un evento: «Prenota», calendario, condividi
+  await P.goto(`${BASE}/menu/p/oktoberfest`, { waitUntil: "networkidle" }); await hide(); await s.settle(1300);
+  await s.shot("ev-top");
+  const book = P.getByRole("link", { name: "Prenota", exact: true });
+  data.boxes["c-wa-text"] = decodeURIComponent((await book.getAttribute("href")) || "");
+  await book.evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 420));
+  await s.settle(900);
+  await s.shot("ev-actions");
+  await s.box("ev-book", book);
+  await s.box("ev-cal", P.getByRole("link", { name: "Aggiungi al calendario" }));
+  await s.box("ev-share", P.getByRole("button", { name: "Condividi", exact: true }));
+  // piè di pagina: orari e contatti
+  await P.goto(`${BASE}/menu`, { waitUntil: "networkidle" }); await hide(); await s.settle(1200);
+  await P.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await s.settle(1000);
+  await s.shot("footer");
+  data.boxes["c-footer"] = await P.evaluate(() => [...document.querySelectorAll('section[aria-label="Orari e contatti"] a')].map((a) => { const r = a.getBoundingClientRect(); return { t: a.textContent.trim(), x: r.x, y: r.y, w: r.width, h: r.height }; }));
+  await P.context().close();
+}
+
+// ---- Dal Mac (1280×800): strumenti, tabella prezzi, anteprima, stampa, statistiche, orari e contatti
+if (run("m")) {
+  const s = await session("m");
+  const P = s.page;
+  const tabs = s.tabs();
+  await s.top();
+  await tabs.nth(2).click(); await s.top(); await s.settle(800);
+  await s.shot("orari");
+  data.boxes["m-orari-h"] = await P.evaluate(() => document.documentElement.scrollHeight);
+  const mods = P.getByRole("button", { name: /^Modifica/ });
+  data.boxes["m-orari-nmod"] = await mods.count();
+  for (const [k, i] of [["orari-dlg", 1], ["contatti", 2]]) {
+    await s.box(`mod-${k}`, mods.nth(i));
+    await mods.nth(i).click(); await s.dlg().waitFor(); await s.settle(900);
+    await s.shot(k);
+    await s.closeSheet();
+  }
+  await P.evaluate(() => window.scrollTo(0, 460)); await s.settle(600); await s.shot("orari-2");
+  await P.evaluate(() => window.scrollTo(0, 1000)); await s.settle(600); await s.shot("orari-3");
+  await goTab(P, "Strumenti"); await s.top(); await s.settle(600);
+  await s.shot("strumenti");
+  for (const t of ["prices", "preview", "qr", "storico", "stampa"]) {
+    const label = { prices: "Tabella prezzi", preview: "Anteprima", qr: "Codice QR", storico: "Storico", stampa: "Menù da stampare" }[t];
+    try { await s.box(`tool-${t}`, P.getByRole("list", { name: "Strumenti del menù" }).getByRole("button", { name: new RegExp(`^${label}`) })); } catch {}
+  }
+  await tool(P, "Riordina"); await s.dlg().waitFor();
+  await s.dlg().getByRole("tab", { name: "Eventi e annunci" }).click(); await s.settle(700);
+  await s.box("reorder-dlg", s.dlg());
+  await s.shot("reorder-1");
+  const down = s.dlg().getByRole("button", { name: /^Sposta giù/ });
+  await s.box("reorder-down", down.first());
+  await down.first().click(); await s.settle(600);
+  await s.shot("reorder-2");
+  await s.box("reorder-save", s.dlg().getByRole("button", { name: "Salva ordine" }));
+  await s.closeSheet();
+  await goTab(P, "Strumenti"); await s.top();
+  await tool(P, "Tabella prezzi"); await s.dlg().waitFor(); await s.settle(900);
+  await s.dlg().getByRole("button", { name: "Bollicine" }).click(); await s.settle(600);
+  await s.shot("prices-0");
+  const cells = s.dlg().locator("input");
+  const n = await cells.count(); data.boxes["m-prices-cells"] = n;
+  await s.box("prices-cell", cells.nth(0));
+  await cells.nth(0).fill("11"); await cells.nth(1).fill("55"); await s.settle(500);
+  await s.shot("prices-1");
+  await s.box("prices-save", s.dlg().getByRole("button", { name: "Salva tutto" }));
+  await s.closeSheet();
+  await goTab(P, "Strumenti"); await s.top();
+  await tool(P, "Anteprima"); await s.dlg().waitFor(); await s.settle(2500);
+  await s.shot("preview");
+  await s.closeSheet();
+  // pagine intere
+  await P.goto(`${BASE}/gestione-menu/stampa`, { waitUntil: "networkidle", timeout: 120000 }); await s.settle(1500);
+  await s.shot("stampa");
+  await s.box("stampa-btn", P.getByRole("button", { name: /Stampa o salva/ }).or(P.getByRole("link", { name: /Stampa o salva/ })));
+  await P.context().close();
+}
+
+// ---- Statistiche dal Mac (scuro): oggi, scorciatoie, giorno per giorno, poi i quattro gruppi
+if (run("ms")) {
+  const s = await session("m");
+  const P = s.page;
+  const nav = (name) => P.getByRole("navigation", { name });
+  const pill = (name) => nav("Tipi di statistiche").getByRole("link", { name: new RegExp(name) });
+  const card = (t) => P.getByRole("heading", { name: t, exact: true }).first().locator("xpath=ancestor::section[1]");
+  const open = async (url) => { await P.goto(`${BASE}${url}`, { waitUntil: "networkidle", timeout: 120000 }); await s.settle(2200); };
+  await open("/statistiche");
+  await s.shot("stats");
+  await s.box("stats-today", P.getByRole("region", { name: "Aperture di oggi" }));
+  for (const [i, g] of ["Panoramica", "Quando", "Cosa cercano", "Cosa guardano", "Eventi e contatti"].entries()) await s.box(`stats-pill-${i}`, pill(g));
+  // un po' più giù: scorciatoie in vista
+  await P.evaluate(() => window.scrollTo(0, 190)); await s.settle(700);
+  await s.shot("stats-s");
+  await s.box("stats-shortcuts", nav("Scorciatoie"));
+  await s.box("stats-sc-week", nav("Scorciatoie").getByRole("link", { name: "Settimana scorsa" }));
+  await s.box("stats-today-s", P.getByRole("region", { name: "Aperture di oggi" }));
+  await P.evaluate(() => window.scrollTo(0, 0)); await s.settle(500);
+  const kpi = P.getByText("Aperture del menù", { exact: true }).locator("xpath=..");
+  await s.box("stats-kpi1", kpi);
+  await s.box("stats-kpis", kpi.locator("xpath=.."));
+  await s.box("stats-card-andamento", card("Andamento settimana per settimana"));
+  for (const [i, g] of ["Quando", "Cosa cercano", "Cosa guardano", "Eventi e contatti"].entries()) {
+    await pill(g).first().click(); await s.settle(1300);
+    await s.shot(`stats-g${i + 1}`);
+    if (i === 0) for (const [j, g2] of ["Panoramica", "Quando", "Cosa cercano", "Cosa guardano", "Eventi e contatti"].entries()) await s.box(`stats-pillS-${j}`, pill(g2));
+    for (const t of [["Giorni e orari"], ["Cercate ma non trovate", "Le parole più cercate"], ["Sezioni più aperte"], ["Contatti toccati", "Pagine degli eventi aperte"]][i]) {
+      try { await s.box(`stats-card-${t.toLowerCase().replace(/[^a-z]+/g, "-")}`, card(t)); } catch {}
+    }
+  }
+  // una settimana scelta con la scorciatoia
+  await open("/statistiche");
+  await nav("Scorciatoie").getByRole("link", { name: "Settimana scorsa" }).click();
+  await P.waitForURL(/dal=/); await s.settle(2200);
+  await P.evaluate(() => window.scrollTo(0, 480)); await s.settle(700);
+  await s.shot("stats-week");
+  await s.box("stats-note", P.getByText(/^Periodo: dal/));
+  await s.box("stats-kpi1w", P.getByText("Aperture del menù", { exact: true }).locator("xpath=.."));
+  // giorno per giorno
+  const dd = card("Giorno per giorno");
+  await dd.evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 130)); await s.settle(900);
+  await s.shot("stats-days");
+  await s.box("stats-dd", dd);
+  await s.box("stats-dd-sum", dd.locator("p").nth(1));
+  await s.box("stats-excel", dd.getByRole("link", { name: "Scarica per Excel" }));
+  const rows = dd.locator("ol li a");
+  await s.box("stats-dd-row", rows.nth(2));
+  data.boxes["m-stats-dd-label"] = (await rows.nth(2).innerText()).replace(/\s+/g, " ");
+  await rows.nth(2).click(); await P.waitForURL(/dal=.*al=/); await s.settle(2200);
+  await P.evaluate(() => window.scrollTo(0, 480)); await s.settle(700);
+  await s.shot("stats-day");
+  await s.box("stats-note2", P.getByText(/^Giorno:/));
+  await s.box("stats-kpi1d", P.getByText("Aperture del menù", { exact: true }).locator("xpath=.."));
+  await P.context().close();
 }
 
 writeFileSync(`${OUT}/video-data.json`, JSON.stringify(data, null, 1));

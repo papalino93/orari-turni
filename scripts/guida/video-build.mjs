@@ -16,7 +16,7 @@ const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.ur
 const rd = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
 const gsap = rd("./vendor/gsap.min.js"), draw = rd("./vendor/DrawSVGPlugin.min.js");
 const css = rd("./video.css"), scenes = rd("./video-scenes.js");
-const CFG = { VERSION: pkg.version, SHOTS: data.shots, ROW: data.boxes["c-row"] };
+const CFG = { VERSION: pkg.version, SHOTS: data.shots, ROW: data.boxes["c-row"], BX: data.boxes };
 
 const html = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Guida animata</title>
 <style>${css}</style></head><body><div id="stage"></div>
