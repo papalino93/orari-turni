@@ -148,7 +148,7 @@ const kn = () => String(++_kn).padStart(2, "0");
 const pos = JSON.parse((await import("node:fs")).readFileSync(`${WORK}/img/mac-gestione.json`, "utf8"));
 const gestionePins = [["top", 1], ["tabs", 2], ["search", 3], ["oggi", 4], ["sezioni", 5], ["addsec", 6], ["voci", 7]]
   .filter(([k]) => pos[k])
-  .map(([k, n]) => `<span class="pin" style="left:${Math.max(2.5, pos[k].x - 2.8).toFixed(1)}%;top:${pos[k].y.toFixed(1)}%">${n}</span>`)
+  .map(([k, n]) => `<span class="pin" style="left:${Math.max(2.5, pos[k].x - (k === "top" || k === "addsec" ? 4.2 : 2.8)).toFixed(1)}%;top:${pos[k].y.toFixed(1)}%">${n}</span>`)
   .join("");
 // Versione e data prese dal progetto: non restano mai indietro.
 const VERSIONE = JSON.parse((await import("node:fs")).readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
@@ -250,10 +250,10 @@ pages.push(`<section class="page paper">${chrome(pg(), "Eventi e annunci")}
   <h2>Ogni serata<br><em>ha la sua pagina</em></h2>
   <p class="lead">Una locandina, un testo, le date e, se serve, l'orario. Sulla pagina il cliente trova «Prenota», «Aggiungi al calendario» e «Condividi». Se la serata ha un menù suo (spunta «Ha un menù dedicato») si compone anche quello.</p></div>
   <div style="display:flex;gap:9mm;margin-top:8mm;justify-content:center;align-items:flex-start">
-    <div style="width:52mm">${phone("pub-evento", 52)}<div class="cap"><span class="nb">1</span><b>Nei giorni dell'evento</b> si apre subito dopo la copertina.</div></div>
-    <div style="width:52mm;margin-top:12mm">${phone("pub-evento-pagina", 52)}<div class="cap"><span class="nb">2</span><b>La pagina dell'evento</b>: data, orario e «Prenota» su WhatsApp.</div></div>
+    <div style="width:47mm">${phone("pub-evento", 47)}<div class="cap"><span class="nb">1</span><b>Nei giorni dell'evento</b> si apre subito dopo la copertina.</div></div>
+    <div style="width:47mm;margin-top:10mm">${phone("pub-evento-pagina", 47)}<div class="cap"><span class="nb">2</span><b>La pagina dell'evento</b>: data, orario e «Prenota» su WhatsApp.</div></div>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;margin-top:auto;margin-bottom:4mm">
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;margin-top:auto;margin-bottom:9mm">
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Date intelligenti</h3><p>Locandina da sette giorni prima, menù speciale nei giorni dell'evento, poi in archivio.</p></div>
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Tutti in vista</h3><p>Da tre eventi il primo è grande e gli altri in fila. Gli annunci hanno una riga loro.</p></div>
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Si ripete</h3><p>«Duplica» copia testo, foto, voci e prezzi: la volta dopo si cambiano solo le date.</p></div>
