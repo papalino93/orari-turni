@@ -102,6 +102,8 @@ export default async function GestioneMenuPage() {
     showFrom: p.showFrom,
     startDate: p.startDate,
     endDate: p.endDate,
+    startTime: p.startTime,
+    endTime: p.endTime,
     hidden: p.hidden,
     imageVersion: p.imageUpdatedAt ? p.imageUpdatedAt.getTime() : null,
     menuMode: p.menuMode === "FILE" ? "FILE" : "ITEMS",

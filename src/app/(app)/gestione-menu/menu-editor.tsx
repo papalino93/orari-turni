@@ -75,6 +75,8 @@ export type EditorPromo = {
   showFrom: string;
   startDate: string;
   endDate: string;
+  startTime: string | null;
+  endTime: string | null;
   hidden: boolean;
   imageVersion: number | null;
   menuMode: "ITEMS" | "FILE";
@@ -164,6 +166,8 @@ export function MenuEditor({
   const [sheet, setSheet] = useState<SheetState>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [pendingOpenId, setPendingOpenId] = useState<string | null>(null);
+  // Copia appena creata con «Duplica»: la sua scheda si apre con l'avviso «Questa è una copia di…».
+  const [copyOf, setCopyOf] = useState<{ id: string; name: string } | null>(null);
   // «Compila ora» dopo aver aggiunto un piatto senza allergeni: la scheda si apre già sugli allergeni.
   const [focusAllergens, setFocusAllergens] = useState<string | null>(null);
   // Stato "esaurito" mostrato subito, in attesa della risposta del server: vale
@@ -599,7 +603,11 @@ export function MenuEditor({
           isLast={itemIndex === -1 || itemIndex === itemSheetGroup.items.length - 1}
           run={run}
           onClose={() => setSheet(null)}
-          onDuplicated={(newId) => setPendingOpenId(newId)}
+          onDuplicated={(newId, sourceName) => {
+            setCopyOf({ id: newId, name: sourceName });
+            setPendingOpenId(newId);
+          }}
+          copyOf={copyOf && copyOf.id === sheet.itemId ? copyOf.name : null}
           focusAllergens={focusAllergens === sheet.itemId}
           onMissingAllergens={(newId, name) =>
             toast.showSuccess(`«${name}» aggiunta · mancano gli allergeni`, {

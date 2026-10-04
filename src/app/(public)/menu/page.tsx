@@ -12,6 +12,7 @@ import { VenueInfo } from "./venue-footer";
 import { MenuNav } from "./menu-nav";
 import type { SearchItem } from "./menu-search";
 import { PromoContent } from "./promo-content";
+import { Annunci } from "./annunci";
 import { PairingBack } from "./pairing";
 import { WineTraits } from "./wine-traits";
 import { Ornament } from "./ornament";
@@ -150,8 +151,10 @@ export default async function MenuPage() {
   const chips = sections.map((s) => ({ id: s.slug, label: s.label }));
   // Evento in corso: si apre da solo a pagina piena subito dopo la copertina.
   // Negli altri casi (annunciato, o un annuncio) resta una scheda in «In evidenza».
+  // Gli annunci vanno in una riga a parte, subito sotto la copertina.
   const liveEvents = promos.filter((p) => p.kind === "EVENT" && promoStatus(p, dayKey) === "live");
-  const stripPromos = promos.filter((p) => !liveEvents.includes(p));
+  const notices = promos.filter((p) => p.kind === "NOTICE");
+  const stripPromos = promos.filter((p) => p.kind === "EVENT" && !liveEvents.includes(p));
 
   return (
     <>
@@ -224,9 +227,11 @@ export default async function MenuPage() {
         )}
       </header>
 
+      <Annunci notices={notices} />
+
       {liveEvents.map((promo) => (
         <section key={promo.id} id={`evento-${promo.slug}`} aria-label={promo.title} className="mx-auto max-w-[720px] px-6 pb-4 pt-8">
-          <PromoContent promo={promo} blocks={blocks} dayKey={dayKey} inline />
+          <PromoContent promo={promo} blocks={blocks} dayKey={dayKey} contacts={venue.contacts} inline />
         </section>
       ))}
 

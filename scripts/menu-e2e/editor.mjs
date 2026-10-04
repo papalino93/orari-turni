@@ -109,9 +109,9 @@ check("modifica: prezzo bottiglia aggiornato a 34", /Vino Prova[\s\S]{0,200}34/.
 // ---- Duplica
 await row("Vino Prova").locator(`button[aria-label="Modifica Vino Prova"]`).click();
 await dialog().waitFor();
-await dialog().getByRole("button", { name: "Duplica" }).click();
+await dialog().getByRole("button", { name: "Duplica", exact: true }).click();
 await settle(2500);
-check("duplica: si apre la copia per la modifica", /Modifica voce/.test(await dialog().innerText()));
+check("duplica: si apre la copia, con l'avviso", /Copia da completare/.test(await dialog().innerText()) && /Questa è una copia di «Vino Prova»/.test(await dialog().innerText()));
 await dialog().getByRole("button", { name: "Chiudi" }).click();
 await discardIfAsked(dialog().page());
 await dialog().waitFor({ state: "detached" });

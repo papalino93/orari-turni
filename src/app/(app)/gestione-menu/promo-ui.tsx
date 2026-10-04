@@ -111,7 +111,7 @@ export function PromoCard({
               ? promo.hasMenu
                 ? "Locandina in «In evidenza» dal giorno scelto; il menù speciale solo durante l'evento."
                 : "Locandina in «In evidenza» dal giorno scelto; nei giorni dell'evento si apre dopo la copertina."
-              : "Compare in «In evidenza» dal giorno di inizio fino alla fine."}{" "}
+              : "Compare in una riga sotto la copertina dal giorno di inizio fino alla fine."}{" "}
             Dopo la fine sparisce da sola.
           </p>
         </div>
@@ -189,6 +189,9 @@ export function PromoSheet({
   const [showFrom, setShowFrom] = useState(promo?.showFrom ?? today);
   const [startDate, setStartDate] = useState(promo?.startDate ?? defaultStart);
   const [endDate, setEndDate] = useState(promo?.endDate ?? defaultStart);
+  // Orario facoltativo: «Dalle 19:00» o «Dalle 19:00 alle 23:00».
+  const [startTime, setStartTime] = useState(promo?.startTime ?? "");
+  const [endTime, setEndTime] = useState(promo?.endTime ?? "");
   const [showFromTouched, setShowFromTouched] = useState(promo !== null);
   // Un nuovo evento parte con le stesse informazioni della cucina (coperto, chiusura…).
   const sectionBlocks = blocks.filter((b) => b.placement === "SECTIONS");
@@ -239,6 +242,8 @@ export function PromoSheet({
       showFrom: isEvent ? showFrom : startDate,
       startDate,
       endDate,
+      startTime: isEvent ? startTime : "",
+      endTime: isEvent && startTime ? endTime : "",
       blockIds: isEvent ? blockIds : undefined,
       hasMenu: isEvent ? hasMenu : true,
     };
@@ -299,6 +304,11 @@ export function PromoSheet({
                 {label}
               </button>
             ))}
+            <p className="col-span-2 text-[11px] text-foreground-muted">
+              {kind === "EVENT"
+                ? "Evento: locandina in «In evidenza» e una pagina con date, orario, «Prenota» e, se serve, il suo menù."
+                : "Annuncio: una riga sobria sotto la copertina, es. «Lunedì chiusi per ferie»."}
+            </p>
           </div>
         )}
 
@@ -416,6 +426,16 @@ export function PromoSheet({
               <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} required className={dateInputClass} />
             </Field>
           </div>
+          {isEvent && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Dalle (facoltativo)" hint="Es. 19:00">
+                <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className={dateInputClass} />
+              </Field>
+              <Field label="Alle (facoltativo)">
+                <input type="time" value={endTime} disabled={!startTime} onChange={(e) => setEndTime(e.target.value)} className={`${dateInputClass} disabled:opacity-50`} />
+              </Field>
+            </div>
+          )}
         </div>
 
         {isEvent && (
