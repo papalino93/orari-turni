@@ -80,6 +80,7 @@ await shot("riordina");
 await page.keyboard.press("Escape"); await discardIfAsked(page);
 await settle(500);
 // Piatto del giorno
+await goTab(page, "Menù");
 await page.locator('section[aria-label="Oggi fuori menù"]').getByRole("button", { name: "+ Piatto" }).click();
 await settle(700);
 await shot("piatto-giorno");
@@ -87,6 +88,7 @@ await page.keyboard.press("Escape"); await discardIfAsked(page);
 // Evento: impostazioni del menù speciale e birre con i formati
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 await noBanner();
+await goTab(page, "Eventi e annunci");
 await page.getByRole("button", { name: /Oktoberfest/ }).first().click();
 await page.locator('section[aria-label="Impostazioni del menù speciale"]').evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 140));
 await settle(900);
