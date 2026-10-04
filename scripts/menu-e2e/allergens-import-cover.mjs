@@ -1,4 +1,4 @@
-import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, tool } from "./lib.mjs";
 
 // stato pulito (i dati della migrazione restano com'erano)
 DB(`delete from "MenuPromo"`);
@@ -146,7 +146,7 @@ const undoToast = page.locator('[role="status"] button:has-text("Annulla")').las
 if (await undoToast.count()) {
   await undoToast.click();
 } else {
-  await page.locator("button", { hasText: "Storico" }).click();
+  await tool(page, "Storico");
   await dialog().waitFor();
   await dialog().locator("li", { hasText: /Modificato: Acqua/ }).first().locator("button", { hasText: "Ripristina" }).click();
   await settle(1000);
@@ -198,7 +198,7 @@ check("import vini: sul pubblico con prezzi", /Vino Uno[\s\S]{0,200}30/.test(t) 
 check("DB: importate in fondo al gruppo, in ordine", DB(`select string_agg(name, ',' order by "sortOrder") from (select name, "sortOrder" from "MenuItem" where name in ('Vino Uno','Vino Due') and "deletedAt" is null) x`) === "Vino Uno,Vino Due");
 
 // storico + annulla in blocco
-await page.locator("button", { hasText: "Storico" }).click();
+await tool(page, "Storico");
 await dialog().waitFor();
 const hist = await dialog().innerText();
 check("storico: voce 'Aggiunto: 2 voci in «Italia»'", /Aggiunto: 2 voci in «Italia»/.test(hist), hist.split("\n").slice(0, 4).join(" | "));
@@ -210,7 +210,7 @@ await settle(1500);
 const alive = DB(`select count(*) from "MenuItem" where name in ('Vino Uno','Vino Due') and "deletedAt" is null`);
 check("annulla in blocco: entrambe le voci tolte con un solo Annulla (o toast scaduto)", alive === "0" || alive === "2", alive);
 if (alive === "2") {
-  await page.locator("button", { hasText: "Storico" }).click();
+  await tool(page, "Storico");
   await dialog().waitFor();
   await dialog().locator("li", { hasText: /Aggiunto: 2 voci/ }).locator("button", { hasText: "Ripristina" }).click();
   await settle(1500);

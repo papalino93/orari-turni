@@ -1,6 +1,6 @@
 // Formati del gruppo (birre alla spina 0,2 l · 0,4 l · 1 l): colonne sul gruppo,
 // prezzi per colonna nella voce, tabella sul menù, casella vuota = «—», annulla.
-import { discardIfAsked, launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, results, ADMIN_PW, DB, tool } from "./lib.mjs";
 
 const GROUP = DB(`select g.id from "MenuGroup" g join "MenuSection" s on s.id=g."sectionId" where s.label='Bevande' and g."deletedAt" is null order by g."sortOrder" limit 1`);
 const groupTitle = DB(`select title from "MenuGroup" where id='${GROUP}'`);
@@ -55,7 +55,7 @@ if (firstSingle) {
 }
 
 // Tabella prezzi: una casella per formato
-await p.getByRole("toolbar", { name: "Strumenti del menù" }).getByRole("button", { name: "Tabella prezzi" }).click();
+await tool(p, "Tabella prezzi");
 const dlg2 = p.locator('[role="dialog"]');
 await dlg2.getByRole("button", { name: "Bevande", exact: true }).click();
 check("tabella prezzi: colonne dei formati", (await dlg2.getByLabel("Prezzo · Birra Prova Helles · 1 l").count()) === 1);

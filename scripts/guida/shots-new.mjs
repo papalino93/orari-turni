@@ -1,5 +1,5 @@
 // Schermate delle novità 0.7–0.9: statistiche, tabella prezzi, riordina, scheda vino, menù da stampare.
-import { discardIfAsked, launch, login, BASE, ADMIN_PW } from "../menu-e2e/lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW, tool, goTab } from "../menu-e2e/lib.mjs";
 const OUT = `${WORK}/img`;
 import { execFileSync } from "node:child_process";
 import { WORK } from "./work.mjs";
@@ -45,7 +45,7 @@ const toEl = async (page, loc, offset = 70) => {
   await settle(page, 800);
   await page.screenshot({ path: `${OUT}/ges-top.png` });
   // Tabella prezzi (Rossi), con un prezzo cambiato
-  await page.getByRole("button", { name: "Tabella prezzi" }).click();
+  await tool(page, "Tabella prezzi");
   await settle(page, 600);
   await dialog(page).getByRole("navigation", { name: "Sezione" }).getByRole("button", { name: /^Rossi/ }).click();
   await settle(page, 300);
@@ -55,7 +55,7 @@ const toEl = async (page, loc, offset = 70) => {
   await page.keyboard.press("Escape"); await discardIfAsked(page);
   await settle(page, 500);
   // Riordina: i vini di Rossi · Italia, uno «preso» in mano
-  await page.getByRole("button", { name: "Riordina", exact: true }).click();
+  await tool(page, "Riordina");
   await settle(page, 500);
   await dialog(page).getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Sezioni" }).click();
   await settle(page, 300);
@@ -67,6 +67,7 @@ const toEl = async (page, loc, offset = 70) => {
   await page.keyboard.press("Escape"); await discardIfAsked(page);
   await settle(page, 500);
   // Scheda del vino
+  await goTab(page, "Menù");
   await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
   await page.getByRole("button", { name: /^Modifica Avignonesi/ }).first().click();
   await settle(page, 700);

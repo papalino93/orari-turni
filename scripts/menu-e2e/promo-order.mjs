@@ -1,7 +1,7 @@
 // Ordine di eventi e annunci: di base per data, poi a mano da «Riordina» → «Eventi e
 // annunci». Il primo è il più a sinistra in «In evidenza»; si annulla e si torna all'ordine
 // per data.
-import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, tool } from "./lib.mjs";
 
 // giorno commerciale (cambia alle 5:00 ora italiana)
 const biz = (offset = 0) =>
@@ -45,7 +45,7 @@ const bar = () => p.getByRole("alertdialog", { name: "Modifiche non salvate" });
 const rowTitles = async () =>
   (await dlg.locator("li[data-id] p.truncate.font-medium").allInnerTexts()).map((t) => PROVE.find((x) => x.title === t)?.title.slice(-1)).filter(Boolean).join("");
 
-await p.getByRole("button", { name: "Riordina", exact: true }).click();
+await tool(p, "Riordina");
 await dlg.waitFor();
 const tab = dlg.getByRole("tab", { name: "Eventi e annunci" });
 check("Riordina: c'è la scheda «Eventi e annunci»", (await tab.count()) === 1);
@@ -75,7 +75,7 @@ const side = (await p.locator("button", { hasText: /^Ordine Prova/ }).allInnerTe
 check("gestione: l'elenco degli eventi segue l'ordine", side === "ACB", side);
 
 // Storico: «Annulla» rimette l'ordine per data
-await p.getByRole("button", { name: "Storico" }).click();
+await tool(p, "Storico");
 await dlg.waitFor();
 const hist = await dlg.innerText();
 check("storico: «Ordine di eventi e annunci»", /Ordine di eventi e annunci/.test(hist));
@@ -88,7 +88,7 @@ check("menù: dopo il ripristino di nuovo C, B, A", (await strip()) === "CBA", a
 
 // «Torna all'ordine per data»
 await p.reload({ waitUntil: "networkidle" });
-await p.getByRole("button", { name: "Riordina", exact: true }).click();
+await tool(p, "Riordina");
 await dlg.getByRole("tab", { name: "Eventi e annunci" }).click();
 // Anche qui in mezzo ci possono essere altri eventi: si scende finché C non è dopo B.
 for (let i = 0; i < 10 && !(await rowTitles()).startsWith("B"); i++) await dlg.getByRole("button", { name: "Sposta giù Ordine Prova C" }).click();

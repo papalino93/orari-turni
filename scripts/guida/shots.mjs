@@ -1,4 +1,4 @@
-import { discardIfAsked, launch, login, BASE, ADMIN_PW, expandPanels } from "../menu-e2e/lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW, expandPanels, tool, goTab } from "../menu-e2e/lib.mjs";
 import { WORK } from "./work.mjs";
 const OUT = `${WORK}/img`;
 const browser = await launch();
@@ -100,7 +100,7 @@ const scrollTo = async (page, sel, offset = 48) => {
   await settle(page, 700);
   await page.screenshot({ path: `${OUT}/ges-orari.png` });
   await page.keyboard.press("Escape"); await discardIfAsked(page);
-  await page.getByRole("button", { name: "Codice QR", exact: true }).click();
+  await tool(page, "Codice QR");
   await settle(page, 900);
   // Nella presentazione il QR deve portare al sito vero, non a localhost.
   const QRCode = (await import("qrcode")).default;
@@ -114,16 +114,18 @@ const scrollTo = async (page, sel, offset = 48) => {
   await settle(page, 300);
   await page.screenshot({ path: `${OUT}/ges-qr.png` });
   await page.keyboard.press("Escape"); await discardIfAsked(page);
-  await page.getByRole("button", { name: "Anteprima", exact: true }).click();
+  await tool(page, "Anteprima");
   await settle(page, 2500);
   await page.screenshot({ path: `${OUT}/ges-anteprima.png` });
   await page.keyboard.press("Escape"); await discardIfAsked(page);
   // Eventi e annunci (archivio, duplica)
+  await goTab(page, "Eventi e annunci");
   await page.getByRole("button", { name: /Crudité/ }).first().click().catch(() => {});
   await settle(page, 900);
   await scrollTo(page, 'nav[aria-label="Eventi e annunci"]', 90);
   await page.screenshot({ path: `${OUT}/ges-eventi.png` });
   // voce in modifica (vino con Regione e Nazione)
+  await goTab(page, "Menù");
   await page.getByRole("searchbox", { name: "Cerca una voce" }).fill("mastrojanni");
   await settle(page, 500);
   await page.locator('section[aria-label="Cerca una voce"] li button[aria-label^="Modifica"]').first().click();

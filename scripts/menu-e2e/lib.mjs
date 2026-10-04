@@ -42,7 +42,27 @@ export function resetBlocks() {
 
 // I riquadri «Informazioni del menù» e «Il locale» sono chiusi di default: i test
 // che li usano li aprono.
+// Gestione a quattro schede: apre la scheda («Menù», «Eventi e annunci», «Orari e contatti», «Strumenti»).
+export async function goTab(page, label) {
+  const tab = page.getByRole("tab", { name: new RegExp(`^${label}`) });
+  if ((await tab.getAttribute("aria-selected")) !== "true") await tab.click();
+}
+
+// Uno strumento della scheda «Strumenti» (Tabella prezzi, Riordina, Storico, Anteprima, Codice QR…).
+export async function tool(page, label) {
+  await goTab(page, "Strumenti");
+  await page.getByRole("list", { name: "Strumenti del menù" }).getByRole(/^(Menù da stampare|Guida|Statistiche)/.test(label) ? "link" : "button", { name: new RegExp(`^${label}`) }).click();
+}
+
+// Nuovo evento o annuncio, dalla scheda «Eventi e annunci».
+export async function newPromo(page, kind = "evento") {
+  await goTab(page, "Eventi e annunci");
+  await page.getByRole("button", { name: kind === "annuncio" ? "+ Nuovo annuncio" : "+ Nuovo evento" }).click();
+}
+
+// «Il locale» e «Informazioni del menù» stanno nella scheda «Orari e contatti».
 export async function expandPanels(page) {
+  await goTab(page, "Orari e contatti");
   for (const name of ["Informazioni del menù", "Il locale"]) {
     const toggle = page.locator('button[aria-expanded="false"]', { hasText: name });
     if (await toggle.count()) await toggle.first().click();

@@ -1,6 +1,6 @@
 // Modifiche non salvate: un clic fuori o Esc non chiudono più la finestra in
 // silenzio (orari e schede della gestione del menù). Senza modifiche si chiude.
-import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, tool } from "./lib.mjs";
 
 const EMP = DB(`select id from "Employee" where username='marta'`);
 const d = DB(`select to_char(date_trunc('week', (now() at time zone 'Europe/Rome')::date + 7)::date, 'YYYY-MM-DD')`);
@@ -73,7 +73,7 @@ await bar().getByRole("button", { name: "Esci senza salvare" }).click();
 await p.waitForTimeout(300);
 
 // «Tabella prezzi»: «Salva» nel riquadro salva davvero (la scheda non ha un modulo)
-await p.getByRole("button", { name: "Tabella prezzi" }).click();
+await tool(p, "Tabella prezzi");
 await dlg.waitFor();
 const cell = dlg.locator("input").first();
 const before = await cell.inputValue();
@@ -87,7 +87,7 @@ await p.getByText(/Prezzi salvati/).first().waitFor();
 await p.keyboard.press("Escape");
 await p.waitForTimeout(400);
 check("prezzi: «Salva» dal riquadro salva e poi Esc chiude", (await bar().count()) === 0 && (await dlg.count()) === 0);
-await p.getByRole("button", { name: "Tabella prezzi" }).click();
+await tool(p, "Tabella prezzi");
 await dlg.waitFor();
 check("prezzi: il prezzo nuovo è rimasto", (await dlg.locator("input").first().inputValue()) === after);
 await dlg.locator("input").first().fill(before);

@@ -1,6 +1,6 @@
 // Copertina, orari («Aperto ora»), contatti: modifica dalla gestione e effetto
 // sul menù pubblico. Richiede `npm i --no-save sharp` (foto di prova).
-import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, expandPanels } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, expandPanels, tool } from "./lib.mjs";
 import { execFileSync } from "node:child_process";
 import sharp from "sharp";
 import { mkdtempSync } from "node:fs";
@@ -189,7 +189,7 @@ check("copertina: foto rimossa dal database", DB(`select count(*) from "MenuHero
 // Storico e annulla: l'ultima modifica agli orari si annulla
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await expandPanels(page);
-await page.getByRole("button", { name: "Storico" }).click();
+await tool(page, "Storico");
 await dialog().waitFor();
 const hist = (await dialog().innerText()).replace(/ /g, " ");
 check("storico: compaiono Copertina, Orari e Contatti", /Copertina/.test(hist) && /Orari/.test(hist) && /Contatti/.test(hist));

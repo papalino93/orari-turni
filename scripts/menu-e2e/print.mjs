@@ -1,6 +1,6 @@
 // «Menù da stampare»: foglio A4 con tutto il menù fisso, solo per chi gestisce il
 // menù; gli esauriti di oggi si tolgono (di norma) o si tengono.
-import { launch, login, check, BASE, results, ADMIN_PW, EMP_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, EMP_PW, DB, tool, goTab } from "./lib.mjs";
 
 const SOLD = "menu_itm_051"; // Tagliere Classico
 const today = DB(`select to_char((now() at time zone 'Europe/Rome') - interval '5 hours', 'YYYY-MM-DD')`);
@@ -16,7 +16,7 @@ check("senza login: si va al login", page.url().includes("/login"), page.url());
 
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
-await page.getByRole("toolbar", { name: "Strumenti del menù" }).getByRole("link", { name: "Menù da stampare" }).click();
+await tool(page, "Menù da stampare");
 await page.waitForURL(/\/gestione-menu\/stampa/);
 await page.waitForLoadState("networkidle");
 const text = await page.locator("main").innerText();
@@ -39,7 +39,8 @@ check("PDF A4 di alcune pagine", pages >= 2 && pages <= 12, String(pages));
 
 // «Guida»: il PDF della guida, solo per chi gestisce il menù
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
-const guideLink = page.getByRole("toolbar", { name: "Strumenti del menù" }).getByRole("link", { name: /Guida/ });
+await goTab(page, "Strumenti");
+const guideLink = page.getByRole("list", { name: "Strumenti del menù" }).getByRole("link", { name: /Guida/ });
 check("gestione: c'è «Guida»", (await guideLink.count()) === 1 && (await guideLink.getAttribute("href")) === "/gestione-menu/guida");
 const g = await page.request.get(`${BASE}/gestione-menu/guida`);
 const gBody = await g.body();

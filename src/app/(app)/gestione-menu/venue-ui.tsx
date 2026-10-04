@@ -28,9 +28,9 @@ export type VenueSheetKind = "hero" | "hours" | "contacts";
 
 // --- Riquadro «Il locale» ------------------------------------------------------
 
-export function VenuePanel({ venue, onOpen }: { venue: EditorVenue; onOpen: (kind: VenueSheetKind) => void }) {
-  // Chiuso di default: serve di rado, la lista del menù resta più in alto.
-  const [open, setOpen] = useState(false);
+export function VenuePanel({ venue, onOpen, defaultOpen = false }: { venue: EditorVenue; onOpen: (kind: VenueSheetKind) => void; defaultOpen?: boolean }) {
+  // Nella scheda «Orari e contatti» è già aperto: lì non c'è altro.
+  const [open, setOpen] = useState(defaultOpen);
   // Aperto/chiuso sull'orologio del dispositivo, calcolato dopo il primo disegno
   // (come sul menù dei clienti): così server e browser non si contraddicono.
   const [status, setStatus] = useState<ReturnType<typeof openStatus>>(null);

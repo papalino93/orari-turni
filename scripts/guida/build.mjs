@@ -146,7 +146,7 @@ const pg = () => ++_pg;
 const kn = () => String(++_kn).padStart(2, "0");
 // Numeri sulla schermata della gestione: posizioni misurate da shots-mac.mjs.
 const pos = JSON.parse((await import("node:fs")).readFileSync(`${WORK}/img/mac-gestione.json`, "utf8"));
-const gestionePins = [["top", 1], ["tools", 2], ["search", 3], ["oggi", 4], ["info", 5], ["sezioni", 6], ["voci", 7]]
+const gestionePins = [["top", 1], ["tabs", 2], ["search", 3], ["oggi", 4], ["sezioni", 5], ["addsec", 6], ["voci", 7]]
   .filter(([k]) => pos[k])
   .map(([k, n]) => `<span class="pin" style="left:${Math.max(2.5, pos[k].x - 2.8).toFixed(1)}%;top:${pos[k].y.toFixed(1)}%">${n}</span>`)
   .join("");
@@ -306,7 +306,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Allergeni")}
 pages.push(`<section class="page wine">${chrome(pg(), "Per chi gestisce il menù")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>La gestione</div>
   <h2>Dal computer in ufficio,<br><em>dal telefono in sala</em></h2>
-  <p class="lead">La gestione si fa comodamente dal computer: le sezioni restano a fianco, le schede si aprono a destra. In sala, dal telefono, si segna un «Esaurito» al volo.</p></div>
+  <p class="lead">La gestione è divisa in quattro schede: Menù, Eventi e annunci, Orari e contatti, Strumenti. Dal computer si lavora comodi; in sala, dal telefono, si segna un «Esaurito» al volo.</p></div>
   <div style="position:relative;margin-top:9mm;height:128mm">
     <div style="position:absolute;left:4mm;top:0">${mac("mac-gestione", 150)}</div>
     <div style="position:absolute;right:0;top:44mm">${phone("ges-cerca", 38)}</div>
@@ -415,15 +415,15 @@ pages.push(`<section class="page wine">${chrome(pg(), "Guida · entrare")}
 // 12 · Guida: la schermata
 pages.push(`<section class="page paper">${chrome(pg(), "Guida · la schermata")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Guida · La schermata</div>
-  <h2>Tutto in una pagina,<br><em>dall'alto in basso</em></h2></div>
+  <h2>Quattro schede,<br><em>ognuna con le sue cose</em></h2></div>
   <div style="display:flex;justify-content:center;margin-top:5mm">${mac("mac-gestione", 156, "", gestionePins)}</div>
   <ol class="legend" style="margin-top:8mm;columns:2;column-gap:9mm">
-    <li><b>In alto</b>: <span class="ui">Vedi menù ↗</span> e <span class="ui">+ Evento o annuncio</span>.</li>
-    <li><b>Gli strumenti</b>: <span class="ui">Tabella prezzi</span>, <span class="ui">Riordina</span>, <span class="ui">Storico</span>, <span class="ui">Anteprima</span>, <span class="ui">Menù da stampare</span>, <span class="ui">Codice QR</span>, <span class="ui">Guida</span>.</li>
-    <li><b>La ricerca</b>: bastano due lettere; accanto a ogni risultato c'è <span class="ui">Esaurito</span>.</li>
+    <li><b>In alto</b>: <span class="ui">Vedi menù ↗</span> e <span class="ui">+ Aggiungi</span> (un vino, un piatto, il piatto di oggi, un evento, un annuncio).</li>
+    <li><b>Le schede</b>: <span class="ui">Menù</span>, <span class="ui">Eventi e annunci</span>, <span class="ui">Orari e contatti</span> (copertina, orari, contatti, coperto e avvisi) e <span class="ui">Strumenti</span> (prezzi, ordine, storico, stampa, QR, guida).</li>
+    <li><b>La ricerca</b>: resta in alto mentre scorri; accanto a ogni risultato c'è <span class="ui">Esaurito</span>.</li>
     <li><b>Oggi fuori menù</b>: piatti e vini solo di oggi, con <span class="ui">+ Piatto</span> e <span class="ui">+ Vino</span>.</li>
-    <li><b>Informazioni del menù</b> (coperto, cucina, avvisi) e <b>Il locale</b> (copertina, orari, contatti).</li>
-    <li><b>Le sezioni</b> a sinistra; sotto, <b>Eventi e annunci</b>.</li>
+    <li><b>Le sezioni</b> a sinistra.</li>
+    <li><b>+ Aggiungi</b> accanto al titolo: un vino o una voce proprio in quella sezione.</li>
     <li><b>Le voci</b>: clic sul nome per modificarla. Un clic sul titolo del gruppo (▾ Champagne) lo chiude o lo apre.</li>
   </ol>
 </section>`);
@@ -435,10 +435,10 @@ pages.push(`<section class="page wine">${chrome(pg(), "Guida · ogni giorno")}
   <div class="howto">
     <div class="card"><h3>Un vino o un piatto è finito</h3><ol class="steps"><li>In alto, in <span class="ui">Cerca una voce del menù…</span>, scrivi il nome.</li><li>Tocca <span class="ui">Esaurito</span>.</li></ol><p class="res">Il vino sparisce dal menù, il piatto resta sbiadito. Alle 5 del mattino torna da solo. Per rimettere tutto subito: <span class="ui">Riattiva tutto</span>.</p></div>
     <div class="card"><h3>Il piatto o il vino del giorno</h3><ol class="steps"><li>In «Oggi fuori menù» tocca <span class="ui">+ Piatto</span> o <span class="ui">+ Vino</span>.</li><li>Nome, prezzo e allergeni, poi <span class="ui">Aggiungi</span>.</li></ol><p class="res">Compare in cima al menù e sparisce alle 5. Per rimetterlo un altro giorno: <span class="ui">Riproponi</span>.</p></div>
-    <div class="card"><h3>Cambiare un prezzo o un testo</h3><ol class="steps"><li>Cerca la voce e tocca il suo nome.</li><li>Cambia il campo e tocca <span class="ui">Salva</span>.</li></ol><p class="res">Tanti prezzi insieme: <span class="ui">Tabella prezzi</span>, poi <span class="ui">Salva tutto</span>.</p></div>
+    <div class="card"><h3>Cambiare un prezzo o un testo</h3><ol class="steps"><li>Cerca la voce e tocca il suo nome.</li><li>Cambia il campo e tocca <span class="ui">Salva</span>.</li></ol><p class="res">Tanti prezzi insieme: in <span class="ui">Strumenti</span>, <span class="ui">Tabella prezzi</span>, poi <span class="ui">Salva tutto</span>.</p></div>
     <div class="card"><h3>Aggiungere un vino o un piatto</h3><ol class="steps"><li>Tocca la sezione (es. Rossi).</li><li>In fondo al gruppo tocca <span class="ui">+ Aggiungi vino</span> o <span class="ui">+ Aggiungi voce</span>.</li><li>Compila (per un vino italiano anche la <b>regione</b>) e tocca <span class="ui">Aggiungi</span>.</li></ol><p class="res">Il vino va da solo al posto della sua regione. Uno simile a un altro: aprilo e <span class="ui">Duplica</span>. Tante voci: <span class="ui">Incolla più voci</span>.</p></div>
     <div class="card"><h3>Abbinare un vino a un piatto</h3><ol class="steps"><li>Apri il piatto.</li><li>In <span class="ui">Abbinamento consigliato</span> scrivi il nome del vino e toccalo.</li><li>Tocca <span class="ui">Salva</span>.</li></ol><p class="res">Per toglierlo: ✕ accanto al vino, poi Salva.</p></div>
-    <div class="card"><h3>Ho sbagliato qualcosa</h3><ol class="steps"><li>Subito: <span class="ui">Annulla</span> nel messaggio che compare in basso.</li><li>Più tardi: <span class="ui">Storico</span>, poi <span class="ui">Ripristina</span> sulla riga giusta.</li></ol><p class="res">Funziona anche per una voce eliminata per errore.</p></div>
+    <div class="card"><h3>Ho sbagliato qualcosa</h3><ol class="steps"><li>Subito: <span class="ui">Annulla</span> nel messaggio che compare in basso.</li><li>Più tardi: in <span class="ui">Strumenti</span>, <span class="ui">Storico</span>, poi <span class="ui">Ripristina</span> sulla riga giusta.</li></ol><p class="res">Funziona anche per una voce eliminata per errore.</p></div>
   </div>
 </section>`);
 
@@ -447,12 +447,12 @@ pages.push(`<section class="page paper">${chrome(pg(), "Guida · ogni tanto")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Guida · Ogni tanto</div>
   <h2>Eventi, orari, allergeni<br><em>e tutto il resto</em></h2></div>
   <div class="howto">
-    <div class="card"><h3>Un evento o un annuncio</h3><ol class="steps"><li><span class="ui">+ Evento o annuncio</span>: scegli «Evento» o «Annuncio».</li><li>Titolo, testo, la locandina con <span class="ui">Scegli foto o PDF</span>, le date e, se vuoi, l'orario; spunta <span class="ui">Ha un menù dedicato</span> se la serata ne ha uno, poi <span class="ui">Crea evento e componi il menù</span>.</li><li>Si apre il menù speciale: <span class="ui">+ Da bere</span>, <span class="ui">+ Da mangiare</span> o <span class="ui">+ Aggiungi gruppo</span>, poi <span class="ui">+ Aggiungi voce</span>.</li></ol><p class="res">Un clic sulla locandina la ingrandisce. La volta dopo: <span class="ui">Duplica</span> e cambia solo le date.</p></div>
+    <div class="card"><h3>Un evento o un annuncio</h3><ol class="steps"><li>Scheda <span class="ui">Eventi e annunci</span>: <span class="ui">+ Nuovo evento</span> o <span class="ui">+ Nuovo annuncio</span>.</li><li>Titolo, testo, la locandina con <span class="ui">Scegli foto o PDF</span>, le date e, se vuoi, l'orario; spunta <span class="ui">Ha un menù dedicato</span> se la serata ne ha uno, poi <span class="ui">Crea evento e componi il menù</span>.</li><li>Si apre il menù speciale: <span class="ui">+ Da bere</span>, <span class="ui">+ Da mangiare</span> o <span class="ui">+ Aggiungi gruppo</span>, poi <span class="ui">+ Aggiungi voce</span>.</li></ol><p class="res">Un clic sulla locandina la ingrandisce. La volta dopo: <span class="ui">Duplica</span> e cambia solo le date.</p></div>
     <div class="card"><h3>Allergeni dei piatti</h3><ol class="steps"><li>Tocca <span class="ui">Compila allergeni</span>.</li><li>Per ogni piatto: «Nessuno» oppure «Contiene…» e spunta.</li><li><span class="ui">Salva e passa al successivo</span>.</li></ol><p class="res">Finché un piatto non è compilato, il cliente legge «da verificare con il personale».</p></div>
-    <div class="card"><h3>Orari, ferie e chiusure</h3><ol class="steps"><li>«Il locale», poi Orari <span class="ui">Modifica</span>.</li><li>Ferie o chiusura: <span class="ui">+ Aggiungi chiusura o apertura straordinaria</span>, date, «Chiuso», motivo.</li><li><span class="ui">Salva</span>.</li></ol><p class="res">«Aperto ora · chiude alle…» in copertina si calcola da solo.</p></div>
-    <div class="card"><h3>Coperto, cucina, avvisi</h3><ol class="steps"><li>«Informazioni del menù», poi <span class="ui">+ Aggiungi</span>.</li><li>Scegli: testo, voce con prezzo o avviso; dove compare e, se serve, dal giorno al giorno.</li></ol><p class="res">Finita la data, l'avviso sparisce da solo.</p></div>
-    <div class="card"><h3>Cambiare l'ordine</h3><ol class="steps"><li><span class="ui">Riordina</span>, scegli sezioni, gruppi o le voci di un gruppo (<span class="ui">Apri ›</span>).</li><li>Trascina dalla maniglia ≡ o usa le frecce, poi <span class="ui">Salva ordine</span>.</li></ol><p class="res">Per i vini c'è anche <span class="ui">Ordina per regione</span>; per «In evidenza» la scheda <span class="ui">Eventi e annunci</span>.</p></div>
-    <div class="card"><h3>Menù di carta e statistiche</h3><ol class="steps"><li><span class="ui">Menù da stampare</span>, poi <span class="ui">Stampa o salva in PDF</span>.</li><li>Nella barra: <span class="ui">Statistiche</span>, poi <span class="ui">Inizia a contare</span> e il periodo.</li></ol><p class="res">Copertina e contatti si cambiano in «Il locale»; il QR in <span class="ui">Codice QR</span>.</p></div>
+    <div class="card"><h3>Orari, ferie e chiusure</h3><ol class="steps"><li>Scheda <span class="ui">Orari e contatti</span>, poi Orari <span class="ui">Modifica</span>.</li><li>Ferie o chiusura: <span class="ui">+ Aggiungi chiusura o apertura straordinaria</span>, date, «Chiuso», motivo.</li><li><span class="ui">Salva</span>.</li></ol><p class="res">«Aperto ora · chiude alle…» in copertina si calcola da solo.</p></div>
+    <div class="card"><h3>Coperto, cucina, avvisi</h3><ol class="steps"><li><span class="ui">Orari e contatti</span>, in «Informazioni del menù» <span class="ui">+ Aggiungi</span>.</li><li>Scegli: testo, voce con prezzo o avviso; dove compare e, se serve, dal giorno al giorno.</li></ol><p class="res">Finita la data, l'avviso sparisce da solo.</p></div>
+    <div class="card"><h3>Cambiare l'ordine</h3><ol class="steps"><li>In <span class="ui">Strumenti</span>, <span class="ui">Riordina</span>; scegli sezioni, gruppi o le voci di un gruppo (<span class="ui">Apri ›</span>).</li><li>Trascina dalla maniglia ≡ o usa le frecce, poi <span class="ui">Salva ordine</span>.</li></ol><p class="res">Per i vini c'è anche <span class="ui">Ordina per regione</span>; per «In evidenza» la scheda <span class="ui">Eventi e annunci</span>.</p></div>
+    <div class="card"><h3>Menù di carta e statistiche</h3><ol class="steps"><li>In <span class="ui">Strumenti</span>, <span class="ui">Menù da stampare</span>, poi <span class="ui">Stampa o salva in PDF</span>.</li><li>Nella barra: <span class="ui">Statistiche</span>, poi <span class="ui">Inizia a contare</span> e il periodo.</li></ol><p class="res">Copertina e contatti: scheda «Orari e contatti»; il QR: «Strumenti», <span class="ui">Codice QR</span>.</p></div>
   </div>
 </section>`);
 
@@ -490,10 +490,10 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Quando compare un evento?</h4><p>La locandina dal giorno scelto (di solito una settimana prima), nella striscia «In evidenza»; nei giorni dell'evento si apre a pagina piena con il menù speciale. Finito, sparisce da solo.</p></div>
     <div><h4>Meglio dal computer o dal telefono?</h4><p>Per le modifiche (vini nuovi, prezzi, ordine, eventi) il computer è più comodo; in sala il telefono basta per «Esaurito» e il piatto del giorno.</p></div>
     <div><h4>Perché non mi salva un vino?</h4><p>Per un vino italiano serve la regione (es. Toscana). Per un vino estero scrivi la nazione e la regione diventa facoltativa.</p></div>
-    <div><h4>Devo cambiare tanti prezzi: c'è un modo veloce?</h4><p>Sì: «Tabella prezzi». Si cambiano tutti quelli che servono, anche in sezioni diverse, e si salva una volta sola.</p></div>
+    <div><h4>Devo cambiare tanti prezzi: c'è un modo veloce?</h4><p>Sì: in «Strumenti», «Tabella prezzi». Si cambiano tutti quelli che servono, anche in sezioni diverse, e si salva una volta sola.</p></div>
     <div><h4>Le statistiche registrano i clienti?</h4><p>No: niente nomi, telefoni o cookie. Si conta solo cosa succede (un'apertura, una ricerca), il giorno e l'ora.</p></div>
     <div><h4>Chiudo una finestra senza salvare: perdo tutto?</h4><p>No: compare «Modifiche non salvate». Scegli «Salva», «Continua a modificare» o «Esci senza salvare».</p></div>
-    <div><h4>Mi serve il menù su carta: come faccio?</h4><p>«Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
+    <div><h4>Mi serve il menù su carta: come faccio?</h4><p>In «Strumenti», «Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
 
     <div><h4>Dove trovo il numero di versione?</h4><p>In fondo a ogni pagina, ad esempio «v${VERSIONE}». Se segnali un problema, indicalo.</p></div>
   </div>

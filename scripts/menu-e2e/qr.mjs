@@ -1,6 +1,6 @@
 // Codice QR del menù: si scarica in SVG e PNG e, letto, porta a /menu.
 // Richiede `npm i --no-save sharp jsqr`.
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW } from "./lib.mjs";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, tool } from "./lib.mjs";
 import sharp from "sharp";
 import jsQR from "jsqr";
 import { readFileSync } from "node:fs";
@@ -11,7 +11,7 @@ const page = await ctx.newPage();
 page.setDefaultTimeout(60000);
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
-await page.getByRole("button", { name: "Codice QR", exact: true }).click();
+await tool(page, "Codice QR");
 const dlg = page.locator('[role="dialog"][aria-label="Codice QR del menù"]');
 await dlg.waitFor();
 await dlg.locator("svg").first().waitFor();

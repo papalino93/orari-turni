@@ -44,6 +44,7 @@ export function BlocksPanel({
   run,
   onEdit,
   onAdd,
+  defaultOpen = false,
 }: {
   blocks: MenuBlockView[];
   choices: SectionChoice[];
@@ -51,10 +52,11 @@ export function BlocksPanel({
   run: RunFn;
   onEdit: (id: string) => void;
   onAdd: () => void;
+  // Nella scheda «Orari e contatti» è già aperto: lì non c'è altro.
+  defaultOpen?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
-  // Chiuso di default: il riquadro serve di rado, la lista del menù resta più in alto.
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   async function move(id: string, direction: "up" | "down") {
     setBusy(true);

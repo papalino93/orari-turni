@@ -1,6 +1,6 @@
 // Blocchi informativi: creazione dei tre tipi, i tre punti del menù, più sezioni,
 // date, nascondi, ordine, eliminazione e annullamento, eventi, permessi.
-import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels, newPromo } from "./lib.mjs";
 
 const biz = (offset = 0) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(
@@ -231,7 +231,7 @@ check("annulla: l'avviso torna", t.includes("Domenica cucina chiusa"));
 check("DB: log storico dei blocchi", Number(DB(`select count(*) from "MenuChange" where entity='block'`)) >= 8);
 
 // ---------- Eventi: scelta dei blocchi nel menù speciale
-await page.getByRole("button", { name: "+ Evento o annuncio" }).click();
+await newPromo(page);
 await dialog().waitFor();
 await dialog().getByLabel("Titolo", { exact: true }).fill("Serata Prova");
 await dialog().getByLabel("Mostra la locandina dal").fill(biz(-2));

@@ -1,7 +1,7 @@
 // Schermate da computer (Mac), tema chiaro, per la guida alla gestione del menù.
 import { writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { discardIfAsked, launch, login, BASE, ADMIN_PW } from "../menu-e2e/lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW, tool, goTab } from "../menu-e2e/lib.mjs";
 import { WORK } from "./work.mjs";
 const OUT = `${WORK}/img`;
 execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", `delete from "MenuEvent" where hour between 5 and 15`], { env: { ...process.env, PGPASSWORD: "orari" } });
@@ -32,6 +32,7 @@ await shot("login");
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 await noBanner();
+await goTab(page, "Menù");
 await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
 await page.evaluate(() => window.scrollTo(0, 0));
 await settle(900);
@@ -42,10 +43,10 @@ const parts = await page.evaluate(() => {
   const byText = (sel, t) => [...document.querySelectorAll(sel)].find((e) => e.textContent?.trim().startsWith(t));
   return {
     top: r(byText("a", "Vedi menù")),
-    tools: r(document.querySelector('[role="toolbar"]')),
+    tabs: r(document.querySelector('[role="tablist"]')),
     search: r(document.querySelector('input[type="search"], [role="searchbox"]')),
     oggi: r(document.querySelector('section[aria-label="Oggi fuori menù"]')),
-    info: r(byText("button", "Informazioni del menù") ?? byText("button", "INFORMAZIONI")),
+    addsec: r(byText("button", "+ Aggiungi un vino in")),
     sezioni: r(document.querySelector('nav[aria-label="Sezioni"]')),
     voci: r(document.querySelector("section h3 button")),
   };
@@ -58,7 +59,7 @@ await shot("vino");
 await page.keyboard.press("Escape"); await discardIfAsked(page);
 await settle(500);
 // Tabella prezzi
-await page.getByRole("button", { name: "Tabella prezzi" }).click();
+await tool(page, "Tabella prezzi");
 await settle(600);
 await dialog().getByRole("navigation", { name: "Sezione" }).getByRole("button", { name: /^Rossi/ }).click();
 await dialog().getByRole("textbox", { name: /^Calice · Mastrojanni/ }).first().fill("9");
@@ -67,7 +68,7 @@ await shot("prezzi");
 await page.keyboard.press("Escape"); await discardIfAsked(page);
 await settle(500);
 // Riordina
-await page.getByRole("button", { name: "Riordina", exact: true }).click();
+await tool(page, "Riordina");
 await settle(500);
 await dialog().getByRole("button", { name: "Apri Italia" }).click().catch(async () => {
   await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Sezioni" }).click();
