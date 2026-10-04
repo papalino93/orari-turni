@@ -3,7 +3,7 @@
 import sharp from "sharp";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, goTab } from "./lib.mjs";
 
 const PDF = new URL("./fixtures-menu.pdf", import.meta.url).pathname;
 const photo = join(tmpdir(), "menu-foto.png");
@@ -29,6 +29,7 @@ const p = await (await b.newContext({ viewport: { width: 1280, height: 900 } }))
 p.setDefaultTimeout(30000);
 await login(p, "andrea", ADMIN_PW);
 await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
+await goTab(p, "Eventi e annunci");
 await p.getByRole("button", { name: new RegExp(title.slice(0, 8)) }).first().click();
 const panel = p.locator('section[aria-label="Impostazioni del menù speciale"]');
 await panel.waitFor();
@@ -96,6 +97,7 @@ check("di nuovo voce per voce: le voci tornano", text.includes(firstDish) && (aw
 
 // Locandina in PDF: si prende la prima pagina come immagine.
 await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await goTab(p, "Eventi e annunci");
 await p.getByRole("button", { name: new RegExp(title.slice(0, 8)) }).first().click();
 await p.getByRole("button", { name: "Modifica", exact: true }).first().click();
 const sheet = p.locator('[role="dialog"]');
