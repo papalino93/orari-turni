@@ -4,8 +4,12 @@
 //  - sta dentro lo schermo (niente scorrimento orizzontale, nessun pulsante tagliato);
 //  - ogni pulsante e campo ha un nome leggibile (per chi usa lo screen reader);
 //  - dove si può creare qualcosa c'è anche il modo di eliminarla.
-import { launch, login, check, BASE, results, ADMIN_PW, goTab, tool, expandPanels, newPromo } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, goTab, tool, expandPanels, newPromo, DB } from "./lib.mjs";
 
+// «Testi della sezione» mostra «Elimina» solo se c'è una nota o un avviso: se ne mette uno di prova.
+const tartare = DB(`select id from "MenuSection" where slug='tartare'`);
+const prima = DB(`select coalesce(note,'') || '~' || coalesce("addonTitle",'') || '~' || coalesce(addon,'') from "MenuSection" where id='${tartare}'`);
+DB(`update "MenuSection" set note='Nota di prova', "addonTitle"='Avviso di prova', addon='Testo di prova' where id='${tartare}'`);
 const b = await launch();
 
 // Ogni voce: come si apre la finestra, e (facoltativo) cosa deve poter fare chi la usa.
@@ -97,6 +101,9 @@ for (const [label, w, h] of [["computer", 1440, 900], ["telefono", 390, 844]]) {
   await ctx.close();
 }
 await b.close();
+const [n0, t0, a0] = prima.split("~");
+const q = (v) => (v ? `'${v.replace(/'/g, "''")}'` : "null");
+DB(`update "MenuSection" set note=${q(n0)}, "addonTitle"=${q(t0)}, addon=${q(a0)} where id='${tartare}'`);
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);
 process.exit(failed.length ? 1 : 0);
