@@ -125,6 +125,12 @@ export function withDay(word: "dal" | "al" | "il", key: string): string {
   return elide ? `${short}${formatPromoDay(key)}` : `${word} ${formatPromoDay(key)}`;
 }
 
+// Orario facoltativo di un evento: «Dalle 19:00», «Dalle 19:00 alle 23:00» o niente.
+export function formatPromoTimes(startTime: string | null | undefined, endTime: string | null | undefined): string {
+  if (!startTime) return "";
+  return endTime ? `Dalle ${startTime} alle ${endTime}` : `Dalle ${startTime}`;
+}
+
 type PromoDates = { showFrom: string; startDate: string; endDate: string };
 
 // scheduled = non ancora visibile; announced = locandina visibile, evento non

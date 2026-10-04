@@ -9,7 +9,7 @@ const biz = (offset = 0) =>
     new Date(Date.now() - 5 * 3600e3 + offset * 86400e3),
   );
 
-// Tre annunci di prova, tutti già visibili e non ancora iniziati: per data C, B, A.
+// Tre eventi di prova, tutti già visibili e non ancora iniziati: per data C, B, A.
 const PROVE = [
   { id: "ordine-prova-a", title: "Ordine Prova A", start: biz(9) },
   { id: "ordine-prova-b", title: "Ordine Prova B", start: biz(6) },
@@ -19,7 +19,7 @@ DB(`delete from "MenuPromo" where id like 'ordine-prova-%'`);
 DB(`update "MenuPromo" set "sortOrder" = null`);
 for (const p of PROVE) {
   DB(
-    `insert into "MenuPromo" (id, kind, slug, title, "showFrom", "startDate", "endDate", "updatedAt") values ('${p.id}', 'NOTICE', '${p.id}', '${p.title}', '${biz(-1)}', '${p.start}', '${p.start}', now())`,
+    `insert into "MenuPromo" (id, kind, slug, title, "showFrom", "startDate", "endDate", "updatedAt") values ('${p.id}', 'EVENT', '${p.id}', '${p.title}', '${biz(-1)}', '${p.start}', '${p.start}', now())`,
   );
 }
 
@@ -90,7 +90,8 @@ check("menù: dopo il ripristino di nuovo C, B, A", (await strip()) === "CBA", a
 await p.reload({ waitUntil: "networkidle" });
 await p.getByRole("button", { name: "Riordina", exact: true }).click();
 await dlg.getByRole("tab", { name: "Eventi e annunci" }).click();
-await dlg.getByRole("button", { name: "Sposta giù Ordine Prova C" }).click();
+// Anche qui in mezzo ci possono essere altri eventi: si scende finché C non è dopo B.
+for (let i = 0; i < 10 && !(await rowTitles()).startsWith("B"); i++) await dlg.getByRole("button", { name: "Sposta giù Ordine Prova C" }).click();
 await dlg.getByRole("button", { name: "Salva ordine" }).click();
 await p.getByText("Nuovo ordine salvato: eventi e annunci").first().waitFor();
 check("menù: B prima di C", (await strip()) === "BCA", await strip());

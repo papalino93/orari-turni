@@ -2,6 +2,7 @@ import {
   type MenuBlockView,
   formatPrice,
   formatPromoDates,
+  formatPromoTimes,
   isPromoMenuVisible,
   nb,
   parseFormats,
@@ -10,6 +11,8 @@ import {
   withDay,
 } from "@/lib/menu-format";
 import type { loadPromoBySlug } from "@/lib/menu";
+import { whatsappHref, type Contacts } from "@/lib/menu-venue";
+import { EventActions } from "./event-actions";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
 import { FormatHeader, FormatPrices, Variants } from "./item-prices";
 import { MenuBlocks } from "./menu-blocks";
@@ -25,9 +28,12 @@ export function PromoContent({
   promo,
   blocks,
   dayKey,
+  contacts,
   inline = false,
 }: {
   promo: PromoWithSection;
+  // Per «Prenota» (WhatsApp del locale); senza telefono il pulsante non compare.
+  contacts?: Contacts;
   // Blocchi da mostrare oggi (quelli «sotto il titolo di una sezione» che includono il menù speciale).
   blocks: MenuBlockView[];
   dayKey: string;
@@ -45,6 +51,13 @@ export function PromoContent({
   );
   const showMenu = hasMenu && isPromoMenuVisible(promo, dayKey);
   const groups = showMenu && !fileMenu ? (promo.section?.groups ?? []).filter((g) => g.items.length > 0) : [];
+  const dates = formatPromoDates(promo.startDate, promo.endDate);
+  const times = formatPromoTimes(promo.startTime, promo.endTime);
+  // Prenota, calendario e condividi: solo per gli eventi non ancora conclusi.
+  const bookHref =
+    promo.kind === "EVENT" && contacts?.phone
+      ? whatsappHref(contacts.phone, `Buonasera, vorrei prenotare per «${promo.title}» (${dates}${promo.startTime ? `, dalle ${promo.startTime}` : ""}). Siamo in`)
+      : null;
 
   return (
     <div>
@@ -75,9 +88,8 @@ export function PromoContent({
           {status === "past" ? "Concluso" : promo.label || (promo.kind === "EVENT" ? "Evento" : "Annuncio")}
         </div>
         <Heading className="menu-serif m-0 mb-1 text-balance text-[42px] font-medium leading-[1.05] text-[#6B1020]">{promo.title}</Heading>
-        <div className="menu-sans text-[13px] font-medium uppercase tracking-[0.14em] text-[#4A504B]">
-          {formatPromoDates(promo.startDate, promo.endDate)}
-        </div>
+        <div className="menu-sans text-[13px] font-medium uppercase tracking-[0.14em] text-[#4A504B]">{dates}</div>
+        {times && <div className="menu-sans -mt-1 text-[13px] tracking-[0.06em] text-[#4A504B]">{times}</div>}
         <Ornament color="#9C7A45" />
       </div>
 
@@ -86,6 +98,8 @@ export function PromoContent({
           {promo.body}
         </p>
       )}
+
+      {promo.kind === "EVENT" && status !== "past" && <EventActions slug={promo.slug} title={promo.title} bookHref={bookHref} />}
 
       {status === "past" && (
         <p className="mt-7 text-center text-[16.5px] italic text-[#5B605A]">Questo appuntamento si è concluso. Grazie a chi c&apos;era!</p>

@@ -481,7 +481,7 @@ export function StatsView({
               <Card title="Pagine degli eventi aperte">
                 <RankedList rows={data.events} empty="Nessuna pagina evento aperta in questo periodo." />
               </Card>
-              <Card title="Contatti toccati" hint="Chiama, WhatsApp, Come arrivare, Recensione, Instagram.">
+              <Card title="Contatti toccati" hint="Chiama, WhatsApp, Come arrivare, Recensione, Instagram e, dalle pagine degli eventi, Prenota, Calendario e Condividi.">
                 <RankedList rows={data.contacts} empty="Nessun contatto toccato in questo periodo." />
               </Card>
             </div>

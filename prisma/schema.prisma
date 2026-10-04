@@ -345,6 +345,9 @@ model MenuPromo {
   showFrom       String
   startDate      String
   endDate        String
+  // Orario facoltativo dell'evento, "HH:MM" («Dalle 19:00», «Dalle 19:00 alle 23:00»).
+  startTime      String?
+  endTime        String?
   hidden         Boolean       @default(false) // forza "nascosto", qualunque sia la data
   imageUpdatedAt DateTime?
   imageWidth     Int?

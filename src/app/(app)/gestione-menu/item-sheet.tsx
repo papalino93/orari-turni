@@ -96,6 +96,7 @@ export function ItemSheet({
   run,
   onClose,
   onDuplicated,
+  copyOf = null,
   focusAllergens = false,
   onMissingAllergens,
   nextMissing,
@@ -114,7 +115,9 @@ export function ItemSheet({
   isLast: boolean;
   run: RunFn;
   onClose: () => void;
-  onDuplicated: (newId: string) => void;
+  onDuplicated: (newId: string, sourceName: string) => void;
+  // Appena creata con «Duplica»: si dice chiaramente che si sta modificando la copia.
+  copyOf?: string | null;
   // Apre la scheda già sulla parte degli allergeni («Compila ora»).
   focusAllergens?: boolean;
   // Piatto nuovo salvato con gli allergeni «Da compilare»: la gestione propone «Compila ora».
@@ -246,7 +249,7 @@ export function ItemSheet({
     setBusy(false);
     if (result) {
       onClose();
-      onDuplicated(result.id);
+      onDuplicated(result.id, item.name);
     }
   }
 
@@ -292,8 +295,25 @@ export function ItemSheet({
   };
 
   return (
-    <Sheet title={progress ? `Allergeni · ${progress.position} di ${progress.total}` : item ? "Modifica voce" : isWine ? "Nuovo vino" : "Nuova voce"} onClose={onClose}>
+    <Sheet title={progress ? `Allergeni · ${progress.position} di ${progress.total}` : copyOf ? "Copia da completare" : item ? "Modifica voce" : isWine ? "Nuovo vino" : "Nuova voce"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3.5">
+        {copyOf && (
+          <p role="status" className="rounded-xl border border-gold/40 bg-gold/10 px-3.5 py-2.5 text-sm text-foreground">
+            Questa è una copia di «{copyOf}», già nel menù subito sotto l&apos;originale. Cambia quello che serve (nome, annata, prezzi…) e salva.
+          </p>
+        )}
+        {item && !copyOf && !progress && (
+          <div className="-mt-1 flex justify-end">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={duplicate}
+              className="min-h-9 rounded-full border border-border px-3 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-30"
+            >
+              Duplica
+            </button>
+          </div>
+        )}
         {!isWine && nameField}
 
         {isWine ? (
@@ -702,9 +722,6 @@ export function ItemSheet({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" disabled={busy} onClick={duplicate} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-30">
-                Duplica
-              </button>
             {confirmingDelete ? (
               <div className="w-full rounded-xl border border-danger/30 bg-danger-bg p-3">
                 <p className="text-xs text-danger">Eliminare «{item.name}»? Resta recuperabile dallo storico.</p>

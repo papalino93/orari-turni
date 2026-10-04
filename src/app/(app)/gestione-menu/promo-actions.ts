@@ -5,7 +5,7 @@ import { requireMenuEditor } from "@/lib/guard";
 import { diff, logChange } from "@/lib/menu-log";
 import { revalidateMenu } from "@/lib/menu";
 import { copySectionBlocks, setSectionBlocks } from "@/lib/menu-block-sync";
-import { assert, parseDateKey, parseEnum, parseId, parseText, runAction, type ActionResult } from "@/lib/validation";
+import { assert, parseDateKey, parseEnum, parseId, parseText, parseTime, runAction, type ActionResult } from "@/lib/validation";
 import type { ChangeResult } from "./actions";
 
 // Eventi e annunci ("In evidenza"). Stesso schema delle altre azioni: permesso
@@ -20,6 +20,9 @@ export type PromoInput = {
   showFrom: string;
   startDate: string;
   endDate: string;
+  // Orario facoltativo («Dalle 19:00», «Dalle 19:00 alle 23:00»), "HH:MM" o vuoto.
+  startTime?: string;
+  endTime?: string;
   // Solo eventi: quali blocchi del menù (coperto, chiusura cucina…) compaiono anche nel menù speciale.
   blockIds?: string[];
   // Solo eventi: con un menù dedicato (cibo e bevande della serata) oppure senza.
@@ -28,7 +31,7 @@ export type PromoInput = {
 
 const MAX_IMAGE_BYTES = 900 * 1024;
 
-function parsePromoFields(input: Pick<PromoInput, "title" | "label" | "body" | "showFrom" | "startDate" | "endDate" | "hasMenu">) {
+function parsePromoFields(input: Pick<PromoInput, "title" | "label" | "body" | "showFrom" | "startDate" | "endDate" | "startTime" | "endTime" | "hasMenu">) {
   const title = parseText(input.title, "titolo", { max: 80, required: true });
   const label = parseText(input.label, "tipo", { max: 30 }) || null;
   const body = parseText(input.body, "testo", { max: 600 }) || null;
@@ -37,7 +40,10 @@ function parsePromoFields(input: Pick<PromoInput, "title" | "label" | "body" | "
   const endDate = parseDateKey(input.endDate, "di fine");
   assert(showFrom <= startDate, "«Mostra dal» non può essere dopo l'inizio.");
   assert(startDate <= endDate, "La data di fine non può essere prima dell'inizio.");
-  return { title, label, body, showFrom, startDate, endDate, hasMenu: input.hasMenu !== false };
+  const startTime = input.startTime ? parseTime(input.startTime, "«dalle»") : null;
+  const endTime = input.endTime ? parseTime(input.endTime, "«alle»") : null;
+  assert(!endTime || startTime, "Scrivi anche l'orario d'inizio («Dalle»).");
+  return { title, label, body, showFrom, startDate, endDate, startTime, endTime, hasMenu: input.hasMenu !== false };
 }
 
 // Indirizzo stabile e leggibile: resta lo stesso anche se il titolo cambia,
@@ -70,10 +76,23 @@ function snapshot(p: {
   showFrom: string;
   startDate: string;
   endDate: string;
+  startTime: string | null;
+  endTime: string | null;
   hidden: boolean;
   hasMenu: boolean;
 }) {
-  return { title: p.title, label: p.label, body: p.body, showFrom: p.showFrom, startDate: p.startDate, endDate: p.endDate, hidden: p.hidden, hasMenu: p.hasMenu };
+  return {
+    title: p.title,
+    label: p.label,
+    body: p.body,
+    showFrom: p.showFrom,
+    startDate: p.startDate,
+    endDate: p.endDate,
+    startTime: p.startTime,
+    endTime: p.endTime,
+    hidden: p.hidden,
+    hasMenu: p.hasMenu,
+  };
 }
 
 export async function createPromo(input: PromoInput): Promise<ActionResult<ChangeResult & { id: string }>> {
@@ -228,7 +247,14 @@ export async function duplicatePromo(
       },
     });
     assert(source, "Pagina non trovata.");
-    const fields = parsePromoFields({ ...input, label: source.label ?? "", body: source.body ?? "", hasMenu: source.hasMenu });
+    const fields = parsePromoFields({
+      ...input,
+      label: source.label ?? "",
+      body: source.body ?? "",
+      startTime: source.startTime ?? "",
+      endTime: source.endTime ?? "",
+      hasMenu: source.hasMenu,
+    });
     const slug = await uniqueSlug(fields.title);
 
     const result = await prisma.$transaction(async (tx) => {

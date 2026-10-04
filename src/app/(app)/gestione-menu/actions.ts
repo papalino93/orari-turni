@@ -76,7 +76,7 @@ const RESTORABLE: Record<string, readonly string[]> = {
   item: [...ITEM_KEYS, "soldOutDay", "deletedAt"],
   group: ["title", "columns", "formats", "deletedAt"],
   section: ["note", "addonTitle", "addon"],
-  promo: ["title", "label", "body", "showFrom", "startDate", "endDate", "hidden", "hasMenu", "deletedAt"],
+  promo: ["title", "label", "body", "showFrom", "startDate", "endDate", "startTime", "endTime", "hidden", "hasMenu", "deletedAt"],
   block: ["kind", "label", "text", "priceCents", "placement", "sectionIds", "startDate", "endDate", "hidden", "deletedAt"],
 };
 
