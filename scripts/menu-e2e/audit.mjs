@@ -10,6 +10,10 @@ import { launch, login, check, BASE, results, ADMIN_PW, goTab, tool, expandPanel
 const tartare = DB(`select id from "MenuSection" where slug='tartare'`);
 const prima = DB(`select coalesce(note,'') || '~' || coalesce("addonTitle",'') || '~' || coalesce(addon,'') from "MenuSection" where id='${tartare}'`);
 DB(`update "MenuSection" set note='Nota di prova', "addonTitle"='Avviso di prova', addon='Testo di prova' where id='${tartare}'`);
+// «Modifica evento» ha bisogno di un evento: se ne crea uno di prova.
+const giorno = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(new Date(Date.now() + 5 * 86400e3));
+DB(`delete from "MenuPromo" where id = 'audit-evento'`);
+DB(`insert into "MenuPromo" (id, kind, slug, title, "showFrom", "startDate", "endDate", "updatedAt") values ('audit-evento', 'EVENT', 'audit-evento', 'Evento di prova', '${giorno}', '${giorno}', '${giorno}', now())`);
 const b = await launch();
 
 // Ogni voce: come si apre la finestra, e (facoltativo) cosa deve poter fare chi la usa.
@@ -101,6 +105,8 @@ for (const [label, w, h] of [["computer", 1440, 900], ["telefono", 390, 844]]) {
   await ctx.close();
 }
 await b.close();
+DB(`delete from "MenuPromo" where id = 'audit-evento'`);
+DB(`delete from "MenuChange" where at > now() - interval '30 minutes' and label like '%Evento di prova%'`);
 const [n0, t0, a0] = prima.split("~");
 const q = (v) => (v ? `'${v.replace(/'/g, "''")}'` : "null");
 DB(`update "MenuSection" set note=${q(n0)}, "addonTitle"=${q(t0)}, addon=${q(a0)} where id='${tartare}'`);
