@@ -33,6 +33,8 @@ export function DailyPanel({
   onEdit: (item: EditorItem, groupId: string) => void;
 }) {
   const [showRecent, setShowRecent] = useState(false);
+  // Telefono: il riquadro si chiude in una riga («Oggi fuori menù · 2 oggi»). Da tablet in su è sempre aperto.
+  const [openOnPhone, setOpenOnPhone] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const rows = daily.sections.flatMap((s) =>
@@ -55,19 +57,40 @@ export function DailyPanel({
   }
 
   return (
-    <section aria-label="Oggi fuori menù" className="mb-5 rounded-2xl border border-gold/35 bg-gradient-to-br from-gold/[0.10] to-gold/[0.02] px-4 py-3.5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section aria-label="Oggi fuori menù" className="mb-5 rounded-2xl border border-gold/35 bg-gradient-to-br from-gold/[0.10] to-gold/[0.02] px-4 py-3.5 max-sm:mb-3 max-sm:py-2">
+      <button
+        type="button"
+        aria-expanded={openOnPhone}
+        onClick={() => setOpenOnPhone((v) => !v)}
+        className="flex min-h-12 w-full items-center text-left sm:hidden"
+      >
         <PanelHead
           icon={IconToday}
           tone="gold"
           title="Oggi fuori menù"
-          subtitle="Il piatto e il vino del giorno: spariscono da soli alle 5:00."
+          chevron={openOnPhone ? "open" : "closed"}
           badge={
             rows.length > 0 ? (
               <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-semibold text-gold">{rows.length} oggi</span>
             ) : undefined
           }
         />
+      </button>
+      <div className={openOnPhone ? "" : "max-sm:hidden"}>
+      <div className="flex flex-wrap items-center justify-between gap-3 max-sm:justify-end">
+        <div className="min-w-0 flex-1 max-sm:hidden">
+          <PanelHead
+            icon={IconToday}
+            tone="gold"
+            title="Oggi fuori menù"
+            subtitle="Il piatto e il vino del giorno: spariscono da soli alle 5:00."
+            badge={
+              rows.length > 0 ? (
+                <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-semibold text-gold">{rows.length} oggi</span>
+              ) : undefined
+            }
+          />
+        </div>
         <div className="flex gap-2">
           {foodGroup && (
             <button
@@ -164,6 +187,7 @@ export function DailyPanel({
           )}
         </div>
       )}
+      </div>
     </section>
   );
 }

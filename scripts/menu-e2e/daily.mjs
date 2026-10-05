@@ -1,6 +1,6 @@
 // «Oggi fuori menù»: piatti e vini solo di oggi, «Togli», «Riproponi» e
 // scomparsa al cambio di giorno.
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW } from "./lib.mjs";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, openDaily } from "./lib.mjs";
 import { execFileSync } from "node:child_process";
 
 const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
@@ -31,6 +31,7 @@ await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 18
 const dialog = () => page.locator('[role="dialog"]');
 const settle = (ms = 1500) => page.waitForTimeout(ms);
 const panel = () => page.locator('section[aria-label="Oggi fuori menù"]');
+await openDaily(page);
 
 check("pannello: «Niente di speciale oggi»", /niente di speciale oggi/i.test(await panel().innerText()));
 
@@ -85,6 +86,7 @@ check("allergeni: il piatto del giorno è nella pagina", /Risotto ai porcini/.te
 
 // Togli + annulla
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await openDaily(page);
 await panel().getByRole("button", { name: "Togli Risotto ai porcini da oggi" }).click();
 await settle();
 check("togli: sparisce dal pannello e dal menù", !/Risotto ai porcini/.test(await panel().innerText()) && !/Risotto ai porcini/.test(await menu()));
@@ -96,6 +98,7 @@ check("annulla: il piatto torna", /Risotto ai porcini/.test(await menu()));
 DB(`update "MenuItem" set "onlyDay"=to_char((now() at time zone 'Europe/Rome') - interval '29 hours','YYYY-MM-DD') where "groupId" in ('menu_grp_oggi_piatti','menu_grp_oggi_vini')`);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await settle(300);
+await openDaily(page);
 t = await menu();
 check("giorno dopo: «Oggi fuori menù» sparisce dal menù", !/oggi fuori menù/i.test(t) && !/Risotto ai porcini/.test(t));
 check("giorno dopo: il pannello propone «Riproponi (2 …)»", /Riproponi \(2/.test(await panel().innerText()), (await panel().innerText()).replace(/\n/g, " | ").slice(0, 160));
@@ -104,7 +107,7 @@ await panel().getByRole("button", { name: "Riproponi Risotto ai porcini" }).clic
 await settle(2000);
 check("riproponi: il piatto torna oggi", /Risotto ai porcini/.test(await menu()));
 check("riproponi: il vino resta fuori", !/Vermentino di Gallura/.test(await menu()));
-check("riproponi: l'elenco dei giorni scorsi scende a 1", /Riproponi \(1/.test(await (async () => { await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" }); return panel().innerText(); })()));
+check("riproponi: l'elenco dei giorni scorsi scende a 1", /Riproponi \(1/.test(await (async () => { await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" }); await openDaily(page); return panel().innerText(); })()));
 
 // Permessi
 {

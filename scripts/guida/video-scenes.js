@@ -168,6 +168,13 @@ function tag(s, text, x, y, t, w) {
   rise(e, t, 14, 0.6, "power3.out"); return e;
 }
 
+// gestione da telefono: ricerca con «Vedi menù», «Oggi fuori menù» chiuso, sezioni una sotto l'altra, «+» fisso
+const SRCH = `<div class="srow"><div class="srch">Cerca una voce del menù…</div><i class="ib"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg></i></div>`;
+const FAB = (id) => `<div class="fab"${id ? ` id="${id}"` : ""}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>`;
+const SEC_LIST = [["Bollicine", 16], ["Bianchi", 15], ["Rossi", 11], ["Rosé & Orange", 8], ["Taglieri & Pinse", 10], ["Tartare", 4]];
+const secsClosed = () => SEC_LIST.map(([n, c]) => `<div class="asec"><span>▸ ${n.replace("&", "&amp;")}</span><small>${c}</small></div>`).join("");
+const TABS4 = (on, ids) => `<div class="tabs">${["Menù", "Eventi", "Orari", "Strumenti"].map((n, i) => `<b${i === on ? ' class="on"' : ""}${ids && i < 2 ? ` id="tab${i}"` : ""}>${n}</b>`).join("")}</div>`;
+
 // righe della lista in gestione
 const row = (r) => `<div class="row${r.sold ? " sold" : ""}"><div class="rt"><div class="nm"><span class="n">${r.n}<s class="st"></s></span>${r.enom ? '<em class="en">ENOMATIC</em>' : ""}</div><div class="s1">${r.s1}</div><div class="s1">${r.s2}</div>${r.tags ? `<div class="s1 tg2">${r.tags}</div>` : ""}</div><div class="eb${r.sold ? " on" : ""}">Esaurito</div></div>`;
 const ROWS = [
@@ -209,7 +216,7 @@ const ROWS = [
   const world = el("div", "world", null, s);          // i due telefoni stanno in un «mondo» che la camera sposta
   const AX = (W - 420 * k) / 2, GAP = 130, BX = AX + 420 * k + GAP, PY = 250, PAN = -(BX - AX);
   const A = phone(world, AX, PY, k, "admin"), B = phone(world, BX, PY, k, "cust");
-  A.pg.innerHTML = `<div class="srch">Cerca una voce del menù…</div><div class="chiudi">Chiudi tutti i gruppi</div><div class="grp"><div class="gh"><b>▾</b> Italia <span>· 9</span><div class="gi"><i></i><i></i><i></i><i></i></div></div>${ROWS.map(row).join("")}</div><div class="toast"><span>✓ «Avignonesi» segnata esaurita</span><u>Annulla</u></div>`;
+  A.pg.innerHTML = `${SRCH}<div class="asec open"><span>▾ Rossi</span><small>11</small></div><div class="chiudi">Chiudi tutti i gruppi</div><div class="grp"><div class="gh"><b>▾</b> Italia <span>· 9</span><div class="gi"><i></i><i></i><i></i><i></i></div></div>${ROWS.slice(0, 5).map(row).join("")}</div>${FAB()}<div class="toast"><span>✓ «Avignonesi» segnata esaurita</span><u>Annulla</u></div>`;
   const rows = A.pg.querySelectorAll(".row"), r0 = rows[0], eb = r0.querySelector(".eb"), st = r0.querySelector(".st"), toast = A.pg.querySelector(".toast");
   // menù dei clienti a strati: sopra, riga, sotto (così la riga può sparire e il resto salire)
   const [rowY, rowH] = [ROW.y, ROW.h];
@@ -297,14 +304,11 @@ const ROWS = [
   const i = idx("vino"), T = starts[i], s = chapter(i), k = 1.58;
   const P = phone(s, (W - 420 * k) / 2, 215, k, "admin");
   P.pg.innerHTML = `
-    <div class="pgm"><h1>Menù</h1><p class="sub">Quello che cambi qui compare subito sul menù dei clienti (quello del QR).</p>
-    <div class="btns"><span class="btn">Vedi menù ↗</span><span class="btn pri" id="addb">+ Aggiungi</span></div>
-    <div class="tabs"><b class="on">Menù</b><b>Eventi e annunci</b><b>Orari e contatti</b><b>Strumenti</b></div>
-    <div class="srch">Cerca una voce del menù…</div>
-    <div class="oggi"><div class="oh"><b>Oggi fuori menù</b><em class="bd">2 oggi</em><span class="btn pri sm">+ Piatto</span><span class="btn pri sm">+ Vino</span></div>
-      <div class="or"><div><small>PIATTO</small><b>Risotto ai porcini</b><span>€ 14</span></div><i class="btn sm">Togli</i></div>
-      <div class="or"><div><small>VINO</small><b>Vermentino di Gallura</b><span>Calice 8 · Bottiglia 35</span></div><i class="btn sm">Togli</i></div></div></div>
-    <div class="lst"><div class="chiudi">Chiudi tutti i gruppi</div><div class="grp"><div class="gh"><b>▾</b> Italia <span class="cnt">· 9</span><div class="gi"><i></i><i></i><i></i><i></i></div></div><div class="nwrap"></div>${ROWS.slice(0, 4).map(row).join("")}</div></div>
+    <div class="pgm">${TABS4(0, false)}${SRCH}
+    <div class="fold"><b>Oggi fuori menù</b><em class="bd">2 oggi</em><span>▾</span></div>
+    <div class="asecs">${secsClosed()}</div></div>
+    ${FAB("addb")}
+    <div class="lst"><div class="asec open"><span>▾ Rossi</span><small>11</small></div><div class="chiudi">Chiudi tutti i gruppi</div><div class="grp"><div class="gh"><b>▾</b> Italia <span class="cnt">· 9</span><div class="gi"><i></i><i></i><i></i><i></i></div></div><div class="nwrap"></div>${ROWS.slice(0, 4).map(row).join("")}</div></div>
     <div class="dim"></div>
     <div class="sheet" id="sh1"><div class="sht"><span class="tt"><b class="shn t1">Che cosa vuoi aggiungere?</b><b class="shn t2">Un vino: in quale sezione?</b><b class="shn t3">In quale gruppo di «Rossi»?</b></span><i>✕</i></div>
       <div class="sbody"><div class="v v1">
@@ -362,8 +366,8 @@ const ROWS = [
   curStart(cur, pAdd[0] + 80, pAdd[1] + 600, pAdd[0] + 30, pAdd[1] + 160, T + 2.2, 0.9);
   curMove(cur, pAdd[0], pAdd[1], T + 3.0, 0.5);
   const addS = P.st(pAdd[0] - 15, 0);
-  callout(s, "Tocca «+ Aggiungi»", P.X + pAdd[0] * k - 20, P.Y + pAdd[1] * k - 50, T + 2.7, T + 4.2);
-  cap(s, T + 2.4, T + 5.1, "PASSO 1 DI 4", "Tocca *«+ Aggiungi»*", 1560);
+  callout(s, "Tocca il «+»", P.X + pAdd[0] * k - 100, P.Y + pAdd[1] * k - 50, T + 2.7, T + 4.2);
+  cap(s, T + 2.4, T + 5.1, "PASSO 1 DI 4", "Tocca il *«+»* in basso", 1560);
   tap(cur, T + 3.55); press(addb, T + 3.55);
   M.fromTo(dim, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, T + 3.7);
   M.fromTo(sh1, { autoAlpha: 0, yPercent: 105 }, { autoAlpha: 1, yPercent: 0, duration: 0.6, ease: "expo.out" }, T + 3.7);
@@ -440,15 +444,14 @@ const ROWS = [
   const world = el("div", "world", null, s);
   const AX = (W - 420 * k) / 2, GAP = 130, BX = AX + 420 * k + GAP, PY = 250, PAN = -(BX - AX);
   const A = phone(world, AX, PY, k, "admin"), B = phone(world, BX, PY, k, "cust");
-  A.pg.innerHTML = `<div class="pgm"><h1>Menù</h1><p class="sub">Quello che cambi qui compare subito sul menù dei clienti (quello del QR).</p>
-    <div class="tabs"><b class="on" id="tab0">Menù</b><b id="tab1">Eventi e annunci</b><b>Orari e contatti</b><b>Strumenti</b></div></div>
+  A.pg.innerHTML = `<div class="pgm">${TABS4(0, true)}</div>
     <div class="evp"><div class="ebtn"><span class="btn">Riordina</span><span class="btn">+ Nuovo annuncio</span><span class="btn pri">+ Nuovo evento</span></div>
     <div class="pills"><b class="pl on" id="pl0">Crudité &amp; Champagne</b><b class="pl" id="pl1">Lunedì 12 chiusi per ferie <em class="bd">IN CORSO</em></b><b class="pl" id="pl2">Oktoberfest <em class="bd">ANNUNCIATO</em></b></div>
     <div class="ecard"><div class="ec c0"><img src="../jpg/locandina-crudite.png"><div class="ex"><div><em class="bd g">IN CORSO</em> <small>SERATA CON IL PRODUTTORE</small></div><h3>Crudité &amp; Champagne</h3><div class="d">4 ottobre</div><p>Locandina in «in evidenza» dal giorno scelto.</p></div></div>
       <div class="ec c1"><div class="ex"><div><em class="bd g">IN CORSO</em> <small>ANNUNCIO</small></div><h3>Lunedì 12 chiusi per ferie</h3><div class="d">4–14 ottobre</div><p>Una riga sotto la copertina del menù dei clienti.</p></div></div>
       <div class="ec c2"><img src="../jpg/locandina-oktoberfest.png"><div class="ex"><div><em class="bd">ANNUNCIATO</em> <small>BIRRE, CIBO E MUSICA</small></div><h3>Oktoberfest</h3><div class="d">12–13 ottobre</div><p>Compare in «in evidenza» dal giorno scelto.</p></div></div>
       <div class="eact"><span class="btn sm">Modifica</span><span class="btn sm">Duplica</span><span class="btn sm">Nascondi</span><span class="btn sm">Apri la pagina ↗</span><span class="btn sm">Elimina</span></div></div></div>`;
-  A.pg.insertAdjacentHTML("beforeend", `<div class="fk"><div class="srch">Cerca un piatto o una bottiglia…</div><div class="grp" style="margin:14px 0 0"><div class="gh"><b>▾</b> Bollicine <span>· 8</span></div><div class="row"><div class="nm"><span class="n">Franciacorta Brut</span></div><span class="s1">€ 38</span></div><div class="row"><div class="nm"><span class="n">Prosecco Valdobbiadene</span></div><span class="s1">€ 24</span></div><div class="row"><div class="nm"><span class="n">Champagne Blanc de Blancs</span></div><span class="s1">€ 72</span></div></div></div>`);
+  A.pg.insertAdjacentHTML("beforeend", `<div class="fk">${SRCH}<div class="fold"><b>Oggi fuori menù</b><em class="bd">2 oggi</em><span>▾</span></div><div class="asecs">${secsClosed()}</div></div>`);
   const q = (sel) => A.pg.querySelector(sel);
   const fk = q(".fk");
   M.fromTo(fk, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.2 }, T + 3.9);
@@ -472,7 +475,6 @@ const ROWS = [
   tap(cur, T + 3.85); press(tab1, T + 3.85);
   M.fromTo(tab1, { backgroundColor: "#f1ebe6" }, { backgroundColor: "#ecd7dc", duration: 0.2 }, T + 3.9);
   M.fromTo(q("#tab0"), { backgroundColor: "#ecd7dc" }, { backgroundColor: "#f1ebe6", duration: 0.2 }, T + 3.9);
-  M.fromTo(pgm.querySelector(".sub"), { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.2 }, T + 3.9);
   M.fromTo(evp, { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: "power3.out" }, T + 4.2);
   // 1) un annuncio → compare in cima al menù
   curMove(cur, pl1p[0], pl1p[1], T + 4.6, 0.55);

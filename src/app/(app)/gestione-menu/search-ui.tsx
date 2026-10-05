@@ -25,6 +25,7 @@ export function ItemSearch({
   onToggleSold,
   onEdit,
   sticky = false,
+  trailing,
 }: {
   sections: EditorSection[];
   isSold: (item: EditorItem) => boolean;
@@ -32,6 +33,8 @@ export function ItemSearch({
   onEdit: (item: EditorItem, groupId: string) => void;
   // Ferma in alto mentre si scorre (sotto la barra dell'app); i risultati scorrono dentro.
   sticky?: boolean;
+  // Accanto al campo di ricerca (sul telefono: «Vedi menù»).
+  trailing?: React.ReactNode;
 }) {
   const [query, setQuery] = useState("");
   const rows = useMemo(
@@ -57,16 +60,19 @@ export function ItemSearch({
       aria-label="Cerca una voce"
       className={sticky ? "sticky top-[calc(4rem+env(safe-area-inset-top))] z-20 -mx-1 mb-4 bg-background px-1 pb-2 pt-2" : "mb-5"}
     >
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Cerca una voce del menù…"
-        aria-label="Cerca una voce"
-        autoComplete="off"
-        enterKeyHint="search"
-        className="min-h-12 w-full rounded-full border border-border bg-surface px-5 text-base text-foreground outline-none placeholder:text-foreground-muted/60 focus:border-accent sm:text-sm"
-      />
+      <div className="flex items-center gap-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Cerca una voce del menù…"
+          aria-label="Cerca una voce"
+          autoComplete="off"
+          enterKeyHint="search"
+          className="min-h-12 min-w-0 w-full flex-1 rounded-full border border-border bg-surface px-5 text-base text-foreground outline-none placeholder:text-foreground-muted/60 focus:border-accent sm:text-sm"
+        />
+        {trailing}
+      </div>
       {tokens.length > 0 && (
         <div
           className={`mt-2 rounded-2xl border border-border bg-surface px-4 py-1 ${sticky ? "max-h-[min(60svh,30rem)] overflow-y-auto shadow-lg" : ""}`}

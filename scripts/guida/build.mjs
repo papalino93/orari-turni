@@ -418,11 +418,11 @@ pages.push(`<section class="page paper">${chrome(pg(), "Guida · la schermata")}
   <h2>Quattro schede,<br><em>ognuna con le sue cose</em></h2></div>
   <div style="display:flex;justify-content:center;margin-top:5mm">${mac("mac-gestione", 156, "", gestionePins)}</div>
   <ol class="legend" style="margin-top:8mm;columns:2;column-gap:9mm">
-    <li><b>In alto</b>: <span class="ui">Vedi menù ↗</span> e <span class="ui">+ Aggiungi</span> (un vino, un piatto, il piatto di oggi, un evento, un annuncio).</li>
+    <li><b>In alto</b>: <span class="ui">Vedi menù ↗</span> e <span class="ui">+ Aggiungi</span> (un vino, un piatto, il piatto di oggi, un evento, un annuncio). Dal telefono: il <span class="ui">+</span> fisso in basso a destra e la freccia ↗ accanto alla ricerca.</li>
     <li><b>Le schede</b>: <span class="ui">Menù</span>, <span class="ui">Eventi e annunci</span>, <span class="ui">Orari e contatti</span> (copertina, orari, contatti, coperto e avvisi) e <span class="ui">Strumenti</span> (prezzi, ordine, storico, stampa, QR, guida in PDF e in video).</li>
     <li><b>La ricerca</b>: resta in alto mentre scorri; accanto a ogni risultato c'è <span class="ui">Esaurito</span>.</li>
     <li><b>Oggi fuori menù</b>: piatti e vini solo di oggi, con <span class="ui">+ Piatto</span> e <span class="ui">+ Vino</span>.</li>
-    <li><b>Le sezioni</b> a sinistra.</li>
+    <li><b>Le sezioni</b> a sinistra. Dal telefono stanno una sotto l'altra, chiuse: tocca il nome per aprirla (le altre si richiudono).</li>
     <li><b>+ Aggiungi</b> accanto al titolo: un vino o una voce proprio in quella sezione.</li>
     <li><b>Le voci</b>: clic sul nome per modificarla. Un clic sul titolo del gruppo (▾ Champagne) lo chiude o lo apre.</li>
   </ol>

@@ -4,7 +4,7 @@
 //  - sta dentro lo schermo (niente scorrimento orizzontale, nessun pulsante tagliato);
 //  - ogni pulsante e campo ha un nome leggibile (per chi usa lo screen reader);
 //  - dove si può creare qualcosa c'è anche il modo di eliminarla.
-import { launch, login, check, BASE, results, ADMIN_PW, goTab, tool, expandPanels, newPromo, DB } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, goTab, tool, expandPanels, newPromo, DB, addButton } from "./lib.mjs";
 
 // «Testi della sezione» mostra «Elimina» solo se c'è una nota o un avviso: se ne mette uno di prova.
 const tartare = DB(`select id from "MenuSection" where slug='tartare'`);
@@ -22,7 +22,7 @@ const SHEETS = [
   { name: "Modifica voce", open: async (p) => { await goTab(p, "Menù"); await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click(); await p.getByRole("button", { name: /^Modifica Avignonesi/ }).first().click(); }, remove: /Elimina/ },
   { name: "Nuovo piatto", open: async (p) => { await goTab(p, "Menù"); await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Taglieri" }).click(); await p.getByRole("button", { name: /^\+ Aggiungi voce/ }).first().click(); } },
   { name: "Testi della sezione", open: async (p) => { await goTab(p, "Menù"); await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Tartare" }).click(); await p.getByRole("button", { name: /Modifica la nota sotto il titolo|Modifica i testi/ }).first().click(); }, removeAny: true },
-  { name: "Aggiungi (scelta)", open: async (p) => { await p.getByRole("button", { name: "+ Aggiungi", exact: true }).click(); } },
+  { name: "Aggiungi (scelta)", open: async (p) => { await addButton(p).click(); } },
   { name: "Aggiungi più voci", open: async (p) => { await goTab(p, "Menù"); await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click(); await p.getByRole("button", { name: "Incolla più voci" }).first().click(); } },
   { name: "Tabella prezzi", open: (p) => tool(p, "Tabella prezzi") },
   { name: "Riordina", open: (p) => tool(p, "Riordina") },

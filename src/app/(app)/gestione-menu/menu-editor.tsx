@@ -128,11 +128,11 @@ type SheetState =
 
 // Le quattro schede della gestione, con una riga che dice cosa c'è dentro.
 type Tab = "menu" | "eventi" | "locale" | "strumenti";
-const TABS: { id: Tab; label: string; hint: string }[] = [
-  { id: "menu", label: "Menù", hint: "Sezioni, voci, esauriti, Oggi fuori menù" },
-  { id: "eventi", label: "Eventi e annunci", hint: "Locandine, date, menù delle serate" },
-  { id: "locale", label: "Orari e contatti", hint: "Copertina, orari, contatti, coperto e avvisi" },
-  { id: "strumenti", label: "Strumenti", hint: "Prezzi, ordine, storico, stampa, QR, guida" },
+const TABS: { id: Tab; label: string; short: string; hint: string }[] = [
+  { id: "menu", label: "Menù", short: "Menù", hint: "Sezioni, voci, esauriti, Oggi fuori menù" },
+  { id: "eventi", label: "Eventi e annunci", short: "Eventi", hint: "Locandine, date, menù delle serate" },
+  { id: "locale", label: "Orari e contatti", short: "Orari", hint: "Copertina, orari, contatti, coperto e avvisi" },
+  { id: "strumenti", label: "Strumenti", short: "Strumenti", hint: "Prezzi, ordine, storico, stampa, QR, guida" },
 ];
 
 // key: dove portare la gestione per mostrare il piatto (null = resta dove sei, es. «Oggi fuori menù»).
@@ -179,6 +179,8 @@ export function MenuEditor({
   const [lastSectionSlug, setLastSectionSlug] = useState(sections[0]?.slug ?? "");
   const [sheet, setSheet] = useState<SheetState>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  // Telefono: le sezioni sono una sotto l'altra, tutte chiuse; ne resta aperta una sola. Su tablet e computer non conta.
+  const [sectionOpen, setSectionOpen] = useState(false);
   const [pendingOpenId, setPendingOpenId] = useState<string | null>(null);
   // Copia appena creata con «Duplica»: la sua scheda si apre con l'avviso «Questa è una copia di…».
   const [copyOf, setCopyOf] = useState<{ id: string; name: string } | null>(null);
@@ -280,10 +282,23 @@ export function MenuEditor({
     else {
       setTab("menu");
       setLastSectionSlug(key);
+      setSectionOpen(true);
     }
-    if (window.matchMedia("(max-width: 1023px)").matches) {
+    if (!key.startsWith("promo:") && window.matchMedia("(max-width: 639px)").matches) {
+      // Telefono: la sezione si apre sotto il suo titolo, che si porta in cima.
+      requestAnimationFrame(() => document.getElementById(`sezione-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    } else if (window.matchMedia("(max-width: 1023px)").matches) {
       requestAnimationFrame(() => contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     }
+  }
+
+  // Telefono: toccando il titolo della sezione aperta si richiude; altrimenti si apre (e le altre si chiudono).
+  function toggleSection(slug: string) {
+    if (window.matchMedia("(max-width: 639px)").matches && !promoSelected && slug === activeSlug && sectionOpen) {
+      setSectionOpen(false);
+      return;
+    }
+    select(slug);
   }
 
   function openTab(next: Tab) {
@@ -397,14 +412,14 @@ export function MenuEditor({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3 max-sm:mb-0">
+        <div className="min-w-0 max-sm:sr-only">
           <h1 className="text-xl font-semibold tracking-tight">Menù</h1>
           <p className="mt-1 text-sm text-foreground-muted">
             Quello che cambi qui compare subito sul menù dei clienti (quello del QR).
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 max-sm:hidden">
           <a
             href="/menu"
             target="_blank"
@@ -424,7 +439,7 @@ export function MenuEditor({
       </div>
 
       {/* Quattro schede: ognuna mostra solo le sue cose. Si apre su «Menù». */}
-      <div role="tablist" aria-label="Parti della gestione" className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-surface-2 p-1 sm:grid-cols-4">
+      <div role="tablist" aria-label="Parti della gestione" className="mb-5 grid grid-cols-4 gap-1 rounded-2xl bg-surface-2 p-1 max-sm:mb-3">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -434,17 +449,30 @@ export function MenuEditor({
             aria-selected={tab === t.id}
             aria-controls="scheda-contenuto"
             onClick={() => openTab(t.id)}
-            className={`flex min-h-11 min-w-0 flex-col items-start justify-center rounded-xl px-3 py-2 text-left transition-colors ${
+            aria-label={t.label}
+            className={`flex min-h-11 min-w-0 flex-col items-start justify-center rounded-xl px-3 py-2 text-left transition-colors max-sm:items-center max-sm:px-1 max-sm:text-center ${
               tab === t.id ? "border border-accent bg-accent/15 shadow-sm" : "border border-transparent hover:bg-surface/60"
             }`}
           >
-            <span className="text-sm font-semibold leading-tight text-gold">{t.label}</span>
+            <span className="text-sm font-semibold leading-tight text-gold max-sm:hidden">{t.label}</span>
+            <span aria-hidden="true" className="truncate text-[13px] font-semibold leading-tight text-gold sm:hidden">{t.short}</span>
             <span className="hidden text-[11px] leading-snug text-foreground-muted sm:block">{t.hint}</span>
           </button>
         ))}
       </div>
 
-      <div id="scheda-contenuto" role="tabpanel" aria-labelledby={`scheda-${tab}`}>
+      <button
+        type="button"
+        onClick={() => setSheet({ type: "add" })}
+        aria-label="Aggiungi"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-lg hover:bg-accent-hover sm:hidden"
+      >
+        <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </button>
+
+      <div id="scheda-contenuto" role="tabpanel" aria-labelledby={`scheda-${tab}`} className="max-sm:pb-20">
       {tab === "menu" && (
         <>
           {(missingAllergens > 0 || winesWithoutRegion.length > 0) && (
@@ -491,6 +519,19 @@ export function MenuEditor({
 
           <ItemSearch
             sticky
+            trailing={
+              <a
+                href="/menu"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Vedi il menù dei clienti"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-foreground-muted hover:border-accent hover:text-foreground sm:hidden"
+              >
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 17 17 7M9 7h8v8" />
+                </svg>
+              </a>
+            }
             sections={allSections.filter((s) => !s.promoId || effectiveStatus(promos.find((p) => p.id === s.promoId)!, today) !== "past")}
             isSold={isSold}
             onToggleSold={toggleSold}
@@ -555,11 +596,12 @@ export function MenuEditor({
             { label: "Anteprima", hint: "Il menù come lo vede il cliente, anche in un giorno scelto.", onClick: () => setSheet({ type: "preview" }) },
             { label: "Menù da stampare", hint: "Foglio A4 sempre aggiornato, da stampare o salvare in PDF.", href: "/gestione-menu/stampa" },
             { label: "Codice QR", hint: "Il QR del menù da stampare (SVG e PNG).", onClick: () => setSheet({ type: "qr" }) },
+            { label: "Vedi menù", hint: "Il menù come lo vedono i clienti che inquadrano il QR.", href: "/menu", download: true, phoneOnly: true },
             { label: "Statistiche", hint: "Quante persone aprono il menù, quando e cosa cercano.", href: "/statistiche" },
             { label: "Guida (PDF)", hint: "Come si usa la gestione, passo per passo.", href: "/gestione-menu/guida", download: true },
             { label: "Guida (video)", hint: "Circa tre minuti: le cose principali, animate.", href: "/gestione-menu/guida/video", download: true },
           ].map((tool) => (
-            <li key={tool.label} className="flex">
+            <li key={tool.label} className={`flex ${tool.phoneOnly ? "sm:hidden" : ""}`}>
             {tool.href ? (
               <a
                 href={tool.href}
@@ -584,28 +626,51 @@ export function MenuEditor({
         </ul>
       )}
 
+      {/* Telefono, scheda «Menù»: le sezioni sono una sotto l'altra e quella aperta mostra il suo contenuto subito sotto
+          il titolo (colonna con «order»). Da tablet in su resta l'elenco di sempre con il contenuto accanto. */}
       {(tab === "menu" || tab === "eventi") && (
-      <div className="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)]">
-        <div className="space-y-5 lg:sticky lg:top-24 lg:h-fit">
+      <div className={`grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)] ${tab === "menu" ? "max-sm:flex max-sm:flex-col max-sm:gap-1.5" : ""}`}>
+        <div className={`space-y-5 lg:sticky lg:top-24 lg:h-fit ${tab === "menu" ? "max-sm:contents" : ""}`}>
           {tab === "menu" && (
-          <nav aria-label="Sezioni" className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
-            {sections.map((s) => {
+          <nav aria-label="Sezioni" className="flex flex-wrap gap-2 max-sm:contents lg:flex-col lg:gap-1">
+            {sections.map((s, i) => {
               const count = s.groups.reduce((n, g) => n + g.items.length, 0);
               const active = !promoSelected && s.slug === section?.slug;
+              const open = active && sectionOpen;
               return (
                 <button
                   key={s.id}
+                  id={`sezione-${s.slug}`}
                   type="button"
-                  onClick={() => select(s.slug)}
+                  onClick={() => toggleSection(s.slug)}
                   aria-current={active ? "true" : undefined}
-                  className={`flex min-h-10 items-center justify-between gap-3 rounded-full px-3.5 text-sm font-medium transition-colors lg:rounded-xl ${
+                  style={{ "--o": 2 * i } as React.CSSProperties}
+                  className={`flex min-h-10 items-center justify-between gap-3 rounded-full px-3.5 text-sm font-medium transition-colors max-sm:order-(--o) max-sm:min-h-14 max-sm:scroll-mt-36 max-sm:w-full max-sm:rounded-xl max-sm:border max-sm:px-4 max-sm:text-base max-sm:font-semibold lg:rounded-xl ${
+                    open ? "max-sm:border-accent max-sm:bg-accent/15 max-sm:text-foreground" : "max-sm:border-border max-sm:bg-surface max-sm:text-foreground"
+                  } ${
                     active
-                      ? "bg-accent text-accent-foreground"
+                      ? "bg-accent text-accent-foreground max-sm:text-foreground"
                       : "border border-border text-foreground-muted hover:border-accent hover:text-foreground lg:border-transparent"
                   }`}
                 >
-                  <span>{s.label}</span>
-                  <span className={`text-xs ${active ? "text-accent-foreground/80" : "text-foreground-muted/70"}`}>{count}</span>
+                  <span className="flex items-center gap-2">
+                    <svg
+                      aria-hidden="true"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={`shrink-0 text-foreground-muted transition-transform sm:hidden ${open ? "rotate-90" : ""}`}
+                    >
+                      <path d="M9 6l6 6-6 6" />
+                    </svg>
+                    {s.label}
+                  </span>
+                  <span className={`text-xs max-sm:text-sm max-sm:font-normal max-sm:text-foreground-muted ${active ? "text-accent-foreground/80" : "text-foreground-muted/70"}`}>{count}</span>
                 </button>
               );
             })}
@@ -634,7 +699,12 @@ export function MenuEditor({
           )}
         </div>
 
-        <div ref={contentRef} className="min-w-0 scroll-mt-20 space-y-4">
+        <div
+          ref={contentRef}
+          id="contenuto-scheda"
+          style={tab === "menu" ? ({ "--o": 2 * Math.max(0, sections.findIndex((x) => !promoSelected && x.slug === section?.slug)) + 1 } as React.CSSProperties) : undefined}
+          className={`min-w-0 scroll-mt-20 space-y-4 ${tab === "menu" ? `max-sm:order-(--o) max-sm:pb-2 ${sectionOpen ? "" : "max-sm:hidden"}` : ""}`}
+        >
           {(tab === "menu" ? promoSelected : !promoSelected) ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-foreground-muted">
               {tab === "eventi" ? "Nessun evento o annuncio: crealo con «+ Nuovo evento» o «+ Nuovo annuncio»." : "Scegli una sezione."}
@@ -664,7 +734,7 @@ export function MenuEditor({
           {section && !(activePromo && !activePromo.hasMenu) && (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
+                <h2 className={`text-base font-semibold text-foreground ${activePromo ? "" : "max-sm:hidden"}`}>{activePromo ? "Menù speciale" : section.title}</h2>
                 {/* «+ Aggiungi» anche qui, vicino alla sezione: la voce va in questa sezione. */}
                 {!activePromo && section.groups.length > 0 && (
                   <button
@@ -674,7 +744,7 @@ export function MenuEditor({
                         ? setSheet({ type: "item", itemId: null, groupId: section.groups[0].id })
                         : setSheet({ type: "add", sectionId: section.id })
                     }
-                    className="min-h-10 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover"
+                    className="min-h-10 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover max-sm:w-full"
                   >
                     + Aggiungi {section.kind === "WINE" ? "un vino" : "una voce"} in «{section.label}»
                   </button>

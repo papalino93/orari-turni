@@ -1,7 +1,7 @@
 // Giro fotografico per i controlli di bug e UX: tutte le pagine, titolare e dipendente,
 // telefono e computer, tema chiaro e scuro. Segnala errori JS e pagine più larghe dello
 // schermo. Uso: node scripts/menu-e2e/giro.mjs <cartella-foto>
-import { discardIfAsked, launch, login, BASE, ADMIN_PW, EMP_PW, tool, newPromo, goTab } from "./lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW, EMP_PW, tool, newPromo, goTab, addButton } from "./lib.mjs";
 const OUT = process.argv[2];
 const b = await launch();
 const pagesAdmin = ["/", "/orari", "/dipendenti", "/ferie", "/mie-ore", "/account", "/installa", "/gestione-menu", "/statistiche", "/gestione-menu/stampa"];
@@ -82,7 +82,7 @@ async function schede(name, w, h, theme) {
     await p.screenshot({ path: `${OUT}/${name}_tab-${tab.split(" ")[0].toLowerCase()}.png`, fullPage: true });
   }
   await goTab(p, "Menù");
-  await p.getByRole("button", { name: "+ Aggiungi", exact: true }).click();
+  await addButton(p).click();
   await p.waitForTimeout(500);
   await p.screenshot({ path: `${OUT}/${name}_aggiungi.png` });
   await ctx.close();
