@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
@@ -74,7 +74,7 @@ const ICONS = {
 // Intestazione di un gruppo: icona, titolo e a cosa serve, così la pagina si legge per argomenti.
 function Group({ id, title, text, children }: { id: (typeof GROUPS)[number]["id"]; title: string; text: string; children: React.ReactNode }) {
   return (
-    <section id={id} aria-labelledby={`${id}-titolo`} className="scroll-mt-32 space-y-4 pt-2">
+    <section id={id} aria-labelledby={`${id}-titolo`} className={`scroll-mt-32 space-y-4 pt-2 ${id === "eventi" ? "min-h-[calc(100svh-10rem)]" : ""}`}>
       <div className="flex items-center gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent-hover">{ICONS[id]}</span>
         <div className="min-w-0">
@@ -346,8 +346,11 @@ export function StatsView({
   const [enabled, setEnabled] = useState(setting.enabled);
   // Gruppo in vista, evidenziato nella barra in alto.
   const [current, setCurrent] = useState<string>(GROUPS[0].id);
+  // Dopo un tocco sulla barra il gruppo scelto resta evidenziato mentre la pagina scorre.
+  const lockUntil = useRef(0);
   useEffect(() => {
     function onScroll() {
+      if (Date.now() < lockUntil.current) return;
       let id: string = GROUPS[0].id;
       for (const g of GROUPS) {
         const el = document.getElementById(g.id);
@@ -494,6 +497,10 @@ export function StatsView({
               <a
                 key={g.id}
                 href={`#${g.id}`}
+                onClick={() => {
+                  lockUntil.current = Date.now() + 1200;
+                  setCurrent(g.id);
+                }}
                 aria-current={current === g.id ? "true" : undefined}
                 className={`flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm font-medium ${
                   current === g.id
