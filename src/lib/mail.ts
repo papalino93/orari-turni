@@ -178,21 +178,74 @@ export function buildMail(
   };
 }
 
-// Limite del piano gratuito di Resend: 100 mail al giorno (3.000 al mese).
+// Servizio usato per spedire: Resend (predefinito) o Brevo, scelto con
+// MAIL_PROVIDER=brevo. Cambiare servizio non tocca pagina e azioni.
+type ProviderName = "resend" | "brevo";
+
+function providerName(): ProviderName {
+  return process.env.MAIL_PROVIDER?.toLowerCase() === "brevo" ? "brevo" : "resend";
+}
+
+function apiKey() {
+  return providerName() === "brevo" ? process.env.BREVO_API_KEY : process.env.RESEND_API_KEY;
+}
+
+// Limite giornaliero del piano gratuito: Resend 100, Brevo 300. Sovrascrivibile
+// con MAIL_DAILY_LIMIT (ad esempio se si passa a un piano a pagamento).
 export function dailyLimit(): number {
   const n = Number(process.env.MAIL_DAILY_LIMIT);
-  return Number.isFinite(n) && n > 0 ? n : 100;
+  if (Number.isFinite(n) && n > 0) return n;
+  return providerName() === "brevo" ? 300 : 100;
 }
 
 export function mailConfigured(): boolean {
-  return Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM);
+  return Boolean(apiKey() && process.env.MAIL_FROM);
+}
+
+// «Nome <indirizzo>» oppure solo «indirizzo».
+function parseFrom(value: string): { name?: string; email: string } {
+  const m = value.match(/^\s*(.*?)\s*<([^<>]+)>\s*$/);
+  return m ? { name: m[1].replace(/^"|"$/g, "") || undefined, email: m[2].trim() } : { email: value.trim() };
 }
 
 export function getProvider(): MailProvider {
-  const key = process.env.RESEND_API_KEY;
+  const key = apiKey();
   const from = process.env.MAIL_FROM;
-  if (!key || !from) throw new Error("Invio mail non configurato: mancano RESEND_API_KEY o MAIL_FROM.");
+  if (!key || !from) throw new Error("Invio mail non configurato: mancano la chiave del servizio o MAIL_FROM.");
   const replyTo = process.env.MAIL_REPLY_TO || undefined;
+
+  if (providerName() === "brevo") {
+    const sender = parseFrom(from);
+    return {
+      // Brevo non ha un invio multiplo con testi diversi: una richiesta per
+      // destinatario, a gruppetti per non superare i limiti di velocità.
+      async sendBatch(mails) {
+        for (let i = 0; i < mails.length; i += 10) {
+          await Promise.all(
+            mails.slice(i, i + 10).map(async (m) => {
+              const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+                method: "POST",
+                headers: { "api-key": key, "Content-Type": "application/json", Accept: "application/json" },
+                body: JSON.stringify({
+                  sender,
+                  to: [{ email: m.to }],
+                  subject: m.subject,
+                  textContent: m.text,
+                  htmlContent: m.html,
+                  replyTo: replyTo ? { email: replyTo } : undefined,
+                  headers: m.headers,
+                }),
+              });
+              if (!res.ok) {
+                const detail = await res.text().catch(() => "");
+                throw new Error(`Brevo ${res.status}: ${detail.slice(0, 300)}`);
+              }
+            }),
+          );
+        }
+      },
+    };
+  }
 
   return {
     async sendBatch(mails) {
