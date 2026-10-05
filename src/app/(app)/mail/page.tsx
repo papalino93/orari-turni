@@ -1,7 +1,16 @@
+import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/guard";
 import { MailForm } from "./mail-form";
 import { dailyLimit, mailConfigured } from "@/lib/mail";
 
-export default function MailPage() {
+// Solo titolare e consulente: il Proxy rimanda già i dipendenti, ma il confine
+// vero è qui e in sendMailChunk (requireUser rifiuta il ruolo EMPLOYEE).
+export default async function MailPage() {
+  try {
+    await requireUser();
+  } catch {
+    redirect("/mie-ore");
+  }
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-1 text-xl font-semibold tracking-tight">Mail</h1>
