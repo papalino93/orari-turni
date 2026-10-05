@@ -7,6 +7,8 @@ import { isStatKind, romeParts } from "@/lib/menu-stats";
 // tutto /menu: niente dati personali, niente cookie impostati. Non conta:
 // - quando le statistiche sono spente («Inizia a contare» in Statistiche);
 // - chi ha fatto l'accesso all'app (personale, titolare);
+// - robot, anteprime dei link e motori di ricerca (non sono clienti);
+// - le versioni di prova pubblicate su Vercel (usano gli stessi dati della produzione);
 // - le raffiche (più di 40 eventi al minuto dallo stesso indirizzo).
 
 const recent = new Map<string, { start: number; count: number }>();
@@ -22,6 +24,8 @@ function tooMany(ip: string): boolean {
   return entry.count > 40;
 }
 
+const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|headless|lighthouse|pingdom|uptime|curl|wget|python-requests|vercel/i;
+
 const clean = (v: unknown, max: number) =>
   typeof v === "string" && v.trim() ? v.replace(/\s+/g, " ").trim().slice(0, max) : null;
 
@@ -29,6 +33,8 @@ export async function POST(request: NextRequest) {
   const skip = new NextResponse(null, { status: 204 });
   const staff = request.cookies.getAll().some((c) => c.name.includes("next-auth.session-token"));
   if (staff) return skip;
+  if (process.env.VERCEL_ENV === "preview") return skip;
+  if (BOT.test(request.headers.get("user-agent") ?? "")) return skip;
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "?";
   if (tooMany(ip)) return skip;
 
