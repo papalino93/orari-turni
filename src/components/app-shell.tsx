@@ -16,6 +16,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "/dipendenti", label: "Dipendenti", icon: PeopleIcon },
   { href: "/gestione-menu", label: "Menù", icon: MenuIcon },
   { href: "/statistiche", label: "Statistiche", icon: ChartIcon },
+  { href: "/mail", label: "Mail", icon: MailIcon },
 ];
 
 // Un login da dipendente vede solo la propria area — niente Orari generale,
@@ -165,6 +166,15 @@ function ChartIcon({ active }: { active: boolean }) {
       <path d="M7 16v-5" />
       <path d="M12 16V6" />
       <path d="M17 16v-8" />
+    </svg>
+  );
+}
+
+function MailIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
     </svg>
   );
 }
