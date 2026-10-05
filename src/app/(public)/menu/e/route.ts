@@ -24,7 +24,7 @@ function tooMany(ip: string): boolean {
   return entry.count > 40;
 }
 
-const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|headless|lighthouse|pingdom|uptime|curl|wget|python-requests|vercel/i;
+const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|lighthouse|pingdom|uptime|curl|wget|python-requests|vercel/i;
 
 const clean = (v: unknown, max: number) =>
   typeof v === "string" && v.trim() ? v.replace(/\s+/g, " ").trim().slice(0, max) : null;
