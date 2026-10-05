@@ -1,7 +1,7 @@
 // «Abbinamento consigliato» sui piatti: gestione, menù dei clienti (tocco che
 // porta al vino e «Torna a …»), vino esaurito o eliminato, annulla, duplica,
 // campo assente dove non serve, permessi.
-import { launch, login, check, BASE, results, ADMIN_PW, EMP_PW, DB, goTab } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, EMP_PW, DB, goTab, openDaily } from "./lib.mjs";
 
 const WINE = "menu_itm_033"; // Mastrojanni, Rossi
 const DISH = "menu_itm_051"; // Tagliere Classico
@@ -163,6 +163,7 @@ if (await dialog().count()) await page.keyboard.press("Escape");
 DB(`delete from "MenuItem" where name='Tagliere Classico' and id<>'${DISH}'`);
 // ---- Niente abbinamento per «Oggi fuori menù»
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await openDaily(page);
 await page.locator('section[aria-label="Oggi fuori menù"]').getByRole("button", { name: "+ Piatto" }).click();
 await dialog().waitFor();
 check("oggi fuori menù: niente abbinamento", (await dialog().getByLabel("Cerca un vino da abbinare").count()) === 0);

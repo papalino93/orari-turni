@@ -49,6 +49,23 @@ export async function goTab(page, label) {
   if ((await tab.getAttribute("aria-selected")) !== "true") await tab.click();
 }
 
+// Una sezione della scheda «Menù». Sul telefono un secondo tocco sul titolo aperto la richiude: se è già
+// aperta non si tocca.
+export async function openSection(page, name) {
+  const btn = page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).first();
+  const open = (await btn.getAttribute("aria-current")) === "true" && (await page.locator("#contenuto-scheda").isVisible());
+  if (!open) await btn.click();
+}
+
+// «+ Aggiungi» in alto (tablet e computer) o «+» fisso in basso a destra (telefono).
+export const addButton = (page) => page.getByRole("button", { name: /^(\+ )?Aggiungi$/ }).first();
+
+// Telefono: «Oggi fuori menù» sta chiuso in una riga; da tablet in su è già aperto.
+export async function openDaily(page) {
+  const head = page.locator('section[aria-label="Oggi fuori menù"] > button[aria-expanded="false"]');
+  if (await head.isVisible()) await head.click();
+}
+
 // Uno strumento della scheda «Strumenti» (Tabella prezzi, Riordina, Storico, Anteprima, Codice QR…).
 export async function tool(page, label) {
   await goTab(page, "Strumenti");

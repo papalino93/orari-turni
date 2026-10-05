@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW } from "./lib.mjs";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, openSection } from "./lib.mjs";
 
 const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
 DB(`delete from "MenuPromo"`);
@@ -21,6 +21,8 @@ const settle = (ms = 1500) => page.waitForTimeout(ms);
 const startBtn = page.getByRole("button", { name: /^Compila allergeni \(\d+ da fare\)$/ });
 check("banner: pulsante «Compila allergeni (2 da fare)»", (await startBtn.count()) === 1, await startBtn.innerText());
 check("niente barra fissa di filtro", (await page.locator('[role="progressbar"]').count()) === 0);
+// Telefono: le sezioni stanno chiuse a fisarmonica; ne apro una.
+await openSection(page, "");
 check("righe normali: «Esaurito» resta disponibile", (await page.getByRole("button", { name: "Esaurito", exact: true }).count()) > 0);
 await startBtn.click();
 await dialog().waitFor();

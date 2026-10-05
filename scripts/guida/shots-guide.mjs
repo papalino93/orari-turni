@@ -1,4 +1,4 @@
-import { discardIfAsked, launch, login, BASE, ADMIN_PW, tool, goTab, newPromo } from "../menu-e2e/lib.mjs";
+import { discardIfAsked, launch, login, BASE, ADMIN_PW, tool, goTab, newPromo, openSection, openDaily } from "../menu-e2e/lib.mjs";
 import { WORK } from "./work.mjs";
 const OUT = `${WORK}/img`;
 const browser = await launch();
@@ -42,6 +42,7 @@ const close = async (p) => { await p.keyboard.press("Escape"); await discardIfAs
   await page.screenshot({ path: `${OUT}/guide-gestione-lunga.png`, fullPage: true });
   await page.evaluate(() => document.querySelectorAll("[data-hid]").forEach((el) => { el.style.display = el.getAttribute("data-hid") === "-" ? "" : el.getAttribute("data-hid"); el.removeAttribute("data-hid"); }));
   // storico con qualche voce
+  await openSection(page, "Rossi");
   const sw = page.locator('li button[aria-pressed]').first();
   await sw.click(); await settle(page, 1500); await sw.click(); await settle(page, 1500);
   await tool(page, "Storico");
@@ -50,6 +51,7 @@ const close = async (p) => { await p.keyboard.press("Escape"); await discardIfAs
   await close(page);
   // + Piatto del giorno
   await goTab(page, "Menù");
+  await openDaily(page);
   await page.locator('section[aria-label="Oggi fuori menù"]').getByRole("button", { name: "+ Piatto" }).click();
   await settle(page, 700);
   await page.screenshot({ path: `${OUT}/guide-piatto-giorno.png` });

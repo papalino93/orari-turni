@@ -1,7 +1,7 @@
 // Avviso allergeni mancanti: messaggio «mancano gli allergeni» con «Compila ora»
 // dopo aver aggiunto un piatto senza allergeni, e piatti di «Oggi fuori menù»
 // contati nel richiamo e nel percorso «Compila allergeni».
-import { launch, login, check, BASE, results, ADMIN_PW, DB, goTab } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, goTab, openDaily } from "./lib.mjs";
 
 const clean = () => {
   DB(`delete from "MenuItem" where name in ('Piatto Senza Allergeni','Piatto Con Allergeni')`);
@@ -71,6 +71,7 @@ check("con allergeni: «Voce aggiunta» con «Annulla»", /Voce aggiunta/.test(t
 
 // ---- Piatto del giorno senza allergeni: contato e nel percorso
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await openDaily(page);
 await page.locator('section[aria-label="Oggi fuori menù"]').getByRole("button", { name: "+ Piatto" }).click();
 await dialog().waitFor();
 await dialog().getByLabel("Nome", { exact: true }).fill("Zuppa del giorno");
