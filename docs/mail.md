@@ -21,6 +21,13 @@ DNS (SPF e DKIM) che il pannello mostra; senza, Resend permette solo la modalit�
 prova (mittente `onboarding@resend.dev`, destinatario solo il tuo indirizzo).
 Senza SPF/DKIM le mail finiscono in spam.
 
+## File Excel (.xlsx)
+
+Si può caricare direttamente il file «Aziende Natale» (primo foglio): la riga dei titoli è
+quella con la colonna «Email…». La pagina propone l'intestazione `Spett.le {Azienda / studio},`
+(`{Titolo colonna}` inserisce il dato della riga), il filtro per priorità e, di default, esclude le
+righe il cui «Presupposto invio» è vuoto o «Da verificare».
+
 ## Formato CSV
 
 Due colonne, con o senza riga di titoli, separatore `,` `;` o tabulazione:

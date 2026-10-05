@@ -63,6 +63,49 @@ export function parseRecipients(raw: string): { recipients: Recipient[]; skipped
   return { recipients, skipped };
 }
 
+export type SheetFilters = { template: string; groups: string[] | null; onlyDocumented: boolean };
+
+// Trova le colonne utili di una tabella (xlsx) dai titoli, senza chiederle.
+export function guessColumns(headers: string[]) {
+  const find = (re: RegExp) => headers.find((h) => re.test(h));
+  return {
+    email: find(/^e-?mail/i) ?? "",
+    name: find(/azienda|ragione|destinatario|nome/i) ?? "",
+    group: find(/priorit/i) ?? "",
+    basis: find(/presupposto/i) ?? "",
+  };
+}
+
+// Trasforma le righe di una tabella in destinatari. L'intestazione è un modello
+// con segnaposto {Titolo colonna}, es. «Spett.le {Azienda / studio},».
+// onlyDocumented: tiene solo le righe con un presupposto di invio compilato
+// (vuoto o «Da verificare» = non documentato).
+export function tableToRecipients(
+  rows: Record<string, string>[],
+  headers: string[],
+  { template, groups, onlyDocumented }: SheetFilters,
+): { recipients: Recipient[]; skipped: string[] } {
+  const cols = guessColumns(headers);
+  const recipients: Recipient[] = [];
+  const skipped: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (groups && cols.group && !groups.includes(row[cols.group] ?? "")) continue;
+    if (onlyDocumented && cols.basis && !/\S/.test(row[cols.basis] ?? "")) continue;
+    if (onlyDocumented && cols.basis && /verificare/i.test(row[cols.basis] ?? "")) continue;
+    const email = (row[cols.email] ?? "").trim().toLowerCase();
+    if (!email) continue;
+    if (!isValidEmail(email)) {
+      skipped.push(email);
+      continue;
+    }
+    if (seen.has(email)) continue;
+    seen.add(email);
+    recipients.push({ email, header: template.replace(/\{([^}]+)\}/g, (_, k) => row[k.trim()] ?? "").trim() });
+  }
+  return { recipients, skipped };
+}
+
 function count(s: string, ch: string) {
   return s.split(ch).length - 1;
 }
