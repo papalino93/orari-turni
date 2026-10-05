@@ -10,13 +10,13 @@ basta un secondo adattatore).
 | Variabile | Obbligatoria | Note |
 |---|---|---|
 | `RESEND_API_KEY` | sì | Chiave API di Resend |
-| `MAIL_FROM` | sì | Es. `L'Angolo del Vino <info@tuodominio.it>` |
+| `MAIL_FROM` | sì | `L'Angolo del Vino <info@langolodelvinoscandicci.com>` |
 | `MAIL_REPLY_TO` | consigliata | Dove arrivano le risposte e i «cancellami» |
 | `MAIL_DAILY_LIMIT` | no | Default 100 (piano gratuito: 100/giorno, 3.000/mese) |
 
 ## Dominio mittente
 
-Per scrivere da un tuo indirizzo il dominio va verificato su Resend aggiungendo i record
+Per scrivere da info@langolodelvinoscandicci.com il dominio langolodelvinoscandicci.com va verificato su Resend aggiungendo i record
 DNS (SPF e DKIM) che il pannello mostra; senza, Resend permette solo la modalità di
 prova (mittente `onboarding@resend.dev`, destinatario solo il tuo indirizzo).
 Senza SPF/DKIM le mail finiscono in spam.
