@@ -63,7 +63,7 @@ export function parseRecipients(raw: string): { recipients: Recipient[]; skipped
   return { recipients, skipped };
 }
 
-export type SheetFilters = { template: string; groups: string[] | null; onlyDocumented: boolean };
+export type SheetFilters = { headerColumn: string; groups: string[] | null; onlyDocumented: boolean };
 
 // Trova le colonne utili di una tabella (xlsx) dai titoli, senza chiederle.
 export function guessColumns(headers: string[]) {
@@ -76,14 +76,14 @@ export function guessColumns(headers: string[]) {
   };
 }
 
-// Trasforma le righe di una tabella in destinatari. L'intestazione è un modello
-// con segnaposto {Titolo colonna}, es. «Spett.le {Azienda / studio},».
+// Trasforma le righe di una tabella in destinatari. L'intestazione è il valore
+// della colonna scelta (solo la parte di ognuno, es. «Dott. Rossi»).
 // onlyDocumented: tiene solo le righe con un presupposto di invio compilato
 // (vuoto o «Da verificare» = non documentato).
 export function tableToRecipients(
   rows: Record<string, string>[],
   headers: string[],
-  { template, groups, onlyDocumented }: SheetFilters,
+  { headerColumn, groups, onlyDocumented }: SheetFilters,
 ): { recipients: Recipient[]; skipped: string[] } {
   const cols = guessColumns(headers);
   const recipients: Recipient[] = [];
@@ -101,7 +101,7 @@ export function tableToRecipients(
     }
     if (seen.has(email)) continue;
     seen.add(email);
-    recipients.push({ email, header: template.replace(/\{([^}]+)\}/g, (_, k) => row[k.trim()] ?? "").trim() });
+    recipients.push({ email, header: (headerColumn ? row[headerColumn] ?? "" : "").trim() });
   }
   return { recipients, skipped };
 }
@@ -140,7 +140,7 @@ function parseCsv(text: string, delimiter: string): string[][] {
   return rows;
 }
 
-const DEFAULT_GREETING = "Buongiorno,";
+export const HEADER_TAG = "{intestazione}";
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -152,18 +152,27 @@ export function oneLine(s: string) {
   return s.replace(/[\r\n]+/g, " ").trim();
 }
 
+// Mette l'intestazione di ognuno al posto di {intestazione} nel testo uguale
+// per tutti. Se la persona non ha intestazione, toglie il segnaposto e
+// sistema gli spazi ("Spett.le ," diventa "Spett.le,").
+export function applyHeader(body: string, header: string): string {
+  const h = oneLine(header);
+  return body
+    .replace(/\{intestazione\}/gi, () => h)
+    .replace(/ +([,.;:!?])/g, "$1")
+    .replace(/[ \t]{2,}/g, " ");
+}
+
 export function buildMail(
   r: Recipient,
   { subject, body, replyTo }: { subject: string; body: string; replyTo?: string },
 ): OutgoingMail {
-  const greeting = oneLine(r.header) || DEFAULT_GREETING;
+  const message = applyHeader(body.trim(), r.header);
   const footer = "Se non vuoi più ricevere queste mail, rispondi scrivendo «cancellami».";
-  const text = `${greeting}\n\n${body.trim()}\n\n--\n${footer}`;
+  const text = `${message}\n\n--\n${footer}`;
   const html =
     `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222">` +
-    `<p>${escapeHtml(greeting)}</p>` +
-    body
-      .trim()
+    message
       .split(/\n{2,}/)
       .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
       .join("") +

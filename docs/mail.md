@@ -26,8 +26,7 @@ Senza SPF/DKIM le mail finiscono in spam.
 ## File Excel (.xlsx)
 
 Si può caricare direttamente il file «Aziende Natale» (primo foglio): la riga dei titoli è
-quella con la colonna «Email…». La pagina propone l'intestazione `Spett.le {Azienda / studio},`
-(`{Titolo colonna}` inserisce il dato della riga), il filtro per priorità e, di default, esclude le
+quella con la colonna «Email…». La pagina chiede quale colonna contiene l'intestazione (di solito «Azienda / studio»), il filtro per priorità e, di default, esclude le
 righe il cui «Presupposto invio» è vuoto o «Da verificare».
 
 ## Formato CSV
@@ -36,10 +35,11 @@ Due colonne, con o senza riga di titoli, separatore `,` `;` o tabulazione:
 
 ```
 email;intestazione
-mario@esempio.it;Gentile Dott. Rossi,
+mario@esempio.it;Dott. Rossi
 ```
 
-Indirizzi non validi e doppioni vengono scartati. Se l'intestazione è vuota si usa «Buongiorno,».
+Indirizzi non validi e doppioni vengono scartati. Nel file va solo la parte di ognuno; il saluto uguale per
+tutti si scrive nel testo con il segnaposto `{intestazione}` (es. «Spett.le {intestazione},»).
 
 ## Limiti noti
 

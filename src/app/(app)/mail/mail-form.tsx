@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { guessColumns, parseRecipients, tableToRecipients, type Recipient } from "@/lib/mail";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { applyHeader, guessColumns, HEADER_TAG, parseRecipients, tableToRecipients, type Recipient } from "@/lib/mail";
 import { readXlsx, type Sheet } from "@/lib/xlsx";
 import { sendMailChunk } from "./actions";
 
 const CHUNK = 50;
-const GREETING = "Buongiorno,";
-const SAMPLE_CSV = "﻿email;intestazione\nmario.rossi@esempio.it;Gentile Dott. Rossi,\nlaura.bianchi@esempio.it;Cara Laura,\n";
+const DEFAULT_BODY = `Spett.le ${HEADER_TAG},\n\n`;
+const SAMPLE_CSV = "\uFEFFemail;intestazione\nmario.rossi@esempio.it;Dott. Rossi\nlaura.bianchi@esempio.it;Laura\n";
 
 const field =
   "w-full rounded-xl border border-border bg-surface-2 px-3.5 py-3 text-base text-foreground placeholder:text-foreground-muted/60 focus:border-accent focus:outline-none sm:text-sm";
@@ -34,11 +34,12 @@ export function MailForm({
   const [csv, setCsv] = useState("");
   const [fileName, setFileName] = useState("");
   const [sheet, setSheet] = useState<Sheet | null>(null);
-  const [template, setTemplate] = useState("");
+  const [headerColumn, setHeaderColumn] = useState("");
   const [groups, setGroups] = useState<string[] | null>(null);
   const [onlyDocumented, setOnlyDocumented] = useState(true);
   const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState(DEFAULT_BODY);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [previewAt, setPreviewAt] = useState(0);
   const [testTo, setTestTo] = useState("");
   const [consent, setConsent] = useState(false);
@@ -54,13 +55,13 @@ export function MailForm({
     [sheet, cols],
   );
   const { recipients, skipped } = useMemo(
-    () => (sheet ? tableToRecipients(sheet.rows, sheet.headers, { template, groups, onlyDocumented }) : parseRecipients(csv)),
-    [sheet, template, groups, onlyDocumented, csv],
+    () => (sheet ? tableToRecipients(sheet.rows, sheet.headers, { headerColumn, groups, onlyDocumented }) : parseRecipients(csv)),
+    [sheet, headerColumn, groups, onlyDocumented, csv],
   );
   const hasList = Boolean(sheet) || csv.trim().length > 0;
   const excludedByBasis =
     sheet && cols?.basis && onlyDocumented
-      ? tableToRecipients(sheet.rows, sheet.headers, { template, groups, onlyDocumented: false }).recipients.length - recipients.length
+      ? tableToRecipients(sheet.rows, sheet.headers, { headerColumn, groups, onlyDocumented: false }).recipients.length - recipients.length
       : 0;
   const overLimit = recipients.length > limit;
   const sample: Recipient | undefined = recipients[Math.min(previewAt, Math.max(recipients.length - 1, 0))];
@@ -77,7 +78,7 @@ export function MailForm({
         setCsv("");
         setGroups(null);
         setOnlyDocumented(true);
-        setTemplate(g.name ? `Spett.le {${g.name}},` : "");
+        setHeaderColumn(g.name);
         setFileName(file.name);
       } catch (e) {
         setNotice({ kind: "error", text: e instanceof Error ? e.message : "Non riesco a leggere questo file." });
@@ -89,13 +90,25 @@ export function MailForm({
     setFileName(file.name);
   }
 
+  // Inserisce il segnaposto dove si trova il cursore nel testo.
+  function insertTag() {
+    const el = bodyRef.current;
+    const at = el?.selectionStart ?? body.length;
+    const end = el?.selectionEnd ?? at;
+    setBody(body.slice(0, at) + HEADER_TAG + body.slice(end));
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(at + HEADER_TAG.length, at + HEADER_TAG.length);
+    });
+  }
+
   function reset() {
     setStep(0);
     setCsv("");
     setSheet(null);
     setFileName("");
     setSubject("");
-    setBody("");
+    setBody(DEFAULT_BODY);
     setConsent(false);
     setConfirming(false);
     setDone(null);
@@ -218,7 +231,7 @@ export function MailForm({
           <details className="mt-3 text-sm" open={!hasList}>
             <summary className="cursor-pointer text-accent">Come deve essere fatto il file?</summary>
             <div className="mt-2 rounded-xl bg-surface-2 p-3 text-xs text-foreground-muted">
-              <p>Due colonne: la prima con l&apos;<b>email</b>, la seconda con l&apos;<b>intestazione</b> (il saluto). Esempio:</p>
+              <p>Due colonne: la prima con l&apos;<b>email</b>, la seconda con l&apos;<b>intestazione</b>, cioè solo la parte di ognuno (nome o azienda). Esempio:</p>
               <table className="my-2 w-full text-left text-foreground">
                 <thead>
                   <tr className="text-foreground-muted">
@@ -229,15 +242,15 @@ export function MailForm({
                 <tbody>
                   <tr>
                     <td className="pr-3">mario.rossi@esempio.it</td>
-                    <td>Gentile Dott. Rossi,</td>
+                    <td>Dott. Rossi</td>
                   </tr>
                   <tr>
                     <td className="pr-3">laura.bianchi@esempio.it</td>
-                    <td>Cara Laura,</td>
+                    <td>Laura</td>
                   </tr>
                 </tbody>
               </table>
-              <p>Se l&apos;intestazione manca, la mail inizia con «{GREETING}». Indirizzi sbagliati e doppioni vengono tolti da soli.</p>
+              <p>Il saluto («Spett.le», «Gentile», «Cara»…) lo scrivi tu nel testo, uguale per tutti. Indirizzi sbagliati e doppioni vengono tolti da soli.</p>
               <a
                 href={`data:text/csv;charset=utf-8,${encodeURIComponent(SAMPLE_CSV)}`}
                 download="esempio-destinatari.csv"
@@ -262,7 +275,7 @@ export function MailForm({
                 setCsv(e.target.value);
               }}
               rows={5}
-              placeholder={"mario.rossi@esempio.it;Gentile Dott. Rossi,"}
+              placeholder={"mario.rossi@esempio.it;Dott. Rossi"}
               className={`${field} mt-2 font-mono`}
             />
           </details>
@@ -270,28 +283,24 @@ export function MailForm({
           {sheet && cols && (
             <div className="mt-5 flex flex-col gap-5 border-t border-border pt-5">
               <div>
-                <label className="mb-1 block text-sm font-medium" htmlFor="mail-template">
-                  Come saluti ognuno?
+                <label className="mb-1 block text-sm font-medium" htmlFor="mail-header-col">
+                  Quale colonna contiene l&apos;intestazione?
                 </label>
                 <p className="mb-2 text-xs text-foreground-muted">
-                  Scrivi il saluto. Dove vuoi il dato della riga (ad esempio il nome dell&apos;azienda) tocca uno dei pulsanti qui sotto.
+                  È la parte diversa per ognuno, ad esempio il nome dell&apos;azienda o «Dott. Rossi». «Spett.le», «Gentile» e simili
+                  li scrivi dopo, nel testo, uguali per tutti.
                 </p>
-                <input id="mail-template" value={template} onChange={(e) => setTemplate(e.target.value)} className={field} />
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {sheet.headers.slice(0, 10).map((h) => (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => setTemplate((t) => `${t}{${h}}`)}
-                      className="rounded-full border border-border px-3 py-1.5 text-xs text-foreground-muted hover:border-accent hover:text-foreground"
-                    >
-                      + {h}
-                    </button>
+                <select id="mail-header-col" value={headerColumn} onChange={(e) => setHeaderColumn(e.target.value)} className={field}>
+                  <option value="">Nessuna (stessa mail per tutti)</option>
+                  {sheet.headers.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
                   ))}
-                </div>
-                {sample && (
+                </select>
+                {sample && headerColumn && (
                   <p className="mt-2 text-xs text-foreground-muted">
-                    Così, per la prima persona: <b className="text-foreground">{sample.header || GREETING}</b>
+                    Per la prima persona: <b className="text-foreground">{sample.header || "(vuota)"}</b>
                   </p>
                 )}
               </div>
@@ -379,7 +388,8 @@ export function MailForm({
         <section className={card}>
           <h2 className="text-base font-semibold">Cosa vuoi dire?</h2>
           <p className="mt-1 text-sm text-foreground-muted">
-            Il testo è lo stesso per tutti. Sopra ci va in automatico il saluto di ognuno, quindi non scriverlo tu.
+            Il testo è uguale per tutti, saluto compreso. Dove vuoi l&apos;intestazione di ognuno (il nome o l&apos;azienda) metti
+            il segnaposto <b>{HEADER_TAG}</b>: nell&apos;invio viene sostituito con quella della persona.
           </p>
 
           <label className="mb-1 mt-4 block text-sm font-medium" htmlFor="mail-subject">
@@ -399,12 +409,21 @@ export function MailForm({
           </label>
           <textarea
             id="mail-body"
+            ref={bodyRef}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={9}
             placeholder={"Scrivi qui il messaggio. Una riga vuota separa i paragrafi."}
             className={field}
           />
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={insertTag} className="rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:border-accent">
+              + Inserisci l&apos;intestazione
+            </button>
+            {!/\{intestazione\}/i.test(body) && (
+              <span className="text-xs text-accent">Nel testo non c&apos;è {HEADER_TAG}: nessuno vedrà il proprio nome.</span>
+            )}
+          </div>
 
           <div className="mt-5">
             <MailPreview from={from} sample={sample} subject={subject} body={body} />
@@ -524,7 +543,7 @@ function MailPreview({ from, sample, subject, body }: { from: string | null; sam
         <p className="font-medium text-foreground">Oggetto: {subject.trim() || "—"}</p>
       </div>
       <div className="whitespace-pre-wrap px-4 py-4">
-        {(sample?.header || GREETING) + "\n\n" + (body.trim() || "Qui comparirà il tuo testo…")}
+        {body.trim() ? applyHeader(body.trim(), sample?.header ?? "") : "Qui comparirà il tuo testo…"}
         <p className="mt-4 border-t border-border pt-2 text-xs text-foreground-muted">
           Se non vuoi più ricevere queste mail, rispondi scrivendo «cancellami».
         </p>
