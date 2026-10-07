@@ -69,7 +69,7 @@ check("DB: piatto consigliato", q(`select recommended from "MenuItem" where id='
 const ov = await open();
 const box = pub.locator('section[aria-label="I consigli della casa"]');
 check("menù: riga «I consigli della casa» con il piatto", (await box.count()) === 1 && (await box.innerText()).includes(dishName(d3)));
-check("menù: scritta «Consigliato» sulla voce", (await pub.locator(`#v-${d3}`).innerText()).includes("Consigliato"));
+check("menù: scritta «Consigliato» sulla voce", /consigliato/i.test(await pub.locator(`#v-${d3}`).innerText()));
 check("menù: niente scorrimento orizzontale", ov === 0);
 if (SHOTS) await box.screenshot({ path: `${SHOTS}/consigli.png` });
 await box.getByRole("link").first().click();
@@ -95,7 +95,7 @@ for (const pair of savedPairs.split(",").filter(Boolean)) {
   const [id, w] = pair.split("=");
   q(`update "MenuItem" set "pairWineId"=${w ? `'${w}'` : "null"} where id='${id}'`);
 }
-q(`delete from "MenuChange" where "createdAt" > now() - interval '10 minutes' and entity='item'`);
+q(`delete from "MenuChange" where "at" > now() - interval '10 minutes' and entity='item'`);
 await b.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);

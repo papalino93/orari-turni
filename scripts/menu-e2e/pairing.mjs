@@ -50,7 +50,7 @@ await section("Rossi");
 await page.getByRole("button", { name: "Modifica Mastrojanni", exact: true }).click();
 await dialog().waitFor();
 check("vino: niente abbinamento nella scheda", (await dialog().getByLabel("Cerca un vino da abbinare").count()) === 0);
-check("vino: niente «Consigliato»", !/consigliato/i.test(await dialog().innerText()));
+check("vino: nella scheda «Sta bene con» e «Consigliato dalla casa»", (await dialog().getByRole("group", { name: "Sta bene con" }).count()) === 1 && (await dialog().getByRole("checkbox", { name: /Consigliato/ }).count()) === 1);
 await page.keyboard.press("Escape");
 await dialog().waitFor({ state: "detached" });
 
@@ -79,7 +79,8 @@ check("menù: titolo, nome e zona del vino", /Abbinamento consigliato/i.test(box
 check("menù: prezzo al calice e alla bottiglia", /Calice ?8/.test(boxText) && /Bottiglia ?40/.test(boxText), boxText);
 const bb = await box.boundingBox();
 check("menù: riquadro toccabile (almeno 44 px)", bb && bb.height >= 44);
-check("menù: un solo riquadro nel menù", (await pub.locator("a[data-pair-from]").count()) === 1);
+// I riquadri «Abbinamento consigliato» (con data-stat-k) sono sotto i piatti; i tocchi di «Sta bene con» sotto i vini sono un'altra cosa.
+check("menù: un solo riquadro nel menù", (await pub.locator("a[data-pair-from][data-stat-k]").count()) === 1);
 
 await box.scrollIntoViewIfNeeded();
 await box.click();

@@ -115,7 +115,7 @@ h2 em { font-style: italic; color: #9C7A45; font-weight: 500; } .wine h2 em { co
 .longshot .pin { position: absolute; left: -3.2mm; width: 6.2mm; height: 6.2mm; border-radius: 50%; background: #9C7A45; color: #fff; font: 600 7.6pt/6.2mm 'Jost'; text-align: center; box-shadow: 0 .6mm 1.6mm rgba(0,0,0,.35); transform: translateY(-50%); }
 .longshot img { display: block; width: 100%; height: auto; }
 .faq { columns: 2; column-gap: 8mm; margin-top: 6mm; }
-.faq div { break-inside: avoid; margin-bottom: 3.4mm; }
+.faq div { break-inside: avoid; margin-bottom: 3mm; }
 .faq h4 { font-family: 'Cormorant Garamond'; font-size: 13.5pt; font-weight: 600; color: #6B1020; margin: 0 0 1mm; line-height: 1.15; }
 .faq p { font-size: 9.6pt; line-height: 1.34; margin: 0; color: #3F4540; }
 .stat { font-family: 'Cormorant Garamond'; font-size: 40pt; font-weight: 500; line-height: 1; color: #6B1020; }
@@ -350,6 +350,22 @@ pages.push(`<section class="page paper">${chrome(pg(), "Abbinamento consigliato"
   </div>
 </section>`);
 
+// 10b · I consigli della casa
+pages.push(`<section class="page paper">${chrome(pg(), "I consigli della casa")}
+  <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>I consigli della casa</div>
+  <h2>Consigliato<br><em>dalla casa</em></h2>
+  <p class="lead">Fino a quattro vini o piatti scelti da voi: sotto la copertina, in una riga, e con la scritta «Consigliato» sulla voce. Sotto ogni vino, «Sta bene con» mostra i piatti che lo consigliano.</p></div>
+  <div style="display:flex;gap:6mm;justify-content:center;margin-top:8mm">
+    <div style="width:50mm">${phone("pub-consigli", 50)}<div class="cap"><span class="nb">1</span><b>Sotto la copertina</b>: «I consigli della casa», fino a quattro.</div></div>
+    <div style="width:50mm;margin-top:9mm">${phone("pub-stabenecon", 50)}<div class="cap"><span class="nb">2</span><b>Sotto il vino</b>: «Sta bene con»; un tocco porta al piatto.</div></div>
+    <div style="width:50mm">${phone("ges-consigli", 50)}<div class="cap"><span class="nb">3</span><b>In gestione</b>, nella scheda: «Consigliato dalla casa» e «Sta bene con».</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:auto">
+    <div class="card"><h3>Al massimo quattro</h3><p>Per consigliarne un'altra se ne toglie una (dalla sua scheda, togliendo la spunta). Un vino esaurito o un piatto finito sparisce dalla riga da solo.</p></div>
+    <div class="card"><h3>«Sta bene con» è già pronto</h3><p>I piatti che consigliano un vino compaiono da soli. Dalla scheda del vino ne aggiungi altri o ne togli, e ogni modifica si annulla dallo storico.</p></div>
+  </div>
+</section>`);
+
 // · La carta dei vini
 pages.push(`<section class="page wine">${chrome(pg(), "La carta dei vini")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>La carta dei vini</div>
@@ -437,7 +453,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Guida · ogni giorno")}
     <div class="card"><h3>Il piatto o il vino del giorno</h3><ol class="steps"><li>In «Oggi fuori menù» tocca <span class="ui">+ Piatto</span> o <span class="ui">+ Vino</span>.</li><li>Nome, prezzo e allergeni, poi <span class="ui">Aggiungi</span>.</li></ol><p class="res">Compare in cima al menù e sparisce alle 5. Per rimetterlo un altro giorno: <span class="ui">Riproponi</span>.</p></div>
     <div class="card"><h3>Cambiare un prezzo o un testo</h3><ol class="steps"><li>Cerca la voce e tocca il suo nome.</li><li>Cambia il campo e tocca <span class="ui">Salva</span>.</li></ol><p class="res">Tanti prezzi insieme: in <span class="ui">Strumenti</span>, <span class="ui">Tabella prezzi</span>, poi <span class="ui">Salva tutto</span>.</p></div>
     <div class="card"><h3>Aggiungere un vino o un piatto</h3><ol class="steps"><li>Tocca la sezione (es. Rossi).</li><li>In fondo al gruppo tocca <span class="ui">+ Aggiungi vino</span> o <span class="ui">+ Aggiungi voce</span>.</li><li>Compila (per un vino italiano anche la <b>regione</b>) e tocca <span class="ui">Aggiungi</span>.</li></ol><p class="res">Il vino va da solo al posto della sua regione. Uno simile a un altro: aprilo e <span class="ui">Duplica</span>. Tante voci: <span class="ui">Incolla più voci</span>.</p></div>
-    <div class="card"><h3>Abbinare un vino a un piatto</h3><ol class="steps"><li>Apri il piatto.</li><li>In <span class="ui">Abbinamento consigliato</span> scrivi il nome del vino e toccalo.</li><li>Tocca <span class="ui">Salva</span>.</li></ol><p class="res">Per toglierlo: ✕ accanto al vino, poi Salva.</p></div>
+    <div class="card"><h3>Abbinare un vino a un piatto</h3><ol class="steps"><li>Apri il piatto.</li><li>In <span class="ui">Abbinamento consigliato</span> scrivi il nome del vino e toccalo.</li><li>Tocca <span class="ui">Salva</span>.</li></ol><p class="res">Per toglierlo: ✕ accanto al vino, poi Salva. Un vino o un piatto «della casa»: nella scheda spunta <span class="ui">Consigliato dalla casa</span> (al massimo 4).</p></div>
     <div class="card"><h3>Ho sbagliato qualcosa</h3><ol class="steps"><li>Subito: <span class="ui">Annulla</span> nel messaggio che compare in basso.</li><li>Più tardi: in <span class="ui">Strumenti</span>, <span class="ui">Storico</span>, poi <span class="ui">Ripristina</span> sulla riga giusta.</li></ol><p class="res">Funziona anche per una voce eliminata per errore.</p></div>
   </div>
 </section>`);
@@ -495,6 +511,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Chiudo una finestra senza salvare: perdo tutto?</h4><p>No: se hai scritto o cambiato qualcosa compare «Modifiche non salvate» (scegli «Salva», «Continua a modificare» o «Esci senza salvare»). Se non hai toccato niente, si chiude subito.</p></div>
     <div><h4>Mi serve il menù su carta: come faccio?</h4><p>In «Strumenti», «Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
 
+    <div><h4>Come consiglio un vino o un piatto?</h4><p>Apri la voce e spunta «Consigliato dalla casa»: compare sotto la copertina, in «I consigli della casa» (al massimo 4).</p></div>
     <div><h4>C'è una guida in video?</h4><p>Sì: in «Strumenti», «Guida (video)»: circa tre minuti, con le cose principali da telefono, tablet e computer (chiaro e scuro).</p></div>
     <div><h4>Dove trovo il numero di versione?</h4><p>In fondo a ogni pagina, ad esempio «v${VERSIONE}». Se segnali un problema, indicalo.</p></div>
   </div>
