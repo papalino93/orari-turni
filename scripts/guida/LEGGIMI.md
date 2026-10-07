@@ -65,4 +65,4 @@ trasformazioni CSS sugli elementi animati (si usano `gsap.set`), solo `fromTo`/`
 
 Prima di pubblicarlo guarda **tutte le scene** come immagini (`--stills`): testi e pulsanti
 con gli stessi nomi del sito, niente testo tagliato, tocchi sul pulsante giusto, versione
-nell'introduzione e nella chiusura. Il peso deve restare sotto i 12 MB (`CRF=23 node video-render.mjs` per alleggerirlo).
+nell'introduzione e nella chiusura. Il peso deve restare sotto i 12 MB (se serve alleggerirlo: `CRF=33 node video-render.mjs`; il predefinito è 31, circa 10 MB).
