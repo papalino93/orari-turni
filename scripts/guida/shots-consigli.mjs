@@ -30,7 +30,7 @@ const settle = (p, ms = 700) => p.waitForTimeout(ms);
   await settle(page, 600);
   await page.screenshot({ path: `${OUT}/pub-consigli.png` });
   // Un vino consigliato con «Sta bene con»
-  await page.locator('[id^="v-"]', { has: page.getByRole("link", { name: "Tagliere Classico" }) }).first().evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 150));
+  await page.locator('div[id^="v-"]', { has: page.getByRole("link", { name: "Tagliere Classico" }) }).first().evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 150));
   await settle(page, 600);
   await page.screenshot({ path: `${OUT}/pub-stabenecon.png` });
   await ctx.close();
@@ -42,10 +42,10 @@ const settle = (p, ms = 700) => p.waitForTimeout(ms);
   await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 120000 });
   await page.getByRole("searchbox", { name: "Cerca una voce" }).fill("mastrojanni");
   await settle(page, 500);
-  await page.locator('section[aria-label="Cerca una voce"] li button[aria-label^="Modifica"]').first().click();
+  // Il Mastrojanni di Montalcino (è quello consigliato, con «Sta bene con» il Tagliere Classico).
+  await page.locator('section[aria-label="Cerca una voce"] li', { hasText: "Montalcino" }).locator('button[aria-label^="Modifica"]').first().click();
   await settle(page, 700);
-  await page.locator('[role="dialog"]').getByRole("group", { name: "Sta bene con" }).evaluate((el) => el.scrollIntoView({ block: "start" }));
-  await page.evaluate(() => { const d = document.querySelector('[role="dialog"]'); const sc = [...d.querySelectorAll("*")].find((e) => e.scrollHeight > e.clientHeight + 40 && getComputedStyle(e).overflowY !== "visible"); sc?.scrollBy(0, -70); });
+  await page.locator('[role="dialog"]').getByRole("group", { name: "Sta bene con" }).evaluate((el) => el.scrollIntoView({ block: "center" }));
   await settle(page, 500);
   await page.screenshot({ path: `${OUT}/ges-consigli.png` });
   await page.keyboard.press("Escape"); await discardIfAsked(page);
