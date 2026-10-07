@@ -212,6 +212,8 @@ if (run("p")) {
   await s.shot("list-rossi-esaurito");
   await s.page.locator('[role="status"]').first().waitFor({ state: "detached", timeout: 15000 }).catch(() => {});
   await s.page.context().close();
+  // Il vino segnato esaurito per la foto torna disponibile: le sessioni dopo (menù dei clienti) lo cercano.
+  DB(`update "MenuItem" set "soldOutDay"=null`);
 }
 
 // ---- Menù dei clienti da telefono: com'è prima e dopo che un vino è esaurito, copertina, «In evidenza»
