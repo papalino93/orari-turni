@@ -13,6 +13,7 @@ import { MenuNav } from "./menu-nav";
 import type { SearchItem } from "./menu-search";
 import { PromoContent } from "./promo-content";
 import { Annunci } from "./annunci";
+import { ConsigliCasa, type Consiglio } from "./consigli";
 import { PairingBack } from "./pairing";
 import { WineTraits } from "./wine-traits";
 import { Ornament } from "./ornament";
@@ -86,6 +87,51 @@ export default async function MenuPage() {
         ),
       ),
   );
+
+  // «Sta bene con…» sotto un vino: i piatti che lo consigliano (da soli, dal piatto) più quelli
+  // aggiunti a mano, meno quelli nascosti. Un piatto esaurito o eliminato non compare.
+  const dishNames = new Map(
+    regular
+      .filter((s) => s.kind === "FOOD")
+      .flatMap((s) => s.groups.flatMap((g) => g.items.filter((d) => !d.textOnly && !d.soldOut).map((d) => [d.id, d.name] as const))),
+  );
+  const dishesByWine = new Map<string, string[]>();
+  for (const s of regular.filter((x) => x.kind === "FOOD")) {
+    for (const g of s.groups) {
+      for (const d of g.items) {
+        if (d.textOnly || d.soldOut || !d.pairWineId) continue;
+        dishesByWine.set(d.pairWineId, [...(dishesByWine.get(d.pairWineId) ?? []), d.id]);
+      }
+    }
+  }
+  const pairedDishes = (wine: { id: string; pairDishIds: string[]; pairHideIds: string[] }) => {
+    const auto = (dishesByWine.get(wine.id) ?? []).filter((id) => !wine.pairHideIds.includes(id));
+    const manual = wine.pairDishIds.filter((id) => !auto.includes(id));
+    return [...auto, ...manual].filter((id) => dishNames.has(id)).map((id) => ({ id, name: dishNames.get(id)! }));
+  };
+
+  // «I consigli della casa»: fino a 4 voci del menù fisso (vini disponibili, piatti non esauriti), nell'ordine della carta.
+  const recommendedItems = regular
+    .flatMap((s) => s.groups.flatMap((g) => g.items.filter((i) => i.recommended && !i.textOnly && !i.soldOut).map((i) => ({ i, s }))))
+    .slice(0, 4);
+  const recommendedIds = new Set(recommendedItems.map(({ i }) => i.id));
+  const consigli: Consiglio[] = recommendedItems.map(({ i, s }) => ({
+    id: i.id,
+    name: i.name,
+    kind: s.kind,
+    sub:
+      s.kind === "WINE"
+        ? [i.wineName, wineDetail(i)].filter(Boolean).join(" · ") || originLabel(i) || null
+        : i.description,
+    price:
+      s.kind === "WINE"
+        ? [i.priceGlassCents !== null ? `Calice ${formatPrice(i.priceGlassCents)}` : null, i.priceBottleCents !== null ? `Bott. ${formatPrice(i.priceBottleCents)}` : null].filter(Boolean).join(" · ")
+        : parseVariants(i.variants)
+          ? parseVariants(i.variants)!.map((v) => `${v.label} ${formatPrice(v.cents)}`).join(" · ")
+          : i.priceCents !== null
+            ? `€ ${formatPrice(i.priceCents)}`
+            : "",
+  }));
 
   // «Oggi fuori menù»: piatti e vini valgono solo oggi, in cima al menù. Ogni gruppo
   // ricorda se è di vini o di piatti (prezzi e allergeni cambiano di conseguenza).
@@ -237,6 +283,8 @@ export default async function MenuPage() {
 
       <InEvidenza promos={stripPromos} dayKey={dayKey} />
 
+      <ConsigliCasa items={consigli} />
+
       <div id="carta" className="scroll-mt-0" />
       {topBlocks.length > 0 && (
         <div className="px-6 pb-2 pt-10">
@@ -304,6 +352,7 @@ export default async function MenuPage() {
                   const price = group.kind === "WINE" ? item.priceBottleCents : item.priceCents;
                   const variants = parseVariants(item.variants);
                   const pair = group.kind === "FOOD" && !item.soldOut && item.pairWineId ? pairWines.get(item.pairWineId) : undefined;
+                  const goesWith = group.kind === "WINE" && !section.daily ? pairedDishes(item) : [];
                   return (
                     <div
                       key={item.id}
@@ -316,6 +365,11 @@ export default async function MenuPage() {
                           {item.enomatic && (
                             <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#6B1020]">
                               Enomatic
+                            </span>
+                          )}
+                          {recommendedIds.has(item.id) && (
+                            <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A6A2E]">
+                              Consigliato
                             </span>
                           )}
                           {item.soldOut && (
@@ -341,6 +395,22 @@ export default async function MenuPage() {
                           <div className="text-pretty text-[16.5px] leading-[1.45] text-[#3F4540]">{nb(item.description)}</div>
                         )}
                         {group.kind === "FOOD" && <AllergenMarks item={item} />}
+                        {goesWith.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                            <span className="menu-sans text-[9.5px] font-medium uppercase tracking-[0.28em] text-[#8A6A2E]">Sta bene con</span>
+                            {goesWith.map((d) => (
+                              <a
+                                key={d.id}
+                                href={`#v-${d.id}`}
+                                data-pair-from={item.id}
+                                data-pair-name={item.name}
+                                className="menu-sans inline-flex min-h-9 items-center rounded-full border border-[#C9A96E]/70 bg-[#C9A96E]/[0.13] px-3 text-[13px] leading-tight !text-[#6B1020] no-underline"
+                              >
+                                {d.name}
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       {group.columns && (
                         <div className="menu-sans min-w-9 flex-none whitespace-nowrap text-right text-base text-[#1F2621]">

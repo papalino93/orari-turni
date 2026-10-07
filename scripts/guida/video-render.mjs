@@ -59,7 +59,7 @@ async function work(k) {
   const page = k === 0 ? probe : await open(browser);
   const part = `${dir}/part${k}.mp4`;
   const enc = spawn(ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "mjpeg", "-i", "-",
-    "-vf", vf, "-c:v", "libx264", "-preset", process.env.PRESET || "veryslow", "-crf", process.env.CRF || "28", "-profile:v", "high", "-g", "60", "-r", String(FPS),
+    "-vf", vf, "-c:v", "libx264", "-preset", process.env.PRESET || "veryslow", "-crf", process.env.CRF || "31", "-profile:v", "high", "-g", "60", "-r", String(FPS),
     "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", part], { stdio: ["pipe", "inherit", "inherit"] });
   const a = f0 + k * per, b = Math.min(frames, a + per);
   for (let i = a; i < b; i++) {

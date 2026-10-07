@@ -5,6 +5,10 @@ import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { discardIfAsked, launch, login, BASE, ADMIN_PW, goTab, tool, DB } from "../menu-e2e/lib.mjs";
 import { WORK } from "./work.mjs";
 
+// Il video non ha un capitolo sui consigli: la riga «I consigli della casa» (che setup.mjs accende per la
+// guida PDF) spostava i punti del menù dei clienti e sovrapponeva i fumetti. Nel video resta spenta.
+DB(`update "MenuItem" set recommended=false`);
+
 const OUT = `${WORK}/video`;
 mkdirSync(OUT, { recursive: true });
 // l = finestra del browser sul computer (alta, così nel video si legge); lw = portatile in orizzontale (solo per l'introduzione)
@@ -212,6 +216,8 @@ if (run("p")) {
   await s.shot("list-rossi-esaurito");
   await s.page.locator('[role="status"]').first().waitFor({ state: "detached", timeout: 15000 }).catch(() => {});
   await s.page.context().close();
+  // Il vino segnato esaurito per la foto torna disponibile: le sessioni dopo (menù dei clienti) lo cercano.
+  DB(`update "MenuItem" set "soldOutDay"=null`);
 }
 
 // ---- Menù dei clienti da telefono: com'è prima e dopo che un vino è esaurito, copertina, «In evidenza»

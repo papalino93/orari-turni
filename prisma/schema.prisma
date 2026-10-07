@@ -307,6 +307,14 @@ model MenuItem {
   // Solo piatti: il vino da abbinare («Abbinalo con»), uno per piatto. Niente
   // chiave esterna: se il vino è eliminato o esaurito, il menù non lo mostra.
   pairWineId       String?
+  // «Consigliato dalla casa» (vini e piatti del menù fisso, al massimo 4 in tutto): scritta
+  // sulla voce e riga «I consigli della casa» sotto la copertina.
+  recommended      Boolean   @default(false)
+  // Solo vini, «Sta bene con…»: i piatti che lo consigliano (pairWineId) compaiono da soli;
+  // qui si aggiungono piatti a mano (pairDishIds) o si nascondono quelli automatici
+  // (pairHideIds). Niente chiave esterna: un piatto eliminato semplicemente non compare.
+  pairDishIds      String[]  @default([])
+  pairHideIds      String[]  @default([])
   // Codici dei 14 allergeni UE; allergensReviewed distingue "nessun
   // allergene" da "non ancora compilato" (vedi pagina /menu/allergeni).
   allergens         String[]  @default([])

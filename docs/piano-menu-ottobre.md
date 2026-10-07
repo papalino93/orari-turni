@@ -20,13 +20,15 @@ autorizzato fino alle 8:00 del 4 ottobre (ora italiana); si pubblica anche di no
 
 Fatto e pubblicato nella v0.14.0 (4 ottobre, mattina).
 
-## 2. Consigliati della casa e abbinamenti per il vino
-(Test già scritto, codice da fare: scripts/menu-e2e/recommended.mjs. Campi previsti su
-MenuItem: recommended, pairDishIds, pairHideIds; massimo 4 consigliati.)
-- [ ] Segno «Consigliato» (scritta scelta dal titolare) su una voce (piatto o vino) dalla gestione, e sotto la copertina una
-      riga «I consigli della casa» con le voci consigliate (massimo 4).
-- [ ] Vino → «Sta bene con…»: da solo l'inverso degli abbinamenti piatto → vino, e in più
-      piatti aggiunti o tolti a mano nella scheda del vino.
+## 2. Consigliati della casa e abbinamenti per il vino (v0.22.0)
+- [x] Segno «Consigliato» (scritta fissa) su una voce, vino o piatto del menù fisso, dalla sua scheda
+      («Consigliato dalla casa»); sotto la copertina una riga «I consigli della casa» con le voci
+      consigliate (massimo 4: per un quinto si toglie un altro; un vino esaurito o un piatto finito
+      sparisce dalla riga da solo). Campi: `MenuItem.recommended`.
+- [x] Vino → «Sta bene con…»: da solo l'inverso degli abbinamenti piatto → vino, e in più piatti
+      aggiunti o tolti a mano nella scheda del vino (`pairDishIds`, `pairHideIds`). Un tocco porta al
+      piatto e in basso compare «Torna a …».
+- Test: `scripts/menu-e2e/recommended.mjs`. Guida PDF: nuova pagina «I consigli della casa».
 
 ## 3. Duplica una voce
 - [x] «Duplica» c'era già: ora è in cima alla scheda della voce e la copia si apre con

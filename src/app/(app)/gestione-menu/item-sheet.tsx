@@ -8,7 +8,7 @@ import { isItalianWine } from "@/lib/wine-order";
 import { TraitIcon } from "@/app/(public)/menu/wine-traits";
 import { deleteItem, duplicateItem, moveItem, saveItem, setGroupFormats } from "./actions";
 import { Field, Sheet, inputClass } from "./sheet";
-import type { EditorItem, EditorSection, PairWine, RunFn } from "./menu-editor";
+import type { EditorItem, EditorSection, PairDish, PairWine, RunFn } from "./menu-editor";
 
 function priceInput(cents: number | null): string {
   return cents === null ? "" : formatPrice(cents);
@@ -91,6 +91,8 @@ export function ItemSheet({
   groupId,
   item,
   wines,
+  dishes,
+  recommendedCount,
   isFirst,
   isLast,
   run,
@@ -111,6 +113,10 @@ export function ItemSheet({
   item: EditorItem | null;
   // Vini del menù fisso, per l'abbinamento consigliato.
   wines: PairWine[];
+  // Piatti del menù fisso, per «Sta bene con…» nella scheda di un vino.
+  dishes: PairDish[];
+  // Quante voci sono già «consigliate dalla casa» (al massimo 4, questa compresa se lo è già).
+  recommendedCount: number;
   isFirst: boolean;
   isLast: boolean;
   run: RunFn;
@@ -148,6 +154,13 @@ export function ItemSheet({
   const [pairWineId, setPairWineId] = useState<string | null>(pairLost ? null : (item?.pairWineId ?? null));
   // Gli abbinamenti valgono per i piatti del menù fisso, non per eventi e «Oggi fuori menù».
   const canPair = !isWine && !section.promoId && !section.dailyOnly && wines.length > 0;
+  // «Consigliato dalla casa»: solo per il menù fisso, non per eventi e «Oggi fuori menù».
+  const canRecommend = !section.promoId && !section.dailyOnly;
+  const [recommended, setRecommended] = useState(item?.recommended ?? false);
+  // «Sta bene con…» (vini): i piatti che consigliano questo vino compaiono da soli; se ne
+  // aggiungono a mano (pairDishIds) o si nascondono quelli automatici (pairHideIds).
+  const [pairDishIds, setPairDishIds] = useState<string[]>(item?.pairDishIds ?? []);
+  const [pairHideIds, setPairHideIds] = useState<string[]>(item?.pairHideIds ?? []);
   // Più formati con prezzo (es. birra 0,2 l · 0,4 l · 1 l), alternativi al prezzo singolo.
   const [variants, setVariants] = useState<{ label: string; price: string }[]>(
     () => item?.variants?.map((v) => ({ label: v.label, price: formatPrice(v.cents) })) ?? [],
@@ -215,6 +228,9 @@ export function ItemSheet({
           enomatic,
           traits: isWine ? traits : [],
           pairWineId: canPair ? pairWineId : null,
+          recommended: canRecommend && recommended,
+          pairDishIds: isWine && canRecommend ? pairDishIds : [],
+          pairHideIds: isWine && canRecommend ? pairHideIds : [],
           allergens: allergenMode === "some" ? allergens : [],
           allergensReviewed: allergenMode !== "unknown",
           variants: !formatsMode
@@ -293,6 +309,25 @@ export function ItemSheet({
     detail: wineDetail({ denomination, vintage, sub }),
     origin: originLabel({ region: region.trim() || null, country: country.trim() || null }),
   };
+
+  // «Consigliato dalla casa»: scritta sulla voce e riga «I consigli della casa» sotto la copertina.
+  const others = recommendedCount - (item?.recommended ? 1 : 0);
+  const recommendBlock = canRecommend ? (
+    <div className="space-y-1.5 rounded-xl border border-border p-3">
+      <label className="flex min-h-11 items-start gap-3 text-sm text-foreground">
+        <input type="checkbox" checked={recommended} onChange={(e) => setRecommended(e.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-[var(--accent)]" />
+        <span>
+          Consigliato dalla casa
+          <span className="block text-[11px] text-foreground-muted">
+            Sul menù compare la scritta «Consigliato» e la voce entra nella riga «I consigli della casa», sotto la copertina. Al massimo 4 in tutto.
+          </span>
+        </span>
+      </label>
+      {recommended && others >= 4 && (
+        <p className="text-[11px] font-medium text-gold">Ce ne sono già 4: per consigliare questa, togline prima un&apos;altra (dalla sua scheda, togliendo la spunta).</p>
+      )}
+    </div>
+  ) : null;
 
   return (
     <Sheet title={progress ? `Allergeni · ${progress.position} di ${progress.total}` : copyOf ? "Copia da completare" : item ? "Modifica voce" : isWine ? "Nuovo vino" : "Nuova voce"} onClose={onClose}>
@@ -422,6 +457,23 @@ export function ItemSheet({
               </div>
             </fieldset>
             </Block>
+
+            {canRecommend && (
+              <Block title="Sta bene con…" hint="I piatti che consigliano questo vino compaiono da soli; qui ne aggiungi o ne togli.">
+                <DishPairs
+                  dishes={dishes}
+                  autoIds={item ? dishes.filter((d) => d.pairWineId === item.id).map((d) => d.id) : []}
+                  manual={pairDishIds}
+                  hidden={pairHideIds}
+                  isNew={!item}
+                  onChange={(manual, hidden) => {
+                    setPairDishIds(manual);
+                    setPairHideIds(hidden);
+                  }}
+                />
+              </Block>
+            )}
+            {recommendBlock}
 
             {name.trim() && (
               <div className="rounded-xl bg-surface-2 px-3.5 py-3" aria-label="Come si legge sul menù">
@@ -597,6 +649,7 @@ export function ItemSheet({
             </div>
 
             {canPair && <PairPicker wines={wines} value={pairWineId} onChange={setPairWineId} lost={pairLost} />}
+            {recommendBlock}
 
             <fieldset ref={allergensRef} className="scroll-mt-4">
               <legend className="mb-1 text-xs font-medium text-foreground-muted">Allergeni</legend>
@@ -757,6 +810,97 @@ export function ItemSheet({
         )}
       </form>
     </Sheet>
+  );
+}
+
+// «Sta bene con…» nella scheda di un vino: i piatti che lo consigliano (automatici, dal piatto)
+// più quelli aggiunti a mano; ✕ toglie un piatto (se è automatico lo nasconde soltanto).
+function DishPairs({
+  dishes,
+  autoIds,
+  manual,
+  hidden,
+  isNew,
+  onChange,
+}: {
+  dishes: PairDish[];
+  autoIds: string[];
+  manual: string[];
+  hidden: string[];
+  isNew: boolean;
+  onChange: (manual: string[], hidden: string[]) => void;
+}) {
+  const byId = new Map(dishes.map((d) => [d.id, d]));
+  const auto = autoIds.filter((id) => byId.has(id));
+  const shownIds = [...auto.filter((id) => !hidden.includes(id)), ...manual.filter((id) => byId.has(id) && !(auto.includes(id) && !hidden.includes(id)))];
+  const addable = dishes.filter((d) => !shownIds.includes(d.id));
+  const bySection = new Map<string, PairDish[]>();
+  for (const d of addable) bySection.set(d.section, [...(bySection.get(d.section) ?? []), d]);
+
+  function add(id: string) {
+    if (!id) return;
+    if (hidden.includes(id)) onChange(manual, hidden.filter((h) => h !== id));
+    else if (!shownIds.includes(id)) onChange([...manual, id], hidden);
+  }
+  function remove(id: string) {
+    const cleaned = manual.filter((m) => m !== id);
+    onChange(cleaned, auto.includes(id) && !hidden.includes(id) ? [...hidden, id] : hidden);
+  }
+
+  return (
+    <div role="group" aria-label="Sta bene con" className="space-y-2">
+      {/* Fa sapere alla finestra che l'elenco è cambiato (per «Modifiche non salvate»). */}
+      <input type="hidden" value={`${manual.join(",")}|${hidden.join(",")}`} readOnly />
+      {shownIds.length > 0 ? (
+        <ul className="overflow-hidden rounded-xl border border-border">
+          {shownIds.map((id) => {
+            const d = byId.get(id)!;
+            return (
+              <li key={id} className="flex items-center gap-2 border-b border-border py-1 pl-3 pr-1 last:border-b-0">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-foreground">{d.name}</span>
+                  <span className="block truncate text-[11px] text-foreground-muted">
+                    {d.section}
+                    {auto.includes(id) ? " · lo consiglia il piatto" : ""}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => remove(id)}
+                  aria-label={`Togli ${d.name}`}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-2 hover:text-danger"
+                >
+                  ✕
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-xs text-foreground-muted">
+          {isNew ? "Nessun piatto per ora: i piatti che consigliano questo vino compariranno qui dopo averlo salvato." : "Nessun piatto: sul menù il vino non ha «Sta bene con»."}
+        </p>
+      )}
+      {addable.length > 0 && (
+        <select
+          value=""
+          onChange={(e) => add(e.target.value)}
+          aria-label="Aggiungi un piatto"
+          className={inputClass}
+        >
+          <option value="">+ Aggiungi un piatto…</option>
+          {[...bySection].map(([section, list]) => (
+            <optgroup key={section} label={section}>
+              {list.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      )}
+    </div>
   );
 }
 

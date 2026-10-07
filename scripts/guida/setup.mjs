@@ -52,6 +52,11 @@ DB(`update "MenuItem" set country=null where country='Italia'`);
 DB(`update "MenuItem" set "pairWineId"=null`);
 DB(`update "MenuItem" set "pairWineId"=(select id from "MenuItem" where name='Mastrojanni' and "groupId"='menu_grp_3_1' and "deletedAt" is null limit 1) where name='Tagliere Classico' and "deletedAt" is null`);
 DB(`update "MenuItem" set "pairWineId"=(select id from "MenuItem" where name='Revì' and "deletedAt" is null limit 1) where name='Tagliere Premium' and "deletedAt" is null`);
+// «Consigliati della casa» (riga sotto la copertina) e «Sta bene con…»: due vini e un piatto.
+DB(`update "MenuItem" set recommended=false, "pairDishIds"='{}', "pairHideIds"='{}'`);
+DB(`update "MenuItem" set recommended=true where id in (select id from "MenuItem" where name='Mastrojanni' and "groupId"='menu_grp_3_1' and "deletedAt" is null limit 1)`);
+DB(`update "MenuItem" set recommended=true where id in (select id from "MenuItem" where name='Revì' and "deletedAt" is null limit 1)`);
+DB(`update "MenuItem" set recommended=true where id in (select id from "MenuItem" where name='Tagliere Classico' and "deletedAt" is null limit 1)`);
 DB(`update "MenuBlock" set "priceCents"=100 where kind='PRICE' and label='Coperto'`);
 // Caratteristiche dei vini (come la migrazione in produzione)
 DB(`update "MenuItem" set traits='{}'`);

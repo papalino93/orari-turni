@@ -41,6 +41,10 @@ export type EditorItem = {
   enomatic: boolean;
   traits: string[];
   pairWineId: string | null;
+  // «Consigliato dalla casa» e, per i vini, «Sta bene con…» (piatti aggiunti a mano / automatici nascosti).
+  recommended: boolean;
+  pairDishIds: string[];
+  pairHideIds: string[];
   variants: { label: string; cents: number }[] | null;
   allergens: string[];
   allergensReviewed: boolean;
@@ -152,6 +156,9 @@ function priceSummary(item: EditorItem, kind: "WINE" | "FOOD"): string {
 // Un vino del menù fisso che si può abbinare a un piatto («Abbinamento consigliato»).
 export type PairWine = { id: string; name: string; section: string; detail: string; soldOut: boolean };
 
+// Un piatto del menù fisso, per «Sta bene con…» nella scheda di un vino.
+export type PairDish = { id: string; name: string; section: string; pairWineId: string | null };
+
 export function MenuEditor({
   sections,
   daily,
@@ -244,6 +251,12 @@ export function MenuEditor({
       ),
     );
   const wineNames = new Map(wines.map((w) => [w.id, w.name]));
+  // Piatti del menù fisso (non di eventi né «Oggi fuori menù»): per «Sta bene con…» dei vini.
+  const dishes: PairDish[] = sections
+    .filter((s) => s.kind === "FOOD" && !s.promoId && !s.dailyOnly)
+    .flatMap((s) => s.groups.flatMap((g) => g.items.filter((i) => !i.textOnly).map((i) => ({ id: i.id, name: i.name, section: s.label, pairWineId: i.pairWineId }))));
+  // Quante voci sono già «consigliate» (al massimo 4): lo dice anche la scheda.
+  const recommendedCount = sections.filter((s) => !s.promoId && !s.dailyOnly).flatMap((s) => s.groups.flatMap((g) => g.items)).filter((i) => i.recommended && !i.textOnly).length;
   // «Da sistemare»: vini italiani senza regione (es. aggiunti con «Incolla più voci»).
   const winesWithoutRegion = sections
     .filter((s) => s.kind === "WINE")
@@ -756,6 +769,8 @@ export function MenuEditor({
           groupId={itemSheetGroup.id}
           item={editingItem}
           wines={wines}
+          dishes={dishes}
+          recommendedCount={recommendedCount}
           isFirst={itemIndex <= 0}
           isLast={itemIndex === -1 || itemIndex === itemSheetGroup.items.length - 1}
           run={run}
@@ -1278,6 +1293,7 @@ function GroupCard({
                   <span className={`block line-clamp-2 break-words text-sm font-medium ${sold ? "text-foreground-muted line-through" : "text-foreground"}`}>
                     {item.name}
                     {item.enomatic && <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-accent">Enomatic</span>}
+                    {item.recommended && <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-gold">Consigliato</span>}
                   </span>
                   {secondary && <span className="block line-clamp-2 break-words text-xs text-foreground-muted">{secondary}</span>}
                   <span className="block text-xs text-foreground-muted/90">{priceSummary(item, kind)}</span>

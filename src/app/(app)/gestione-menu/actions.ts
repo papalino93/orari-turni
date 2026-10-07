@@ -40,6 +40,11 @@ export type ItemInput = {
   traits?: string[];
   // Solo piatti: il vino da abbinare (uno solo), vuoto = nessuno.
   pairWineId?: string | null;
+  // «Consigliato dalla casa»: vini e piatti del menù fisso, al massimo MAX_RECOMMENDED in tutto.
+  recommended?: boolean;
+  // Solo vini, «Sta bene con…»: piatti aggiunti a mano e piatti automatici nascosti.
+  pairDishIds?: string[];
+  pairHideIds?: string[];
   // Solo piatti. allergensReviewed false = "da compilare" (non è "nessuno").
   allergens?: string[];
   allergensReviewed?: boolean;
@@ -63,6 +68,9 @@ const ITEM_KEYS = [
   "enomatic",
   "traits",
   "pairWineId",
+  "recommended",
+  "pairDishIds",
+  "pairHideIds",
   "allergens",
   "allergensReviewed",
   "variants",
@@ -88,6 +96,16 @@ function parseAllergens(value: unknown): string[] {
   // Ordine fisso (quello della legge) e senza doppioni.
   return ALLERGEN_CODES.filter((code) => list.includes(code));
 }
+
+// Elenco di id (es. i piatti di «Sta bene con…»): senza doppioni e in numero ragionevole.
+function parseIdList(value: unknown, what: string): string[] {
+  const list = Array.isArray(value) ? value : [];
+  assert(list.length <= 30, `Troppi elementi in «${what}».`);
+  return [...new Set(list.map((id) => parseId(id, what)))];
+}
+
+// Voci «consigliate dalla casa»: al massimo tante, tra vini e piatti insieme.
+const MAX_RECOMMENDED = 4;
 
 function parseTraits(value: unknown): string[] {
   const list = Array.isArray(value) ? value : [];
@@ -146,6 +164,9 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput, { requireRegion
       enomatic: Boolean(input.enomatic),
       traits: parseTraits(input.traits),
       pairWineId: null as string | null,
+      recommended: Boolean(input.recommended),
+      pairDishIds: parseIdList(input.pairDishIds, "piatto abbinato"),
+      pairHideIds: parseIdList(input.pairHideIds, "piatto nascosto"),
       // I vini non hanno allergeni per voce: vale la nota unica "solfiti".
       allergens: [] as string[],
       allergensReviewed: false,
@@ -174,6 +195,9 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput, { requireRegion
     traits: [] as string[],
     // Controllato in saveItem (deve essere un vino del menù): qui solo la forma.
     pairWineId: input.pairWineId ? parseId(input.pairWineId, "vino da abbinare") : null,
+    recommended: Boolean(input.recommended),
+    pairDishIds: [] as string[],
+    pairHideIds: [] as string[],
     allergens: allergensReviewed ? parseAllergens(input.allergens) : [],
     allergensReviewed,
     variants,
@@ -234,6 +258,42 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
         });
         assert(wine, "Il vino da abbinare non è più nel menù: scegline un altro.");
       }
+    }
+
+    // «Consigliato» e «Sta bene con…» valgono solo per il menù fisso (non per eventi né «Oggi fuori menù»).
+    if (group.section.promoId || group.section.dailyOnly) {
+      data.recommended = false;
+      data.pairDishIds = [];
+      data.pairHideIds = [];
+    }
+    // «Sta bene con…»: solo piatti veri del menù fisso (uno eliminato dopo non conta); un piatto
+    // aggiunto a mano non può essere anche nascosto.
+    if (data.pairDishIds.length > 0 || data.pairHideIds.length > 0) {
+      const dishes = await prisma.menuItem.findMany({
+        where: {
+          id: { in: [...data.pairDishIds, ...data.pairHideIds] },
+          deletedAt: null,
+          textOnly: false,
+          group: { deletedAt: null, section: { kind: "FOOD", promoId: null, dailyOnly: false } },
+        },
+        select: { id: true },
+      });
+      const valid = new Set(dishes.map((d) => d.id));
+      data.pairDishIds = data.pairDishIds.filter((i) => valid.has(i));
+      data.pairHideIds = data.pairHideIds.filter((i) => valid.has(i) && !data.pairDishIds.includes(i));
+    }
+    // Al massimo MAX_RECOMMENDED voci consigliate: per consigliarne un'altra se ne toglie una.
+    if (data.recommended) {
+      const others = await prisma.menuItem.count({
+        where: {
+          recommended: true,
+          deletedAt: null,
+          textOnly: false,
+          ...(idInput ? { id: { not: parseId(idInput, "voce") } } : {}),
+          group: { deletedAt: null, section: { promoId: null, dailyOnly: false } },
+        },
+      });
+      assert(others < MAX_RECOMMENDED, `Hai già ${MAX_RECOMMENDED} voci consigliate: togline una prima, poi consiglia questa.`);
     }
 
     if (!idInput) {
@@ -398,8 +458,11 @@ export async function duplicateItem(idInput: string): Promise<ActionResult<Chang
           priceCents: source.priceCents,
           enomatic: source.enomatic,
           traits: source.traits,
-          // L'abbinamento segue il piatto.
+          // L'abbinamento segue il piatto; «Consigliato» no (ce ne sono al massimo 4).
           pairWineId: source.pairWineId,
+          recommended: false,
+          pairDishIds: source.pairDishIds,
+          pairHideIds: source.pairHideIds,
           allergens: source.allergens,
           allergensReviewed: source.allergensReviewed,
           variants: source.variants === null ? Prisma.DbNull : (source.variants as Prisma.InputJsonValue),
