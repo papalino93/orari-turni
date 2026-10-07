@@ -25,6 +25,8 @@ Senza SPF/DKIM le mail finiscono in spam.
 
 ## File Excel (.xlsx)
 
+Il file si sceglie con il pulsante «Scegli il file» oppure si **trascina** sul riquadro (o su tutta la scheda «A chi vuoi scrivere?»); un file di tipo sbagliato o più file insieme danno un avviso.
+
 Si può caricare direttamente il file «Aziende Natale» (primo foglio): la riga dei titoli è
 quella con la colonna «Email…». La pagina chiede quale colonna contiene l'intestazione (di solito «Azienda / studio»), il filtro per priorità e, di default, esclude le
 righe il cui «Presupposto invio» è vuoto o «Da verificare».

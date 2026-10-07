@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition, type DragEvent } from "react";
 import { applyHeader, guessColumns, HEADER_TAG, parseRecipients, tableToRecipients, type Recipient } from "@/lib/mail";
 import { readXlsx, type Sheet } from "@/lib/xlsx";
 import { sendMailChunk } from "./actions";
@@ -48,6 +48,7 @@ export function MailForm({
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [done, setDone] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
+  const [dragging, setDragging] = useState(false);
 
   const cols = useMemo(() => (sheet ? guessColumns(sheet.headers) : null), [sheet]);
   const groupValues = useMemo(
@@ -88,6 +89,31 @@ export function MailForm({
     setSheet(null);
     setCsv(await file.text());
     setFileName(file.name);
+  }
+
+  // Trascinare il file sul riquadro (o su tutta la scheda) vale come sceglierlo.
+  const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
+  function onDragOver(e: DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    setDragging(true);
+  }
+  function onDragLeave(e: DragEvent<HTMLElement>) {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+  }
+  function onDrop(e: DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    setDragging(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 1) {
+      setNotice({ kind: "error", text: "Trascina un file solo, non più di uno." });
+    } else if (files[0] && !/\.(xlsx|csv|txt)$/i.test(files[0].name)) {
+      setNotice({ kind: "error", text: `«${files[0].name}» non va bene: serve un file Excel (.xlsx) o un file .csv.` });
+    } else {
+      void loadFile(files[0]);
+    }
   }
 
   // Inserisce il segnaposto dove si trova il cursore nel testo.
@@ -214,16 +240,24 @@ export function MailForm({
       </ol>
 
       {step === 0 && (
-        <section className={card}>
+        <section className={card} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
           <h2 className="text-base font-semibold">A chi vuoi scrivere?</h2>
           <p className="mt-1 text-sm text-foreground-muted">
             Carica un file con un indirizzo email per riga e, se vuoi, il saluto da mettere in cima alla
             mail di ognuno. Va bene un file Excel (come «Aziende Natale») o un file .csv.
           </p>
 
-          <label className="mt-4 flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-surface-2 px-4 py-5 text-center transition-colors hover:border-accent">
-            <span className="text-sm font-medium">{fileName ? `File: ${fileName}` : "Scegli il file"}</span>
-            <span className="text-xs text-foreground-muted">{fileName ? "Tocca per cambiarlo" : "Excel (.xlsx) o file di testo (.csv)"}</span>
+          <label
+            className={`mt-4 flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors hover:border-accent ${
+              dragging ? "border-accent bg-accent/10" : "border-border bg-surface-2"
+            }`}
+          >
+            <span className="text-sm font-medium">
+              {dragging ? "Rilascia qui il file" : fileName ? `File: ${fileName}` : "Scegli il file"}
+            </span>
+            <span className="text-xs text-foreground-muted">
+              {dragging ? "Excel (.xlsx) o .csv" : fileName ? "Tocca per cambiarlo, o trascina qui un altro file" : "Excel (.xlsx) o file di testo (.csv) · puoi anche trascinarlo qui"}
+            </span>
             <input type="file" accept=".csv,.txt,.xlsx" className="sr-only" onChange={(e) => loadFile(e.target.files?.[0])} />
           </label>
           {notice?.kind === "error" && step === 0 && <p className="mt-2 text-sm text-danger" role="alert">{notice.text}</p>}
