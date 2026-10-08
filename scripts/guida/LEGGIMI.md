@@ -1,6 +1,6 @@
 # Guida alla gestione del menù (PDF)
 
-Il PDF `docs/guida/Guida-gestione-menu.pdf` si scarica dalla gestione del menù
+Il PDF `docs/guida/Guida-gestione-menu.pdf` (circa 3 MB: pagine a 150 dpi con JPEG ottimizzato, `topdf3.mjs`) si scarica dalla gestione del menù
 (pulsante **Guida**, route `/gestione-menu/guida`, solo per chi gestisce il menù).
 
 **Va rigenerato a ogni miglioramento della gestione o del menù**: testi in
@@ -65,4 +65,4 @@ trasformazioni CSS sugli elementi animati (si usano `gsap.set`), solo `fromTo`/`
 
 Prima di pubblicarlo guarda **tutte le scene** come immagini (`--stills`): testi e pulsanti
 con gli stessi nomi del sito, niente testo tagliato, tocchi sul pulsante giusto, versione
-nell'introduzione e nella chiusura. Il peso deve restare sotto i 12 MB (se serve alleggerirlo: `CRF=33 node video-render.mjs`; il predefinito è 31, circa 10 MB).
+nell'introduzione e nella chiusura. Il video esce a 720×1280 (le schermate si fotografano a 1080×1920 e si riducono) con compressione 35: circa 4,5 MB, leggero da scaricare e da decodificare anche su telefoni vecchi. Il peso deve restare sotto i 6 MB (se serve: `CRF=37 node video-render.mjs`).

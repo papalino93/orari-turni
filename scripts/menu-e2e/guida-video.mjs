@@ -16,7 +16,7 @@ const full = await p.request.get(url);
 const body = await full.body();
 const size = body.length;
 check("video: scaricato intero (MP4)", full.status() === 200 && full.headers()["content-type"] === "video/mp4" && body.subarray(4, 8).toString() === "ftyp", `${full.status()} ${full.headers()["content-type"]} ${size}`);
-check("video: pesa tra 0,5 e 12 MB", size > 500_000 && size < 12_000_000, String(size));
+check("video: leggero, tra 0,5 e 6 MB", size > 500_000 && size < 6_000_000, String(size));
 check("video: dice che si può chiedere a pezzi", full.headers()["accept-ranges"] === "bytes");
 const part = await p.request.get(url, { headers: { Range: "bytes=0-99" } });
 check("video: «Range» → 206 con i primi 100 byte", part.status() === 206 && (await part.body()).length === 100 && part.headers()["content-range"] === `bytes 0-99/${size}`, `${part.status()} ${part.headers()["content-range"]}`);
@@ -26,6 +26,15 @@ const open = await p.request.get(url, { headers: { Range: `bytes=${size - 10}-` 
 check("video: «Range» aperto → fino alla fine", open.status() === 206 && (await open.body()).length === 10, String(open.status()));
 const bad = await p.request.get(url, { headers: { Range: `bytes=${size + 5}-` } });
 check("video: «Range» oltre la fine → 416", bad.status() === 416, String(bad.status()));
+
+// Anche il PDF della guida si serve a pezzi e in streaming: sul telefono si apre subito, e il browser lo tiene qualche minuto.
+const pdfUrl = `${BASE}/gestione-menu/guida`;
+const pdfPart = await p.request.get(pdfUrl, { headers: { Range: "bytes=0-4" } });
+check("PDF: «Range» → 206 con l'inizio del file", pdfPart.status() === 206 && (await pdfPart.body()).toString() === "%PDF-", String(pdfPart.status()));
+const pdfFull = await p.request.get(pdfUrl);
+const pdfSize = (await pdfFull.body()).length;
+check("PDF: leggero, tra 0,5 e 4,5 MB", pdfSize > 500_000 && pdfSize < 4_500_000, String(pdfSize));
+check("PDF: si può chiedere a pezzi e il browser lo tiene qualche minuto", pdfFull.headers()["accept-ranges"] === "bytes" && /private, max-age=\d+/.test(pdfFull.headers()["cache-control"] ?? ""), pdfFull.headers()["cache-control"]);
 
 const anon = await (await b.newContext()).request.get(url, { maxRedirects: 0 });
 check("video: senza login non si vede", anon.status() >= 300 && anon.status() < 400, String(anon.status()));
