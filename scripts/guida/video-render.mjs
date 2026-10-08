@@ -1,4 +1,4 @@
-// Fotografa video.html (la timeline GSAP, window.render(t)) fotogramma per fotogramma (30 al secondo, 1080×1920) e lo trasforma in MP4.
+// Fotografa video.html (la timeline GSAP, window.render(t)) fotogramma per fotogramma (30 al secondo, fotografato a 1080×1920) e lo trasforma in MP4 da 720×1280.
 //   node video-render.mjs [file.mp4]       → di solito .tmp-guida/video/guida.mp4
 //   node video-render.mjs --stills 1,5,9   → solo alcune immagini in .tmp-guida/video/stills (per controllare)
 // Il lavoro è diviso tra WORKERS browser (di solito 2) che scrivono pezzi MP4, poi uniti senza ricodificare.
@@ -53,13 +53,15 @@ const [r0, r1] = process.env.RANGE ? process.env.RANGE.split(",").map(Number) : 
 const f0 = Math.round(r0 * FPS), frames = Math.round(r1 * FPS);
 const per = Math.ceil((frames - f0) / WORKERS);
 const done = new Array(WORKERS).fill(0);
-const vf = "scale=out_color_matrix=bt709:out_range=tv,format=yuv420p";
+// Si fotografa a 1080×1920 (nitido) e si riduce a 720×1280 in uscita: sul telefono si legge uguale, ma il file
+// pesa circa 4,5 MB invece di 10 e si decodifica senza fatica (profilo high, livello 4.0, poche «refs»).
+const vf = "scale=720:1280:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv420p";
 async function work(k) {
   const browser = k === 0 ? first : await launch();
   const page = k === 0 ? probe : await open(browser);
   const part = `${dir}/part${k}.mp4`;
   const enc = spawn(ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "mjpeg", "-i", "-",
-    "-vf", vf, "-c:v", "libx264", "-preset", process.env.PRESET || "veryslow", "-crf", process.env.CRF || "31", "-profile:v", "high", "-g", "60", "-r", String(FPS),
+    "-vf", vf, "-c:v", "libx264", "-preset", process.env.PRESET || "slow", "-crf", process.env.CRF || "35", "-profile:v", "high", "-level", "4.0", "-refs", "4", "-bf", "3", "-g", "60", "-r", String(FPS),
     "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", part], { stdio: ["pipe", "inherit", "inherit"] });
   const a = f0 + k * per, b = Math.min(frames, a + per);
   for (let i = a; i < b; i++) {

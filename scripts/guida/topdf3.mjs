@@ -1,7 +1,8 @@
-// PDF «a immagini»: ogni pagina è fotografata ad alta risoluzione (circa 190 dpi) e
-// poi unita (unisci.py). Così ombre, trasparenze e caratteri escono identici in
+// PDF «a immagini»: ogni pagina è fotografata ad alta risoluzione e poi ridotta a 150 dpi circa (1240 px), poi
+// unita (unisci.py). Così ombre, trasparenze e caratteri escono identici in
 // ogni visualizzatore (iPhone, Mac, Windows), senza riquadri grigi.
 import { chromium } from "playwright-core";
+import sharp from "sharp";
 import { mkdirSync, rmSync } from "node:fs";
 import { WORK } from "./work.mjs";
 const u = process.env.HTTPS_PROXY ? new URL(process.env.HTTPS_PROXY) : null;
@@ -30,6 +31,12 @@ rmSync(`${WORK}/pages`, { recursive: true, force: true });
 mkdirSync(`${WORK}/pages`);
 const pages = page.locator(".page");
 const n = await pages.count();
-for (let i = 0; i < n; i++) await pages.nth(i).screenshot({ path: `${WORK}/pages/${String(i + 1).padStart(2, "0")}.jpg`, type: "jpeg", quality: 82 });
+// Ogni pagina si fotografa a doppia risoluzione (nitida) e poi si riduce a 150 dpi circa (1240 px di
+// larghezza) con JPEG ottimizzato: l'aspetto non cambia, ma il PDF pesa circa 3 MB invece di 8 e
+// sul telefono si apre e scorre subito.
+for (let i = 0; i < n; i++) {
+  const png = await pages.nth(i).screenshot({ type: "png" });
+  await sharp(png).resize({ width: 1240, kernel: "lanczos3" }).jpeg({ quality: 72, mozjpeg: true }).toFile(`${WORK}/pages/${String(i + 1).padStart(2, "0")}.jpg`);
+}
 await browser.close();
 console.log("pagine", n);
