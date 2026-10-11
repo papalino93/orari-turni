@@ -49,7 +49,7 @@ const CH = [
   { k: "storico", n: "Se sbagli, torni indietro", dur: 10.5, acc: "#ff9f8e", bg: bgOf("#8a2a22", "#2a0a0a", "#2a0a0c"), wipe: "#4a1210" },
   { k: "qr", n: "Il codice QR", dur: 11.5, acc: "#e8b95a", bg: bgOf("#8a1c3a", "#3a0606", "#210606"), wipe: "#3a0808" },
   { k: "mac", n: "Dal computer: prezzi e stampa", dur: 14.6, acc: "#8fd0ff", bg: bgOf("#1f4a78", "#0a121e", "#0f1822"), wipe: "#16263a" },
-  { k: "stats", n: "Le statistiche", dur: 24, acc: "#7fe0a8", bg: bgOf("#0f5a45", "#06140f", "#08201a"), wipe: "#0c3326" },
+  { k: "stats", n: "Le statistiche", dur: 28, acc: "#7fe0a8", bg: bgOf("#0f5a45", "#06140f", "#08201a"), wipe: "#0c3326" },
 ];
 const idx = (k) => CH.findIndex((c) => c.k === k);
 const INTRO = 6.2, OUTRO = 7;
@@ -878,8 +878,8 @@ const starSvg = `<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6
 {
   const i = idx("stats"), T = starts[i], s = chapter(i), mk = 0.78;
   const Mc = mac(s, (W - 1328 * mk) / 2, 470, mk);
-  const L0 = Mc.layer("m-stats"), LS = Mc.layer("m-stats-s"), LW = Mc.layer("m-stats-week"), LD = Mc.layer("m-stats-days"), LY = Mc.layer("m-stats-day"), G1 = Mc.layer("m-stats-g1"), G2 = Mc.layer("m-stats-g2");
-  [LS, LW, LD, LY, G1, G2].forEach((l) => M.fromTo(l, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T));
+  const L0 = Mc.layer("m-stats"), LS = Mc.layer("m-stats-s"), LW = Mc.layer("m-stats-week"), LD = Mc.layer("m-stats-days"), LY = Mc.layer("m-stats-day"), G1 = Mc.layer("m-stats-g1"), G2 = Mc.layer("m-stats-g2"), G4 = Mc.layer("m-stats-g4");
+  [LS, LW, LD, LY, G1, G2, G4].forEach((l) => M.fromTo(l, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T));
   const show = (l, t, d = 0.35) => M.fromTo(l, { autoAlpha: 0 }, { autoAlpha: 1, duration: d }, t);
   M.fromTo(Mc.root, { autoAlpha: 0, y: 800, rotation: 3 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 1.0, ease: "expo.out" }, T + 1.4);
   const cur = Mc.cursor();
@@ -898,7 +898,7 @@ const starSvg = `<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6
   tap(cur, T + 7.0);
   show(LW, T + 7.15);
   cap(s, T + 5.7, T + 9.6, "OGNI PERIODO", "Una *settimana*, un mese, i giorni che vuoi", 1370);
-  Mc.zoom({ x: 40, y: 150, w: 700, h: 560 }, T + 7.6, 1.0, 1.4);
+  Mc.zoom({ x: 40, y: 340, w: 700, h: 560 }, T + 7.6, 1.0, 1.4);
   Mc.ring(BX["m-stats-kpi1w"], T + 8.5, T + 9.4, 6);
   // 3) giorno per giorno
   show(LD, T + 9.7, 0.4);
@@ -910,7 +910,7 @@ const starSvg = `<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6
   Mc.ring(dr, T + 10.9, T + 12.3, 4);
   tap(cur, T + 11.6);
   show(LY, T + 11.85);
-  Mc.zoom({ x: 40, y: 150, w: 700, h: 560 }, T + 12.3, 1.0, 1.4);
+  Mc.zoom({ x: 40, y: 340, w: 700, h: 560 }, T + 12.3, 1.0, 1.4);
   Mc.ring(BX["m-stats-kpi1d"], T + 13.0, T + 13.7, 6);
   // 4) e le statistiche si possono scaricare
   cap(s, T + 13.6, T + 17.2, "PER TE", "I numeri restano tuoi: *scarichi* tutto per Excel", 1370);
@@ -931,6 +931,13 @@ const starSvg = `<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6
   const nf = BX["m-stats-card-cercate-ma-non-trovate"];
   Mc.zoom({ x: 64, y: 313, w: 1152, h: 522 }, T + 20.9, 1.0, 1.1);
   Mc.ring(nf, T + 21.7, T + 23.4, 6);
+  // 6) e se gli eventi funzionano
+  show(G4, T + 24.0, 0.4);
+  Mc.reset(T + 23.8, 0.5);
+  cap(s, T + 23.9, T + 27.5, "EVENTI", "Gli *eventi* portano più gente?", 1370);
+  const ef = BX["m-stats-card-gli-eventi-funzionano-"];
+  Mc.zoom({ x: 64, y: Math.max(0, ef.y - 40), w: 1152, h: 520 }, T + 24.4, 1.0, 1.1);
+  Mc.ring(ef, T + 25.2, T + 27.2, 6);
 }
 
 // ═════════════════════════ OUTRO ═════════════════════════
