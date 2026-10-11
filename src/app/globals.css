@@ -11,6 +11,9 @@
   --accent-hover: #a3304d;
   --accent-foreground: #fdf2f4;
   --gold: #c9a24b;
+  /* Colori dei grafici (statistiche): controllati per daltonici e contrasto su questo sfondo. */
+  --chart: #c4506d;
+  --chart-2: #b8892c;
   --success: #3fae74;
   --success-bg: #163425;
   --danger: #e2574c;
@@ -29,6 +32,8 @@
   --accent-hover: #711f34;
   --accent-foreground: #fdf2f4;
   --gold: #93701f;
+  --chart: #8a2740;
+  --chart-2: #93701f;
   --success: #217a4c;
   --success-bg: #e3f5ea;
   --danger: #c23b33;
@@ -73,6 +78,8 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
   --color-gold: var(--gold);
+  --color-chart: var(--chart);
+  --color-chart-2: var(--chart-2);
   --color-success: var(--success);
   --color-success-bg: var(--success-bg);
   --color-danger: var(--danger);

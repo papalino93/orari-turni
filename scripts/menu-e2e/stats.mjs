@@ -111,7 +111,7 @@ check("tipo non valido: ignorato", Number(DB(`select count(*) from "MenuEvent" w
 // La pagina mostra i dati
 await admin.goto(`${BASE}/statistiche?p=7`, { waitUntil: "networkidle" });
 const page = await admin.locator("body").innerText();
-check("pagina: 1 apertura", /Aperture del menù\s*1\b/.test(page), page.slice(0, 300).replace(/\n/g, " | "));
+check("pagina: 1 apertura", /Aperture del menù\s*1\b/i.test(page), page.slice(0, 300).replace(/\n/g, " | "));
 check("pagina: «prosecco» tra le non trovate", /Cercate ma non trovate[\s\S]*prosecco/.test(page));
 check("pagina: «sangiovese» tra le più cercate", /Le parole più cercate[\s\S]*sangiovese/.test(page));
 check("pagina: griglia giorni e orari", (await admin.locator("table").count()) === 1);
@@ -119,12 +119,12 @@ const ov = await admin.evaluate(() => document.documentElement.scrollWidth - doc
 check("pagina: nessuno scorrimento orizzontale a 390 px", ov <= 0, String(ov));
 const monthName = new Date().toLocaleDateString("it-IT", { month: "long", timeZone: "Europe/Rome" });
 const wdName = new Date().toLocaleDateString("it-IT", { weekday: "long", timeZone: "Europe/Rome" });
-check("classifica giorni: oggi al primo posto con 1 apertura", new RegExp(`Classifica dei giorni della settimana[\\s\\S]*?1\\.\\s*${wdName}\\s*1\\s*apertura`, "i").test(page), wdName);
-check("classifica mesi: questo mese al primo posto con 1 apertura", new RegExp(`Classifica dei mesi[\\s\\S]*?1\\.\\s*${monthName}\\s*1\\s*apertura`, "i").test(page), monthName);
+check("classifica giorni: oggi al primo posto con 1 apertura", new RegExp(`Classifica dei giorni della settimana[\\s\\S]*?1\\.?\\s*${wdName}\\s*1\\s*apertura`, "i").test(page), wdName);
+check("classifica mesi: questo mese al primo posto con 1 apertura", new RegExp(`Classifica dei mesi[\\s\\S]*?1\\.?\\s*${monthName}\\s*1\\s*apertura`, "i").test(page), monthName);
 // Periodo a scelta: un intervallo nel passato, prima di «Inizia a contare», è vuoto.
 await admin.goto(`${BASE}/statistiche?dal=2020-01-01&al=2020-01-31`, { waitUntil: "networkidle" });
 const old = await admin.locator("body").innerText();
-check("dal… al…: periodo nel passato senza aperture", /Aperture del menù\s*0\b/.test(old), old.slice(0, 300).replace(/\n/g, " | "));
+check("dal… al…: periodo nel passato senza aperture", /Aperture del menù\s*0\b/i.test(old), old.slice(0, 300).replace(/\n/g, " | "));
 
 // Oggi sempre in vista, giorno per giorno, scorciatoie, scarico per Excel
 await admin.goto(`${BASE}/statistiche`, { waitUntil: "networkidle" });
