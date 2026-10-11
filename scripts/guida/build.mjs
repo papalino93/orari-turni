@@ -398,10 +398,10 @@ pages.push(`<section class="page paper">${chrome(pg(), "Strumenti")}
 pages.push(`<section class="page wine">${chrome(pg(), "Statistiche")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Statistiche</div>
   <h2>Quanti aprono il menù,<br><em>quando e per cosa</em></h2>
-  <p class="lead">Solo per il titolare. In cima c'è sempre il numero di <b>oggi</b>; scegli un periodo (<b>Ieri</b>, <b>Settimana scorsa</b>, un mese, due date) o tocca un giorno in <b>Giorno per giorno</b>, e con <b>Scarica per Excel</b> tieni i numeri. Poi una barra per saltare tra <b>Panoramica</b>, <b>Quando</b>, <b>Cosa cercano</b>, <b>Cosa guardano</b>, <b>Eventi e contatti</b>.</p></div>
+  <p class="lead">Solo per il titolare. In cima c'è il numero di <b>oggi</b>; poi scegli un periodo e leggi il grafico: passa o tocca per vedere un giorno, le fasce dorate sono gli eventi. In <b>Eventi e contatti</b>, <b>Gli eventi funzionano?</b> confronta i giorni con un evento e gli altri. <b>Scarica per Excel</b> per tenere i numeri.</p></div>
   <div style="position:relative;margin-top:8mm;height:126mm">
     <div style="position:absolute;left:0;top:0">${mac("mac-statistiche", 148)}</div>
-    <div style="position:absolute;right:0;top:34mm">${phone("ges-stat-giorni", 40)}</div>
+    <div style="position:absolute;right:0;top:14mm">${phone("ges-stat-grafico", 38)}</div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;margin-top:auto">
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Anonime</h3><p>Niente nomi, niente cookie: solo cosa, che giorno e che ora.</p></div>

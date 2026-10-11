@@ -398,12 +398,12 @@ if (run("ms")) {
   const kpi = P.getByText("Aperture del menù", { exact: true }).locator("xpath=..");
   await s.box("stats-kpi1", kpi);
   await s.box("stats-kpis", kpi.locator("xpath=.."));
-  await s.box("stats-card-andamento", card("Andamento settimana per settimana"));
+  await s.box("stats-card-grafico", card("Giorno per giorno nel grafico"));
   for (const [i, g] of ["Quando", "Cosa cercano", "Cosa guardano", "Eventi e contatti"].entries()) {
     await pill(g).first().click(); await s.settle(1300);
     await s.shot(`stats-g${i + 1}`);
     if (i === 0) for (const [j, g2] of ["Panoramica", "Quando", "Cosa cercano", "Cosa guardano", "Eventi e contatti"].entries()) await s.box(`stats-pillS-${j}`, pill(g2));
-    for (const t of [["Giorni e orari"], ["Cercate ma non trovate", "Le parole più cercate"], ["Sezioni più aperte"], ["Contatti toccati", "Pagine degli eventi aperte"]][i]) {
+    for (const t of [["Giorni e orari"], ["Cercate ma non trovate", "Le parole più cercate"], ["Sezioni più aperte"], ["Gli eventi funzionano?", "Contatti toccati", "Pagine degli eventi aperte"]][i]) {
       try { await s.box(`stats-card-${t.toLowerCase().replace(/[^a-z]+/g, "-")}`, card(t)); } catch {}
     }
   }

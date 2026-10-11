@@ -8,23 +8,14 @@ import { MONTH_NAMES, WEEKDAY_LABELS, WEEKDAY_NAMES } from "@/lib/menu-stats";
 import { PERIODS, type Period, type StatsData } from "@/lib/stats-queries";
 import type { StatsSetting } from "@/lib/menu";
 import { setStatsEnabled } from "./actions";
-
-const MONTHS = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
-const fmtDay = (day: string) => {
-  const [y, m, d] = day.split("-").map(Number);
-  return `${d} ${MONTHS[m - 1]}${y !== new Date().getFullYear() ? ` ${y}` : ""}`;
-};
-// Numeri all'italiana (1.759 · 4,5) scritti a mano: toLocaleString dà risultati
-// diversi sul server e nel browser, e la pagina si ridisegnerebbe.
-const n = (v: number) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-const dec = (v: number) => (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, "").replace(".", ",");
+import { Bars, Delta, EffectBars, Funnel, Heatmap, RankedList, Ranking, Sparkline, TrendChart, dec, fmtDay, fmtDayLong, n, weekdayOf } from "./stats-charts";
 
 function Card({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="min-w-0 rounded-2xl border border-border bg-surface p-4">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-      {hint && <p className="mt-0.5 text-xs text-foreground-muted">{hint}</p>}
-      <div className="mt-3">{children}</div>
+    <section className="min-w-0 rounded-2xl border border-border bg-surface p-4 shadow-sm sm:p-5">
+      <h2 className="text-base font-semibold text-foreground">{title}</h2>
+      {hint && <p className="mt-0.5 text-xs leading-relaxed text-foreground-muted">{hint}</p>}
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
@@ -76,7 +67,7 @@ function Group({ id, title, text, children }: { id: (typeof GROUPS)[number]["id"
   return (
     <section id={id} aria-labelledby={`${id}-titolo`} className={`scroll-mt-32 space-y-4 pt-2 ${id === "eventi" ? "min-h-[calc(100svh-10rem)]" : ""}`}>
       <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent-hover">{ICONS[id]}</span>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent/25 to-accent/5 text-chart ring-1 ring-accent/25">{ICONS[id]}</span>
         <div className="min-w-0">
           <h2 id={`${id}-titolo`} className="text-lg font-semibold text-foreground">
             {title}
@@ -89,11 +80,31 @@ function Group({ id, title, text, children }: { id: (typeof GROUPS)[number]["id"
   );
 }
 
-function Kpi({ label, value, note, strong = false }: { label: string; value: string; note?: string; strong?: boolean }) {
+// Numero grande con il piccolo andamento a fianco: la cifra che si legge per prima.
+function HeroKpi({ label, value, note, change, values }: { label: string; value: string; note: string; change: number | null; values: number[] }) {
   return (
-    <div className={`rounded-2xl border p-4 ${strong ? "border-accent/40 bg-gradient-to-br from-accent/15 to-accent/[0.03]" : "border-border bg-surface"}`}>
-      <p className="text-xs font-medium text-foreground-muted">{label}</p>
-      <p className={`mt-1 font-semibold capitalize tabular-nums text-foreground ${strong ? "text-3xl" : "text-2xl"}`}>{value}</p>
+    <div className="relative overflow-hidden rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/20 via-accent/[0.06] to-transparent p-5 col-span-2 sm:col-span-3 lg:col-span-2">
+      <p className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">{label}</p>
+      <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-2">
+        <p className="text-6xl font-semibold leading-none tabular-nums text-foreground">{value}</p>
+        <Delta value={change} />
+      </div>
+      <div className="mt-3 flex items-end justify-between gap-4">
+        <p className="text-xs text-foreground-muted">{note}</p>
+        <Sparkline values={values} width={140} height={40} label={`Andamento delle aperture: da ${n(values[0] ?? 0)} a ${n(values[values.length - 1] ?? 0)} al giorno`} />
+      </div>
+    </div>
+  );
+}
+
+function Kpi({ label, value, note, icon, className = "" }: { label: string; value: string; note?: string; icon: React.ReactNode; className?: string }) {
+  return (
+    <div className={`${className} rounded-2xl border border-border bg-surface p-4 shadow-sm`}>
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-chart [&_svg]:h-4 [&_svg]:w-4">{icon}</span>
+        {label}
+      </p>
+      <p className="mt-3 break-words text-2xl font-semibold capitalize leading-tight tabular-nums text-foreground">{value}</p>
       {note && <p className="mt-1 text-xs text-foreground-muted">{note}</p>}
     </div>
   );
@@ -103,175 +114,54 @@ function Empty({ text = "Ancora nessun dato in questo periodo." }: { text?: stri
   return <p className="py-3 text-sm text-foreground-muted">{text}</p>;
 }
 
-// Elenco ordinato con barra proporzionale: nome a sinistra, numero a destra.
-function RankedList({ rows, empty }: { rows: { label: string; count: number }[]; empty?: string }) {
-  if (rows.length === 0) return <Empty text={empty} />;
-  const max = Math.max(...rows.map((r) => r.count));
-  return (
-    <ol className="space-y-1.5">
-      {rows.map((r) => (
-        <li key={r.label} className="relative overflow-hidden rounded-lg px-2.5 py-1.5" title={`${r.label}: ${n(r.count)}`}>
-          <span aria-hidden className="absolute inset-y-0 left-0 rounded-lg bg-accent/15" style={{ width: `${(r.count / max) * 100}%` }} />
-          <span className="relative flex items-baseline justify-between gap-3 text-sm">
-            <span className="min-w-0 truncate text-foreground">{r.label}</span>
-            <span className="shrink-0 tabular-nums text-foreground-muted">{n(r.count)}</span>
-          </span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-// Griglia giorni × ore: più scuro = più aperture (una sola tinta, chiaro → scuro).
-// Classifica dal migliore al peggiore: aperture del menù e media per giorno.
-function Ranking({ rows }: { rows: { key: string; label: string; total: number; average: number; days: number }[] }) {
-  if (rows.length === 0) return <Empty />;
-  const max = Math.max(1, rows[0].total);
-  return (
-    <ol className="space-y-1.5">
-      {rows.map((d, i) => (
-        <li key={d.key} className="relative overflow-hidden rounded-lg px-2.5 py-2" title={`${d.label}: ${n(d.total)} aperture in ${d.days} giorni`}>
-          <span aria-hidden className="absolute inset-y-0 left-0 rounded-lg bg-accent/15" style={{ width: `${(d.total / max) * 100}%` }} />
-          <span className="relative flex items-center gap-3 text-sm">
-            <span className="w-5 shrink-0 tabular-nums text-foreground-muted">{i + 1}.</span>
-            <span className="min-w-0 flex-1 capitalize text-foreground">{d.label}</span>
-            {/* Totale sopra, media sotto: il nome del giorno o del mese resta intero anche sul telefono. */}
-            <span className="shrink-0 text-right leading-tight">
-              <span className="block tabular-nums font-medium text-foreground">
-                {n(d.total)} <span className="text-xs font-normal text-foreground-muted">apertur{d.total === 1 ? "a" : "e"}</span>
-              </span>
-              <span className="block text-[11px] tabular-nums text-foreground-muted">
-                {d.days ? `${dec(d.average)} al giorno` : "—"}
-              </span>
-            </span>
-          </span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function Heatmap({ heat }: { heat: number[][] }) {
-  const max = Math.max(1, ...heat.flat());
-  // Le ore partono dalle 5 del mattino, come la giornata del locale (dopo mezzanotte
-  // si continua con 0, 1…), e restano solo quelle in cui il menù è stato aperto:
-  // la sera e il dopo-mezzanotte stanno vicini, senza ore vuote in mezzo da scorrere.
-  const order = Array.from({ length: 24 }, (_, i) => (i + 5) % 24);
-  const used = order.map((h) => heat.some((row) => row[h] > 0));
-  const first = used.indexOf(true);
-  const last = used.lastIndexOf(true);
-  const hours = first === -1 ? order.slice(12, 19) : order.slice(first, last + 1);
-  return (
-    <div className="relative overflow-x-auto">
-      <table className="w-full border-separate [border-spacing:3px] text-[11px]">
-        <thead>
-          <tr>
-            <th />
-            {hours.map((h) => (
-              <th key={h} scope="col" className="font-normal text-foreground-muted">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {heat.map((row, wd) => (
-            <tr key={wd}>
-              <th scope="row" className="pr-1 text-left font-normal text-foreground-muted">
-                {WEEKDAY_LABELS[wd]}
-              </th>
-              {hours.map((h) => {
-                const c = row[h];
-                return (
-                  <td
-                    key={h}
-                    title={`${WEEKDAY_NAMES[wd]} ${h}:00–${h + 1}:00 · ${n(c)} apertur${c === 1 ? "a" : "e"}`}
-                    className="h-7 min-w-6 rounded-md border border-border/40"
-                    style={{ background: c ? `color-mix(in srgb, var(--accent) ${Math.round(18 + (c / max) * 82)}%, transparent)` : undefined }}
-                  >
-                    <span className="sr-only">{n(c)}</span>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="mt-2 flex items-center gap-2 text-[11px] text-foreground-muted">
-        <span>meno</span>
-        {[20, 45, 70, 100].map((p) => (
-          <span key={p} className="h-3 w-5 rounded" style={{ background: `color-mix(in srgb, var(--accent) ${p}%, transparent)` }} />
-        ))}
-        <span>più aperture</span>
-      </div>
-    </div>
-  );
-}
-
-// Colonne verticali con il valore al passaggio del dito/mouse (title) e le etichette sotto.
-function Bars({ data, label, height = 120, edges }: { data: { key: string; count: number; tip: string }[]; label?: (i: number) => string; height?: number; edges?: [string, string] }) {
-  const max = Math.max(1, ...data.map((d) => d.count));
-  return (
-    <div>
-      <div className="flex items-end gap-[3px]" style={{ height }}>
-        {data.map((d) => (
-          <div key={d.key} className="group relative flex h-full flex-1 items-end" title={d.tip}>
-            <div className="w-full rounded-t-[4px] bg-accent/80 transition-colors group-hover:bg-accent" style={{ height: `${Math.max(d.count ? 4 : 0, (d.count / max) * 100)}%` }} />
-          </div>
-        ))}
-      </div>
-      {edges ? (
-        <div className="mt-1 flex justify-between text-[10px] text-foreground-muted">
-          <span>{edges[0]}</span>
-          <span>{edges[1]}</span>
-        </div>
-      ) : (
-        <div className="mt-1 flex gap-[3px] text-[10px] text-foreground-muted">
-          {data.map((d, i) => (
-            <span key={d.key} className="flex-1 overflow-visible whitespace-nowrap text-left">
-              {label?.(i)}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const weekdayOf = (day: string) => (new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7;
-const fmtDayLong = (day: string) => `${WEEKDAY_NAMES[weekdayOf(day)]} ${fmtDay(day)}`;
-
 // Aperture di oggi, sempre in cima: con ieri e lo stesso giorno della settimana scorsa a confronto.
-function TodayCard({ stats, today, counting, since }: { stats: StatsData["todayStats"]; today: string; counting: boolean; since: string | null }) {
+function TodayCard({ stats, recent, today, counting, since }: { stats: StatsData["todayStats"]; recent: StatsData["recent"]; today: string; counting: boolean; since: string | null }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const vs = (v: number) => (v > 0 ? Math.round(((stats.today - v) / v) * 100) : null);
   return (
-    <section aria-label="Aperture di oggi" className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-2xl border border-accent/40 bg-gradient-to-br from-accent/15 to-accent/[0.03] px-4 py-4">
+    <section aria-label="Aperture di oggi" className="flex flex-wrap items-center gap-x-8 gap-y-4 rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/20 via-accent/[0.06] to-transparent px-5 py-5">
       <div className="min-w-0">
         <p className="text-xs font-medium text-foreground-muted">
           Aperture di oggi · <span className="inline-block first-letter:uppercase">{fmtDayLong(today)}</span>
         </p>
-        <p className="mt-1 text-4xl font-semibold tabular-nums text-foreground">{n(stats.today)}</p>
-        {!counting && <p className="mt-1 text-xs text-foreground-muted">{since ? "Conteggio in pausa." : "Il conteggio non è ancora iniziato."}</p>}
+        <p className="mt-1 text-5xl font-semibold leading-none tabular-nums text-foreground">{n(stats.today)}</p>
+        {!counting && <p className="mt-2 text-xs text-foreground-muted">{since ? "Conteggio in pausa." : "Il conteggio non è ancora iniziato."}</p>}
       </div>
       <dl className="flex gap-6 text-sm">
         <div>
           <dt className="text-xs text-foreground-muted">Ieri</dt>
-          <dd className="font-medium tabular-nums text-foreground">{n(stats.yesterday)}</dd>
+          <dd className="flex items-center gap-2 font-medium tabular-nums text-foreground">
+            {n(stats.yesterday)}
+            <Delta value={vs(stats.yesterday)} />
+          </dd>
         </div>
         <div>
-          <dt className="text-xs text-foreground-muted">{WEEKDAY_NAMES[weekdayOf(today)]} {weekdayOf(today) === 6 ? "scorsa" : "scorso"}</dt>
-          <dd className="font-medium tabular-nums text-foreground">{n(stats.lastWeek)}</dd>
+          <dt className="text-xs text-foreground-muted">
+            {WEEKDAY_NAMES[weekdayOf(today)]} {weekdayOf(today) === 6 ? "scorsa" : "scorso"}
+          </dt>
+          <dd className="flex items-center gap-2 font-medium tabular-nums text-foreground">
+            {n(stats.lastWeek)}
+            <Delta value={vs(stats.lastWeek)} />
+          </dd>
         </div>
       </dl>
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() => startTransition(() => router.refresh())}
-        className="ml-auto min-h-10 rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-60"
-      >
-        {pending ? "Aggiorno…" : "Aggiorna"}
-      </button>
+      <div className="ml-auto flex items-end gap-4">
+        {recent.some((r) => r.count > 0) && (
+          <div className="hidden sm:block">
+            <p className="mb-0.5 text-[11px] text-foreground-muted">Ultimi 14 giorni</p>
+            <Sparkline values={recent.map((r) => r.count)} width={150} height={40} label="Aperture degli ultimi 14 giorni" />
+          </div>
+        )}
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => startTransition(() => router.refresh())}
+          className="min-h-10 rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-60"
+        >
+          {pending ? "Aggiorno…" : "Aggiorna"}
+        </button>
+      </div>
     </section>
   );
 }
@@ -304,15 +194,17 @@ function DayByDay({ data, exportHref }: { data: StatsData; exportHref: string })
                 <Link
                   href={`/statistiche?dal=${r.day}&al=${r.day}`}
                   title={`${fmtDayLong(r.day)}: ${n(r.count)} apertur${r.count === 1 ? "a" : "e"}`}
-                  className="relative flex min-h-10 items-center overflow-hidden rounded-lg px-2.5 py-1.5 hover:bg-surface-2"
+                  className="block rounded-lg px-2.5 py-2 hover:bg-surface-2"
                 >
-                  <span aria-hidden className="absolute inset-y-0 left-0 rounded-lg bg-accent/15" style={{ width: `${(r.count / max) * 100}%` }} />
-                  <span className="relative flex w-full items-baseline justify-between gap-3 text-sm">
+                  <span className="flex items-baseline justify-between gap-3 text-sm">
                     <span className="min-w-0 truncate text-foreground first-letter:uppercase">
                       {fmtDayLong(r.day)}
-                      {r.day === data.today && <span className="ml-2 rounded-full bg-accent/20 px-2 py-0.5 text-[11px] font-medium normal-case text-accent-hover">oggi</span>}
+                      {r.day === data.today && <span className="ml-2 rounded-full bg-accent/20 px-2 py-0.5 text-[11px] font-medium normal-case text-chart">oggi</span>}
                     </span>
                     <span className="shrink-0 tabular-nums font-medium text-foreground">{n(r.count)}</span>
+                  </span>
+                  <span aria-hidden className="mt-1 block h-1.5 overflow-hidden rounded-full bg-surface-2">
+                    <span className="block h-full rounded-full" style={{ width: `${(r.count / max) * 100}%`, background: "var(--chart)", opacity: 0.7 }} />
                   </span>
                 </Link>
               </li>
@@ -388,6 +280,9 @@ export function StatsView({
     data.prevOpens === null || data.prevOpens === 0 ? null : Math.round(((data.opens - data.prevOpens) / data.prevOpens) * 100);
   // «Scarica per Excel»: lo stesso periodo della pagina.
   const exportHref = period === "custom" && data.from ? `/statistiche/giorni?dal=${data.from}&al=${data.to}` : `/statistiche/giorni?p=${period}`;
+  const trend = [...data.daily].reverse().map((d) => d.count);
+  const eventNames: Record<string, string> = {};
+  for (const e of data.eventCards) for (const d of data.eventDays) if (d >= e.startDate && d <= e.endDate && !eventNames[d]) eventNames[d] = e.title;
   const hasData = data.opens > 0 || data.weeks.some((w) => w.count > 0);
 
   return (
@@ -421,7 +316,7 @@ export function StatsView({
         </button>
       </section>
 
-      <TodayCard stats={data.todayStats} today={data.today} counting={enabled} since={setting.since} />
+      <TodayCard stats={data.todayStats} recent={data.recent} today={data.today} counting={enabled} since={setting.since} />
 
       {/* Prima di «Inizia a contare» non c'è nulla da filtrare: niente periodi. */}
       {setting.since && (
@@ -508,33 +403,42 @@ export function StatsView({
                     : "border-border bg-surface text-foreground-muted hover:border-accent hover:text-foreground"
                 }`}
               >
-                <span className={`[&_svg]:h-4 [&_svg]:w-4 ${current === g.id ? "" : "text-accent-hover"}`}>{ICONS[g.id]}</span>
+                <span className={`[&_svg]:h-4 [&_svg]:w-4 ${current === g.id ? "" : "text-chart"}`}>{ICONS[g.id]}</span>
                 {g.label}
               </a>
             ))}
           </nav>
 
           <Group id="panoramica" title="Panoramica" text="I numeri chiave del periodo scelto e come sta andando settimana dopo settimana.">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Kpi
-                strong
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <HeroKpi
                 label="Aperture del menù"
                 value={n(data.opens)}
-                note={change === null ? "nel periodo scelto" : `${change >= 0 ? "+" : ""}${change}% rispetto al periodo prima`}
+                note={change === null ? "nel periodo scelto" : "rispetto al periodo prima"}
+                change={change}
+                values={trend}
               />
-              <Kpi label="Giorno più forte" value={data.bestDay >= 0 ? WEEKDAY_NAMES[data.bestDay] : "—"} note="nel periodo scelto" />
+              <Kpi icon={ICONS.eventi} label="Giorno più forte" value={data.bestDay >= 0 ? WEEKDAY_NAMES[data.bestDay] : "—"} note="nel periodo scelto" />
               <Kpi
+                icon={ICONS.quando}
                 label="Orario più forte"
-                value={data.best.hour >= 0 ? `${WEEKDAY_LABELS[data.best.weekday]} ${data.best.hour}–${data.best.hour + 1}` : "—"}
+                value={data.best.hour >= 0 ? `${WEEKDAY_LABELS[data.best.weekday]} ${data.best.hour}–\u2060${data.best.hour + 1}` : "—"}
                 note={data.best.count ? `${n(data.best.count)} aperture` : undefined}
               />
               <Kpi
+                className="col-span-2 sm:col-span-1"
+                icon={ICONS.cercano}
                 label="Parola più cercata"
                 value={data.searches[0]?.label ?? "—"}
                 note={data.searches[0] ? `${n(data.searches[0].count)} ricerche` : "nessuna ricerca"}
               />
             </div>
-            <Card title="Andamento settimana per settimana" hint="Aperture del menù per settimana (da lunedì a domenica).">
+            {data.daily.length > 1 && (
+              <Card title="Giorno per giorno nel grafico" hint="Quante aperture ogni giorno del periodo scelto. Tocca o passa sul grafico per leggere un giorno; le fasce dorate sono i giorni con un evento.">
+                <TrendChart daily={data.daily} eventDays={data.eventDays} eventNames={eventNames} />
+              </Card>
+            )}
+            <Card title="Settimana per settimana" hint="Aperture del menù per settimana (da lunedì a domenica). L'ultima colonna è la settimana in corso.">
               {data.weeks.length === 0 ? (
                 <Empty />
               ) : (
@@ -548,15 +452,15 @@ export function StatsView({
           </Group>
 
           <Group id="quando" title="Quando" text="In che giorni e a che ore i clienti aprono il menù: utile per turni, eventi e «Oggi fuori menù».">
-            <Card title="Giorni e orari" hint="Quando viene aperto il menù: più scuro, più aperture.">
+            <Card title="Giorni e orari" hint="Quando viene aperto il menù: più intenso il colore, più aperture. Tocca una casella per leggere il numero.">
               <Heatmap heat={data.heat} />
             </Card>
             <div className="grid gap-4 md:grid-cols-2">
               <Card title="Classifica dei giorni della settimana" hint="Dal giorno con più aperture del menù a quello con meno, nel periodo scelto. A fianco la media per singolo giorno.">
-                <Ranking rows={data.dayRanking.map((d) => ({ key: String(d.weekday), label: WEEKDAY_NAMES[d.weekday], total: d.total, average: d.average, days: d.days }))} />
+                <Ranking empty={<Empty />} rows={data.dayRanking.map((d) => ({ key: String(d.weekday), label: WEEKDAY_NAMES[d.weekday], total: d.total, average: d.average, days: d.days }))} />
               </Card>
               <Card title="Classifica dei mesi" hint="Dal mese con più aperture del menù a quello con meno, nel periodo scelto (lo stesso mese di anni diversi conta insieme).">
-                <Ranking rows={data.monthRanking.map((m) => ({ key: String(m.month), label: MONTH_NAMES[m.month], total: m.total, average: m.average, days: m.days }))} />
+                <Ranking empty={<Empty />} rows={data.monthRanking.map((m) => ({ key: String(m.month), label: MONTH_NAMES[m.month], total: m.total, average: m.average, days: m.days }))} />
               </Card>
             </div>
             <Card title="Ogni giorno della settimana nel tempo" hint="Gli ultimi lunedì, martedì… a confronto: si vede se un giorno sta crescendo o calando.">
@@ -582,35 +486,86 @@ export function StatsView({
           <Group id="cercano" title="Cosa cercano" text="Le parole scritte nella ricerca del menù: cosa interessa e cosa manca.">
             <div className="grid gap-4 md:grid-cols-2">
               <Card title="Le parole più cercate">
-                <RankedList rows={data.searches} />
+                <RankedList rows={data.searches} empty={<Empty />} />
               </Card>
               <Card title="Cercate ma non trovate" hint="Ciò che i clienti si aspettano e non c'è (o è scritto diversamente): idee per la carta.">
-                <RankedList rows={data.empty} empty="Nessuna ricerca andata a vuoto." />
+                <RankedList rows={data.empty} empty={<Empty text="Nessuna ricerca andata a vuoto." />} />
               </Card>
             </div>
             <Card title="Vini e piatti più aperti dalla ricerca">
-              <RankedList rows={data.picks} />
+              <RankedList rows={data.picks} empty={<Empty />} />
             </Card>
           </Group>
 
           <Group id="guardano" title="Cosa guardano" text="Le parti del menù che i clienti aprono di più e gli abbinamenti che toccano.">
             <div className="grid gap-4 md:grid-cols-2">
               <Card title="Sezioni più aperte" hint="Tocchi sulla barra delle sezioni in alto.">
-                <RankedList rows={data.sections} />
+                <RankedList rows={data.sections} empty={<Empty />} />
               </Card>
               <Card title="Abbinamenti toccati" hint="Il vino consigliato sotto un piatto, toccato per vederlo.">
-                <RankedList rows={data.pairs} />
+                <RankedList rows={data.pairs} empty={<Empty />} />
               </Card>
             </div>
           </Group>
 
-          <Group id="eventi" title="Eventi e contatti" text="Quanto interessano gli eventi e quanti clienti chiamano, scrivono o cercano la strada.">
+          <Group id="eventi" title="Eventi e contatti" text="Gli eventi portano gente? Quanti aprono la pagina, prenotano, aggiungono al calendario, e quanti chiamano, scrivono o cercano la strada.">
+            <Card
+              title="Gli eventi funzionano?"
+              hint="Le aperture medie del menù nei giorni in cui c'era un evento, a confronto con tutti gli altri giorni del periodo scelto."
+            >
+              {data.effect ? (
+                <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
+                  <EffectBars {...data.effect} />
+                  <div className="md:text-center">
+                    {data.effect.offAvg > 0 ? (
+                      <p className="text-4xl font-semibold tabular-nums text-foreground">
+                        {data.effect.onAvg >= data.effect.offAvg ? "+" : "−"}
+                        {Math.abs(Math.round(((data.effect.onAvg - data.effect.offAvg) / data.effect.offAvg) * 100))}%
+                      </p>
+                    ) : (
+                      <p className="text-4xl font-semibold text-foreground">—</p>
+                    )}
+                    <p className="mt-1 max-w-[16rem] text-xs text-foreground-muted">
+                      {data.effect.onDays < 3 ? "Pochi giorni con un evento: prendila come un'indicazione, non come una regola." : "aperture al giorno nei giorni di un evento rispetto agli altri"}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <Empty text="Nel periodo scelto non ci sono eventi: scegli un periodo più lungo per vedere se portano più gente." />
+              )}
+            </Card>
+            {data.eventCards.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {data.eventCards.map((e) => (
+                  <section key={e.title + e.startDate} aria-label={`Evento: ${e.title}`} className="min-w-0 rounded-2xl border border-border bg-surface p-4 shadow-sm sm:p-5">
+                    <h3 className="flex items-center gap-2 text-base font-semibold text-foreground">
+                      <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: "var(--chart-2)" }} />
+                      {e.title}
+                    </h3>
+                    <p className="text-xs text-foreground-muted">
+                      {e.startDate === e.endDate ? fmtDay(e.startDate) : `${fmtDay(e.startDate)} – ${fmtDay(e.endDate)}`}
+                      {" · "}menù aperto {n(e.menuOpens)} {e.menuOpens === 1 ? "volta" : "volte"} in {n(e.days)} giorn{e.days === 1 ? "o" : "i"}
+                    </p>
+                    <div className="mt-4">
+                      <Funnel
+                        steps={[
+                          { label: "Hanno aperto la pagina", value: e.pageOpens },
+                          { label: "Prenota", value: e.book },
+                          { label: "Calendario", value: e.calendar },
+                          { label: "Condividi", value: e.share },
+                        ]}
+                      />
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
             <div className="grid gap-4 md:grid-cols-2">
               <Card title="Pagine degli eventi aperte">
-                <RankedList rows={data.events} empty="Nessuna pagina evento aperta in questo periodo." />
+                <RankedList rows={data.events} empty={<Empty text="Nessuna pagina evento aperta in questo periodo." />} />
               </Card>
               <Card title="Contatti toccati" hint="Chiama, WhatsApp, Come arrivare, Recensione, Instagram e, dalle pagine degli eventi, Prenota, Calendario e Condividi.">
-                <RankedList rows={data.contacts} empty="Nessun contatto toccato in questo periodo." />
+                <RankedList rows={data.contacts} empty={<Empty text="Nessun contatto toccato in questo periodo." />} />
               </Card>
             </div>
           </Group>

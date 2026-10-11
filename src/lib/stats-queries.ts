@@ -152,6 +152,12 @@ export async function loadStats(period: Period, since: string | null, custom?: {
   // Oggi, ieri e lo stesso giorno della settimana scorsa: sempre in vista in cima alla pagina.
   const todayStats = { today: perDay.get(today) ?? 0, yesterday: perDay.get(addDays(today, -1)) ?? 0, lastWeek: perDay.get(addDays(today, -7)) ?? 0 };
 
+  // Gli ultimi 14 giorni (oggi compreso), per il piccolo grafico accanto alle aperture di oggi.
+  const recent = Array.from({ length: 14 }, (_, i) => {
+    const day = addDays(today, i - 13);
+    return { day, count: perDay.get(day) ?? 0 };
+  });
+
   // Scorciatoie per scegliere un periodo con un tocco.
   const mondayNow = weekStart(today);
   const monthFirst = `${today.slice(0, 8)}01`;
@@ -165,7 +171,56 @@ export async function loadStats(period: Period, since: string | null, custom?: {
     { label: "Mese scorso", dal: `${prevMonthLast.slice(0, 8)}01`, al: prevMonthLast },
   ];
 
-  return { today, to, from, start, daily, todayStats, shortcuts, dayRanking, monthRanking, opens, prevOpens, heat, weeks, weekdays, best, bestDay, searches, empty, picks, pairs, sections, events, contacts };
+  // Eventi (non gli annunci) che cadono nel periodo: servono al grafico (fascia colorata) e alla
+  // scheda «Gli eventi funzionano?». Per ognuno: pagina aperta e contatti dalla sua pagina.
+  const promos = await prisma.menuPromo.findMany({
+    where: { kind: "EVENT", deletedAt: null, startDate: { lte: to }, endDate: { gte: start } },
+    select: { title: true, startDate: true, endDate: true },
+    orderBy: { startDate: "asc" },
+  });
+  const pageOpens = new Map(
+    (await prisma.menuEvent.groupBy({ by: ["label"], where: { kind: "event", label: { not: null }, day: range }, _count: { _all: true } })).map((r) => [r.label ?? "", r._count._all]),
+  );
+  const contactRows = await prisma.menuEvent.groupBy({ by: ["label"], where: { kind: "contact", label: { not: null }, day: range }, _count: { _all: true } });
+  const contactOf = (verb: string, title: string) => contactRows.find((r) => r.label === `${verb} · ${title}`)?._count._all ?? 0;
+  const eventCards = promos.map((e) => {
+    const first = e.startDate < start ? start : e.startDate;
+    const last = e.endDate > to ? to : e.endDate;
+    let during = 0;
+    let dayCount = 0;
+    for (let d = first; d <= last; d = addDays(d, 1)) {
+      during += perDay.get(d) ?? 0;
+      dayCount += 1;
+    }
+    return {
+      title: e.title,
+      startDate: e.startDate,
+      endDate: e.endDate,
+      pageOpens: pageOpens.get(e.title) ?? 0,
+      book: contactOf("Prenota", e.title),
+      calendar: contactOf("Calendario", e.title),
+      share: contactOf("Condividi", e.title),
+      menuOpens: during,
+      days: dayCount,
+    };
+  });
+  // Effetto degli eventi: aperture medie al giorno nei giorni di un evento e negli altri giorni.
+  const eventDays = new Set<string>();
+  for (const e of promos) for (let d = e.startDate < start ? start : e.startDate; d <= (e.endDate > to ? to : e.endDate); d = addDays(d, 1)) eventDays.add(d);
+  let onSum = 0;
+  let offSum = 0;
+  let offDays = 0;
+  for (let d = start; d <= to; d = addDays(d, 1)) {
+    const c = perDay.get(d) ?? 0;
+    if (eventDays.has(d)) onSum += c;
+    else {
+      offSum += c;
+      offDays += 1;
+    }
+  }
+  const effect = eventDays.size && offDays ? { onAvg: onSum / eventDays.size, offAvg: offSum / offDays, onDays: eventDays.size, offDays } : null;
+
+  return { today, to, from, start, recent, eventCards, eventDays: [...eventDays], effect, daily, todayStats, shortcuts, dayRanking, monthRanking, opens, prevOpens, heat, weeks, weekdays, best, bestDay, searches, empty, picks, pairs, sections, events, contacts };
 }
 
 export type StatsData = Awaited<ReturnType<typeof loadStats>>;

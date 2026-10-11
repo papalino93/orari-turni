@@ -33,6 +33,8 @@ const toEl = async (page, loc, offset = 70) => {
   await page.goto(`${BASE}/statistiche`, { waitUntil: "networkidle", timeout: 180000 });
   await settle(page, 1000);
   await page.screenshot({ path: `${OUT}/ges-stat-top.png` });
+  await toEl(page, page.getByText("Giorno per giorno nel grafico"), 120);
+  await page.screenshot({ path: `${OUT}/ges-stat-grafico.png` });
   await toEl(page, page.getByText("Classifica dei giorni della settimana"), 130);
   await page.screenshot({ path: `${OUT}/ges-stat-giorni.png` });
   await toEl(page, page.getByText("Giorni e orari", { exact: true }), 80);
