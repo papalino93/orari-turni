@@ -139,7 +139,10 @@ await dialog().waitFor({ state: "detached" });
 await settle(2500);
 await open();
 check("eccezione: «Chiuso oggi · Serata privata · riapre domani…»", /chiuso oggi · serata privata · riapre domani alle 17:00/i.test(await pillText()), await pillText());
-check("eccezione: annuncio creato (Serata privata)", Number(DB(`select count(*) from "MenuPromo" where title='Serata privata' and kind='NOTICE'`)) === 1);
+// L'annuncio si crea solo per un'eccezione di oggi o futura: la data della prova (5 ottobre, quella dell'orologio
+// finto della pagina) col passare dei giorni diventa passata, e allora non c'è nessun annuncio da cercare.
+if (today <= "2026-10-05") check("eccezione: annuncio creato (Serata privata)", Number(DB(`select count(*) from "MenuPromo" where title='Serata privata' and kind='NOTICE'`)) === 1);
+else console.log("SALTATO eccezione: annuncio creato (la data della prova è ormai passata)");
 check("eccezione: salvata (1)", JSON.parse(DB(`select value from "MenuSetting" where id='hours'`)).exceptions.length === 1);
 
 // Spengo «Aperto ora»
