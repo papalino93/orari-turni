@@ -5,6 +5,7 @@ import { businessDayKey, formatPromoDates } from "@/lib/menu-format";
 import { loadPromoBySlug, loadVenue, loadVisibleBlocks } from "@/lib/menu";
 import { Ornament } from "../../ornament";
 import { PromoContent } from "../../promo-content";
+import { TornaSu } from "../../torna-su";
 
 // Come /menu: in cache, rigenerata ogni minuto e a ogni modifica.
 export const revalidate = 60;
@@ -48,7 +49,7 @@ export default async function PromoPage({ params }: { params: Promise<{ slug: st
         </Link>
       </header>
 
-      <main className="menu-main mx-auto max-w-[720px] px-6 pb-[72px] pt-8">
+      <main className="mx-auto max-w-[720px] px-6 pb-[72px] pt-8">
         <PromoContent promo={promo} blocks={blocks} dayKey={dayKey} contacts={venue.contacts} />
 
         <div className="mt-14 flex flex-col items-center gap-3.5 text-center">
@@ -66,6 +67,7 @@ export default async function PromoPage({ params }: { params: Promise<{ slug: st
         <Ornament color="#C9A96E" />
         <div className="menu-sans text-[10px] uppercase tracking-[0.4em] text-[#E9DCC4]">Enoteca</div>
       </footer>
+      <TornaSu />
     </>
   );
 }

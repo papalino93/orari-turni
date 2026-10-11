@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, EB_Garamond, Jost } from "next/font/google";
 import "./menu.css";
 import { MenuStats } from "./stats";
+import { SmoothAnchors } from "./smooth-anchors";
 
 const serif = Cormorant_Garamond({
   subsets: ["latin", "latin-ext"],
@@ -47,6 +48,8 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     <div className={`${serif.variable} ${body.variable} ${sans.variable} menu-root min-h-screen`}>
       <MenuStats />
       {children}
+      {/* Dopo i figli: i gestori di click dei figli (abbinamenti) hanno la precedenza. */}
+      <SmoothAnchors />
     </div>
   );
 }

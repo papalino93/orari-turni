@@ -15,8 +15,11 @@
 html:has(.menu-root),
 html:has(.menu-root) body {
   background: #f4eee3;
-  scroll-behavior: smooth;
 }
+/* Niente «scroll-behavior: smooth» globale: su iPhone (Safari e Chrome) rende scomodo il
+   tocco sulla barra di stato per tornare in cima e lo scorrimento di pagine lunghe. I salti
+   «morbidi» (sezioni, «Torna su», abbinamenti) si fanno uno per uno da JavaScript
+   (smooth-anchors.tsx, torna-su.tsx), solo quando servono. */
 /* Nell'app una regola globale "* { border-color: var(--border) }" (fuori da
    ogni layer) batte le utility di Tailwind: i colori dei filetti del menù
    vanno quindi dichiarati qui, con regole proprie. */
@@ -74,8 +77,5 @@ html[data-menu-large] .menu-root .menu-main {
 @media (prefers-reduced-motion: reduce) {
   .menu-fade-up {
     animation: none;
-  }
-  html:has(.menu-root) {
-    scroll-behavior: auto;
   }
 }
