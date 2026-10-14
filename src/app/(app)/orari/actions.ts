@@ -243,7 +243,7 @@ export async function confirmPastShifts(
   rangeStartKeyInput: string,
   rangeEndKeyInput: string,
   employeeIdInput?: string,
-): Promise<ActionResult<{ verified: number }>> {
+): Promise<ActionResult<{ verified: number; ids: string[] }>> {
   return runAction(async () => {
     await requireUser();
 
@@ -255,7 +255,7 @@ export async function confirmPastShifts(
     // corso e non si può dire che sia stato lavorato come previsto.
     const lastVerifiable = toDateKey(addDays(toDate(todayKey()), -1));
     const endKey = rangeEndKey < lastVerifiable ? rangeEndKey : lastVerifiable;
-    if (rangeStartKey > endKey) return { verified: 0 };
+    if (rangeStartKey > endKey) return { verified: 0, ids: [] };
 
     const start = dateKeyToDate(rangeStartKey);
     const end = dateKeyToDate(endKey);
@@ -268,17 +268,29 @@ export async function confirmPastShifts(
     });
     const closedDates = closures.map((c) => c.date);
 
-    const { count } = await prisma.shiftBlock.updateMany({
-      where: {
-        date: { gte: start, lte: end, ...(closedDates.length ? { notIn: closedDates } : {}) },
-        confirmed: false,
-        ...(employeeId ? { employeeId } : {}),
-      },
-      data: { confirmed: true },
-    });
+    const where = {
+      date: { gte: start, lte: end, ...(closedDates.length ? { notIn: closedDates } : {}) },
+      confirmed: false,
+      ...(employeeId ? { employeeId } : {}),
+    };
+    // Si tengono gli id dei turni appena verificati: servono a «Annulla» subito dopo.
+    const ids = (await prisma.shiftBlock.findMany({ where, select: { id: true } })).map((b) => b.id);
+    const { count } = await prisma.shiftBlock.updateMany({ where: { ...where, id: { in: ids } }, data: { confirmed: true } });
 
     revalidatePath("/orari");
-    return { verified: count };
+    return { verified: count, ids };
+  });
+}
+
+// «Annulla» dopo una verifica fatta per sbaglio: toglie la verifica solo ai turni appena verificati.
+export async function undoConfirmShifts(idsInput: string[]): Promise<ActionResult<{ restored: number }>> {
+  return runAction(async () => {
+    await requireUser();
+    if (!Array.isArray(idsInput) || idsInput.length > 5000) throw new Error("Elenco non valido");
+    const ids = idsInput.map((i) => parseId(i, "turno"));
+    const { count } = await prisma.shiftBlock.updateMany({ where: { id: { in: ids }, confirmed: true }, data: { confirmed: false } });
+    revalidatePath("/orari");
+    return { restored: count };
   });
 }
 
