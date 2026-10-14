@@ -11,6 +11,7 @@ import {
   formatMonthYear,
   formatWeekRange,
   isToday,
+  formatDayMonth,
   parseDateKey,
   startOfWeek,
   toDateKey,
@@ -28,7 +29,7 @@ import { ClearWeekButton } from "./clear-week-button";
 import { CopyWeekButton } from "./copy-week-button";
 import { useToast, runWithToast } from "@/components/toast";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
-import { confirmPastShifts, setWeekPublished } from "./actions";
+import { confirmPastShifts, setWeekPublished, undoConfirmShifts } from "./actions";
 
 export type ViewMode = "day" | "week" | "month" | "year";
 export type DisplayMode = "periods" | "employees";
@@ -176,18 +177,80 @@ export function OrariView({
     });
   }
 
+  // «Verifica» chiede sempre conferma prima (un tocco per sbaglio non deve segnare nulla) e,
+  // dopo, offre «Annulla» per qualche secondo.
+  const [verifyAsk, setVerifyAsk] = useState(false);
+  useEscapeToClose(() => setVerifyAsk(false), verifyAsk && !confirming);
+  const verifyBackdrop = useBackdropClose(() => !confirming && setVerifyAsk(false));
   function verifyPast() {
     startConfirming(async () => {
       const result = await runWithToast(toast, () => confirmPastShifts(rangeStartKey, rangeEndKey, employeeFilter), undefined);
+      setVerifyAsk(false);
       if (result) {
-        toast.showSuccess(result.verified > 0 ? (result.verified === 1 ? "1 turno verificato" : `${result.verified} turni verificati`) : "Nessun turno da verificare");
+        const { verified, ids } = result;
+        const message = verified > 0 ? (verified === 1 ? "1 turno verificato" : `${verified} turni verificati`) : "Nessun turno da verificare";
+        toast.showSuccess(
+          message,
+          verified > 0
+            ? {
+                label: "Annulla",
+                onClick: () => {
+                  void undoConfirmShifts(ids).then((r) => {
+                    if (r.ok) toast.showSuccess("Verifica annullata");
+                    else toast.showError(r.error);
+                    router.refresh();
+                  });
+                },
+              }
+            : undefined,
+        );
         router.refresh();
       }
     });
   }
 
+  const rangeLabel = rangeStartKey === rangeEndKey ? formatDayMonth(parseDateKey(rangeStartKey)) : `dal ${formatDayMonth(parseDateKey(rangeStartKey))} al ${formatDayMonth(parseDateKey(rangeEndKey))}`;
+  const verifyWho = employeeFilter ? employees.find((e) => e.id === employeeFilter)?.name : null;
   return (
     <div>
+      {verifyAsk && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" {...verifyBackdrop}>
+          <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-4">
+            <div
+              role="dialog"
+              aria-label="Verificare i turni passati?"
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
+            >
+              <h2 className="text-base font-semibold text-foreground">Verificare i turni passati?</h2>
+              <p className="mt-2 text-sm text-foreground-muted">
+                Segni come <b className="text-foreground">verificati</b> {schedule.unverifiedPastBlocks === 1 ? "1 turno" : `${schedule.unverifiedPastBlocks} turni`} già
+                conclusi ({rangeLabel}
+                {verifyWho ? `, solo ${verifyWho}` : ", di tutti"}): vuol dire che l&apos;orario pianificato corrisponde a quello
+                davvero lavorato. Le ore contano da questo momento come controllate. Subito dopo puoi premere «Annulla».
+              </p>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVerifyAsk(false)}
+                  disabled={confirming}
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground-muted hover:text-foreground disabled:opacity-50"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  onClick={verifyPast}
+                  disabled={confirming}
+                  className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+                >
+                  {confirming ? "Verifico…" : "Sì, verifica"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Prima, dal titolo al primo giorno vero si attraversavano fino a 9
           fasce impilate: toolbar, 5 badge di stato, selettore vista, testo
           d'aiuto, ore per dipendente. Ora in cima restano solo il titolo e,
@@ -245,7 +308,7 @@ export function OrariView({
             <button
               type="button"
               disabled={confirming}
-              onClick={verifyPast}
+              onClick={() => setVerifyAsk(true)}
               className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold hover:bg-gold/20"
               title="Segna come verificati i turni passati in questo periodo"
             >
