@@ -119,8 +119,8 @@ const ov = await admin.evaluate(() => document.documentElement.scrollWidth - doc
 check("pagina: nessuno scorrimento orizzontale a 390 px", ov <= 0, String(ov));
 const monthName = new Date().toLocaleDateString("it-IT", { month: "long", timeZone: "Europe/Rome" });
 const wdName = new Date().toLocaleDateString("it-IT", { weekday: "long", timeZone: "Europe/Rome" });
-check("classifica giorni: oggi al primo posto con 1 apertura", new RegExp(`Classifica dei giorni della settimana[\\s\\S]*?1\\.?\\s*${wdName}\\s*1\\s*apertura`, "i").test(page), wdName);
-check("classifica mesi: questo mese al primo posto con 1 apertura", new RegExp(`Classifica dei mesi[\\s\\S]*?1\\.?\\s*${monthName}\\s*1\\s*apertura`, "i").test(page), monthName);
+check("classifica giorni: oggi al primo posto con 1 apertura", new RegExp(`Classifica dei giorni della settimana[\\s\\S]*?1\\.?\\s*${wdName}\\s*[\\d,]+\\s*al giorno\\s*1\\s*apertura`, "i").test(page), wdName);
+check("classifica mesi: questo mese al primo posto con 1 apertura", new RegExp(`Classifica dei mesi[\\s\\S]*?1\\.?\\s*${monthName}\\s*[\\d,]+\\s*al giorno\\s*1\\s*apertura`, "i").test(page), monthName);
 // Periodo a scelta: un intervallo nel passato, prima di «Inizia a contare», è vuoto.
 await admin.goto(`${BASE}/statistiche?dal=2020-01-01&al=2020-01-31`, { waitUntil: "networkidle" });
 const old = await admin.locator("body").innerText();

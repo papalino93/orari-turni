@@ -167,14 +167,15 @@ function TodayCard({ stats, recent, today, counting, since }: { stats: StatsData
 }
 
 // Ogni giorno del periodo scelto, dal più recente: si tocca un giorno per vederlo da solo.
-const PAGE = 14;
+const FIRST = 10;
+const MORE = 30;
 function DayByDay({ data, exportHref }: { data: StatsData; exportHref: string }) {
-  const [shown, setShown] = useState(PAGE);
+  const [shown, setShown] = useState(FIRST);
   const rows = data.daily;
   const total = rows.reduce((a, r) => a + r.count, 0);
   const max = Math.max(1, ...rows.map((r) => r.count));
   return (
-    <Card title="Giorno per giorno" hint="Le aperture di ogni giorno del periodo scelto, dal più recente. Tocca un giorno per vederlo da solo.">
+    <Card title="Giorno per giorno" hint="Gli ultimi giorni del periodo scelto, dal più recente: si aprono e si richiudono con i pulsanti in fondo. Tocca un giorno per vederlo da solo.">
       <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
         <p className="text-sm text-foreground">
           <span className="font-semibold tabular-nums">{n(total)}</span> <span className="text-foreground-muted">apertur{total === 1 ? "a" : "e"} in {n(rows.length)} giorn{rows.length === 1 ? "o" : "i"}</span>
@@ -210,11 +211,18 @@ function DayByDay({ data, exportHref }: { data: StatsData; exportHref: string })
               </li>
             ))}
           </ol>
-          {rows.length > shown && (
-            <button type="button" onClick={() => setShown((v) => v + PAGE * 2)} className="mt-3 min-h-10 rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground">
-              Mostra altri giorni ({n(rows.length - shown)})
-            </button>
-          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {rows.length > shown && (
+              <button type="button" onClick={() => setShown((v) => v + MORE)} className="min-h-10 rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+                Mostra altri giorni ({n(rows.length - shown)})
+              </button>
+            )}
+            {shown > FIRST && rows.length > FIRST && (
+              <button type="button" onClick={() => setShown(FIRST)} className="min-h-10 rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+                Comprimi (solo gli ultimi {FIRST})
+              </button>
+            )}
+          </div>
         </>
       )}
     </Card>
@@ -456,10 +464,10 @@ export function StatsView({
               <Heatmap heat={data.heat} />
             </Card>
             <div className="grid gap-4 md:grid-cols-2">
-              <Card title="Classifica dei giorni della settimana" hint="Dal giorno con più aperture del menù a quello con meno, nel periodo scelto. A fianco la media per singolo giorno.">
+              <Card title="Classifica dei giorni della settimana" hint="In ordine di media: dal giorno in cui il menù si apre di più, in media, a quello in cui si apre di meno. Sotto, il totale delle aperture nel periodo.">
                 <Ranking empty={<Empty />} rows={data.dayRanking.map((d) => ({ key: String(d.weekday), label: WEEKDAY_NAMES[d.weekday], total: d.total, average: d.average, days: d.days }))} />
               </Card>
-              <Card title="Classifica dei mesi" hint="Dal mese con più aperture del menù a quello con meno, nel periodo scelto (lo stesso mese di anni diversi conta insieme).">
+              <Card title="Classifica dei mesi" hint="In ordine di media al giorno, così un mese più lungo non vince solo perché ha più giorni (lo stesso mese di anni diversi conta insieme). Sotto, il totale.">
                 <Ranking empty={<Empty />} rows={data.monthRanking.map((m) => ({ key: String(m.month), label: MONTH_NAMES[m.month], total: m.total, average: m.average, days: m.days }))} />
               </Card>
             </div>
