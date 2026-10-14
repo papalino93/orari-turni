@@ -129,7 +129,7 @@ export async function loadStats(period: Period, since: string | null, custom?: {
   for (let d = start; d <= to; d = addDays(d, 1)) occurrences[(toDate(d).getUTCDay() + 6) % 7] += 1;
   const dayRanking = dayTotals
     .map((total, wd) => ({ weekday: wd, total, average: occurrences[wd] ? total / occurrences[wd] : 0, days: occurrences[wd] }))
-    .sort((a, b) => b.total - a.total || b.average - a.average);
+    .sort((a, b) => b.average - a.average || b.total - a.total);
 
   // Stessa classifica per i mesi dell'anno (gennaio di tutti gli anni insieme…),
   // solo i mesi che cadono nel periodo.
@@ -143,7 +143,7 @@ export async function loadStats(period: Period, since: string | null, custom?: {
   const monthRanking = monthTotals
     .map((total, month) => ({ month, total, average: monthDays[month] ? total / monthDays[month] : 0, days: monthDays[month] }))
     .filter((m) => m.days > 0)
-    .sort((a, b) => b.total - a.total || b.average - a.average);
+    .sort((a, b) => b.average - a.average || b.total - a.total);
 
   // Giorno per giorno: ogni giorno del periodo scelto, dal più recente (anche quelli a zero).
   const daily: { day: string; count: number }[] = [];

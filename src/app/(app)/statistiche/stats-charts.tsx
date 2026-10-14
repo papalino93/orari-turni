@@ -461,27 +461,30 @@ export function RankedList({ rows, empty, unit }: { rows: { label: string; count
   );
 }
 
-// Classifica dei giorni/mesi: totale e, sotto, la media per giorno.
+// Classifica dei giorni/mesi: in ordine di media per giorno (un mese lungo o un giorno che ricorre più volte
+// non deve vincere solo perché ha più giorni); sotto, il totale delle aperture.
 export function Ranking({ rows, empty }: { rows: { key: string; label: string; total: number; average: number; days: number }[]; empty: React.ReactNode }) {
   if (rows.length === 0) return <>{empty}</>;
-  const max = Math.max(1, rows[0].total);
+  const max = Math.max(0.0001, rows[0].average);
   return (
     <ol className="space-y-3">
       {rows.map((d, i) => (
-        <li key={d.key} title={`${d.label}: ${n(d.total)} aperture in ${d.days} giorni`}>
+        <li key={d.key} title={`${d.label}: ${dec(d.average)} aperture al giorno (${n(d.total)} in ${d.days} giorni)`}>
           <div className="flex items-center gap-3 text-sm">
             <span className="w-4 shrink-0 text-right text-[11px] tabular-nums text-foreground-muted">{i + 1}</span>
             <span className={`min-w-0 flex-1 capitalize text-foreground ${i === 0 ? "font-semibold" : ""}`}>{d.label}</span>
-            {/* Totale sopra, media sotto: il nome del giorno o del mese resta intero anche sul telefono. */}
+            {/* Media sopra, totale sotto: il nome del giorno o del mese resta intero anche sul telefono. */}
             <span className="shrink-0 text-right leading-tight">
               <span className="block tabular-nums font-medium text-foreground">
-                {n(d.total)} <span className="text-xs font-normal text-foreground-muted">{apert(d.total)}</span>
+                {d.days ? dec(d.average) : "—"} <span className="text-xs font-normal text-foreground-muted">al giorno</span>
               </span>
-              <span className="block text-[11px] tabular-nums text-foreground-muted">{d.days ? `${dec(d.average)} al giorno` : "—"}</span>
+              <span className="block text-[11px] tabular-nums text-foreground-muted">
+                {n(d.total)} {apert(d.total)}
+              </span>
             </span>
           </div>
           <div className="ml-7 mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
-            <div className="h-full rounded-full" style={{ width: `${(d.total / max) * 100}%`, background: "var(--chart)", opacity: i === 0 ? 1 : 0.6 }} />
+            <div className="h-full rounded-full" style={{ width: `${(d.average / max) * 100}%`, background: "var(--chart)", opacity: i === 0 ? 1 : 0.6 }} />
           </div>
         </li>
       ))}
