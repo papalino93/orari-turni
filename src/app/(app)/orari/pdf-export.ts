@@ -18,6 +18,7 @@ import {
   type Closure,
   type Employee,
   type Leave,
+  type Period,
 } from "@/lib/schedule";
 import { orderEmployees } from "./shared";
 import {
@@ -48,6 +49,7 @@ export async function exportScheduleWeekPdf({
   leaveEntries,
   closures,
   employeeFilter,
+  periods = PERIODS,
 }: {
   weekStartKey: string;
   employees: Employee[];
@@ -55,6 +57,7 @@ export async function exportScheduleWeekPdf({
   leaveEntries: Leave[];
   closures: Closure[];
   employeeFilter?: string;
+  periods?: Period[];
 }) {
   const weekStart = parseDateKey(weekStartKey);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -65,7 +68,7 @@ export async function exportScheduleWeekPdf({
   const schedule = buildSchedule({ dateKeys, employees: rows, blocks, leaveEntries, closures });
 
   const doc = await newLandscapeDoc();
-  let y = drawHeader(doc, "Orario settimanale", formatWeekRange(weekStart));
+  let y = drawHeader(doc, "Orario settimanale", `${formatWeekRange(weekStart)}${periods.length < PERIODS.length ? ` · solo ${periods.map((p) => PERIOD_LABEL[p].toLowerCase()).join(" e ")}` : ""}`);
 
   // Un solo documento, un solo scopo: il programma di chi lavora quando,
   // pensato per essere stampato e appeso — non un misto tra orario e
@@ -78,7 +81,7 @@ export async function exportScheduleWeekPdf({
   // decina di dipendenti), drawPeriodTable ridisegna l'intestazione in
   // cima alla pagina successiva invece di lasciare righe senza contesto.
   y = drawSectionTitle(doc, "Programmazione per fascia oraria", y);
-  for (const period of PERIODS) {
+  for (const period of periods) {
     y = drawPeriodTable(doc, {
       title: PERIOD_LABEL[period],
       days,
@@ -105,7 +108,7 @@ export async function exportScheduleWeekPdf({
   drawFooter(doc);
 
   const suffix = employeeFilter ? `-${employeeFilter}` : "";
-  doc.save(`orario-${weekStartKey}${suffix}.pdf`);
+  doc.save(`orario-${weekStartKey}${suffix}${periods.length < PERIODS.length ? `-${periods.join("-")}` : ""}.pdf`);
 }
 
 export async function exportMonthSummaryPdf({

@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { addDays, dayLabel, formatDayMonth, formatWeekRange, parseDateKey } from "@/lib/week";
-import { buildSchedule, entryForPeriod, entryLabel, formatHours, leaveLabelFor, PERIOD_LABEL, PERIODS, type Block, type Closure, type Employee, type Leave } from "@/lib/schedule";
+import { buildSchedule, entryForPeriod, entryLabel, formatHours, leaveLabelFor, PERIOD_LABEL, PERIODS, type Block, type Closure, type Employee, type Leave, type Period } from "@/lib/schedule";
 import { orderEmployees } from "./shared";
 import { LOGO_DATA_URI } from "@/lib/logo-data-uri";
 
@@ -15,8 +15,10 @@ export const ExportCard = forwardRef<
     leaveEntries: Leave[];
     closures: Closure[];
     employeeFilter?: string;
+    /** Fasce da mostrare (di solito tutte; solo il pomeriggio quando la mattina lavora il titolare da solo). */
+    periods?: Period[];
   }
->(function ExportCard({ weekStartKey, employees, blocks, leaveEntries, closures, employeeFilter }, ref) {
+>(function ExportCard({ weekStartKey, employees, blocks, leaveEntries, closures, employeeFilter, periods = PERIODS }, ref) {
   const weekStart = parseDateKey(weekStartKey);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const dateKeys = days.map((d) => d.toISOString().slice(0, 10));
@@ -33,13 +35,16 @@ export const ExportCard = forwardRef<
         <img src={LOGO_DATA_URI} alt="" style={{ height: 40, width: "auto" }} />
         <div>
           <div style={{ fontSize: 21, fontWeight: 700 }}>{singleEmployee ? `Orario di ${singleEmployee.name}` : "Orari settimanali"}</div>
-          <div style={{ fontSize: 13, color: "#6b6468" }}>{formatWeekRange(weekStart)}</div>
+          <div style={{ fontSize: 13, color: "#6b6468" }}>
+            {formatWeekRange(weekStart)}
+            {periods.length < PERIODS.length ? ` · ${periods.map((p) => PERIOD_LABEL[p].toLowerCase()).join(" e ")}` : ""}
+          </div>
         </div>
       </div>
 
       <div style={{ height: 3, background: "linear-gradient(90deg, #8a2740, transparent)", margin: "18px 0 22px" }} />
 
-      {PERIODS.map((period, sectionIdx) => (
+      {periods.map((period, sectionIdx) => (
         <div key={period} style={{ marginTop: sectionIdx > 0 ? 20 : 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed" }}>
             <thead>

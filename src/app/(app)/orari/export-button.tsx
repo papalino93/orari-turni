@@ -8,7 +8,7 @@ import { shareOrDownloadFile } from "@/lib/share-file";
 import { useToast } from "@/components/toast";
 import { ExportChoiceButtons } from "@/components/export-choice-buttons";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
-import type { Block, Closure, Employee, Leave } from "@/lib/schedule";
+import { PERIODS, type Block, type Closure, type Employee, type Leave } from "@/lib/schedule";
 import { setWeekPublished } from "./actions";
 
 export function ExportButton({
@@ -28,6 +28,22 @@ export function ExportButton({
 }) {
   const [open, setOpen] = useState(false);
   const [downloading, setDownloading] = useState<"image" | "pdf" | null>(null);
+  // «Tutto il giorno» o «Solo pomeriggio»: la mattina spesso lavora solo il titolare e non serve
+  // mandarla a chi lavora in sala. La scelta resta (solo su questo dispositivo) per la volta dopo.
+  const [afternoonOnly, setAfternoonOnly] = useState(false);
+  function openModal() {
+    try {
+      setAfternoonOnly(localStorage.getItem("orari-invio-solo-pomeriggio") === "1");
+    } catch {}
+    setOpen(true);
+  }
+  function chooseAfternoon(v: boolean) {
+    setAfternoonOnly(v);
+    try {
+      localStorage.setItem("orari-invio-solo-pomeriggio", v ? "1" : "0");
+    } catch {}
+  }
+  const periods = afternoonOnly ? PERIODS.filter((p) => p === "pomeriggio") : PERIODS;
   const cardRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
   const router = useRouter();
@@ -56,7 +72,7 @@ export function ExportButton({
       const { toBlob } = await import("html-to-image");
       const blob = await toBlob(cardRef.current, { pixelRatio: 2 });
       if (!blob) throw new Error("vuoto");
-      const file = new File([blob], `orari-${weekStartKey}${employeeFilter ? `-${employeeFilter}` : ""}.png`, {
+      const file = new File([blob], `orari-${weekStartKey}${employeeFilter ? `-${employeeFilter}` : ""}${afternoonOnly ? "-pomeriggio" : ""}.png`, {
         type: "image/png",
       });
       const outcome = await shareOrDownloadFile(file);
@@ -75,7 +91,7 @@ export function ExportButton({
     setDownloading("pdf");
     try {
       const { exportScheduleWeekPdf } = await import("./pdf-export");
-      await exportScheduleWeekPdf({ weekStartKey, employees, blocks, leaveEntries, closures, employeeFilter });
+      await exportScheduleWeekPdf({ weekStartKey, employees, blocks, leaveEntries, closures, employeeFilter, periods });
       await markShared();
     } catch {
       toast.showError("Impossibile generare il PDF. Riprova.");
@@ -89,7 +105,7 @@ export function ExportButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openModal}
         // Prima era un pulsante-pillola come tutti gli altri ("Esporta"), che
         // non comunicava di essere IL modo per far avere l'orario allo
         // staff. Stile pieno + etichetta esplicita + icona di invio: si
@@ -126,6 +142,23 @@ export function ExportButton({
                 </button>
               </div>
 
+              <div role="group" aria-label="Cosa inviare" className="mb-3 flex gap-1 rounded-full bg-surface-2 p-1 text-sm">
+                {[
+                  { v: false, label: "Tutto il giorno" },
+                  { v: true, label: "Solo pomeriggio" },
+                ].map((o) => (
+                  <button
+                    key={o.label}
+                    type="button"
+                    aria-pressed={afternoonOnly === o.v}
+                    onClick={() => chooseAfternoon(o.v)}
+                    className={`min-h-9 flex-1 rounded-full px-3 font-medium ${afternoonOnly === o.v ? "bg-accent text-accent-foreground" : "text-foreground-muted hover:text-foreground"}`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+
               <div className="relative max-w-full rounded-xl">
                 <div className="max-w-full overflow-auto rounded-xl" style={{ maxHeight: "60vh" }}>
                   <ExportCard
@@ -136,6 +169,7 @@ export function ExportButton({
                     leaveEntries={leaveEntries}
                     closures={closures}
                     employeeFilter={employeeFilter}
+                    periods={periods}
                   />
                 </div>
                 {/* Vedi lo stesso commento in pdf-export-modal.tsx: solo una
