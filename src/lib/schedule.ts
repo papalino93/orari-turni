@@ -3,7 +3,7 @@
 // Nessuna delle viste ricalcola nulla per conto suo — se lo facessero,
 // prima o poi mostrerebbero numeri diversi sugli stessi turni.
 
-import { blockHours, sumHours, timeToMinutes, todayKey } from "@/lib/week";
+import { blockHours, shiftEndMinutes, sumHours, timeToMinutes, todayKey } from "@/lib/week";
 
 export type Role = "EMPLOYEE" | "OWNER";
 export type LeaveType = "FERIE" | "PERMESSO" | "LIBERO" | "MALATTIA";
@@ -316,7 +316,7 @@ function findAnomalies(
       const e = entry(emp.id, dateKey);
 
       for (const b of e.blocks) {
-        if (timeToMinutes(b.endTime) <= timeToMinutes(b.startTime)) {
+        if (shiftEndMinutes(b.startTime, b.endTime) <= timeToMinutes(b.startTime)) {
           anomalies.push({
             dateKey,
             employeeId: emp.id,
@@ -332,7 +332,7 @@ function findAnomalies(
       // consecutive" perderebbe una sovrapposizione con un blocco più
       // indietro nell'elenco ordinato.
       const sorted = e.blocks.slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
-      let maxEndSoFar = sorted.length > 0 ? timeToMinutes(sorted[0].endTime) : 0;
+      let maxEndSoFar = sorted.length > 0 ? shiftEndMinutes(sorted[0].startTime, sorted[0].endTime) : 0;
       for (let i = 1; i < sorted.length; i++) {
         if (timeToMinutes(sorted[i].startTime) < maxEndSoFar) {
           anomalies.push({
@@ -341,7 +341,7 @@ function findAnomalies(
             message: `${emp.name}: due turni sovrapposti`,
           });
         }
-        maxEndSoFar = Math.max(maxEndSoFar, timeToMinutes(sorted[i].endTime));
+        maxEndSoFar = Math.max(maxEndSoFar, shiftEndMinutes(sorted[i].startTime, sorted[i].endTime));
       }
 
       if (e.kind === "CHIUSO" && e.suspendedBlocks.length > 0) {
@@ -383,7 +383,7 @@ export type CoverageRange = { start: number; end: number; count: number };
 export function coverageRanges(blocks: { startTime: string; endTime: string }[]): CoverageRange[] {
   const edges = new Set<number>();
   const spans = blocks
-    .map((b) => ({ start: timeToMinutes(b.startTime), end: timeToMinutes(b.endTime) }))
+    .map((b) => ({ start: timeToMinutes(b.startTime), end: shiftEndMinutes(b.startTime, b.endTime) }))
     .filter((s) => s.end > s.start);
   spans.forEach((s) => {
     edges.add(s.start);

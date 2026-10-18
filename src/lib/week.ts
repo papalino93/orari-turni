@@ -101,9 +101,24 @@ export function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
+// Turni che finiscono dopo mezzanotte: un'uscita «minore» dell'entrata (18:00–01:00) vuol dire
+// il giorno dopo, ma solo fino alle 06:00 (oltre sarebbe quasi sempre un errore di battitura).
+// Il turno resta nel giorno in cui è iniziato, anche per il conteggio delle ore.
+export const OVERNIGHT_LATEST_END = "06:00";
+
+export function isOvernight(startTime: string, endTime: string): boolean {
+  const end = timeToMinutes(endTime);
+  return end < timeToMinutes(startTime) && end <= timeToMinutes(OVERNIGHT_LATEST_END);
+}
+
+// Minuto di fine contato dalla mezzanotte del giorno di inizio (01:00 dopo mezzanotte = 25:00 = 1500).
+export function shiftEndMinutes(startTime: string, endTime: string): number {
+  return timeToMinutes(endTime) + (isOvernight(startTime, endTime) ? 24 * 60 : 0);
+}
+
 // Ore lavorate di un singolo blocco (decimali, es. 4.5).
 export function blockHours(block: { startTime: string; endTime: string }): number {
-  return Math.max(0, timeToMinutes(block.endTime) - timeToMinutes(block.startTime)) / 60;
+  return Math.max(0, shiftEndMinutes(block.startTime, block.endTime) - timeToMinutes(block.startTime)) / 60;
 }
 
 export function sumHours(blocks: { startTime: string; endTime: string }[]): number {
