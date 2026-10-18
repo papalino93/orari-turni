@@ -17,7 +17,7 @@ import {
   ValidationError,
   type ActionResult,
 } from "@/lib/validation";
-import { addDays, parseDateKey as toDate, startOfWeek, timeToMinutes, toDateKey, todayKey } from "@/lib/week";
+import { addDays, parseDateKey as toDate, shiftEndMinutes, startOfWeek, timeToMinutes, toDateKey, todayKey } from "@/lib/week";
 import type { LeaveType } from "@/lib/schedule";
 
 export type DayBlockInput = { startTime: string; endTime: string };
@@ -160,8 +160,8 @@ export async function saveDayEntry(
           const startTime = parseTime(b.startTime, "orario di inizio");
           const endTime = parseTime(b.endTime, "orario di fine");
           assert(
-            timeToMinutes(endTime) > timeToMinutes(startTime),
-            "L'orario di fine deve essere successivo a quello di inizio.",
+            shiftEndMinutes(startTime, endTime) > timeToMinutes(startTime),
+            "L'orario di fine deve essere successivo a quello di inizio (dopo mezzanotte va bene, fino alle 06:00).",
           );
           return { startTime, endTime };
         });
@@ -171,10 +171,10 @@ export async function saveDayEntry(
     // coppie consecutive perderebbe una sovrapposizione con un blocco più
     // indietro nell'elenco ordinato.
     const sorted = blocks.slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
-    let maxEndSoFar = sorted.length > 0 ? timeToMinutes(sorted[0].endTime) : 0;
+    let maxEndSoFar = sorted.length > 0 ? shiftEndMinutes(sorted[0].startTime, sorted[0].endTime) : 0;
     for (let i = 1; i < sorted.length; i++) {
       assert(timeToMinutes(sorted[i].startTime) >= maxEndSoFar, "I due turni della giornata si sovrappongono.");
-      maxEndSoFar = Math.max(maxEndSoFar, timeToMinutes(sorted[i].endTime));
+      maxEndSoFar = Math.max(maxEndSoFar, shiftEndMinutes(sorted[i].startTime, sorted[i].endTime));
     }
 
     // "Mattina"/"pomeriggio" allo stesso confine delle 13:00 usato
@@ -580,17 +580,17 @@ export async function applyDayEntryToDays(
           const startTime = parseTime(b.startTime, "orario di inizio");
           const endTime = parseTime(b.endTime, "orario di fine");
           assert(
-            timeToMinutes(endTime) > timeToMinutes(startTime),
-            "L'orario di fine deve essere successivo a quello di inizio.",
+            shiftEndMinutes(startTime, endTime) > timeToMinutes(startTime),
+            "L'orario di fine deve essere successivo a quello di inizio (dopo mezzanotte va bene, fino alle 06:00).",
           );
           return { startTime, endTime };
         });
 
     const sorted = blocks.slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
-    let maxEndSoFar = sorted.length > 0 ? timeToMinutes(sorted[0].endTime) : 0;
+    let maxEndSoFar = sorted.length > 0 ? shiftEndMinutes(sorted[0].startTime, sorted[0].endTime) : 0;
     for (let i = 1; i < sorted.length; i++) {
       assert(timeToMinutes(sorted[i].startTime) >= maxEndSoFar, "I due turni della giornata si sovrappongono.");
-      maxEndSoFar = Math.max(maxEndSoFar, timeToMinutes(sorted[i].endTime));
+      maxEndSoFar = Math.max(maxEndSoFar, shiftEndMinutes(sorted[i].startTime, sorted[i].endTime));
     }
 
     // I giorni con il locale chiuso vengono saltati invece di far fallire

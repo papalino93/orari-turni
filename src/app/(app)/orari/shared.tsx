@@ -3,7 +3,7 @@
 import { forwardRef, useMemo, useState, useTransition, type FormEvent } from "react";
 import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
-import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
+import { dayLabel, formatDayMonth, isOvernight, OVERNIGHT_LATEST_END, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
 import { entryLabel, formatHours, leaveLabelFor, type DayEntry, type Employee, type Block, type Leave, type LeaveType } from "@/lib/schedule";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
@@ -106,6 +106,12 @@ function clampTime(value: string, min: string, max: string): string {
   if (value < min) return min;
   if (value > max) return max;
   return value;
+}
+
+// Uscita del pomeriggio: oltre a «fino alle 23:59» si può uscire dopo mezzanotte (00:00–06:00 del
+// giorno dopo). Prima ogni orario sotto le 13:00 veniva riportato alle 13:00: dopo mezzanotte non si poteva scrivere.
+function clampPomeriggioEnd(value: string, min: string, max: string): string {
+  return value <= OVERNIGHT_LATEST_END ? value : clampTime(value, min, max);
 }
 
 type Row = { startTime: string; endTime: string; enabled: boolean };
@@ -213,18 +219,21 @@ function TimeFieldInput({
   max,
   onChange,
   ariaLabel,
+  allowOvernight = false,
 }: {
   value: string;
   min: string;
   max: string;
   onChange: (value: string) => void;
   ariaLabel: string;
+  allowOvernight?: boolean;
 }) {
   const [hh, mm] = value.split(":");
   const maxHour = Number(max.split(":")[0]);
 
   function commit(newHH: string, newMM: string, el: HTMLInputElement) {
-    onChange(clampTime(`${newHH}:${newMM}`, min, max));
+    const next = `${newHH}:${newMM}`;
+    onChange(allowOvernight ? clampPomeriggioEnd(next, min, max) : clampTime(next, min, max));
     // Spostare il focus subito, in modo sincrono, fa scattare il blur sul
     // campo appena completato PRIMA che React abbia ridisegnato quel campo
     // con le sue 2 cifre definitive: l'handler onBlur vede ancora lo stato
@@ -241,12 +250,12 @@ function TimeFieldInput({
       <DigitInput value={hh} max={maxHour} ariaLabel={`${ariaLabel} — ora`} onComplete={(v, el) => commit(v, mm, el)} />
       <span className="text-foreground-muted">:</span>
       <DigitInput value={mm} max={59} ariaLabel={`${ariaLabel} — minuti`} onComplete={(v, el) => commit(hh, v, el)} />
-      <TimePresetSelect min={min} max={max} onSelect={onChange} ariaLabel={`${ariaLabel} — scegli da un elenco di orari`} />
+      <TimePresetSelect min={min} max={max} onSelect={onChange} ariaLabel={`${ariaLabel} — scegli da un elenco di orari`} overnight={allowOvernight} />
     </span>
   );
 }
 
-function buildTimeOptions(min: string, max: string, stepMinutes: number): string[] {
+function buildTimeOptions(min: string, max: string, stepMinutes: number, overnight = false): string[] {
   const [minH, minM] = min.split(":").map(Number);
   const [maxH, maxM] = max.split(":").map(Number);
   const startTotal = minH * 60 + minM;
@@ -254,6 +263,10 @@ function buildTimeOptions(min: string, max: string, stepMinutes: number): string
   const options: string[] = [];
   for (let t = startTotal; t <= endTotal; t += stepMinutes) {
     options.push(`${pad2(Math.floor(t / 60))}:${pad2(t % 60)}`);
+  }
+  // Uscita dopo mezzanotte: 00:00, 00:15 … 06:00 del giorno dopo.
+  if (overnight) {
+    for (let t = 0; t <= 6 * 60; t += stepMinutes) options.push(`${pad2(Math.floor(t / 60))}:${pad2(t % 60)}`);
   }
   return options;
 }
@@ -271,13 +284,15 @@ function TimePresetSelect({
   max,
   onSelect,
   ariaLabel,
+  overnight = false,
 }: {
   min: string;
   max: string;
   onSelect: (value: string) => void;
   ariaLabel: string;
+  overnight?: boolean;
 }) {
-  const options = useMemo(() => buildTimeOptions(min, max, 15), [min, max]);
+  const options = useMemo(() => buildTimeOptions(min, max, 15, overnight), [min, max, overnight]);
   return (
     <select
       value=""
@@ -306,12 +321,15 @@ function PeriodRowInput({
   min,
   max,
   onChange,
+  allowOvernight = false,
 }: {
   label: string;
   row: Row;
   min: string;
   max: string;
   onChange: (row: Row) => void;
+  /** Pomeriggio: l'uscita può essere dopo mezzanotte (fino alle 06:00 del giorno dopo). */
+  allowOvernight?: boolean;
 }) {
   // Scegliere un orario è già un'istruzione chiara di voler attivare quella
   // fascia: non ha senso costringere l'utente a spuntare anche la casella a
@@ -321,7 +339,7 @@ function PeriodRowInput({
     onChange({ ...row, startTime: clampTime(startTime, min, max), enabled: true });
   }
   function updateEnd(endTime: string) {
-    onChange({ ...row, endTime: clampTime(endTime, min, max), enabled: true });
+    onChange({ ...row, endTime: allowOvernight ? clampPomeriggioEnd(endTime, min, max) : clampTime(endTime, min, max), enabled: true });
   }
 
   // Sotto ~400px di larghezza (un iPhone SE, non un caso raro) i 4 campi
@@ -355,12 +373,12 @@ function PeriodRowInput({
         <span className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
           <NativeTimeField value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
           <span className="shrink-0 text-foreground-muted">–</span>
-          <NativeTimeField value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
+          <NativeTimeField value={row.endTime} min={allowOvernight ? undefined : min} max={allowOvernight ? undefined : max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
         </span>
         <span className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
           <TimeFieldInput value={row.startTime} min={min} max={max} onChange={updateStart} ariaLabel={`${label} — inizio`} />
           <span className="text-foreground-muted">–</span>
-          <TimeFieldInput value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} />
+          <TimeFieldInput value={row.endTime} min={min} max={max} onChange={updateEnd} ariaLabel={`${label} — fine`} allowOvernight={allowOvernight} />
         </span>
       </div>
     </div>
@@ -375,8 +393,8 @@ function NativeTimeField({
   ariaLabel,
 }: {
   value: string;
-  min: string;
-  max: string;
+  min?: string;
+  max?: string;
   onChange: (value: string) => void;
   ariaLabel: string;
 }) {
@@ -388,7 +406,8 @@ function NativeTimeField({
       min={min}
       max={max}
       onChange={(e) => {
-        if (e.target.value) onChange(clampTime(e.target.value, min, max));
+        // Senza limiti (uscita dopo mezzanotte) il valore passa com'è: il genitore lo sistema.
+        if (e.target.value) onChange(min && max ? clampTime(e.target.value, min, max) : e.target.value);
       }}
       aria-label={ariaLabel}
       className="w-full min-w-0 rounded-lg border border-border bg-surface-2 px-2 py-2.5 text-sm outline-none focus:border-accent"
@@ -452,7 +471,7 @@ export function DayEditorModal({
     existingPomeriggio
       ? {
           startTime: clampTime(existingPomeriggio.startTime, POMERIGGIO_MIN, POMERIGGIO_MAX),
-          endTime: clampTime(existingPomeriggio.endTime, POMERIGGIO_MIN, POMERIGGIO_MAX),
+          endTime: clampPomeriggioEnd(existingPomeriggio.endTime, POMERIGGIO_MIN, POMERIGGIO_MAX),
           enabled: true,
         }
       : mattinaSpillsOver
@@ -644,9 +663,20 @@ export function DayEditorModal({
                   min={POMERIGGIO_MIN}
                   max={POMERIGGIO_MAX}
                   onChange={setPomeriggio}
+                  allowOvernight
                 />
+                {pomeriggio.enabled && isOvernight(pomeriggio.startTime, pomeriggio.endTime) && (
+                  <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-gold">
+                    Esci dopo mezzanotte, alle {pomeriggio.endTime} della notte. Il turno resta in <b>questa giornata</b>: le ore si contano qui, non nel giorno dopo.
+                  </p>
+                )}
+                {pomeriggio.enabled && pomeriggio.endTime < pomeriggio.startTime && !isOvernight(pomeriggio.startTime, pomeriggio.endTime) && (
+                  <p className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
+                    L&apos;uscita deve essere dopo l&apos;entrata. Per uscire dopo mezzanotte scrivi un orario tra 00:00 e {OVERNIGHT_LATEST_END}.
+                  </p>
+                )}
                 <p className="text-xs text-foreground-muted">
-                  Mattina 8:00–13:00, pomeriggio 13:00–24:00: due fasce separate, non un orario unico.
+                  Mattina 8:00–13:00, pomeriggio dalle 13:00: due fasce separate, non un orario unico. Se esci dopo mezzanotte (fino alle 06:00) scrivi l&apos;orario normale, per esempio 00:30: il turno resta nella giornata in cui è iniziato.
                 </p>
                 {employee.role === "EMPLOYEE" &&
                   (selfReview ? (

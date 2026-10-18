@@ -10,7 +10,9 @@ import { EmployeeAvatar } from "@/components/avatar";
 // comunicava nulla di utile ("barre alte" rispetto a cosa?) — lo stesso
 // array orario diventa immediatamente leggibile come testo semplice:
 // "13:00–16:00 (1 persona) · 16:00–20:00 (2 persone)".
-function formatClock(minutes: number): string {
+function formatClock(rawMinutes: number): string {
+  // Dopo mezzanotte i minuti superano 24 ore (25:00 = 01:00 del giorno dopo).
+  const minutes = rawMinutes % (24 * 60);
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
