@@ -28,20 +28,16 @@ export function ExportButton({
 }) {
   const [open, setOpen] = useState(false);
   const [downloading, setDownloading] = useState<"image" | "pdf" | null>(null);
-  // «Tutto il giorno» o «Solo pomeriggio»: la mattina spesso lavora solo il titolare e non serve
-  // mandarla a chi lavora in sala. La scelta resta (solo su questo dispositivo) per la volta dopo.
-  const [afternoonOnly, setAfternoonOnly] = useState(false);
+  // Di partenza si invia solo il pomeriggio (la mattina spesso lavora il titolare da solo e non serve
+  // mandarla): con un tocco si passa a «Tutto il giorno». Ogni volta che si apre la finestra si riparte
+  // dal pomeriggio, la scelta «Tutto il giorno» non resta.
+  const [afternoonOnly, setAfternoonOnly] = useState(true);
   function openModal() {
-    try {
-      setAfternoonOnly(localStorage.getItem("orari-invio-solo-pomeriggio") === "1");
-    } catch {}
+    setAfternoonOnly(true);
     setOpen(true);
   }
   function chooseAfternoon(v: boolean) {
     setAfternoonOnly(v);
-    try {
-      localStorage.setItem("orari-invio-solo-pomeriggio", v ? "1" : "0");
-    } catch {}
   }
   const periods = afternoonOnly ? PERIODS.filter((p) => p === "pomeriggio") : PERIODS;
   const cardRef = useRef<HTMLDivElement>(null);
