@@ -169,7 +169,7 @@ export function RevisioneView({
             const date = parseDateKey(dateKey);
             const entry = schedule.entry(employee.id, dateKey);
             const dayBlocks = blocks.filter((b) => b.dateKey === dateKey);
-            const edited = dayBlocks.some((b) => b.originalStartTime || b.addedByEmployee);
+            const edited = dayBlocks.some((b) => b.originalStartTime || b.addedByEmployee) || !!entry.leave?.addedByEmployee;
             const isFutureDay = dateKey > todayKey();
             const clickable = editable && !isFutureDay;
             return (

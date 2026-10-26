@@ -4,6 +4,13 @@ import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
 const day = (offset) => new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10);
 const weekDate = day(10); // una settimana già conclusa
 const range = `date >= '${day(17)}' and date <= '${day(3)}'`;
+// Turni propri nella settimana mostrata, così il test non dipende dai dati di esempio.
+const emp = DB(`select id from "Employee" where name like 'Francesco%' limit 1`);
+DB(`delete from "ShiftBlock" where id like 'e2e_ver_%'`);
+for (const [i, d] of [[1, day(10)], [2, day(10)], [3, day(9)]]) {
+  DB(`delete from "ClosureDay" where date='${d}'`);
+  DB(`insert into "ShiftBlock" (id, "employeeId", date, "startTime", "endTime", "updatedAt") values ('e2e_ver_${i}', '${emp}', '${d}', '${i === 2 ? "17:00" : "10:00"}', '${i === 2 ? "22:00" : "13:00"}', now())`);
+}
 DB(`update "ShiftBlock" set confirmed=false where ${range}`);
 const open = () => Number(DB(`select count(*) from "ShiftBlock" where ${range} and date < current_date and not confirmed`));
 
@@ -52,6 +59,7 @@ for (const [label, w, h] of [["computer", 1280, 900], ["telefono", 390, 844]]) {
 }
 await b.close();
 DB(`update "ShiftBlock" set confirmed=false where ${range}`);
+DB(`delete from "ShiftBlock" where id like 'e2e_ver_%'`);
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);
 process.exit(failed.length ? 1 : 0);
