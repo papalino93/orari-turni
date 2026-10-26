@@ -110,15 +110,22 @@ export async function saveDayEntry(
       );
 
       // Ferie, permessi e malattia incidono sui saldi e li registra il
-      // titolare. Senza questi due controlli il dipendente poteva sia
-      // assegnarsi ore di permesso, sia cancellare un'assenza già registrata
-      // dal titolare salvando un normale turno sullo stesso giorno.
-      // Eccezione: un permesso a ore in un giorno di lavoro (orario ridotto).
-      // Il dipendente corregge i suoi turni, il permesso resta com'è.
-      if (leaveInput && !(existingLeave?.type === "PERMESSO" && leaveInput.type === "PERMESSO")) {
+      // titolare. Senza questi controlli il dipendente poteva sia assegnarsi
+      // giorni di permesso, sia cancellare un'assenza già registrata dal
+      // titolare salvando un normale turno sullo stesso giorno.
+      // Eccezione: il permesso a ore in un giorno di lavoro (orario ridotto,
+      // es. un'ora per il corso). Il dipendente può segnarlo da solo insieme
+      // al turno, cambiarlo o toglierlo finché non invia il mese; quello
+      // registrato dal titolare invece resta com'è.
+      const titolarePermesso = existingLeave?.type === "PERMESSO" && !existingLeave.addedByEmployee;
+      if (leaveInput && leaveInput.type !== "LIBERO") {
         assert(
-          leaveInput.type === "LIBERO",
-          "Ferie, permessi e malattia li registra il titolare: segnala a lui la correzione.",
+          leaveInput.type === "PERMESSO",
+          "Ferie e malattia le registra il titolare: segnala a lui la correzione.",
+        );
+        assert(
+          blocksInput.length > 0,
+          "Il permesso a ore va insieme al turno: segna anche l'orario che hai lavorato. Per un giorno intero di permesso chiedi al titolare.",
         );
       }
       if (existingLeave && existingLeave.type !== "LIBERO" && existingLeave.type !== "PERMESSO") {
@@ -127,20 +134,27 @@ export async function saveDayEntry(
           "Su questo giorno il titolare ha registrato un'assenza: solo lui può modificarla.",
         );
       }
-      if (existingLeave?.type === "PERMESSO") {
+      if (titolarePermesso) {
         assert(!leaveInput || leaveInput.type === "PERMESSO", "Su questo giorno c'è un permesso registrato dal titolare: solo lui può toglierlo.");
       }
     }
 
-    const leave =
-      auth.role === "EMPLOYEE" && existingLeave?.type === "PERMESSO"
-        ? { type: "PERMESSO" as const, quantity: existingLeave.quantity }
-        : leaveInput
-          ? {
-              type: parseEnum(leaveInput.type, LEAVE_TYPES, "tipo assenza"),
-              quantity: parseNumber(leaveInput.quantity, "quantità", { min: 0, max: 24 }),
-            }
-          : null;
+    const keepTitolarePermesso =
+      auth.role === "EMPLOYEE" && existingLeave?.type === "PERMESSO" && !existingLeave.addedByEmployee;
+    const leave = keepTitolarePermesso
+      ? { type: "PERMESSO" as const, quantity: existingLeave!.quantity, addedByEmployee: false }
+      : leaveInput
+        ? {
+            type: parseEnum(leaveInput.type, LEAVE_TYPES, "tipo assenza"),
+            quantity: parseNumber(leaveInput.quantity, "quantità", { min: 0, max: 24 }),
+            // Un permesso a ore segnato dal dipendente resta segnalato al titolare; se lo salva il titolare diventa suo.
+            addedByEmployee: auth.role === "EMPLOYEE" && leaveInput.type === "PERMESSO",
+          }
+        : null;
+    if (leave?.addedByEmployee) {
+      assert(leave.quantity >= 0.5 && leave.quantity <= 12, "Il permesso a ore va da mezz'ora a 12 ore.");
+      assert(Number.isInteger(leave.quantity * 2), "Il permesso a ore si conta a mezz'ore (es. 1 o 1,5).");
+    }
 
     if (leave && (leave.type === "FERIE" || leave.type === "PERMESSO")) {
       assert(
@@ -189,7 +203,7 @@ export async function saveDayEntry(
       prisma.leaveEntry.deleteMany({ where: { employeeId, date } }),
     ];
     if (leave) {
-      ops.push(prisma.leaveEntry.create({ data: { employeeId, date, type: leave.type, quantity: leave.quantity } }));
+      ops.push(prisma.leaveEntry.create({ data: { employeeId, date, type: leave.type, quantity: leave.quantity, addedByEmployee: leave.addedByEmployee } }));
     }
     {
       for (const b of blocks) {

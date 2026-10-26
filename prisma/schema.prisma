@@ -138,6 +138,9 @@ model LeaveEntry {
   type       LeaveType
   quantity   Float
   note       String?
+  // Permesso a ore segnato dal dipendente stesso nella revisione del mese (es. un'ora per un corso):
+  // il dipendente può cambiarlo o toglierlo finché non invia il mese, il titolare lo vede segnalato.
+  addedByEmployee Boolean @default(false)
   createdAt  DateTime  @default(now())
 
   @@unique([employeeId, date])

@@ -110,6 +110,7 @@ export default async function OrariPage({
         dateKey: toDateKey(l.date),
         type: l.type,
         quantity: l.quantity,
+        addedByEmployee: l.addedByEmployee,
       }))}
       closures={closures.map((c) => ({ dateKey: toDateKey(c.date), reason: c.reason }))}
       weekPlan={

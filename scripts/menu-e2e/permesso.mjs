@@ -32,9 +32,13 @@ const openMonday = async (dateKey) => {
 };
 
 await openMonday(nextMonday);
-check("editor: «+ Permesso a ore» nel turno", (await p.getByRole("button", { name: "+ Permesso a ore (orario ridotto)" }).count()) === 1);
-await p.getByRole("button", { name: "+ Permesso a ore (orario ridotto)" }).click();
-check("editor: 2 ore proposte", (await p.getByLabel("Ore di permesso").inputValue()) === "2");
+check("editor: «Aggiungi ore di permesso al turno»", (await p.getByRole("button", { name: /Aggiungi ore di permesso al turno/ }).count()) === 1);
+await p.getByRole("button", { name: /Aggiungi ore di permesso al turno/ }).click();
+check("editor: 1 ora proposta", (await p.getByLabel("Ore di permesso", { exact: true }).innerText()) === "1 h");
+await p.getByRole("button", { name: "Mezz'ora in più" }).click();
+await p.getByRole("button", { name: "Mezz'ora in più" }).click();
+check("editor: con «+» due volte diventano 2 h", (await p.getByLabel("Ore di permesso", { exact: true }).innerText()) === "2 h");
+check("editor: conto «Lavorate 3,5 h + permesso 2 h = turno di 5,5 h»", /Lavorate 3,5 h \+ permesso 2 h = turno di 5,5 h/.test(await p.locator("form").innerText()));
 await p.getByRole("button", { name: "Salva", exact: true }).click();
 await p.waitForTimeout(1500);
 check("DB: turno e permesso nello stesso giorno", DB(`select (select string_agg("startTime"||'-'||"endTime", ',') from "ShiftBlock" where "employeeId"='${EMP}' and date='${nextMonday}')||'|'||(select type||':'||quantity from "LeaveEntry" where "employeeId"='${EMP}' and date='${nextMonday}')`) === "16:30-20:00|PERMESSO:2");
@@ -45,7 +49,7 @@ check("griglia: ore della settimana = ore lavorate (3,5)", /\b3,5\b/.test(card),
 
 // Riaprendo, il permesso c'è già
 await openMonday(nextMonday);
-check("riaperto: permesso già compilato", (await p.getByLabel("Ore di permesso").inputValue()) === "2");
+check("riaperto: permesso già compilato", (await p.getByLabel("Ore di permesso", { exact: true }).innerText()) === "2 h");
 await p.keyboard.press("Escape");
 
 // «Ripeti settimana» sulla settimana dopo

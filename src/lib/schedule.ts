@@ -39,6 +39,8 @@ export type Leave = {
   dateKey: string;
   type: LeaveType;
   quantity: number;
+  // Permesso a ore segnato dal dipendente nella revisione del mese (non dal titolare).
+  addedByEmployee?: boolean;
 };
 
 export type Closure = { dateKey: string; reason: string | null };
