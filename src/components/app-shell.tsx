@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { InstallBanner, EmployeeInstallPrompt } from "@/components/install-banner";
 import { VERSION_LABEL } from "@/lib/version";
+import { BrandMark } from "@/components/brand-mark";
 
 const ADMIN_NAV_ITEMS = [
   { href: "/orari", label: "Orari", icon: CalendarIcon },
@@ -64,8 +65,7 @@ export function AppShell({
       <header className="sticky top-0 z-30 bg-brand-band pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(0,0,0,0.18)] backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex shrink-0 items-center gap-2.5">
-            {/* eslint-disable-next-line @next/next/no-img-element -- logo statico, non serve l'ottimizzazione di next/image */}
-            <img src="/logo.png" alt="L'Angolo del Vino" className="brand-logo-invert h-10 w-auto" />
+            <BrandMark className="h-11" />
           </div>
 
           <nav className="hidden items-center gap-0.5 md:flex lg:gap-1">

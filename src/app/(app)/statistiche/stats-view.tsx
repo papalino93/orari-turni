@@ -269,6 +269,7 @@ export function StatsView({
     if (nav && chip) nav.scrollTo({ left: chip.offsetLeft - 16, behavior: "smooth" });
   }, [current]);
 
+  const [askPause, setAskPause] = useState(false);
   function toggle() {
     const next = !enabled;
     setEnabled(next);
@@ -302,27 +303,29 @@ export function StatsView({
         </p>
       </div>
 
-      <section className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground">Inizia a contare</p>
-          <p className="text-xs text-foreground-muted">
-            {enabled
-              ? `Si contano le aperture del menù${setting.since ? ` dal ${fmtDay(setting.since)}` : ""}. Non contano il personale con l'accesso fatto né l'Anteprima.`
-              : "Spento: accendilo il giorno in cui il QR stampato porta al nuovo menù."}
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
-          aria-label="Inizia a contare"
-          disabled={pending}
-          onClick={toggle}
-          className={`relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:opacity-60 ${enabled ? "bg-accent" : "bg-surface-2 ring-1 ring-border"}`}
-        >
-          <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all ${enabled ? "left-7" : "left-1"}`} />
-        </button>
-      </section>
+      {/* «Inizia a contare» serve solo per partire (o per ripartire dopo una pausa): mentre il conteggio
+          è acceso non occupa la cima della pagina, resta una riga discreta in fondo con «Metti in pausa». */}
+      {!enabled && (
+        <section className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">Inizia a contare</p>
+            <p className="text-xs text-foreground-muted">
+              {setting.since ? "Conteggio in pausa: riaccendilo per tornare a contare le aperture del menù." : "Spento: accendilo il giorno in cui il QR stampato porta al nuovo menù."}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            aria-label="Inizia a contare"
+            disabled={pending}
+            onClick={toggle}
+            className="relative h-8 w-14 shrink-0 rounded-full bg-surface-2 ring-1 ring-border transition-colors disabled:opacity-60"
+          >
+            <span className="absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow transition-all" />
+          </button>
+        </section>
+      )}
 
       <TodayCard stats={data.todayStats} recent={data.recent} today={data.today} counting={enabled} since={setting.since} />
 
@@ -578,6 +581,41 @@ export function StatsView({
             </div>
           </Group>
         </>
+      )}
+
+      {enabled && (
+        <section aria-label="Conteggio" className="mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-xs text-foreground-muted">
+          {askPause ? (
+            <>
+              <p className="min-w-0 flex-1 text-foreground">Mettere in pausa il conteggio? Da ora non si conta più nulla finché non lo riaccendi.</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setAskPause(false)} className="min-h-9 rounded-full border border-border px-3 font-medium hover:text-foreground">
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    setAskPause(false);
+                    toggle();
+                  }}
+                  className="min-h-9 rounded-full bg-accent px-3 font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
+                >
+                  Sì, metti in pausa
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="min-w-0 flex-1">
+                Si contano le aperture del menù{setting.since ? ` dal ${fmtDay(setting.since)}` : ""}. Non contano il personale con l&apos;accesso fatto né l&apos;Anteprima.
+              </p>
+              <button type="button" onClick={() => setAskPause(true)} className="min-h-9 rounded-full border border-border px-3 font-medium hover:border-accent hover:text-foreground">
+                Metti in pausa
+              </button>
+            </>
+          )}
+        </section>
       )}
     </div>
   );
