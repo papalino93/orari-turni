@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { VERSION_LABEL } from "@/lib/version";
+import { BrandMark } from "@/components/brand-mark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -54,8 +55,9 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-sm">
         <div className="mb-8 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element -- logo statico, non serve l'ottimizzazione di next/image */}
-          <img src="/logo.png" alt="L'Angolo del Vino" className="brand-logo-invert mx-auto mb-4 h-16 w-auto" />
+          <div className="mb-4 flex justify-center">
+            <BrandMark className="h-20" plainClassName="h-16" stroke={2.2} />
+          </div>
           <p className="text-sm text-white/70">Accedi per gestire orari, copertura e ferie</p>
         </div>
 

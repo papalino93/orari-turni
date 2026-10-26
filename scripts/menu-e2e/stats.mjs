@@ -153,8 +153,19 @@ check("Excel: file con giorno, giorno della settimana e aperture", csv.status() 
   await c.close();
 }
 
+// Mentre conta, «Inizia a contare» non sta più in cima: in fondo c'è «Metti in pausa», con conferma.
+check("acceso: niente «Inizia a contare» in cima", (await admin.getByRole("switch", { name: "Inizia a contare" }).count()) === 0);
+const conteggio = admin.getByRole("region", { name: "Conteggio" });
+check("in fondo: «Si contano le aperture del menù dal …»", /Si contano le aperture del menù dal/.test(await conteggio.innerText()));
+await conteggio.getByRole("button", { name: "Metti in pausa" }).click();
+check("«Metti in pausa» chiede conferma", /Mettere in pausa il conteggio\?/.test(await conteggio.innerText()));
+await conteggio.getByRole("button", { name: "Annulla" }).click();
+check("«Annulla»: resta acceso", /Metti in pausa/.test(await conteggio.innerText()) && DB(`select value from "MenuSetting" where id='stats'`).includes('"enabled":true'));
 // Spegnere: non si conta più
-await admin.getByRole("switch", { name: "Inizia a contare" }).click();
+await conteggio.getByRole("button", { name: "Metti in pausa" }).click();
+await conteggio.getByRole("button", { name: "Sì, metti in pausa" }).click();
+await admin.getByRole("switch", { name: "Inizia a contare" }).waitFor();
+check("in pausa: torna «Inizia a contare» in cima, con «Conteggio in pausa»", /Conteggio in pausa/.test(await admin.locator("body").innerText()));
 await wait(1500);
 await post({ k: "open", l: "/menu" });
 await wait(300);

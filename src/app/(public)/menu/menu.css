@@ -79,3 +79,34 @@ html[data-menu-large] .menu-root .menu-main {
     animation: none;
   }
 }
+
+/* Pagina di benvenuto degli 8 anni (benvenuto.tsx): fondo vino, l'∞ che si disegna. */
+.festa-8 {
+  background: radial-gradient(520px 640px at 50% 30%, #7a1428 0%, #4a0c18 60%, #2a060d 100%) fixed;
+  background-color: #2a060d;
+  animation: festa-8-in 0.5s ease-out both;
+}
+.festa-8-infinito {
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+  animation: festa-8-disegna 2.2s 0.3s ease-in-out forwards;
+}
+.festa-8-testo {
+  animation: festa-8-in 0.9s 0.6s ease-out both;
+}
+@keyframes festa-8-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes festa-8-disegna {
+  to { stroke-dashoffset: 0; }
+}
+/* Telefoni bassi (iPhone SE): lettera un po' più piccola, così il pulsante resta vicino. */
+@media (max-height: 700px) {
+  .festa-8-testo { font-size: 19px; line-height: 1.38; }
+  .festa-8-logo { transform: scale(0.88); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .festa-8, .festa-8-testo { animation: none; }
+  .festa-8-infinito { animation: none; stroke-dashoffset: 0; }
+}

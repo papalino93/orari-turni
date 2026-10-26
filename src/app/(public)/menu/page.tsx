@@ -17,6 +17,7 @@ import { ConsigliCasa, type Consiglio } from "./consigli";
 import { PairingBack } from "./pairing";
 import { WineTraits } from "./wine-traits";
 import { Ornament } from "./ornament";
+import { FestaBenvenuto } from "./benvenuto";
 
 // Pagina in cache, rigenerata ogni minuto e a ogni modifica del menù (vedi
 // revalidateMenu): regge i picchi di scansioni del QR senza interrogare il
@@ -291,6 +292,7 @@ export default async function MenuPage() {
           <MenuBlocks blocks={topBlocks} />
         </div>
       )}
+      <FestaBenvenuto />
       {chips.length > 0 && <MenuNav chips={chips} items={searchItems} />}
       {pairWines.size > 0 && <PairingBack />}
 
