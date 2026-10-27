@@ -1,6 +1,9 @@
 import { Ornament } from "./ornament";
+import { BottleIcon, GlassIcon } from "./menu-icons";
+import { formatPrice } from "@/lib/menu-format";
 
-export type Consiglio = { id: string; name: string; sub: string | null; kind: "WINE" | "FOOD"; price: string };
+// Vini: calice e bottiglia (centesimi, null = non disponibile) con le icone; piatti: il prezzo già scritto.
+export type Consiglio = { id: string; name: string; sub: string | null; kind: "WINE" | "FOOD"; price: string; glass: number | null; bottle: number | null };
 
 // «I consigli della casa»: fino a 4 voci (vini e piatti) scelte dal titolare, sotto la copertina.
 // Il tocco porta alla voce (e in basso compare «Torna a …», come per gli abbinamenti: vedi pairing.tsx).
@@ -25,7 +28,26 @@ export function ConsigliCasa({ items }: { items: Consiglio[] }) {
               <span className="menu-sans text-[9.5px] font-medium uppercase tracking-[0.28em] text-[#8A6A2E]">{i.kind === "WINE" ? "Vino" : "Piatto"}</span>
               <span className="menu-serif text-pretty text-[21px] font-medium italic leading-[1.12] text-[#6B1020] [overflow-wrap:anywhere]">{i.name}</span>
               {i.sub && <span className="menu-sans line-clamp-2 text-[12.5px] leading-[1.35] text-[#5B605A]">{i.sub}</span>}
-              {i.price && <span className="menu-sans mt-auto pt-1 text-[14px] font-medium text-[#6B1020]">{i.price}</span>}
+              {i.kind === "WINE" && (i.glass !== null || i.bottle !== null) ? (
+                <span className="menu-sans mt-auto flex items-end gap-4 pt-1.5 text-[15px] font-medium leading-none">
+                  {i.glass !== null && (
+                    <span className="flex items-end gap-1.5 text-[#1F2621]">
+                      <GlassIcon small />
+                      <span className="sr-only">Calice</span>
+                      {formatPrice(i.glass)}
+                    </span>
+                  )}
+                  {i.bottle !== null && (
+                    <span className="flex items-end gap-1.5 text-[#6B1020]">
+                      <BottleIcon small />
+                      <span className="sr-only">Bottiglia</span>
+                      {formatPrice(i.bottle)}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                i.price && <span className="menu-sans mt-auto pt-1 text-[14px] font-medium text-[#6B1020]">{i.price}</span>
+              )}
             </a>
           </li>
         ))}

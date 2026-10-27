@@ -52,6 +52,32 @@ export type MenuVariant = { label: string; cents: number };
 // Il campo è JSON nel database: si rilegge in modo difensivo.
 // Riga sotto il nome del vino: «denominazione · annata». Per i vini non ancora
 // divisi nei campi nuovi resta il vecchio sottotitolo libero.
+// Nome di un piatto fuori dal suo gruppo («Sta bene con…», consigli della casa): sotto «Pinse» il
+// piatto si chiama solo «Crudo & Rucola», da solo serve «Pinsa Crudo & Rucola». Vale solo per i
+// gruppi che hanno un nome al singolare ovvio; se il nome lo dice già, resta com'è.
+const SINGOLARE: Record<string, string> = {
+  pinse: "Pinsa",
+  pinsa: "Pinsa",
+  pizze: "Pizza",
+  taglieri: "Tagliere",
+  tartare: "Tartare",
+  piadine: "Piadina",
+  bruschette: "Bruschetta",
+  crostini: "Crostino",
+  focacce: "Focaccia",
+  panini: "Panino",
+  insalate: "Insalata",
+  carpacci: "Carpaccio",
+};
+export function dishLabel(groupTitle: string | null | undefined, name: string): string {
+  const first = (groupTitle ?? "").trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+  const singolare = SINGOLARE[first];
+  if (!singolare) return name;
+  const stem = singolare.toLowerCase().slice(0, 4);
+  if (name.toLowerCase().includes(stem)) return name;
+  return `${singolare} ${name}`;
+}
+
 export function wineDetail(item: { denomination?: string | null; vintage?: string | null; sub?: string | null }): string {
   const parts = [item.denomination, item.vintage].filter((x): x is string => Boolean(x && x.trim()));
   return parts.length > 0 ? parts.join(" · ") : (item.sub ?? "");
