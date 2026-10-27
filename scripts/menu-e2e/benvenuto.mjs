@@ -64,6 +64,38 @@ for (const [iso, want, label] of [
   check("anteprima: con ?festa=1 si vede anche prima di giovedì", (await dialog(p).count()) === 1);
   await ctx.close();
 }
+// L'8: nasce grande e spesso al centro, poi va sotto il logo; il resto compare dopo.
+{
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const p = await ctx.newPage();
+  await p.goto(`${BASE}/menu?festa=1`, { waitUntil: "networkidle", timeout: 180000 });
+  await p.reload({ waitUntil: "load" });
+  const stato = () =>
+    p.evaluate(() => {
+      const svg = document.querySelector(".festa-8-otto");
+      const r = svg.getBoundingClientRect();
+      const tratto = parseFloat(getComputedStyle(svg.querySelector("path")).strokeWidth);
+      const logo = parseFloat(getComputedStyle(document.querySelector('.festa-8 img[alt="L\'Angolo del Vino"]')).opacity);
+      return { alto: r.height, largo: r.width, tratto, logo, cy: r.top + r.height / 2 };
+    });
+  await p.waitForTimeout(1800);
+  const prima = await stato();
+  check("l'8 nasce grande e in piedi al centro", prima.alto > 400 && prima.alto > prima.largo && Math.abs(prima.cy - 844 * 0.47) < 40, JSON.stringify(prima));
+  check("l'8 nasce spesso, e logo e lettera aspettano", prima.tratto > 8 && prima.logo < 0.1, JSON.stringify(prima));
+  await p.waitForTimeout(3600);
+  const dopo = await stato();
+  check("poi diventa ∞ sotto il logo, col tratto di sempre", dopo.alto < 100 && dopo.largo > dopo.alto && dopo.cy < 140 && dopo.tratto === 4 && dopo.logo === 1, JSON.stringify(dopo));
+  check("lettera: «rendete questo posto così speciale!»", /rendete questo posto così speciale!/.test(await dialog(p).innerText()));
+  await ctx.close();
+}
+{
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+  const p = await ctx.newPage();
+  await p.goto(`${BASE}/menu?festa=1`, { waitUntil: "networkidle", timeout: 180000 });
+  const r = await p.evaluate(() => document.querySelector(".festa-8-otto").getBoundingClientRect().height);
+  check("con «riduci movimento» niente animazione: ∞ subito al suo posto", r < 100, String(r));
+  await ctx.close();
+}
 {
   const { ctx, p } = await at("2026-10-27T12:00:00+01:00", { w: 1280, h: 900 });
   await openMenu(p, "?festa=1");
