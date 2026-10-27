@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { businessDayKey, formatPrice, isSoldOut, nb, originLabel, parseFormats, parseVariants, promoStatus, wineDetail } from "@/lib/menu-format";
+import { businessDayKey, dishLabel, formatPrice, isSoldOut, nb, originLabel, parseFormats, parseVariants, promoStatus, wineDetail } from "@/lib/menu-format";
 import { loadDaily, loadMenu, loadVenue, loadVisibleBlocks, loadVisiblePromos } from "@/lib/menu";
 import { VERSION_LABEL } from "@/lib/version";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
@@ -14,6 +14,7 @@ import type { SearchItem } from "./menu-search";
 import { PromoContent } from "./promo-content";
 import { Annunci } from "./annunci";
 import { ConsigliCasa, type Consiglio } from "./consigli";
+import { BottleIcon, GlassIcon } from "./menu-icons";
 import { PairingBack } from "./pairing";
 import { WineTraits } from "./wine-traits";
 import { Ornament } from "./ornament";
@@ -26,25 +27,6 @@ import { FestaBenvenuto } from "./benvenuto";
 export const revalidate = 60;
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-
-function GlassIcon({ small = false }: { small?: boolean }) {
-  return (
-    <svg width={small ? 12 : 15} height={small ? 16 : 20} viewBox="0 0 24 32" fill="none" stroke="#6B1020" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 2h14c0 8-3 13-7 13S5 10 5 2z" />
-      <path d="M12 15v13" />
-      <path d="M7 30h10" />
-    </svg>
-  );
-}
-
-function BottleIcon({ small = false }: { small?: boolean }) {
-  return (
-    <svg width={small ? 8 : 11} height={small ? 16 : 22} viewBox="0 0 16 32" fill="none" stroke="#6B1020" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 1.5h4v7c0 1.5 4 3 4 7.5v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V16c0-4.5 4-6 4-7.5z" />
-      <path d="M2 19h12M2 25h12" />
-    </svg>
-  );
-}
 
 export default async function MenuPage() {
   const dayKey = businessDayKey();
@@ -94,7 +76,7 @@ export default async function MenuPage() {
   const dishNames = new Map(
     regular
       .filter((s) => s.kind === "FOOD")
-      .flatMap((s) => s.groups.flatMap((g) => g.items.filter((d) => !d.textOnly && !d.soldOut).map((d) => [d.id, d.name] as const))),
+      .flatMap((s) => s.groups.flatMap((g) => g.items.filter((d) => !d.textOnly && !d.soldOut).map((d) => [d.id, dishLabel(g.title, d.name)] as const))),
   );
   const dishesByWine = new Map<string, string[]>();
   for (const s of regular.filter((x) => x.kind === "FOOD")) {
@@ -113,12 +95,14 @@ export default async function MenuPage() {
 
   // «I consigli della casa»: fino a 4 voci del menù fisso (vini disponibili, piatti non esauriti), nell'ordine della carta.
   const recommendedItems = regular
-    .flatMap((s) => s.groups.flatMap((g) => g.items.filter((i) => i.recommended && !i.textOnly && !i.soldOut).map((i) => ({ i, s }))))
+    .flatMap((s) => s.groups.flatMap((g) => g.items.filter((i) => i.recommended && !i.textOnly && !i.soldOut).map((i) => ({ i, s, g }))))
     .slice(0, 4);
   const recommendedIds = new Set(recommendedItems.map(({ i }) => i.id));
-  const consigli: Consiglio[] = recommendedItems.map(({ i, s }) => ({
+  const consigli: Consiglio[] = recommendedItems.map(({ i, s, g }) => ({
     id: i.id,
-    name: i.name,
+    name: s.kind === "FOOD" ? dishLabel(g.title, i.name) : i.name,
+    glass: s.kind === "WINE" ? i.priceGlassCents : null,
+    bottle: s.kind === "WINE" ? i.priceBottleCents : null,
     kind: s.kind,
     sub:
       s.kind === "WINE"
@@ -126,7 +110,7 @@ export default async function MenuPage() {
         : i.description,
     price:
       s.kind === "WINE"
-        ? [i.priceGlassCents !== null ? `Calice ${formatPrice(i.priceGlassCents)}` : null, i.priceBottleCents !== null ? `Bott. ${formatPrice(i.priceBottleCents)}` : null].filter(Boolean).join(" · ")
+        ? ""
         : parseVariants(i.variants)
           ? parseVariants(i.variants)!.map((v) => `${v.label} ${formatPrice(v.cents)}`).join(" · ")
           : i.priceCents !== null
