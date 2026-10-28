@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmSheet } from "@/components/confirm-sheet";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { monthLabel } from "@/lib/week";
@@ -46,9 +47,12 @@ function PendingMonthRow({
   const router = useRouter();
   const toast = useToast();
 
+  // Approvare chiude il mese per il dipendente: prima si chiede conferma.
+  const [askApprove, setAskApprove] = useState(false);
   function approve() {
     startTransition(async () => {
       const result = await runWithToast(toast, () => approveMonth(employeeId, year, month), `${monthLabel(month - 1)} approvato`);
+      setAskApprove(false);
       if (result !== null) router.refresh();
     });
   }
@@ -81,19 +85,31 @@ function PendingMonthRow({
               type="button"
               disabled={pending}
               onClick={() => setReopening(true)}
-              className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
+              className="min-h-11 rounded-full border border-border px-4 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
             >
               Riapri
             </button>
             <button
               type="button"
               disabled={pending}
-              onClick={approve}
-              className="rounded-full bg-gold px-3 py-1 text-xs font-medium text-[#2b2107] hover:opacity-90 disabled:opacity-50"
+              onClick={() => setAskApprove(true)}
+              className="min-h-11 rounded-full bg-gold px-4 text-xs font-medium text-[#2b2107] hover:opacity-90 disabled:opacity-50"
             >
               {pending ? "…" : "Approva"}
             </button>
           </div>
+        )}
+        {askApprove && (
+          <ConfirmSheet
+            title={`Approvare ${monthLabel(month - 1).toLowerCase()} ${year}?`}
+            confirmLabel="Sì, approva"
+            busyLabel="Approvo…"
+            busy={pending}
+            onConfirm={approve}
+            onCancel={() => setAskApprove(false)}
+          >
+            <p>Il mese si chiude: il dipendente non potrà più modificarlo. Se serve, potrai riaprirlo.</p>
+          </ConfirmSheet>
         )}
       </div>
 

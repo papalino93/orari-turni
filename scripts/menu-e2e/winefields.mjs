@@ -63,7 +63,7 @@ await dialog().getByLabel("Bottiglia (€)").fill("30");
 await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
 await page.waitForTimeout(1200);
 check("italiano senza regione: non si salva", DB(`select count(*) from "MenuItem" where name='Prova Regione IT'`) === "0" && (await dialog().count()) === 1);
-await dialog().getByLabel("Nazione (vuota = Italia)").fill("Francia");
+await dialog().getByLabel("Nazione", { exact: true }).fill("Francia");
 check("estero: la regione torna facoltativa", (await dialog().getByLabel("Regione (facoltativa)").count()) === 1);
 await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
 await dialog().waitFor({ state: "detached" });

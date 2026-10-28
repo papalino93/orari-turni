@@ -108,6 +108,7 @@ export function ItemSearch({
                       }`}
                     >
                       Esaurito
+                      {sold && <span className="block text-[10px] font-medium leading-tight opacity-90">tocca per rimettere</span>}
                     </button>
                   </li>
                 );

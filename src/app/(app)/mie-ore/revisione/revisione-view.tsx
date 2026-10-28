@@ -8,6 +8,7 @@ import { buildSchedule, formatHours, type Closure, type Leave } from "@/lib/sche
 import { DayCellContent, DayEditorModal } from "../../orari/shared";
 import { useToast, runWithToast } from "@/components/toast";
 import { submitMonth } from "../actions";
+import { ConfirmSheet } from "@/components/confirm-sheet";
 
 type AuditBlock = {
   id: string;
@@ -108,9 +109,12 @@ export function RevisioneView({
     go(d.getUTCFullYear(), d.getUTCMonth() + 1);
   }
 
+  // L'invio blocca il mese finché il titolare non lo riapre: prima un riepilogo da confermare.
+  const [askSubmit, setAskSubmit] = useState(false);
   function submit() {
     startTransition(async () => {
       const result = await runWithToast(toast, () => submitMonth(year, month), "Mese inviato — in attesa di approvazione");
+      setAskSubmit(false);
       if (result !== null) router.refresh();
     });
   }
@@ -195,7 +199,7 @@ export function RevisioneView({
                   {dayLabel(date)} <span className="font-normal normal-case text-foreground-muted/70">{formatDayMonth(date)}</span>
                   {edited && <span className="h-1.5 w-1.5 rounded-full bg-gold" title="Modificato o aggiunto da te" aria-hidden />}
                 </span>
-                <DayCellContent entry={entry} align="right" />
+                <DayCellContent entry={entry} align="right" forEmployee />
               </button>
             );
           })}
@@ -210,11 +214,26 @@ export function RevisioneView({
         <button
           type="button"
           disabled={pending}
-          onClick={submit}
-          className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-hover disabled:opacity-60"
+          onClick={() => setAskSubmit(true)}
+          className="min-h-11 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-hover disabled:opacity-60"
         >
           {pending ? "Invio…" : "Invia questo mese al titolare"}
         </button>
+      )}
+      {askSubmit && (
+        <ConfirmSheet
+          title={`Inviare ${monthLabel(month - 1).toLowerCase()} al titolare?`}
+          confirmLabel="Sì, invia"
+          busyLabel="Invio…"
+          busy={pending}
+          onConfirm={submit}
+          onCancel={() => setAskSubmit(false)}
+        >
+          <p>
+            Totale del mese: <b className="text-foreground">{formatHours(totalHours)}</b>.
+          </p>
+          <p>Dopo l&apos;invio non puoi più cambiarlo, finché il titolare non lo riapre.</p>
+        </ConfirmSheet>
       )}
 
       {editingDate && editingEntry && (

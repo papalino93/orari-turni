@@ -73,7 +73,13 @@ export default async function MieOrePage({
   // dimenticato quando semplicemente non lavorava ancora qui.
   const wasHiredByReviewMonth = employee.createdAt <= reviewMonthEnd;
 
-  const [blocks, leaveEntries, closures, lastMonthSubmission] = await Promise.all([
+  // Il dipendente vede sempre il passato e la settimana in corso; le settimane
+  // successive solo quando il titolare ha confermato gli orari (WeekPlan.publishedAt).
+  const currentWeekStart = startOfWeek(now);
+  const weekPlan = weekStart > currentWeekStart ? await prisma.weekPlan.findUnique({ where: { weekStart } }) : null;
+  const notConfirmed = weekStart > currentWeekStart && !weekPlan?.publishedAt;
+
+  const [rawBlocks, rawLeaveEntries, closures, lastMonthSubmission] = await Promise.all([
     prisma.shiftBlock.findMany({ where: { employeeId: employee.id, date: { gte: weekStart, lte: weekEnd } } }),
     prisma.leaveEntry.findMany({ where: { employeeId: employee.id, date: { gte: weekStart, lte: weekEnd } } }),
     prisma.closureDay.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
@@ -82,8 +88,12 @@ export default async function MieOrePage({
     }),
   ]);
 
+  const blocks = notConfirmed ? [] : rawBlocks;
+  const leaveEntries = notConfirmed ? [] : rawLeaveEntries;
+
   return (
     <MieOreView
+      notConfirmed={notConfirmed}
       employee={{
         id: employee.id,
         name: employee.name,

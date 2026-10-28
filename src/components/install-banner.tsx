@@ -2,9 +2,26 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { markAppInstalled } from "@/app/(app)/app-actions";
 
 const DISMISSED_KEY = "install-banner-dismissed";
+
+// Aperta dall'icona sulla Home? (display-mode standalone; su iPhone anche navigator.standalone)
+export function isStandalone(): boolean {
+  return window.matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
+}
+
+// La prima volta che l'app si apre dall'icona, il server se lo ricorda per questa persona:
+// da lì in poi niente più inviti a installarla, nemmeno quando apre il sito dal browser.
+export function InstalledMark({ installed }: { installed: boolean }) {
+  const router = useRouter();
+  useEffect(() => {
+    if (installed || !isStandalone()) return;
+    void markAppInstalled().then(() => router.refresh());
+  }, [installed, router]);
+  return null;
+}
 
 // Versione "leggera", per titolare/consulente: comparsa una volta sola dopo
 // il primo accesso, poi resta comunque raggiungibile da Account → "Installa
@@ -16,7 +33,7 @@ export function InstallBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const alreadyStandalone = window.matchMedia("(display-mode: standalone)").matches;
+    const alreadyStandalone = isStandalone();
     const dismissed = localStorage.getItem(DISMISSED_KEY) === "1";
     // eslint-disable-next-line react-hooks/set-state-in-effect -- dipende da localStorage/matchMedia, non disponibili al primo render lato server
     setVisible(!alreadyStandalone && !dismissed);
@@ -65,7 +82,7 @@ export function EmployeeInstallPrompt() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const alreadyStandalone = window.matchMedia("(display-mode: standalone)").matches;
+    const alreadyStandalone = isStandalone();
     const dismissedThisSession = sessionStorage.getItem(EMPLOYEE_DISMISSED_KEY) === "1";
     // eslint-disable-next-line react-hooks/set-state-in-effect -- dipende da sessionStorage/matchMedia, non disponibili al primo render lato server
     setVisible(!alreadyStandalone && !dismissedThisSession);
@@ -103,7 +120,7 @@ export function EmployeeInstallPrompt() {
           <button
             type="button"
             onClick={dismissForSession}
-            className="mt-3 text-xs font-medium text-foreground-muted hover:text-foreground"
+            className="mt-2 min-h-11 w-full rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground"
           >
             Ricordamelo più tardi
           </button>

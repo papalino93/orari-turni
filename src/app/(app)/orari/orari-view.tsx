@@ -24,6 +24,7 @@ import { DayView } from "./day-view";
 import { MonthView } from "./month-view";
 import { YearView } from "./year-view";
 import { ExportButton } from "./export-button";
+import { ConfirmWeekButton } from "./confirm-week";
 import { SummaryExportButton } from "./summary-export-button";
 import { ClearWeekButton } from "./clear-week-button";
 import { CopyWeekButton } from "./copy-week-button";
@@ -82,7 +83,7 @@ export function OrariView({
   blocks: Block[];
   leaveEntries: Leave[];
   closures: Closure[];
-  weekPlan: { publishedAt: string | null };
+  weekPlan: { publishedAt: string | null; changedAfterConfirm: boolean };
 }) {
   const router = useRouter();
   const date = parseDateKey(dateKey);
@@ -169,6 +170,9 @@ export function OrariView({
   // settimana appena svuotata. L'unico controllo manuale rimasto è
   // annullare una condivisione segnata per sbaglio.
   const isPublished = Boolean(weekPlan.publishedAt);
+  // Le settimane future si mostrano ai dipendenti solo confermate (il passato e la
+  // settimana in corso sempre): il pulsante di conferma serve solo lì.
+  const isFutureWeek = weekStartKey > toDateKey(startOfWeek(parseDateKey(todayKey())));
 
   function unshare() {
     startPublishing(async () => {
@@ -328,8 +332,12 @@ export function OrariView({
               employeeFilter={employeeFilter}
             />
           )}
+          {view === "week" && isFutureWeek && (
+            <ConfirmWeekButton weekStartKey={weekStartKey} confirmed={isPublished} changedAfterConfirm={weekPlan.changedAfterConfirm} />
+          )}
           {view === "week" && (
             <ExportButton
+              needsConfirm={isFutureWeek && !isPublished}
               weekStartKey={weekStartKey}
               employees={employees}
               blocks={blocks}
@@ -488,29 +496,24 @@ function WeekSummary({
     <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
       {view === "week" &&
         (isPublished ? (
-          <InfoPopoverBadge tone="success" label={<>🟢 Condiviso</>}>
-            <p className="text-foreground">
-              Questa settimana è stata esportata (PDF o immagine) e non è più stata modificata da allora — per questo
-              risulta &ldquo;condivisa&rdquo; con lo staff.
-            </p>
-            <p className="mt-1 text-foreground-muted">
-              Torna automaticamente &ldquo;non condivisa&rdquo; alla prima modifica di un turno in questa settimana.
-            </p>
+          <InfoPopoverBadge tone="success" label={<>✓ Orari confermati</>}>
+            <p className="text-foreground">I dipendenti vedono i loro turni di questa settimana in «Le mie ore».</p>
+            <p className="mt-1 text-foreground-muted">Se cambi un turno, la conferma si toglie da sola e va rifatta.</p>
             <button
               type="button"
               onClick={onUnshare}
               disabled={unsharing}
-              className="mt-2 text-success underline decoration-dotted hover:text-success/80"
+              className="mt-2 min-h-11 text-success underline decoration-dotted hover:text-success/80"
             >
-              {unsharing ? "Annullo…" : "Segna come non condivisa"}
+              {unsharing ? "Tolgo…" : "Togli la conferma"}
             </button>
           </InfoPopoverBadge>
         ) : (
-          <InfoPopoverBadge tone="neutral" label={<>○ Non condiviso</>}>
-            <p className="text-foreground">Nessuno ha ancora ricevuto l&apos;orario di questa settimana.</p>
+          <InfoPopoverBadge tone="neutral" label={<>○ Da confermare</>}>
+            <p className="text-foreground">I dipendenti vedono sempre il passato e la settimana in corso.</p>
             <p className="mt-1 text-foreground-muted">
-              Diventa &ldquo;condiviso&rdquo; da solo quando esporti questa settimana con &ldquo;Invia orari&rdquo; (PDF o
-              immagine) — non serve nessun interruttore da ricordarsi di premere.
+              Le settimane successive le vedono solo dopo «Conferma orari della settimana» (anche «Invia orari» le
+              conferma).
             </p>
           </InfoPopoverBadge>
         ))}

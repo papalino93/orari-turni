@@ -88,7 +88,9 @@ export function PromoContent({
           {status === "past" ? "Concluso" : promo.label || (promo.kind === "EVENT" ? "Evento" : "Annuncio")}
         </div>
         <Heading className="menu-serif m-0 mb-1 text-balance text-[42px] font-medium leading-[1.05] text-[#6B1020]">{promo.title}</Heading>
-        <div className="menu-sans text-[13px] font-medium uppercase tracking-[0.14em] text-[#4A504B]">{dates}</div>
+        {/* Annunci: le date sono solo il periodo in cui l'annuncio è pubblicato, non si mostrano
+            (sembrerebbero una chiusura di più giorni). */}
+        {promo.kind !== "NOTICE" && <div className="menu-sans text-[13px] font-medium uppercase tracking-[0.14em] text-[#4A504B]">{dates}</div>}
         {times && <div className="menu-sans -mt-1 text-[13px] tracking-[0.06em] text-[#4A504B]">{times}</div>}
         <Ornament color="#9C7A45" />
       </div>

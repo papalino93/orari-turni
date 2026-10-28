@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmSheet } from "@/components/confirm-sheet";
 import { useMemo, useState, useTransition } from "react";
 import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
@@ -210,7 +211,10 @@ function EmployeeCard({
     });
   }
 
+  // Disattivare toglie l'accesso: prima si chiede conferma (riattivare no).
+  const [askDeactivate, setAskDeactivate] = useState(false);
   function toggleActive() {
+    setAskDeactivate(false);
     startTransition(async () => {
       const result = await runWithToast(
         toast,
@@ -419,11 +423,22 @@ function EmployeeCard({
               <button
                 type="button"
                 disabled={pending}
-                onClick={toggleActive}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted transition-colors hover:border-accent hover:text-foreground disabled:opacity-50"
+                onClick={() => (employee.active ? setAskDeactivate(true) : toggleActive())}
+                className="min-h-11 rounded-full border border-border px-4 text-xs font-medium text-foreground-muted transition-colors hover:border-accent hover:text-foreground disabled:opacity-50"
               >
                 {employee.active ? "Disattiva" : "Riattiva"}
               </button>
+              {askDeactivate && (
+                <ConfirmSheet
+                  title={`Disattivare ${employee.name}?`}
+                  confirmLabel="Sì, disattiva"
+                  danger
+                  onConfirm={toggleActive}
+                  onCancel={() => setAskDeactivate(false)}
+                >
+                  <p>Non potrà più entrare nell&apos;app e non comparirà nei nuovi orari. I suoi dati restano: puoi riattivarlo quando vuoi.</p>
+                </ConfirmSheet>
+              )}
             </div>
             <button
               type="button"

@@ -45,7 +45,7 @@ async function unpublishWeeksForDates(dates: Date[]) {
     Array.from(weekStartKeys).map((key) =>
       prisma.weekPlan.updateMany({
         where: { weekStart: dateKeyToDate(key), publishedAt: { not: null } },
-        data: { publishedAt: null, publishedBy: null },
+        data: { publishedAt: null, publishedBy: null, changedAfterConfirmAt: new Date() },
       }),
     ),
   );
@@ -759,6 +759,8 @@ export async function setWeekPublished(
       update: {
         publishedAt: published ? new Date() : null,
         publishedBy: published ? user.username : null,
+        // Confermata di nuovo (o tolta a mano): non è più «modificata dopo la conferma».
+        changedAfterConfirmAt: null,
       },
       create: {
         weekStart: dateKeyToDate(weekStartKey),
@@ -768,5 +770,6 @@ export async function setWeekPublished(
     });
 
     revalidatePath("/orari");
+    revalidatePath("/mie-ore");
   });
 }

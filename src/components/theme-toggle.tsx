@@ -11,7 +11,7 @@ export function ThemeToggle() {
     setMounted(true);
   }, []);
 
-  if (!mounted) return <div className="h-7 w-[52px]" />;
+  if (!mounted) return <div className="h-11 w-[56px]" />;
 
   const isDark = theme === "dark";
 
@@ -31,17 +31,20 @@ export function ThemeToggle() {
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Passa al tema chiaro" : "Passa al tema scuro"}
       title={isDark ? "Tema chiaro" : "Tema scuro"}
-      className="relative flex h-7 w-[52px] shrink-0 items-center rounded-full border border-brand-band-border bg-black/25 transition-colors"
+      // Zona di tocco di 44 px; il disegno dell'interruttore resta piccolo.
+      className="flex h-11 w-[56px] shrink-0 items-center justify-center rounded-full"
     >
-      <SunIcon className="pointer-events-none absolute left-[7px] top-1/2 -translate-y-1/2 text-brand-band-foreground" />
-      <MoonIcon className="pointer-events-none absolute right-[7px] top-1/2 -translate-y-1/2 text-brand-band-foreground" />
-      <span
-        aria-hidden
-        className={`flex h-[22px] w-[22px] items-center justify-center rounded-full bg-brand-band-foreground text-brand-band shadow transition-transform duration-200 ${
-          isDark ? "translate-x-[27px]" : "translate-x-[3px]"
-        }`}
-      >
-        {isDark ? <MoonIcon solid /> : <SunIcon solid />}
+      <span className="relative flex h-7 w-[52px] items-center rounded-full border border-brand-band-border bg-black/25 transition-colors">
+        <SunIcon className="pointer-events-none absolute left-[7px] top-1/2 -translate-y-1/2 text-brand-band-foreground" />
+        <MoonIcon className="pointer-events-none absolute right-[7px] top-1/2 -translate-y-1/2 text-brand-band-foreground" />
+        <span
+          aria-hidden
+          className={`flex h-[22px] w-[22px] items-center justify-center rounded-full bg-brand-band-foreground text-brand-band shadow transition-transform duration-200 ${
+            isDark ? "translate-x-[27px]" : "translate-x-[3px]"
+          }`}
+        >
+          {isDark ? <MoonIcon solid /> : <SunIcon solid />}
+        </span>
       </span>
     </button>
   );
