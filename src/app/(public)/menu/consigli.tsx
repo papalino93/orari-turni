@@ -1,4 +1,5 @@
 import { Ornament } from "./ornament";
+import { Amp } from "./amp";
 import { BottleIcon, GlassIcon } from "./menu-icons";
 import { formatPrice } from "@/lib/menu-format";
 
@@ -26,7 +27,7 @@ export function ConsigliCasa({ items }: { items: Consiglio[] }) {
               className="flex w-full flex-col gap-1 rounded-[10px] bg-[#C9A96E]/[0.13] px-3.5 pb-3 pt-2.5 !text-[#1F2621] no-underline"
             >
               <span className="menu-sans text-[9.5px] font-medium uppercase tracking-[0.28em] text-[#8A6A2E]">{i.kind === "WINE" ? "Vino" : "Piatto"}</span>
-              <span className="menu-serif text-pretty text-[21px] font-medium italic leading-[1.12] text-[#6B1020] [overflow-wrap:anywhere]">{i.name}</span>
+              <span className="menu-serif text-pretty text-[21px] font-medium italic leading-[1.12] text-[#6B1020] [overflow-wrap:anywhere]"><Amp text={i.name} /></span>
               {i.sub && <span className="menu-sans line-clamp-2 text-[12.5px] leading-[1.35] text-[#5B605A]">{i.sub}</span>}
               {i.kind === "WINE" && (i.glass !== null || i.bottle !== null) ? (
                 <span className="menu-sans mt-auto flex items-end gap-4 pt-1.5 text-[15px] font-medium leading-none">

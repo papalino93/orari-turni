@@ -7,6 +7,7 @@ import { AllergenLegend, AllergenMarks } from "./allergen-marks";
 import { InEvidenza } from "./in-evidenza";
 import { FormatHeader, FormatPrices, Variants } from "./item-prices";
 import { MenuBlocks } from "./menu-blocks";
+import { Amp } from "./amp";
 import { OpenStatusPill } from "./open-status";
 import { VenueInfo } from "./venue-footer";
 import { MenuNav } from "./menu-nav";
@@ -272,7 +273,7 @@ export default async function MenuPage() {
 
       <div id="carta" className="scroll-mt-0" />
       {topBlocks.length > 0 && (
-        <div className="px-6 pb-2 pt-10">
+        <div className="px-6 pb-8 pt-10">
           <MenuBlocks blocks={topBlocks} />
         </div>
       )}
@@ -431,7 +432,7 @@ export default async function MenuPage() {
                           </span>
                           <span className="mt-[7px] flex items-end gap-3">
                             <span className="min-w-0 flex-1">
-                              <span className="menu-serif line-clamp-2 text-[22px] font-medium italic leading-[1.1] text-[#6B1020] [overflow-wrap:anywhere]">{pair.name}</span>
+                              <span className="menu-serif line-clamp-2 text-[22px] font-medium italic leading-[1.1] text-[#6B1020] [overflow-wrap:anywhere]"><Amp text={pair.name} /></span>
                               {pair.zone && <span className="menu-sans mt-[3px] block truncate text-[12.5px] text-[#5B605A]">{pair.zone}</span>}
                               {pair.origin && (
                                 <span className="menu-sans mt-[3px] block truncate text-[10.5px] font-medium uppercase tracking-[0.16em] text-[#5B605A]">{pair.origin}</span>
