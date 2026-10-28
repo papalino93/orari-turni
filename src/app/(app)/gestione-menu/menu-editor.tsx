@@ -137,7 +137,7 @@ type SheetState =
 // Le quattro schede della gestione, con una riga che dice cosa c'è dentro.
 type Tab = "menu" | "eventi" | "locale" | "strumenti";
 const TABS: { id: Tab; label: string; hint: string }[] = [
-  { id: "menu", label: "Menù", hint: "Categorie, voci, esauriti, Oggi fuori menù, vetrina" },
+  { id: "menu", label: "Menù", hint: "Categorie, voci, esauriti, vetrina" },
   { id: "eventi", label: "Eventi e annunci", hint: "Locandine, date, menù delle serate" },
   { id: "locale", label: "Orari e contatti", hint: "Copertina, orari, contatti, coperto e avvisi" },
   { id: "strumenti", label: "Strumenti", hint: "Prezzi, ordine, storico, stampa, QR, guida" },
