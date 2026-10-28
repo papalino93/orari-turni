@@ -27,7 +27,7 @@ async function addWine(name, region, country = "") {
   await card.getByRole("button", { name: "+ Aggiungi vino" }).first().click();
   await dialog().waitFor();
   await dialog().getByLabel("Azienda", { exact: true }).fill(name);
-  if (country) await dialog().getByLabel("Nazione", { exact: true }).fill(country);
+  if (country) await dialog().getByLabel(/^Nazione/).fill(country);
   if (region) await dialog().getByLabel(/^Regione/).fill(region);
   await dialog().getByLabel("Bottiglia (€)").fill("30");
   await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
