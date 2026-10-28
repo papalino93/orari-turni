@@ -8,7 +8,8 @@ import { traitLabel } from "@/lib/wine-traits";
 import { isItalianWine } from "@/lib/wine-order";
 import { createGroup, deleteGroup, deleteItem, moveGroup, moveItem, renameGroup, resetSoldOut, saveTextRow, setGroupFormats, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
-import { BlockSheet, BlocksPanel, type SectionChoice } from "./block-ui";
+import { BlockSheet, BlocksPanel, VetrinaPanel, type SectionChoice } from "./block-ui";
+import { CategorySheet } from "./category-ui";
 import { DailyPanel, type DailyData } from "./daily-ui";
 import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
@@ -60,6 +61,7 @@ export type EditorSection = {
   slug: string;
   label: string;
   title: string;
+  kicker: string;
   promoId: string | null;
   dailyOnly: boolean;
   kind: "WINE" | "FOOD";
@@ -118,12 +120,14 @@ type SheetState =
   | { type: "item"; itemId: string | null; groupId: string; queue?: QueueItem[] }
   | { type: "import"; groupId: string }
   | { type: "texts" }
-  | { type: "block"; id: string | null; sectionId?: string }
+  | { type: "category"; id: string | null }
+  | { type: "block"; id: string | null; sectionId?: string; vetrina?: boolean }
   | { type: "venue"; kind: VenueSheetKind }
   | { type: "history" }
-  | { type: "preview" }
+  | { type: "preview"; section?: boolean }
   | { type: "qr" }
-  | { type: "reorder" }
+  // sections: aperto da «Riordina sezioni», direttamente sull'ordine delle sezioni.
+  | { type: "reorder"; sections?: boolean }
   | { type: "prices" }
   | { type: "promo"; id: string | null; kind?: "EVENT" | "NOTICE" }
   | { type: "promo-duplicate"; id: string }
@@ -133,7 +137,7 @@ type SheetState =
 // Le quattro schede della gestione, con una riga che dice cosa c'è dentro.
 type Tab = "menu" | "eventi" | "locale" | "strumenti";
 const TABS: { id: Tab; label: string; hint: string }[] = [
-  { id: "menu", label: "Menù", hint: "Sezioni, voci, esauriti, Oggi fuori menù" },
+  { id: "menu", label: "Menù", hint: "Categorie, voci, esauriti, vetrina" },
   { id: "eventi", label: "Eventi e annunci", hint: "Locandine, date, menù delle serate" },
   { id: "locale", label: "Orari e contatti", hint: "Copertina, orari, contatti, coperto e avvisi" },
   { id: "strumenti", label: "Strumenti", hint: "Prezzi, ordine, storico, stampa, QR, guida" },
@@ -218,9 +222,11 @@ export function MenuEditor({
   const sectionBlocks = section ? blocks.filter((b) => b.placement === "SECTIONS" && b.sectionIds.includes(section.id)) : [];
   // Piatti con allergeni "da compilare": sul menù dei clienti risultano "da
   // verificare con il personale". Gli eventi già conclusi non contano.
-  const liveEventSections = promos.flatMap((p) =>
-    p.section && p.hasMenu && effectiveStatus(p, today) !== "past" && !p.allergenNotice && p.menuMode !== "FILE" ? [p.section] : [],
-  );
+  // Allergeni da chiedere solo per gli eventi ancora da fare e visibili: un evento finito o
+  // nascosto (es. l'Oktoberfest passata) non chiede più nulla.
+  const asksAllergens = (p: EditorPromo) =>
+    Boolean(p.section) && p.hasMenu && !p.hidden && effectiveStatus(p, today) !== "past" && !p.allergenNotice && p.menuMode !== "FILE";
+  const liveEventSections = promos.flatMap((p) => (asksAllergens(p) && p.section ? [p.section] : []));
   const missingAllergens = [...daily.sections, ...sections, ...liveEventSections].reduce(
     (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed && !i.textOnly).length, 0) : 0),
     0,
@@ -232,7 +238,7 @@ export function MenuEditor({
     ...daily.sections.map((s) => ({ key: null, section: s })),
     ...sections.map((s) => ({ key: s.slug, section: s })),
     ...promos.flatMap((p) =>
-      p.section && effectiveStatus(p, today) !== "past" && !p.allergenNotice && p.menuMode !== "FILE" ? [{ key: `promo:${p.id}`, section: p.section }] : [],
+      asksAllergens(p) && p.section ? [{ key: `promo:${p.id}`, section: p.section }] : [],
     ),
   ].flatMap((target) =>
     target.section.kind === "FOOD"
@@ -524,6 +530,14 @@ export function MenuEditor({
             onAdd={(groupId) => setSheet({ type: "item", itemId: null, groupId })}
             onEdit={(item, groupId) => setSheet({ type: "item", itemId: item.id, groupId })}
           />
+
+          <VetrinaPanel
+            blocks={blocks.filter((b) => b.kind === "HIGHLIGHT")}
+            today={today}
+            run={run}
+            onEdit={(id) => setSheet({ type: "block", id, vetrina: true })}
+            onAdd={() => setSheet({ type: "block", id: null, vetrina: true })}
+          />
         </>
       )}
 
@@ -549,7 +563,7 @@ export function MenuEditor({
           <VenuePanel venue={venue} defaultOpen onOpen={(kind) => setSheet({ type: "venue", kind })} />
           <BlocksPanel
             defaultOpen
-            blocks={blocks}
+            blocks={blocks.filter((b) => b.kind !== "HIGHLIGHT")}
             choices={sectionChoices}
             today={today}
             run={run}
@@ -562,8 +576,8 @@ export function MenuEditor({
       {tab === "strumenti" && (
         <ul aria-label="Strumenti del menù" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            { label: "Tabella prezzi", hint: "Cambia tanti prezzi insieme, anche di sezioni diverse, e salva una volta sola.", onClick: () => setSheet({ type: "prices" }) },
-            { label: "Riordina", hint: "L'ordine di sezioni, gruppi, voci ed eventi sul menù.", onClick: () => setSheet({ type: "reorder" }) },
+            { label: "Tabella prezzi", hint: "Cambia tanti prezzi insieme, anche di categorie diverse, e salva una volta sola.", onClick: () => setSheet({ type: "prices" }) },
+            { label: "Riordina", hint: "L'ordine di categorie, gruppi, voci ed eventi sul menù.", onClick: () => setSheet({ type: "reorder" }) },
             { label: "Storico", hint: "Tutte le modifiche, con chi le ha fatte; si può tornare indietro.", onClick: () => setSheet({ type: "history" }) },
             { label: "Anteprima", hint: "Il menù come lo vede il cliente, anche in un giorno scelto.", onClick: () => setSheet({ type: "preview" }) },
             { label: "Menù da stampare", hint: "Foglio A4 sempre aggiornato, da stampare o salvare in PDF.", href: "/gestione-menu/stampa" },
@@ -601,7 +615,9 @@ export function MenuEditor({
       <div className="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <div className="space-y-5 lg:sticky lg:top-24 lg:h-fit">
           {tab === "menu" && (
-          <nav aria-label="Sezioni" className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
+          <div>
+          <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-muted">Categorie</p>
+          <nav aria-label="Categorie" className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
             {sections.map((s) => {
               const count = s.groups.reduce((n, g) => n + g.items.length, 0);
               const active = !promoSelected && s.slug === section?.slug;
@@ -622,7 +638,24 @@ export function MenuEditor({
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => setSheet({ type: "category", id: null })}
+              className="flex min-h-10 items-center rounded-full border border-dashed border-border px-3.5 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground lg:rounded-xl"
+            >
+              + Nuova categoria
+            </button>
+            {sections.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setSheet({ type: "reorder", sections: true })}
+                className="flex min-h-10 items-center rounded-full border border-dashed border-border px-3.5 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground lg:rounded-xl"
+              >
+                Ordina categorie
+              </button>
+            )}
           </nav>
+          </div>
           )}
 
           {tab === "eventi" && (
@@ -650,7 +683,7 @@ export function MenuEditor({
         <div ref={contentRef} className="min-w-0 scroll-mt-20 space-y-4">
           {(tab === "menu" ? promoSelected : !promoSelected) ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-foreground-muted">
-              {tab === "eventi" ? "Nessun evento o annuncio: crealo con «+ Nuovo evento» o «+ Nuovo annuncio»." : "Scegli una sezione."}
+              {tab === "eventi" ? "Nessun evento o annuncio: crealo con «+ Nuovo evento» o «+ Nuovo annuncio»." : "Scegli una categoria."}
             </p>
           ) : (
           <>
@@ -677,7 +710,27 @@ export function MenuEditor({
           {section && !(activePromo && !activePromo.hasMenu) && (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
+                <div className="flex min-w-0 items-center gap-1">
+                  <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
+                  {!activePromo && (
+                    <button
+                      type="button"
+                      onClick={() => setSheet({ type: "category", id: section.id })}
+                      className="min-h-9 rounded-full px-2.5 text-xs font-medium text-foreground-muted hover:bg-surface-2 hover:text-foreground"
+                    >
+                      Modifica categoria
+                    </button>
+                  )}
+                  {!activePromo && (
+                    <button
+                      type="button"
+                      onClick={() => setSheet({ type: "preview", section: true })}
+                      className="min-h-9 rounded-full px-2.5 text-xs font-medium text-foreground-muted hover:bg-surface-2 hover:text-foreground"
+                    >
+                      Vedi nel menù
+                    </button>
+                  )}
+                </div>
                 {/* «+ Aggiungi» anche qui, vicino alla sezione: la voce va in questa sezione. */}
                 {!activePromo && section.groups.length > 0 && (
                   <button
@@ -817,8 +870,8 @@ export function MenuEditor({
           sections={sections}
           promos={currentPromos}
           today={today}
-          startOnPromos={promoSelected && currentPromos.length > 1}
-          startSectionId={promoSelected ? null : (section?.id ?? null)}
+          startOnPromos={!sheet.sections && promoSelected && currentPromos.length > 1}
+          startSectionId={sheet.sections || promoSelected ? null : (section?.id ?? null)}
           run={run}
           onClose={() => setSheet(null)}
         />
@@ -826,7 +879,16 @@ export function MenuEditor({
       {sheet?.type === "import" && section && (
         <ImportSheet key={sheet.groupId} section={section} groupId={sheet.groupId} run={run} onClose={() => setSheet(null)} />
       )}
-      {sheet?.type === "preview" && <PreviewSheet onClose={() => setSheet(null)} />}
+      {sheet?.type === "preview" && (
+        <PreviewSheet
+          section={
+            sheet.section && section
+              ? { slug: section.slug, title: section.title, empty: !section.groups.some((g) => g.items.some((i) => !isSold(i) || section.kind === "FOOD")) }
+              : undefined
+          }
+          onClose={() => setSheet(null)}
+        />
+      )}
       {sheet?.type === "qr" && <QrSheet onClose={() => setSheet(null)} />}
       {sheet?.type === "venue" && sheet.kind === "hero" && <HeroSheet venue={venue} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "venue" && sheet.kind === "hours" && (
@@ -834,7 +896,7 @@ export function MenuEditor({
       )}
       {sheet?.type === "venue" && sheet.kind === "contacts" && <ContactsSheet contacts={venue.contacts} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "block" && (sheet.id === null || blockToEdit) && (
-        <BlockSheet key={sheet.id ?? `new-${sheet.sectionId ?? ""}`} block={blockToEdit} choices={sectionChoices} forSectionId={sheet.sectionId ?? null} run={run} onClose={() => setSheet(null)} />
+        <BlockSheet key={sheet.id ?? `new-${sheet.sectionId ?? ""}-${sheet.vetrina ? "v" : ""}`} block={blockToEdit} choices={sectionChoices} forSectionId={sheet.sectionId ?? null} vetrina={sheet.vetrina} run={run} onClose={() => setSheet(null)} />
       )}
       {sheet?.type === "promo" && (sheet.id === null || promoToEdit) && (
         <PromoSheet
@@ -856,6 +918,15 @@ export function MenuEditor({
           run={run}
           onSaved={(id) => select(`promo:${id}`)}
           onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet?.type === "category" && (sheet.id === null || sections.some((s) => s.id === sheet.id)) && (
+        <CategorySheet
+          section={sheet.id ? (sections.find((s) => s.id === sheet.id) ?? null) : null}
+          sections={sections}
+          run={run}
+          onClose={() => setSheet(null)}
+          onCreated={(slug) => select(slug)}
         />
       )}
       {sheet?.type === "texts" && section && <SectionTextsSheet section={section} run={run} onClose={() => setSheet(null)} />}
@@ -911,8 +982,8 @@ function SectionTexts({
     const live = blockStatus(b, today) === "live";
     top.push({
       key: b.id,
-      tag: b.kind === "PRICE" ? "Prezzo" : b.kind === "NOTICE" ? "Avviso" : "Testo",
-      title: b.kind === "PRICE" || b.priceCents !== null ? priceLine(b) : b.label,
+      tag: b.kind === "PRICE" ? "Prezzo" : b.kind === "NOTICE" ? "Avviso" : b.kind === "HIGHLIGHT" ? "Vetrina" : "Testo",
+      title: b.kind === "HIGHLIGHT" ? [b.label, b.title].filter(Boolean).join(" · ") : b.kind === "PRICE" || b.priceCents !== null ? priceLine(b) : b.label,
       text: b.text,
       note: [!live ? "non visibile oggi" : null, others.length ? `anche in ${others.join(", ")}` : null].filter(Boolean).join(" · ") || undefined,
       dim: !live,
@@ -921,7 +992,7 @@ function SectionTexts({
     });
   }
   const bottom: Row[] = section.addon
-    ? [{ key: "addon", tag: "Avviso", title: section.addonTitle, text: section.addon, onEdit: onEditTexts, editLabel: "Modifica l'avviso a fondo sezione" }]
+    ? [{ key: "addon", tag: "Avviso", title: section.addonTitle, text: section.addon, onEdit: onEditTexts, editLabel: "Modifica l'avviso in fondo alla categoria" }]
     : [];
 
   const list = (rows: Row[]) => (
@@ -952,8 +1023,8 @@ function SectionTexts({
   );
 
   return (
-    <section aria-label="Testi della sezione" className="rounded-2xl border border-border bg-surface px-4 py-3">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Testi della sezione</p>
+    <section aria-label="Testi della categoria" className="rounded-2xl border border-border bg-surface px-4 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Testi della categoria</p>
       {top.length === 0 && bottom.length === 0 && <p className="mt-1.5 text-sm text-foreground-muted">Nessun testo: sul menù compaiono solo il titolo e le voci.</p>}
       {top.length > 0 && (
         <div className="mt-2">
@@ -963,7 +1034,7 @@ function SectionTexts({
       )}
       {bottom.length > 0 && (
         <div className="mt-2">
-          <p className="text-[11px] text-foreground-muted/80">In fondo alla sezione</p>
+          <p className="text-[11px] text-foreground-muted/80">In fondo alla categoria</p>
           {list(bottom)}
         </div>
       )}
@@ -978,10 +1049,10 @@ function SectionTexts({
         <button
           type="button"
           onClick={onEditTexts}
-          aria-label="Modifica i testi di questa sezione"
+          aria-label="Modifica i testi di questa categoria"
           className="min-h-10 rounded-full border border-dashed border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
         >
-          {section.note && section.addon ? "Nota e avviso della sezione" : "+ Nota o avviso della sezione"}
+          {section.note && section.addon ? "Nota e avviso della categoria" : "+ Nota o avviso della categoria"}
         </button>
       </div>
     </section>

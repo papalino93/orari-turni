@@ -8,6 +8,11 @@ const vino = DB(`select id from "MenuItem" where name='Revì' and "deletedAt" is
 const before = DB(`select coalesce("pairWineId",'') || '|' || recommended::text from "MenuItem" where id='${pinsa}'`);
 const [oldPair, oldRec] = before.split("|");
 DB(`update "MenuItem" set "pairWineId"='${vino}', recommended=true, "soldOutDay"=null where id='${pinsa}'`);
+// Anche il vino tra i consigli e il «Tagliere Premium» abbinato: altri test cambiano questi dati.
+const tagliere = DB(`select id from "MenuItem" where name='Tagliere Premium' and "deletedAt" is null limit 1`);
+const extraBefore = DB(`select coalesce((select recommended::text from "MenuItem" where id='${vino}'),'false') || '|' || coalesce((select coalesce("pairWineId",'') from "MenuItem" where id='${tagliere}'),'')`).split("|");
+DB(`update "MenuItem" set recommended=true, "soldOutDay"=null where id='${vino}'`);
+DB(`update "MenuItem" set "pairWineId"='${vino}', "soldOutDay"=null where id='${tagliere}'`);
 const revalidate = () => fetch(`${BASE}/menu`).catch(() => {});
 await revalidate();
 
@@ -31,6 +36,8 @@ check("consigli della casa: il vino ha le icone di calice e bottiglia", (await c
 
 await b.close();
 DB(`update "MenuItem" set "pairWineId"=${oldPair ? `'${oldPair}'` : "null"}, recommended=${oldRec} where id='${pinsa}'`);
+DB(`update "MenuItem" set recommended=${extraBefore[0]} where id='${vino}'`);
+DB(`update "MenuItem" set "pairWineId"=${extraBefore[1] ? `'${extraBefore[1]}'` : "null"} where id='${tagliere}'`);
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);
 process.exit(failed.length ? 1 : 0);

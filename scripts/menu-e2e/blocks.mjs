@@ -106,7 +106,7 @@ check("pannello: riassunto con il prezzo dell'avviso", /Olio al tartufo € 2,00
 await openNew();
 await dialog().getByLabel("Titoletto (facoltativo)").fill("Vini");
 await dialog().getByLabel("Testo").fill("Chiedi al personale la lista dei vini al calice.");
-await dialog().getByRole("radio", { name: /Sotto il titolo di una sezione/ }).click();
+await dialog().getByRole("radio", { name: /Sotto il titolo di una categoria/ }).click();
 await dialog().getByRole("checkbox", { name: "Bianchi" }).check();
 await dialog().getByRole("checkbox", { name: "Rossi" }).check();
 await save();
@@ -118,9 +118,9 @@ check("pannello: il blocco mostra le sezioni scelte", /Bianchi, Rossi/.test(awai
 // ---------- Validazioni del foglio
 await openNew();
 await dialog().getByLabel("Testo").fill("Senza sezioni");
-await dialog().getByRole("radio", { name: /Sotto il titolo di una sezione/ }).click();
+await dialog().getByRole("radio", { name: /Sotto il titolo di una categoria/ }).click();
 await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
-check("validazione: «sotto una sezione» senza sezioni scelte è rifiutato", /almeno una sezione/i.test(await dialog().innerText()));
+check("validazione: «sotto una sezione» senza sezioni scelte è rifiutato", /almeno una categoria/i.test(await dialog().innerText()));
 await dialog().getByRole("radio", { name: /In cima al menù/ }).click();
 await dialog().getByLabel("Dal", { exact: true }).fill(biz(5));
 await dialog().getByLabel("Al", { exact: true }).fill(biz(2));
@@ -141,7 +141,7 @@ check("validazione: prezzo non valido è rifiutato", (await dialog().count()) ==
 await dialog().getByRole("button", { name: "Chiudi" }).click();
 await discardIfAsked(dialog().page());
 await dialog().waitFor({ state: "detached" });
-check("DB: nessun blocco creato dalle prove rifiutate", Number(DB(`select count(*) from "MenuBlock" where "deletedAt" is null`)) === 7);
+check("DB: nessun blocco creato dalle prove rifiutate", Number(DB(`select count(*) from "MenuBlock" where "deletedAt" is null and id <> 'blk_vetrina_caviale'`)) === 7);
 
 // ---------- Date: non ancora visibile / scaduto / oggi
 await page.getByRole("button", { name: /Modifica: Tavolo all'aperto/ }).click();
@@ -201,12 +201,12 @@ await settle();
 o = await order("taglieri");
 check("ordine: rimesso com'era", o.chiusura < o.coperto);
 
-// ---------- «Testi della sezione» elenca i blocchi della sezione, uno per riga
+// ---------- «Testi della categoria» elenca i blocchi della sezione, uno per riga
 await goTab(page, "Menù");
-await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Taglieri & Pinse" }).first().click();
+await page.locator('nav[aria-label="Categorie"] button', { hasText: "Taglieri & Pinse" }).first().click();
 await settle(600);
 const texts = (await page.locator("main").innerText()).replace(/\u00a0/g, " ");
-check("sezione: «Testi della sezione» elenca coperto e chiusura cucina", /PREZZO\s*Coperto € 1,00/i.test(texts) && /TESTO\s*Si informa/i.test(texts), texts.slice(0, 200));
+check("sezione: «Testi della categoria» elenca coperto e chiusura cucina", /PREZZO\s*Coperto € 1,00/i.test(texts) && /TESTO\s*Si informa/i.test(texts), texts.slice(0, 200));
 await page.getByRole("button", { name: "Modifica" }).filter({ hasText: /^Modifica$/ }).nth(1).click().catch(() => {});
 await dialog().waitFor({ timeout: 5000 }).catch(() => {});
 if (await dialog().count()) {

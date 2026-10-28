@@ -20,13 +20,13 @@ page.setDefaultTimeout(60000);
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 check("editor: titolo Menù", await page.locator("h1:has-text('Menù')").count() === 1);
-const chips = await page.locator('nav[aria-label="Sezioni"] button').allInnerTexts();
-check("editor: 7 sezioni", chips.length === 7, chips.map((c) => c.replace(/\n/g, " ")).join("|"));
+const chips = (await page.locator('nav[aria-label="Categorie"] button').allInnerTexts()).filter((c) => c !== "+ Nuova categoria" && c !== "Ordina categorie");
+check("editor: 8 sezioni (con Salatini) e «+ Nuova categoria»", chips.length === 8 && (await page.getByRole("button", { name: "+ Nuova categoria" }).count()) === 1, chips.map((c) => c.replace(/\n/g, " ")).join("|"));
 
 const toast = () => page.locator('[role="status"]').last();
 const section = async (name) => {
   await goTab(page, "Menù");
-  await page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+  await page.locator('nav[aria-label="Categorie"] button', { hasText: name }).click();
 };
 const row = (name) => page.locator("li", { has: page.locator(`button[aria-label="Modifica ${name}"]`) });
 const dialog = () => page.locator('[role="dialog"]');
@@ -189,7 +189,7 @@ await settle(1500);
 t = await publicText();
 check("gruppo: annulla eliminazione lo ripristina con le voci", t.includes("Passito Prova"));
 
-// ---- Testi della sezione («Informazioni del menù» sta in «Orari e contatti»)
+// ---- Testi della categoria («Informazioni del menù» sta in «Orari e contatti»)
 await expandPanels(page);
 await page.getByRole("button", { name: "Modifica: Coperto € 1,00" }).click();
 await dialog().waitFor();
@@ -240,7 +240,7 @@ if (await later.count()) await later.click();
 let actionId = null;
 marta.on("request", (r) => { if (r.method() === "POST" && r.headers()["next-action"] && !actionId) actionId = r.headers()["next-action"]; });
 await goTab(marta, "Menù");
-await marta.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+await marta.locator('nav[aria-label="Categorie"] button', { hasText: "Rossi" }).click();
 await marta.locator("li button[aria-pressed]").first().click();
 await marta.waitForTimeout(1500);
 check("marta con permesso: può segnare esaurito", Number(DB(`select count(*) from \"MenuItem\" where \"soldOutDay\" is not null`)) === 1);

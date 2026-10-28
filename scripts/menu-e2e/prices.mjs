@@ -23,7 +23,7 @@ check("si apre «Tabella prezzi»", (await dialog().getByRole("heading", { name:
 const save = dialog().getByRole("button", { name: "Salva tutto" });
 check("«Salva tutto» spento senza modifiche", await save.isDisabled());
 
-await dialog().getByRole("navigation", { name: "Sezione" }).getByRole("button", { name: /^Rossi/ }).click();
+await dialog().getByRole("navigation", { name: "Categoria" }).getByRole("button", { name: /^Rossi/ }).click();
 const glassInput = dialog().getByRole("textbox", { name: new RegExp(`^Calice · ${wineName}`) }).first();
 const euro = (c) => (c % 100 === 0 ? String(c / 100) : (c / 100).toFixed(2).replace(".", ","));
 check("vini: casella del calice con il prezzo attuale", (await glassInput.inputValue()) === euro(Number(glass0)), await glassInput.inputValue());
@@ -34,14 +34,14 @@ await glassInput.fill(euro(newGlass));
 check("prezzo valido: si può salvare", await save.isEnabled());
 
 // Un piatto in un'altra sezione, senza perdere il vino cambiato
-await dialog().getByRole("navigation", { name: "Sezione" }).getByRole("button", { name: new RegExp(`^${foodSection}`) }).click();
+await dialog().getByRole("navigation", { name: "Categoria" }).getByRole("button", { name: new RegExp(`^${foodSection}`) }).click();
 const priceInput = dialog().getByRole("textbox", { name: `Prezzo · ${foodName}` }).first();
 await priceInput.fill("");
 check("piatto senza prezzo: «Manca il prezzo»", (await dialog().getByText("Manca il prezzo.").count()) > 0 && (await save.isDisabled()));
 const newPrice = Number(price0) === 2100 ? "22" : "21";
 await priceInput.fill(newPrice);
 check("contatore: 2 voci cambiate", (await dialog().getByText("2 voci cambiate").count()) === 1);
-check("la sezione dei vini mostra quante voci cambiate", /Rossi\s*·\s*1/.test(await dialog().getByRole("navigation", { name: "Sezione" }).innerText()));
+check("la sezione dei vini mostra quante voci cambiate", /Rossi\s*·\s*1/.test(await dialog().getByRole("navigation", { name: "Categoria" }).innerText()));
 await save.click();
 await page.waitForTimeout(1500);
 check("salvato: nuovo prezzo al calice", prices(wineId).startsWith(`${newGlass}|`), prices(wineId));

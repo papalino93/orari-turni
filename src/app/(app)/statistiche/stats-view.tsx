@@ -510,7 +510,7 @@ export function StatsView({
 
           <Group id="guardano" title="Cosa guardano" text="Le parti del menù che i clienti aprono di più e gli abbinamenti che toccano.">
             <div className="grid gap-4 md:grid-cols-2">
-              <Card title="Sezioni più aperte" hint="Tocchi sulla barra delle sezioni in alto.">
+              <Card title="Categorie più aperte" hint="Tocchi sulla barra delle categorie in alto.">
                 <RankedList rows={data.sections} empty={<Empty />} />
               </Card>
               <Card title="Abbinamenti toccati" hint="Il vino consigliato sotto un piatto, toccato per vederlo.">

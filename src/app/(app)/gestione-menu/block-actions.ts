@@ -13,8 +13,9 @@ import type { ChangeResult } from "./actions";
 // modifica registrata nello storico (con «Annulla»), cache rigenerata.
 
 export type BlockInput = {
-  kind: "TEXT" | "PRICE" | "NOTICE";
+  kind: "TEXT" | "PRICE" | "NOTICE" | "HIGHLIGHT";
   label?: string;
+  title?: string;
   text?: string;
   price?: string;
   placement: "TOP" | "BOTTOM" | "SECTIONS";
@@ -25,10 +26,11 @@ export type BlockInput = {
 };
 
 async function parseBlockInput(input: BlockInput) {
-  const kind = parseEnum(input.kind, ["TEXT", "PRICE", "NOTICE"] as const, "tipo");
+  const kind = parseEnum(input.kind, ["TEXT", "PRICE", "NOTICE", "HIGHLIGHT"] as const, "tipo");
   const placement = parseEnum(input.placement, ["TOP", "BOTTOM", "SECTIONS"] as const, "posizione");
 
   let label: string | null = null;
+  let title: string | null = null;
   let text: string | null = null;
   let priceCents: number | null = null;
   if (kind === "PRICE") {
@@ -37,6 +39,11 @@ async function parseBlockInput(input: BlockInput) {
     assert(priceCents !== null, "Inserisci il prezzo (esempio: 1 oppure 1,50).");
     // Descrizione facoltativa sotto la riga del prezzo (es. «Oli all'arancia, basilico o peperoncino»).
     text = parseText(input.text, "descrizione", { max: 400 }) || null;
+  } else if (kind === "HIGHLIGHT") {
+    // Riquadro in vetrina: titoletto e testo facoltativi, il titolo no (es. «Caviale & Tartufo bianco»).
+    label = parseText(input.label, "titoletto", { max: 60 }) || null;
+    title = parseText(input.title, "titolo", { max: 80, required: true });
+    text = parseText(input.text, "testo", { max: 300 }) || null;
   } else {
     label = parseText(input.label, "titoletto", { max: 60 }) || null;
     text = parseText(input.text, "testo", { max: 400, required: true });
@@ -47,11 +54,11 @@ async function parseBlockInput(input: BlockInput) {
   let sectionIds: string[] = [];
   if (placement === "SECTIONS") {
     const raw = Array.isArray(input.sectionIds) ? input.sectionIds : [];
-    assert(raw.length > 0, "Scegli almeno una sezione in cui mostrarlo.");
-    assert(raw.length <= 60, "Troppe sezioni.");
-    const ids = Array.from(new Set(raw.map((id) => parseId(id, "sezione"))));
+    assert(raw.length > 0, "Scegli almeno una categoria in cui mostrarlo.");
+    assert(raw.length <= 60, "Troppe categorie.");
+    const ids = Array.from(new Set(raw.map((id) => parseId(id, "categoria"))));
     const found = await prisma.menuSection.findMany({ where: { id: { in: ids } }, select: { id: true } });
-    assert(found.length === ids.length, "Una delle sezioni scelte non esiste più.");
+    assert(found.length === ids.length, "Una delle categorie scelte non esiste più.");
     sectionIds = ids;
   }
 
@@ -59,10 +66,10 @@ async function parseBlockInput(input: BlockInput) {
   const endDate = input.endDate ? parseDateKey(input.endDate, "«al»") : null;
   assert(!startDate || !endDate || startDate <= endDate, "La data «al» non può essere prima di «dal».");
 
-  return { kind, placement, label, text, priceCents, sectionIds, startDate, endDate, hidden: Boolean(input.hidden) };
+  return { kind, placement, label, title, text, priceCents, sectionIds, startDate, endDate, hidden: Boolean(input.hidden) };
 }
 
-const FIELDS = ["kind", "label", "text", "priceCents", "placement", "sectionIds", "startDate", "endDate", "hidden"] as const;
+const FIELDS = ["kind", "label", "title", "text", "priceCents", "placement", "sectionIds", "startDate", "endDate", "hidden"] as const;
 
 function snapshot(b: Record<string, unknown>) {
   const out: Record<string, unknown> = {};
@@ -162,8 +169,9 @@ export async function moveBlock(idInput: string, directionInput: "up" | "down"):
     const block = await prisma.menuBlock.findFirst({ where: { id, deletedAt: null } });
     assert(block, "Blocco non trovato.");
 
+    // I riquadri in vetrina si ordinano tra loro, le altre informazioni tra loro.
     const siblings = await prisma.menuBlock.findMany({
-      where: { deletedAt: null, placement: block.placement },
+      where: { deletedAt: null, placement: block.placement, kind: block.kind === "HIGHLIGHT" ? "HIGHLIGHT" : { not: "HIGHLIGHT" } },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
     const index = siblings.findIndex((s) => s.id === id);
@@ -174,5 +182,32 @@ export async function moveBlock(idInput: string, directionInput: "up" | "down"):
     [reordered[index], reordered[swapWith]] = [reordered[swapWith], reordered[index]];
     await prisma.$transaction(reordered.map((s, i) => prisma.menuBlock.update({ where: { id: s.id }, data: { sortOrder: i } })));
     revalidateMenu();
+  });
+}
+
+// Interruttore «Sul menù» dei riquadri in vetrina: accende o spegne con un tocco
+// (si annulla dal messaggio o dallo storico).
+export async function setBlockHidden(idInput: string, hiddenInput: boolean): Promise<ActionResult<ChangeResult>> {
+  return runAction(async () => {
+    const editor = await requireMenuEditor();
+    const id = parseId(idInput, "blocco");
+    const hidden = Boolean(hiddenInput);
+    const block = await prisma.menuBlock.findFirst({ where: { id, deletedAt: null } });
+    assert(block, "Blocco non trovato.");
+    if (block.hidden === hidden) return { changeId: null };
+    const changeId = await prisma.$transaction(async (tx) => {
+      await tx.menuBlock.update({ where: { id }, data: { hidden } });
+      return logChange(tx, {
+        actorName: editor.name,
+        action: "UPDATE",
+        entity: "block",
+        entityId: id,
+        label: blockSummary({ ...block }),
+        before: { hidden: block.hidden },
+        after: { hidden },
+      });
+    });
+    revalidateMenu();
+    return { changeId };
   });
 }

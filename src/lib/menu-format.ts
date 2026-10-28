@@ -190,13 +190,15 @@ export function isPromoMenuVisible(p: PromoDates & { hidden: boolean; deletedAt:
 
 // --- Blocchi informativi (coperto, chiusura cucina, avvisi…) -----------------
 
-export type BlockKind = "TEXT" | "PRICE" | "NOTICE";
+export type BlockKind = "TEXT" | "PRICE" | "NOTICE" | "HIGHLIGHT";
 export type BlockPlacement = "TOP" | "BOTTOM" | "SECTIONS";
 
 export type MenuBlockView = {
   id: string;
   kind: BlockKind;
   label: string | null;
+  // Solo i riquadri in vetrina: il titolo grande.
+  title: string | null;
   text: string | null;
   priceCents: number | null;
   placement: BlockPlacement;
@@ -230,13 +232,14 @@ export function priceLine(b: Pick<MenuBlockView, "label" | "priceCents">): strin
 export const PLACEMENT_LABELS: Record<BlockPlacement, string> = {
   TOP: "In cima al menù",
   BOTTOM: "In fondo al menù",
-  SECTIONS: "Sotto il titolo delle sezioni",
+  SECTIONS: "Sotto il titolo delle categorie",
 };
 
 export const BLOCK_KIND_LABELS: Record<BlockKind, string> = {
   TEXT: "Testo",
   PRICE: "Voce con prezzo",
   NOTICE: "Avviso",
+  HIGHLIGHT: "Riquadro in vetrina",
 };
 
 // Riassunto di una riga: la voce con prezzo, oppure il testo accorciato.
@@ -244,6 +247,10 @@ export function blockSummary(b: MenuBlockView): string {
   const text = (b.text ?? "").replace(/\s+/g, " ").trim();
   if (b.kind === "PRICE") {
     const full = text ? `${priceLine(b)} · ${text}` : priceLine(b);
+    return full.length > 90 ? `${full.slice(0, 87)}…` : full;
+  }
+  if (b.kind === "HIGHLIGHT") {
+    const full = [b.label, b.title, text].filter(Boolean).join(" · ");
     return full.length > 90 ? `${full.slice(0, 87)}…` : full;
   }
   const title = b.priceCents !== null ? priceLine(b) : b.label;

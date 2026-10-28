@@ -171,6 +171,12 @@ function Blocks({ list, className = "" }: { list: MenuBlockView[]; className?: s
             <p className="print-sans m-0 text-[10px] uppercase tracking-[0.2em] text-[#6B1020]">{nb(priceLine(b))}</p>
             {b.text && <p className="m-0 text-[12.5px] italic text-[#3F4540]">{b.text}</p>}
           </div>
+        ) : b.kind === "HIGHLIGHT" ? (
+          <div key={b.id} className="print-avoid mx-auto my-1.5 max-w-[360px] border-y border-[#C9A96E] py-1.5">
+            {b.label && <p className="print-sans m-0 text-[9.5px] uppercase tracking-[0.2em] text-[#6B1020]">{b.label}</p>}
+            <p className="m-0 text-[17px] italic text-[#6B1020]">{b.title}</p>
+            {b.text && <p className="m-0 text-[12.5px] italic text-[#3F4540]">{b.text}</p>}
+          </div>
         ) : (
           <p key={b.id} className="m-0 text-[13px] italic text-[#3F4540]">
             {(b.label || b.priceCents !== null) && <span className="font-semibold not-italic">{b.priceCents !== null ? nb(priceLine(b)) : b.label}: </span>}

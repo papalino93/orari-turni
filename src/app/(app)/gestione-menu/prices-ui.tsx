@@ -106,7 +106,7 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
 
   return (
     <Sheet title="Tabella prezzi" onClose={onClose} wide dirty={changes.length > 0} onSave={problems.length === 0 ? save : undefined}>
-      <nav aria-label="Sezione" className="-mx-1 mb-3 flex flex-wrap gap-1.5">
+      <nav aria-label="Categoria" className="-mx-1 mb-3 flex flex-wrap gap-1.5">
         {sections.map((s) => {
           const active = s.id === sectionId;
           const n = perSection(s.id);
@@ -125,7 +125,7 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
         })}
       </nav>
       <p className="mb-3 text-xs text-foreground-muted">
-        Scrivi il nuovo prezzo (es. 7 oppure 7,50): le caselle cambiate si colorano. Puoi passare da una sezione all&apos;altra e salvare tutto alla fine.
+        Scrivi il nuovo prezzo (es. 7 oppure 7,50): le caselle cambiate si colorano. Puoi passare da una categoria all&apos;altra e salvare tutto alla fine.
         {section?.kind === "WINE" && " Calice vuoto = non si vende al calice."}
         {section?.groups.some((g) => g.formats) && " Nei gruppi con i formati (es. birre), casella vuota = formato non disponibile."}
       </p>

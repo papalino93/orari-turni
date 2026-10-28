@@ -39,7 +39,7 @@ const dialog = () => page.locator('[role="dialog"]');
 const settle = (ms = 1500) => page.waitForTimeout(ms);
 const section = async (name) => {
   await goTab(page, "Menù");
-  await page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+  await page.locator('nav[aria-label="Categorie"] button', { hasText: name }).click();
 };
 const row = (name) => page.locator("li", { has: page.getByRole("button", { name: `Modifica ${name}`, exact: true }) });
 

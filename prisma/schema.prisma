@@ -254,6 +254,8 @@ model MenuSection {
   promo        MenuPromo?      @relation(fields: [promoId], references: [id], onDelete: Cascade)
   // Predisposizione per una versione in altre lingue: oggi non usato.
   translations Json?
+  // Categoria eliminata dalla gestione: sparisce dal menù, si recupera dallo storico.
+  deletedAt    DateTime?
 
   groups MenuGroup[]
 }
@@ -426,6 +428,7 @@ enum MenuBlockKind {
   TEXT // testo semplice, in corsivo (es. «La cucina chiude circa 40–50 minuti prima…»)
   PRICE // voce con prezzo (es. «Coperto € 1,00», «Servizio 10%»)
   NOTICE // avviso evidenziato in un riquadro (es. «Domenica cucina chiusa»)
+  HIGHLIGHT // riquadro in vetrina, bordeaux e oro (es. «Su prenotazione · Caviale & Tartufo bianco»)
 }
 
 enum MenuBlockPlacement {
@@ -440,8 +443,9 @@ enum MenuBlockPlacement {
 model MenuBlock {
   id         String             @id @default(cuid())
   kind       MenuBlockKind
-  label      String? // titoletto (TEXT, NOTICE) o nome della voce (PRICE, es. "Coperto")
-  text       String? // testo (TEXT, NOTICE)
+  label      String? // titoletto (TEXT, NOTICE, HIGHLIGHT) o nome della voce (PRICE, es. "Coperto")
+  title      String? // solo HIGHLIGHT: il titolo grande (es. "Caviale & Tartufo bianco")
+  text       String? // testo (TEXT, NOTICE, HIGHLIGHT)
   priceCents Int? // solo PRICE
   placement  MenuBlockPlacement
   sectionIds String[]           @default([]) // solo SECTIONS: id delle MenuSection

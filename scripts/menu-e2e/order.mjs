@@ -22,7 +22,7 @@ const settle = (ms = 1500) => page.waitForTimeout(ms);
 async function addWine(name, region, country = "") {
   await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
   await goTab(page, "Menù");
-  await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+  await page.locator('nav[aria-label="Categorie"] button', { hasText: "Rossi" }).click();
   const card = page.locator("section, div").filter({ has: page.getByText(/^Italia · \d+$/) }).last();
   await card.getByRole("button", { name: "+ Aggiungi vino" }).first().click();
   await dialog().waitFor();

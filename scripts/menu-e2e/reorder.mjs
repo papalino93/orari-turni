@@ -20,7 +20,7 @@ const settle = (ms = 1500) => page.waitForTimeout(ms);
 await tool(page, "Riordina");
 await dialog().waitFor();
 check("si apre «Riordina»", (await dialog().getByRole("heading", { name: "Riordina" }).count()) === 1);
-await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Sezioni" }).click();
+await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Categorie" }).click();
 check("livello sezioni: tutte le sezioni fisse", (await dialog().locator("li[data-id]").count()) === startSections.split(" | ").length);
 check("«Salva ordine» spento finché non si cambia", await dialog().getByRole("button", { name: "Salva ordine" }).isDisabled());
 
@@ -43,7 +43,7 @@ check("annulla: ordine delle sezioni di prima", sectionsOrder() === startSection
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await tool(page, "Riordina");
 await dialog().waitFor();
-await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Sezioni" }).click();
+await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Categorie" }).click();
 await dialog().getByRole("button", { name: "Apri Rossi" }).click();
 await dialog().getByRole("button", { name: "Apri Italia" }).click();
 check("livello voci: i vini di Rossi · Italia", (await dialog().locator("li[data-id]").count()) === itemsOrder().length);
@@ -81,7 +81,7 @@ await page.keyboard.press("Escape");
 // «In cima» e «In fondo» nella scheda
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await goTab(page, "Menù");
-await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+await page.locator('nav[aria-label="Categorie"] button', { hasText: "Rossi" }).click();
 await page.getByRole("button", { name: `Modifica ${before[3]}`, exact: true }).click();
 await dialog().waitFor();
 await dialog().getByRole("button", { name: "⤒ In cima" }).click();

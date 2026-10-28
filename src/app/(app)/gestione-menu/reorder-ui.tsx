@@ -191,7 +191,7 @@ export function ReorderSheet({
       return;
     }
     const parentId = level === "section" ? null : level === "group" ? sectionId : groupId;
-    const label = level === "section" ? "sezioni" : level === "group" ? `gruppi di «${section?.label}»` : `«${group?.title}» (${section?.label})`;
+    const label = level === "section" ? "categorie" : level === "group" ? `gruppi di «${section?.label}»` : `«${group?.title}» (${section?.label})`;
     const result = await run(() => reorder(level, parentId, rows.map((r) => r.id)), `Nuovo ordine salvato: ${label}`);
     setBusy(false);
     if (result !== null) setDraft(null);
@@ -236,7 +236,7 @@ export function ReorderSheet({
       {!onPromos && (
         <nav aria-label="Livello" className="mb-3 flex flex-wrap items-center gap-1 text-sm">
           <button type="button" onClick={() => go({ sectionId: null, groupId: null })} className={`rounded-lg px-2 py-1 ${level === "section" ? "font-semibold text-foreground" : "text-accent hover:underline"}`}>
-            Sezioni
+            Categorie
           </button>
           {section && (
             <>
@@ -259,9 +259,9 @@ export function ReorderSheet({
         {level === "promo"
           ? "L'ordine in «In evidenza», da sinistra a destra. Nei giorni dell'evento la sua pagina si apre comunque in cima al menù. Un evento nuovo si mette dopo quelli ordinati qui."
           : level === "section"
-          ? "L'ordine delle sezioni sul menù (Oggi fuori menù resta sempre in cima). «Apri» per riordinare i gruppi di una sezione."
+          ? "L'ordine delle categorie sul menù (Oggi fuori menù resta sempre in cima). «Apri» per riordinare i gruppi di una categoria."
           : level === "group"
-            ? "L'ordine dei gruppi in questa sezione. «Apri» per riordinare le voci di un gruppo."
+            ? "L'ordine dei gruppi in questa categoria. «Apri» per riordinare le voci di un gruppo."
             : "L'ordine delle voci in questo gruppo. Resta com'è: i vini nuovi si mettono da soli al posto della loro regione."}
       </p>
 

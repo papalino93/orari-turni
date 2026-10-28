@@ -21,7 +21,7 @@ const toast = () => page.locator('[role="status"]');
 const settle = (ms = 1500) => page.waitForTimeout(ms);
 const section = async (name) => {
   await goTab(page, "Menù");
-  await page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+  await page.locator('nav[aria-label="Categorie"] button', { hasText: name }).click();
 };
 const banner = () => page.getByRole("button", { name: /^Compila allergeni \(\d+ da fare\)$/ });
 
