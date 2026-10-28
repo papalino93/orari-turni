@@ -1,6 +1,6 @@
 "use client";
 
-import { IconInfo, PanelHead } from "./panel-head";
+import { IconInfo, IconVetrina, PanelHead } from "./panel-head";
 import { useState } from "react";
 import {
   BLOCK_KIND_LABELS,
@@ -13,7 +13,7 @@ import {
   formatBlockDates,
   formatMoney,
 } from "@/lib/menu-format";
-import { deleteBlock, moveBlock, saveBlock } from "./block-actions";
+import { deleteBlock, moveBlock, saveBlock, setBlockHidden } from "./block-actions";
 import { VetrinaCard } from "@/app/(public)/menu/menu-blocks";
 import { sans, serif } from "@/app/(public)/menu/fonts";
 import { Field, Sheet, dateInputClass, inputClass } from "./sheet";
@@ -25,7 +25,7 @@ const PLACEMENT_ORDER: BlockPlacement[] = ["TOP", "SECTIONS", "BOTTOM"];
 
 const PLACEMENT_TITLES: Record<BlockPlacement, string> = {
   TOP: "In cima al menù",
-  SECTIONS: "Sotto il titolo di una sezione",
+  SECTIONS: "Sotto il titolo di una categoria",
   BOTTOM: "In fondo al menù",
 };
 
@@ -34,7 +34,7 @@ const KIND_TAGS: Record<BlockKind, string> = { TEXT: "Testo", PRICE: "Prezzo", N
 function whereLabel(block: MenuBlockView, choices: SectionChoice[]): string {
   if (block.placement !== "SECTIONS") return PLACEMENT_LABELS[block.placement];
   const names = block.sectionIds.map((id) => choices.find((c) => c.id === id)?.label).filter(Boolean) as string[];
-  return names.length > 0 ? names.join(", ") : "nessuna sezione";
+  return names.length > 0 ? names.join(", ") : "nessuna categoria";
 }
 
 // Riquadro in alto: l'elenco delle informazioni del menù (coperto, chiusura cucina,
@@ -85,7 +85,7 @@ export function BlocksPanel({
                 <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent-hover">{blocks.length}</span>
               ) : undefined
             }
-            subtitle={blocks.length === 0 ? "Coperto, chiusura cucina, avvisi, riquadri in vetrina: nessuna ancora." : blocks.map((b) => blockSummary(b)).join(" · ")}
+            subtitle={blocks.length === 0 ? "Coperto, chiusura cucina, avvisi: nessuna ancora." : blocks.map((b) => blockSummary(b)).join(" · ")}
           />
         </button>
         <button
@@ -183,8 +183,8 @@ const KIND_HELP: Record<BlockKind, string> = {
 };
 
 const PLACEMENT_HELP: Record<BlockPlacement, string> = {
-  TOP: "Dopo «In evidenza» e «I consigli della casa», prima delle sezioni.",
-  SECTIONS: "Sotto il titolo di una o più sezioni (anche i menù speciali degli eventi).",
+  TOP: "Dopo «In evidenza» e «I consigli della casa», prima delle categorie.",
+  SECTIONS: "Sotto il titolo di una o più categorie (anche i menù speciali degli eventi).",
   BOTTOM: "In fondo al menù, prima della legenda degli allergeni.",
 };
 
@@ -195,15 +195,20 @@ export function BlockSheet({
   run,
   onClose,
   forSectionId = null,
+  vetrina = false,
 }: {
   block: MenuBlockView | null;
+  // Riquadro in vetrina (dal riquadro «In vetrina» della scheda Menù): niente scelta del tipo.
+  vetrina?: boolean;
   // Nuovo blocco aggiunto dai «Testi della sezione»: già sotto il titolo di quella sezione.
   forSectionId?: string | null;
   choices: SectionChoice[];
   run: RunFn;
   onClose: () => void;
 }) {
-  const [kind, setKind] = useState<BlockKind>(block?.kind ?? "TEXT");
+  const isVetrina = vetrina || block?.kind === "HIGHLIGHT";
+  const [kind, setKind] = useState<BlockKind>(isVetrina ? "HIGHLIGHT" : (block?.kind ?? "TEXT"));
+  const noun = isVetrina ? "Riquadro" : "Informazione";
   const [label, setLabel] = useState(block?.label ?? "");
   const [title, setTitle] = useState(block?.title ?? "");
   const [text, setText] = useState(block?.text ?? "");
@@ -229,7 +234,7 @@ export function BlockSheet({
       return;
     }
     if (placement === "SECTIONS" && sectionIds.length === 0) {
-      setError("Scegli almeno una sezione in cui mostrarlo.");
+      setError("Scegli almeno una categoria in cui mostrarlo.");
       return;
     }
     if (startDate && endDate && startDate > endDate) {
@@ -251,7 +256,7 @@ export function BlockSheet({
           endDate,
           hidden,
         }),
-      block ? "Informazione aggiornata" : "Informazione aggiunta",
+      block ? `${noun} aggiornat${isVetrina ? "o" : "a"}` : `${noun} aggiunt${isVetrina ? "o" : "a"}`,
     );
     setBusy(false);
     if (result) onClose();
@@ -260,18 +265,24 @@ export function BlockSheet({
   async function remove() {
     if (!block) return;
     setBusy(true);
-    const result = await run(() => deleteBlock(block.id), "Informazione eliminata");
+    const result = await run(() => deleteBlock(block.id), isVetrina ? "Riquadro eliminato" : "Informazione eliminata");
     setBusy(false);
     if (result) onClose();
   }
 
   return (
-    <Sheet title={block ? "Modifica informazione" : "Nuova informazione"} onClose={onClose}>
+    <Sheet
+      title={isVetrina ? (block ? "Modifica riquadro in vetrina" : "Nuovo riquadro in vetrina") : block ? "Modifica informazione" : "Nuova informazione"}
+      onClose={onClose}
+    >
       <form onSubmit={submit} className="space-y-4">
+        {isVetrina ? (
+          <p className="text-[12px] leading-snug text-foreground-muted">{KIND_HELP.HIGHLIGHT}</p>
+        ) : (
         <div>
           <p className="mb-1 text-xs font-medium text-foreground-muted">Che cos&apos;è</p>
-          <div role="radiogroup" aria-label="Tipo di informazione" className="grid grid-cols-2 gap-2">
-            {(Object.keys(BLOCK_KIND_LABELS) as BlockKind[]).map((k) => (
+          <div role="radiogroup" aria-label="Tipo di informazione" className="grid grid-cols-3 gap-2">
+            {(Object.keys(BLOCK_KIND_LABELS) as BlockKind[]).filter((k) => k !== "HIGHLIGHT").map((k) => (
               <button
                 key={k}
                 type="button"
@@ -288,6 +299,7 @@ export function BlockSheet({
           </div>
           <p className="mt-1.5 text-[11px] text-foreground-muted/90">{KIND_HELP[kind]}</p>
         </div>
+        )}
 
         {kind === "HIGHLIGHT" ? (
           <>
@@ -358,7 +370,7 @@ export function BlockSheet({
           </div>
           {placement === "SECTIONS" && (
             <fieldset className="mt-2 rounded-xl border border-border px-3 py-1.5">
-              <legend className="px-1 text-[11px] text-foreground-muted">Scegli le sezioni</legend>
+              <legend className="px-1 text-[11px] text-foreground-muted">Scegli le categorie</legend>
               {choices.map((c) => (
                 <label key={c.id} className="flex min-h-11 items-center gap-3 text-sm text-foreground">
                   <input
@@ -385,12 +397,16 @@ export function BlockSheet({
               <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={dateInputClass} />
             </Field>
           </div>
-          <p className="mt-1 text-[11px] text-foreground-muted/90">Se lasci vuoto compare sempre. Finita la data, sparisce da solo.</p>
+          <p className="mt-1 text-[11px] text-foreground-muted/90">
+            {isVetrina
+              ? "Se lasci vuoto compare sempre. Per una cosa di stagione (es. il tartufo bianco) metti le date: compare e sparisce da sola."
+              : "Se lasci vuoto compare sempre. Finita la data, sparisce da solo."}
+          </p>
         </div>
 
         <label className="flex min-h-11 items-center gap-3 text-sm text-foreground">
           <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
-          Nascondi per ora (non compare sul menù)
+          {isVetrina ? "Spento per ora (non compare sul menù)" : "Nascondi per ora (non compare sul menù)"}
         </label>
 
         {error && (
@@ -404,13 +420,15 @@ export function BlockSheet({
           disabled={busy}
           className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
-          {busy ? "Salvo…" : block ? "Salva" : "Aggiungi"}
+          {busy ? "Salvo…" : block ? "Salva" : isVetrina ? "Aggiungi al menù" : "Aggiungi"}
         </button>
 
         {block &&
           (confirmDelete ? (
             <div className="rounded-xl border border-danger/30 bg-danger-bg px-3 py-3">
-              <p className="text-xs text-danger">Eliminare questa informazione dal menù? La recuperi dallo storico.</p>
+              <p className="text-xs text-danger">
+                {isVetrina ? "Eliminare questo riquadro? Se vuoi solo toglierlo per un po', spegnilo. Lo recuperi dallo storico." : "Eliminare questa informazione dal menù? La recuperi dallo storico."}
+              </p>
               <div className="mt-2.5 flex justify-end gap-2">
                 <button type="button" onClick={() => setConfirmDelete(false)} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted">
                   Annulla
@@ -426,10 +444,124 @@ export function BlockSheet({
               onClick={() => setConfirmDelete(true)}
               className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-danger hover:border-danger"
             >
-              Elimina informazione
+              {isVetrina ? "Elimina riquadro" : "Elimina informazione"}
             </button>
           ))}
       </form>
     </Sheet>
+  );
+}
+
+// «In vetrina» (scheda Menù): i riquadri bordeaux e oro, come li vedono i clienti, con
+// l'interruttore «Sul menù» per accenderli o spegnerli con un tocco, lo stato (date) e
+// l'ordine. Si modificano nel foglio dedicato.
+export function VetrinaPanel({
+  blocks,
+  today,
+  run,
+  onEdit,
+  onAdd,
+}: {
+  blocks: MenuBlockView[];
+  today: string;
+  run: RunFn;
+  onEdit: (id: string) => void;
+  onAdd: () => void;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const live = blocks.filter((b) => blockStatus(b, today) === "live").length;
+
+  async function toggle(b: MenuBlockView) {
+    setBusyId(b.id);
+    await run(() => setBlockHidden(b.id, !b.hidden), b.hidden ? `«${b.title}» di nuovo sul menù` : `«${b.title}» tolto dal menù`);
+    setBusyId(null);
+  }
+
+  async function move(id: string, direction: "up" | "down") {
+    setBusyId(id);
+    await run(() => moveBlock(id, direction), "");
+    setBusyId(null);
+  }
+
+  return (
+    <section aria-label="In vetrina" className="mb-5 rounded-2xl border border-accent/25 bg-gradient-to-br from-accent/[0.08] to-accent/[0.01] px-4 py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PanelHead
+          icon={IconVetrina}
+          tone="accent"
+          title="In vetrina"
+          subtitle={
+            blocks.length === 0
+              ? "Proposte speciali in un riquadro elegante (es. caviale e tartufo su prenotazione)."
+              : live === 0
+                ? "Nessun riquadro sul menù in questo momento."
+                : `${live === 1 ? "1 riquadro" : `${live} riquadri`} sul menù dei clienti, dopo «I consigli della casa».`
+          }
+        />
+        <button type="button" onClick={onAdd} className="min-h-10 shrink-0 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover">
+          + Nuovo riquadro
+        </button>
+      </div>
+      {blocks.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {blocks.map((b, index) => {
+            const status = blockStatus(b, today);
+            const dates = formatBlockDates(b.startDate, b.endDate);
+            const state =
+              status === "hidden"
+                ? "Spento"
+                : status === "expired"
+                  ? `Finito${dates ? ` (${dates})` : ""}`
+                  : status === "scheduled"
+                    ? `Sul menù ${dates}`
+                    : dates
+                      ? `Sul menù ${dates}`
+                      : "Sul menù";
+            const where = b.placement === "TOP" ? null : b.placement === "BOTTOM" ? "in fondo al menù" : "sotto il titolo di una categoria";
+            return (
+              <li key={b.id} className={`flex items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2.5 ${status !== "live" ? "opacity-70" : ""}`}>
+                <button type="button" onClick={() => onEdit(b.id)} aria-label={`Modifica: ${blockSummary(b)}`} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left">
+                  <span aria-hidden className="flex h-11 w-16 shrink-0 flex-col items-center justify-center rounded-lg bg-[radial-gradient(60px_40px_at_50%_0%,#7a1428,#4a0c18)] px-1 text-center">
+                    <span className="block w-full truncate text-[6px] uppercase tracking-[0.15em] text-[#D8B97A]">{b.label ?? ""}</span>
+                    <span className="block w-full truncate font-serif text-[9px] italic leading-tight text-[#F4EEE3]">{b.title}</span>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">{b.title}</span>
+                    <span className={`block truncate text-[11px] ${status === "live" ? "text-success" : "text-foreground-muted"}`}>
+                      {state}
+                      {where && <span className="text-foreground-muted"> · {where}</span>}
+                    </span>
+                  </span>
+                </button>
+                {blocks.length > 1 && (
+                  <div className="hidden shrink-0 items-center sm:flex">
+                    <button type="button" disabled={busyId !== null || index === 0} onClick={() => move(b.id, "up")} aria-label={`Sposta su: ${b.title}`} className="flex h-9 w-9 items-center justify-center rounded-full text-foreground-muted hover:text-foreground disabled:opacity-30">
+                      <Chevron up />
+                    </button>
+                    <button type="button" disabled={busyId !== null || index === blocks.length - 1} onClick={() => move(b.id, "down")} aria-label={`Sposta giù: ${b.title}`} className="flex h-9 w-9 items-center justify-center rounded-full text-foreground-muted hover:text-foreground disabled:opacity-30">
+                      <Chevron />
+                    </button>
+                  </div>
+                )}
+                <div className="flex shrink-0 items-center gap-2">
+                  <span aria-hidden className="hidden text-[11px] text-foreground-muted sm:inline">Sul menù</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={!b.hidden}
+                    aria-label={`Sul menù: ${b.title}`}
+                    disabled={busyId === b.id}
+                    onClick={() => toggle(b)}
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${!b.hidden ? "bg-accent" : "bg-surface-2 ring-1 ring-inset ring-border"}`}
+                  >
+                    <span aria-hidden className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${!b.hidden ? "left-[1.375rem]" : "left-0.5"}`} />
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

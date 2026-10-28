@@ -43,21 +43,21 @@ export function CategorySheet({
     e.preventDefault();
     setError(null);
     if (!title.trim()) {
-      setError("Scrivi il nome della sezione.");
+      setError("Scrivi il nome della categoria.");
       return;
     }
     setBusy(true);
     if (section) {
       // Se il nome nella barra era uguale al nome, segue il nome nuovo.
       const nextLabel = label === section.label && section.label === section.title ? title : label;
-      const result = await run(() => updateSection(section.id, { title, label: nextLabel, kicker }), "Sezione aggiornata");
+      const result = await run(() => updateSection(section.id, { title, label: nextLabel, kicker }), "Categoria aggiornata");
       setBusy(false);
       if (result) onClose();
       return;
     }
     const result = await run(
       () => createSection({ title, kind, kicker, afterId: afterId === "" ? null : afterId }),
-      `Sezione «${title.trim()}» creata`,
+      `Categoria «${title.trim()}» creata`,
     );
     setBusy(false);
     if (result) {
@@ -69,20 +69,20 @@ export function CategorySheet({
   async function remove() {
     if (!section) return;
     setBusy(true);
-    const result = await run(() => deleteSection(section.id), `Sezione «${section.title}» eliminata`);
+    const result = await run(() => deleteSection(section.id), `Categoria «${section.title}» eliminata`);
     setBusy(false);
     if (result) onClose();
   }
 
   return (
-    <Sheet title={section ? "Modifica sezione" : "Nuova sezione"} onClose={onClose} dirty={dirty}>
+    <Sheet title={section ? "Modifica categoria" : "Nuova categoria"} onClose={onClose} dirty={dirty}>
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Nome" hint={section ? undefined : "Il titolo grande della sezione, per esempio «Salatini»."}>
+        <Field label="Nome" hint={section ? undefined : "Il titolo grande della categoria, per esempio «Salatini»."}>
           <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={40} className={inputClass} placeholder="es. Salatini" autoFocus={!section} />
         </Field>
 
         {section && section.label !== section.title && (
-          <Field label="Nome nella barra in alto" hint="Il nome corto nella barra delle sezioni del menù.">
+          <Field label="Nome nella barra in alto" hint="Il nome corto nella barra delle categorie del menù.">
             <input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={40} className={inputClass} />
           </Field>
         )}
@@ -133,7 +133,7 @@ export function CategorySheet({
         )}
 
         {section && (
-          <p className="text-[11px] leading-snug text-foreground-muted/90">Per spostarla nel menù: «Riordina sezioni», sotto l'elenco delle sezioni.</p>
+          <p className="text-[11px] leading-snug text-foreground-muted/90">Per spostarla nel menù: «Ordina categorie», sotto l&apos;elenco delle categorie.</p>
         )}
 
         {!section && (
@@ -153,7 +153,7 @@ export function CategorySheet({
           disabled={busy}
           className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
-          {busy ? "Salvo…" : section ? "Salva" : "Crea sezione"}
+          {busy ? "Salvo…" : section ? "Salva" : "Crea categoria"}
         </button>
 
         {section &&
@@ -162,7 +162,7 @@ export function CategorySheet({
               <p className="text-xs text-danger">
                 {count > 0
                   ? `Eliminare «${section.title}» con ${count === 1 ? "la sua voce" : `le sue ${count} voci`}? Spariscono dal menù dei clienti. La recuperi dallo storico.`
-                  : `Eliminare la sezione «${section.title}»? La recuperi dallo storico.`}
+                  : `Eliminare la categoria «${section.title}»? La recuperi dallo storico.`}
               </p>
               <div className="mt-2.5 flex justify-end gap-2">
                 <button type="button" onClick={() => setConfirmDelete(false)} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted">
@@ -179,7 +179,7 @@ export function CategorySheet({
               onClick={() => setConfirmDelete(true)}
               className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-danger hover:border-danger"
             >
-              Elimina sezione
+              Elimina categoria
             </button>
           ))}
       </form>

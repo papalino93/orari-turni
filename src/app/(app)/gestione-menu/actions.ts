@@ -678,11 +678,11 @@ export async function reorder(
     let label: string;
     if (level === "section") {
       current = await prisma.menuSection.findMany({ where: { promoId: null, dailyOnly: false, deletedAt: null }, select: { id: true, sortOrder: true } });
-      label = "Ordine delle sezioni";
+      label = "Ordine delle categorie";
     } else if (level === "group") {
-      const sectionId = parseId(parentIdInput, "sezione");
+      const sectionId = parseId(parentIdInput, "categoria");
       const section = await prisma.menuSection.findUnique({ where: { id: sectionId } });
-      assert(section, "Sezione non trovata.");
+      assert(section, "Categoria non trovata.");
       current = await prisma.menuGroup.findMany({ where: { sectionId, deletedAt: null }, select: { id: true, sortOrder: true } });
       label = `Ordine dei gruppi · ${section.label}`;
     } else {
@@ -840,10 +840,10 @@ export async function savePrices(changesInput: PriceChange[]): Promise<ActionRes
 export async function createGroup(sectionIdInput: string, titleInput: string): Promise<ActionResult<ChangeResult>> {
   return runAction(async () => {
     const editor = await requireMenuEditor();
-    const sectionId = parseId(sectionIdInput, "sezione");
+    const sectionId = parseId(sectionIdInput, "categoria");
     const title = parseText(titleInput, "nome del gruppo", { max: 80, required: true });
     const section = await prisma.menuSection.findFirst({ where: { id: sectionId, deletedAt: null } });
-    assert(section, "Sezione non trovata.");
+    assert(section, "Categoria non trovata.");
 
     const last = await prisma.menuGroup.findFirst({
       where: { sectionId, deletedAt: null },
@@ -997,9 +997,9 @@ export async function updateSectionTexts(
 ): Promise<ActionResult<ChangeResult>> {
   return runAction(async () => {
     const editor = await requireMenuEditor();
-    const id = parseId(idInput, "sezione");
+    const id = parseId(idInput, "categoria");
     const section = await prisma.menuSection.findUnique({ where: { id } });
-    assert(section, "Sezione non trovata.");
+    assert(section, "Categoria non trovata.");
 
     const next = {
       note: parseText(input.note, "nota", { max: 300 }) || null,

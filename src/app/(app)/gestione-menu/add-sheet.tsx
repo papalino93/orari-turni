@@ -37,7 +37,7 @@ export function AddSheet({
     else setSectionId(s.id);
   }
 
-  const title = !kind ? "Che cosa vuoi aggiungere?" : !section ? (kind === "WINE" ? "Un vino: in quale sezione?" : "Un piatto: in quale sezione?") : `In quale gruppo di «${section.label}»?`;
+  const title = !kind ? "Che cosa vuoi aggiungere?" : !section ? (kind === "WINE" ? "Un vino: in quale categoria?" : "Un piatto: in quale categoria?") : `In quale gruppo di «${section.label}»?`;
 
   return (
     <Sheet title={title} onClose={onClose} dirty={false}>
@@ -49,7 +49,7 @@ export function AddSheet({
           </button>
           <button type="button" className={big} onClick={() => setKind("FOOD")}>
             <span className="text-sm font-semibold text-foreground">Un piatto o una bevanda</span>
-            <span className="text-xs text-foreground-muted">Taglieri, tartare, bevande e le altre sezioni.</span>
+            <span className="text-xs text-foreground-muted">Taglieri, tartare, bevande e le altre categorie.</span>
           </button>
           <button type="button" className={big} onClick={() => onChoose({ type: "daily", kind: "FOOD" })}>
             <span className="text-sm font-semibold text-foreground">Il piatto di oggi</span>

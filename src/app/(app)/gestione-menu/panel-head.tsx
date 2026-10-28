@@ -84,3 +84,10 @@ export const IconVenue = svg(
     <path d="M10 19v-4.5h4V19" />
   </>,
 );
+// Vetrina: un riquadro con una stellina (proposte speciali, es. caviale e tartufo).
+export const IconVetrina = svg(
+  <>
+    <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+    <path d="M12 8.6l1.1 2.3 2.5.3-1.9 1.7.5 2.5L12 14.2l-2.2 1.2.5-2.5-1.9-1.7 2.5-.3z" />
+  </>,
+);

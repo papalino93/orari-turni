@@ -232,7 +232,7 @@ export function priceLine(b: Pick<MenuBlockView, "label" | "priceCents">): strin
 export const PLACEMENT_LABELS: Record<BlockPlacement, string> = {
   TOP: "In cima al menù",
   BOTTOM: "In fondo al menù",
-  SECTIONS: "Sotto il titolo delle sezioni",
+  SECTIONS: "Sotto il titolo delle categorie",
 };
 
 export const BLOCK_KIND_LABELS: Record<BlockKind, string> = {

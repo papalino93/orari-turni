@@ -150,13 +150,13 @@ export function SectionTextsSheet({
           <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={3} className={inputClass} />
         </Field>
         {section.note && deleteButton("note", "Elimina la nota", "Eliminare la nota sotto il titolo? Resta recuperabile dallo storico.")}
-        <Field label="Titolo dell'avviso a fondo sezione">
+        <Field label="Titolo dell'avviso in fondo alla categoria">
           <input value={addonTitle} onChange={(e) => setAddonTitle(e.target.value)} maxLength={120} className={inputClass} />
         </Field>
-        <Field label="Testo dell'avviso a fondo sezione">
+        <Field label="Testo dell'avviso in fondo alla categoria">
           <textarea value={addon} onChange={(e) => setAddon(e.target.value)} maxLength={500} rows={4} className={inputClass} />
         </Field>
-        {(section.addon || section.addonTitle) && deleteButton("addon", "Elimina l'avviso", "Eliminare l'avviso a fondo sezione? Resta recuperabile dallo storico.")}
+        {(section.addon || section.addonTitle) && deleteButton("addon", "Elimina l'avviso", "Eliminare l'avviso in fondo alla categoria? Resta recuperabile dallo storico.")}
         <button
           type="submit"
           disabled={busy}
@@ -170,15 +170,23 @@ export function SectionTextsSheet({
 }
 
 // Anteprima del menù dei clienti nella cornice di un telefono, senza lasciare la gestione.
-export function PreviewSheet({ onClose }: { onClose: () => void }) {
+// `section`: aperta da «Vedi nel menù», scorre fino a quella sezione (se vuota, lo dice).
+// ?festa=0: nell'anteprima niente pagina di benvenuto delle ricorrenze.
+export function PreviewSheet({ onClose, section }: { onClose: () => void; section?: { slug: string; title: string; empty: boolean } }) {
   const [version, setVersion] = useState(0);
+  const target = section && !section.empty ? `#${section.slug}` : "";
   return (
-    <Sheet title="Anteprima del menù" onClose={onClose} dirty={false}>
+    <Sheet title={section ? `«${section.title}» nel menù` : "Anteprima del menù"} onClose={onClose} dirty={false}>
       <div className="space-y-3">
+        {section?.empty && (
+          <p className="rounded-xl border border-gold/30 bg-gold/[0.06] px-3 py-2.5 text-sm text-foreground">
+            «{section.title}» è vuota: i clienti non la vedono finché non aggiungi almeno una voce.
+          </p>
+        )}
         <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border-4 border-foreground/20 bg-white shadow-lg">
           <iframe
             key={version}
-            src="/menu"
+            src={`/menu?festa=0${target}`}
             title="Anteprima del menù dei clienti"
             className="block h-[min(68vh,720px)] w-full border-0"
           />

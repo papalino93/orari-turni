@@ -17,7 +17,7 @@ for (const [label, w, h] of [["computer", 1440, 900], ["telefono", 390, 844]]) {
   check(`${label}: niente scorrimento orizzontale`, (await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)) === 0);
 
   // Menù: sezioni, ricerca e «+ Aggiungi» della sezione
-  check(`${label}: Menù mostra le sezioni`, (await p.getByRole("navigation", { name: "Sezioni" }).count()) === 1);
+  check(`${label}: Menù mostra le sezioni`, (await p.getByRole("navigation", { name: "Categorie" }).count()) === 1);
   check(`${label}: Menù non mostra gli strumenti`, (await p.getByRole("list", { name: "Strumenti del menù" }).count()) === 0);
   await p.evaluate(() => window.scrollTo(0, 1500));
   await p.waitForTimeout(400);
@@ -30,7 +30,7 @@ for (const [label, w, h] of [["computer", 1440, 900], ["telefono", 390, 844]]) {
   check(`${label}: Eventi mostra l'elenco degli eventi`, (await p.getByRole("navigation", { name: "Eventi e annunci" }).count()) === 1);
   check(`${label}: Eventi ha «+ Nuovo evento» e «+ Nuovo annuncio»`, (await p.getByRole("button", { name: "+ Nuovo evento" }).count()) === 1 && (await p.getByRole("button", { name: "+ Nuovo annuncio" }).count()) === 1);
   check(`${label}: Eventi apre già il primo evento`, (await p.locator('nav[aria-label="Eventi e annunci"] button[aria-current="true"]').count()) === 1);
-  check(`${label}: Eventi non mostra le sezioni`, (await p.getByRole("navigation", { name: "Sezioni" }).count()) === 0);
+  check(`${label}: Eventi non mostra le sezioni`, (await p.getByRole("navigation", { name: "Categorie" }).count()) === 0);
   await p.getByRole("button", { name: "+ Nuovo annuncio" }).click();
   check(`${label}: «+ Nuovo annuncio» parte da Annuncio`, (await p.locator('[role="dialog"] [role="radio"][aria-checked="true"]').innerText()) === "Annuncio");
   await p.keyboard.press("Escape");
@@ -62,7 +62,7 @@ for (const [label, w, h] of [["computer", 1440, 900], ["telefono", 390, 844]]) {
   await discardIfAsked(p);
   // «+ Aggiungi» accanto alla sezione
   await goTab(p, "Menù");
-  await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+  await p.locator('nav[aria-label="Categorie"] button', { hasText: "Rossi" }).click();
   await p.getByRole("button", { name: /^\+ Aggiungi un vino in «Rossi»/ }).click();
   check(`${label}: «+ Aggiungi» della sezione chiede solo il gruppo`, (await dlg.getByRole("heading", { name: "In quale gruppo di «Rossi»?" }).count()) === 1);
   await p.keyboard.press("Escape");

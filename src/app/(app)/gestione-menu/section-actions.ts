@@ -24,7 +24,7 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 40)
     .replace(/-+$/g, "");
-  return base || "sezione";
+  return base || "categoria";
 }
 
 async function freeSlug(title: string): Promise<string> {
@@ -54,17 +54,17 @@ export async function createSection(input: SectionInput): Promise<ActionResult<C
     const kind = parseEnum(input.kind, ["WINE", "FOOD"] as const, "tipo");
     const kicker = parseText(input.kicker, "riga sopra al titolo", { max: 40 }) || (kind === "WINE" ? "Vini" : "Cucina");
     const existing = await prisma.menuSection.findMany({ where: regular, orderBy: { sortOrder: "asc" } });
-    assert(existing.length < 30, "Troppe sezioni.");
+    assert(existing.length < 30, "Troppe categorie.");
     assert(
       !existing.some((s) => s.title.toLowerCase() === title.toLowerCase()),
-      `C'è già una sezione «${title}».`,
+      `C'è già una categoria «${title}».`,
     );
     let position = existing.length;
     if (input.afterId === null) position = 0;
     else if (input.afterId) {
-      const afterId = parseId(input.afterId, "sezione");
+      const afterId = parseId(input.afterId, "categoria");
       const index = existing.findIndex((s) => s.id === afterId);
-      assert(index !== -1, "La sezione scelta non esiste più.");
+      assert(index !== -1, "La categoria scelta non esiste più.");
       position = index + 1;
     }
     const slug = await freeSlug(title);
@@ -80,7 +80,7 @@ export async function createSection(input: SectionInput): Promise<ActionResult<C
         action: "CREATE",
         entity: "section",
         entityId: section.id,
-        label: `Nuova sezione «${title}»`,
+        label: `Nuova categoria «${title}»`,
         after: { title, kind },
       });
     });
@@ -92,9 +92,9 @@ export async function createSection(input: SectionInput): Promise<ActionResult<C
 export async function updateSection(idInput: string, input: SectionInput): Promise<ActionResult<ChangeResult>> {
   return runAction(async () => {
     const editor = await requireMenuEditor();
-    const id = parseId(idInput, "sezione");
+    const id = parseId(idInput, "categoria");
     const section = await prisma.menuSection.findFirst({ where: { id, ...regular } });
-    assert(section, "Sezione non trovata.");
+    assert(section, "Categoria non trovata.");
     const next = {
       title: parseText(input.title, "nome", { max: 40, required: true }),
       label: parseText(input.label, "nome nella barra", { max: 40 }) || "",
@@ -102,7 +102,7 @@ export async function updateSection(idInput: string, input: SectionInput): Promi
     };
     if (!next.label) next.label = next.title;
     const others = await prisma.menuSection.findMany({ where: { ...regular, NOT: { id } }, select: { title: true } });
-    assert(!others.some((s) => s.title.toLowerCase() === next.title.toLowerCase()), `C'è già una sezione «${next.title}».`);
+    assert(!others.some((s) => s.title.toLowerCase() === next.title.toLowerCase()), `C'è già una categoria «${next.title}».`);
     const changed = diff({ title: section.title, label: section.label, kicker: section.kicker }, next);
     if (!changed) return { changeId: null };
     const changeId = await prisma.$transaction(async (tx) => {
@@ -125,11 +125,11 @@ export async function updateSection(idInput: string, input: SectionInput): Promi
 export async function deleteSection(idInput: string): Promise<ActionResult<ChangeResult>> {
   return runAction(async () => {
     const editor = await requireMenuEditor();
-    const id = parseId(idInput, "sezione");
+    const id = parseId(idInput, "categoria");
     const section = await prisma.menuSection.findFirst({ where: { id, ...regular } });
-    assert(section, "Sezione non trovata.");
+    assert(section, "Categoria non trovata.");
     const left = await prisma.menuSection.count({ where: regular });
-    assert(left > 1, "Il menù deve avere almeno una sezione.");
+    assert(left > 1, "Il menù deve avere almeno una categoria.");
     const now = new Date();
     const changeId = await prisma.$transaction(async (tx) => {
       await tx.menuSection.update({ where: { id }, data: { deletedAt: now } });
@@ -138,7 +138,7 @@ export async function deleteSection(idInput: string): Promise<ActionResult<Chang
         action: "DELETE",
         entity: "section",
         entityId: id,
-        label: `Sezione «${section.title}»`,
+        label: `Categoria «${section.title}»`,
         before: { deletedAt: null },
         after: { deletedAt: now.toISOString() },
       });

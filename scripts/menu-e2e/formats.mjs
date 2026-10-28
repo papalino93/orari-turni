@@ -13,7 +13,7 @@ p.setDefaultTimeout(30000);
 await login(p, "andrea", ADMIN_PW);
 await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 await goTab(p, "Menù");
-await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Bevande" }).click();
+await p.locator('nav[aria-label="Categorie"] button', { hasText: "Bevande" }).click();
 const card = p.locator("section", { has: p.locator("h3", { hasText: groupTitle }) }).first();
 await card.getByRole("button", { name: /^Formati/ }).click();
 await card.getByLabel("Formato 1", { exact: true }).fill("0,2 l");
@@ -92,7 +92,7 @@ check("annulla: formati di nuovo sul gruppo", DB(`select formats::text from "Men
 DB(`update "MenuGroup" set "deletedAt"=now() where title='Spina Prova'`);
 await p.reload({ waitUntil: "networkidle" });
 await goTab(p, "Menù");
-await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Bevande" }).click();
+await p.locator('nav[aria-label="Categorie"] button', { hasText: "Bevande" }).click();
 await p.getByRole("button", { name: "+ Aggiungi gruppo" }).click();
 await p.getByPlaceholder("Nome del gruppo (es. Vini dolci)").fill("Spina Prova");
 await p.getByRole("button", { name: "Aggiungi", exact: true }).click();

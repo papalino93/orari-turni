@@ -50,17 +50,17 @@ await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
 const sheet = () => page.getByRole("dialog");
-await page.getByRole("button", { name: "+ Nuova sezione" }).click();
+await page.getByRole("button", { name: "+ Nuova categoria" }).click();
 await sheet().waitFor();
 check("nuova categoria: di serie va prima delle Bevande", /Dopo «Salatini»/.test(await sheet().locator("select").evaluate((s) => s.options[s.selectedIndex].text)));
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/categoria-nuova.png` });
 await sheet().getByLabel("Nome").fill("Tartare");
 await sheet().locator("select").selectOption({ label: "Dopo «Tartare»" });
-await sheet().getByRole("button", { name: "Crea sezione" }).click();
+await sheet().getByRole("button", { name: "Crea categoria" }).click();
 await page.waitForTimeout(800);
-check("nuova categoria: un nome già usato non passa", /C'è già una sezione «Tartare»/.test(await page.locator("body").innerText()));
+check("nuova categoria: un nome già usato non passa", /C'è già una categoria «Tartare»/.test(await page.locator("body").innerText()));
 await sheet().getByLabel("Nome").fill("Prova E2E");
-await sheet().getByRole("button", { name: "Crea sezione" }).click();
+await sheet().getByRole("button", { name: "Crea categoria" }).click();
 await sheet().waitFor({ state: "detached" });
 await page.waitForTimeout(1200);
 const rows = DB(`select slug||':'||"sortOrder" from "MenuSection" where "promoId" is null and not "dailyOnly" and "deletedAt" is null order by "sortOrder"`).split("\n").map((r) => r.split(":")[0]);
@@ -70,11 +70,11 @@ await page.getByRole("heading", { name: "Prova E2E" }).waitFor({ timeout: 20000 
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/categoria-creata.png` });
 check("nuova categoria: si apre subito, con «+ Aggiungi una voce»", (await page.getByRole("heading", { name: "Prova E2E", exact: true }).count()) >= 1 && (await page.getByRole("button", { name: "+ Aggiungi una voce in «Prova E2E»" }).count()) === 1);
 
-// «Riordina sezioni» sotto l'elenco: si apre già sull'ordine delle sezioni.
-await page.getByRole("button", { name: "Riordina sezioni" }).click();
+// «Ordina categorie» sotto l'elenco: si apre già sull'ordine delle sezioni.
+await page.getByRole("button", { name: "Ordina categorie" }).click();
 await sheet().waitFor();
 const reorderText = await sheet().innerText();
-check("«Riordina sezioni»: si apre sulle sezioni, con Prova E2E dopo Tartare", /Tartare[\s\S]*Prova E2E[\s\S]*Salatini[\s\S]*Bevande/.test(reorderText) && !/Nessuna voce/.test(reorderText), reorderText.replace(/\n/g, " | ").slice(0, 200));
+check("«Ordina categorie»: si apre sulle sezioni, con Prova E2E dopo Tartare", /Tartare[\s\S]*Prova E2E[\s\S]*Salatini[\s\S]*Bevande/.test(reorderText) && !/Nessuna voce/.test(reorderText), reorderText.replace(/\n/g, " | ").slice(0, 200));
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/riordina-sezioni.png` });
 await page.keyboard.press("Escape");
 await sheet().waitFor({ state: "detached" });
@@ -90,8 +90,8 @@ check("menù: la sezione mostra «Cucina» e la voce", /CUCINA\s*Prova E2E[\s\S]
 // --- Modifica categoria
 await page.reload({ waitUntil: "networkidle" });
 await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
-await page.getByRole("navigation", { name: "Sezioni" }).getByRole("button", { name: /Prova E2E/ }).click();
-await page.getByRole("button", { name: "Modifica sezione" }).click();
+await page.getByRole("navigation", { name: "Categorie" }).getByRole("button", { name: /Prova E2E/ }).click();
+await page.getByRole("button", { name: "Modifica categoria" }).click();
 await sheet().waitFor();
 await sheet().getByLabel("Nome").fill("Prova E2E bis");
 await sheet().getByLabel("Riga piccola sopra al titolo").fill("Stuzzichini");
@@ -104,8 +104,8 @@ await openMenu();
 check("menù: si vede il nome nuovo con «Stuzzichini»", /STUZZICHINI\s*Prova E2E bis/i.test(await phone.locator("#prova-e2e").innerText()));
 
 // --- Elimina e annulla
-await page.getByRole("button", { name: "Modifica sezione" }).click();
-await sheet().getByRole("button", { name: "Elimina sezione" }).click();
+await page.getByRole("button", { name: "Modifica categoria" }).click();
+await sheet().getByRole("button", { name: "Elimina categoria" }).click();
 check("elimina: chiede conferma dicendo quante voci spariscono", /Eliminare «Prova E2E bis» con la sua voce\?/.test(await sheet().innerText()));
 await sheet().getByRole("button", { name: "Sì, elimina" }).click();
 await sheet().waitFor({ state: "detached" });
@@ -118,7 +118,7 @@ await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
 await goTab(page, "Strumenti");
 await page.getByRole("list", { name: "Strumenti del menù" }).getByRole("button", { name: /^Storico/ }).click();
-const entry = sheet().locator("li", { hasText: "Sezione «Prova E2E bis»" }).first();
+const entry = sheet().locator("li", { hasText: "Categoria «Prova E2E bis»" }).first();
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/categoria-storico.png` });
 await entry.getByRole("button", { name: "Ripristina" }).click();
 await page.waitForTimeout(1500);
@@ -128,36 +128,65 @@ check("annulla: la categoria torna", DB(`select ("deletedAt" is null)::text from
 await openMenu();
 check("menù: tornata anche per i clienti", (await navLabels()).includes("prova e2e bis"));
 
-// --- Riquadro in vetrina: nascondi e nuovo
+// --- Riquadro in vetrina: dalla scheda Menù, interruttore e nuovo riquadro
+await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
+await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+const vet = page.getByRole("region", { name: "In vetrina" });
+check("vetrina: riquadro «In vetrina» nella scheda Menù, acceso", (await vet.count()) === 1 && (await vet.getByRole("switch", { name: "Sul menù: Caviale & Tartufo bianco" }).getAttribute("aria-checked")) === "true");
 await expandPanels(page);
-const info = page.getByRole("region", { name: "Informazioni del menù" });
-await info.getByRole("button", { name: /Modifica: Su prenotazione/ }).click();
-await sheet().waitFor();
-check("vetrina: nel foglio c'è l'anteprima", /Anteprima[\s\S]*Caviale & Tartufo bianco/.test(await sheet().innerText()));
-await sheet().getByLabel("Nascondi per ora (non compare sul menù)").check();
-await sheet().getByRole("button", { name: "Salva" }).click();
-await sheet().waitFor({ state: "detached" });
-await page.waitForTimeout(800);
+check("vetrina: non sta più tra le informazioni di «Orari e contatti»", !/Caviale/.test(await page.getByRole("region", { name: "Informazioni del menù" }).innerText()));
+await goTab(page, "Menù");
+await vet.getByRole("switch", { name: "Sul menù: Caviale & Tartufo bianco" }).click();
+await page.waitForTimeout(1500);
+check("interruttore: spento con un tocco", DB(`select hidden::text from "MenuBlock" where id='blk_vetrina_caviale'`) === "true" && /Spento/.test(await vet.innerText()));
 await openMenu();
-check("vetrina nascosta: sparisce dal menù", !/Caviale & Tartufo bianco/.test(await phone.locator("body").innerText()));
-await info.getByRole("button", { name: /Modifica: Su prenotazione/ }).click();
-await sheet().getByLabel("Nascondi per ora (non compare sul menù)").uncheck();
-await sheet().getByRole("button", { name: "Salva" }).click();
+check("vetrina spenta: sparisce dal menù", !/Caviale & Tartufo bianco/.test(await phone.locator("body").innerText()));
+await page.getByRole("status").filter({ hasText: "tolto dal menù" }).getByRole("button", { name: "Annulla" }).click();
+await page.waitForTimeout(1500);
+check("interruttore: «Annulla» la riaccende", DB(`select hidden::text from "MenuBlock" where id='blk_vetrina_caviale'`) === "false");
+await vet.getByRole("button", { name: /Modifica: Su prenotazione/ }).click();
+await sheet().waitFor();
+const vText = await sheet().innerText();
+check("vetrina: foglio dedicato, senza scelta del tipo, con anteprima", /Modifica riquadro in vetrina/.test(vText) && !/Che cos'è/.test(vText) && /Anteprima[\s\S]*Caviale & Tartufo bianco/.test(vText));
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/vetrina-foglio.png` });
+await page.keyboard.press("Escape");
 await sheet().waitFor({ state: "detached" });
-await info.getByRole("button", { name: "+ Aggiungi" }).click();
-await sheet().getByRole("radio", { name: "Riquadro in vetrina" }).click();
+await vet.getByRole("button", { name: "+ Nuovo riquadro" }).click();
+await sheet().waitFor();
 await sheet().getByLabel("Titoletto (facoltativo)").fill("Ogni venerdì");
-await sheet().getByRole("button", { name: "Aggiungi" }).click();
+await sheet().getByRole("button", { name: "Aggiungi al menù" }).click();
 await page.waitForTimeout(600);
 check("vetrina nuova: senza titolo non si salva", /Scrivi il titolo del riquadro/.test(await sheet().getByRole("alert").innerText().catch(() => "")));
 await sheet().getByLabel("Titolo", { exact: true }).fill("Ostriche & Bollicine");
-await sheet().getByRole("button", { name: "Aggiungi" }).click();
+await sheet().getByRole("button", { name: "Aggiungi al menù" }).click();
 await sheet().waitFor({ state: "detached" });
-await page.waitForTimeout(800);
+await page.waitForTimeout(1200);
 await openMenu();
 const body1 = await phone.locator("body").innerText();
-check("vetrina: di nuovo visibile, e la nuova sotto", /Caviale & Tartufo bianco[\s\S]*OGNI VENERDÌ\s*Ostriche & Bollicine/i.test(body1));
+check("vetrina: la nuova compare sotto quella del caviale", /Caviale & Tartufo bianco[\s\S]*OGNI VENERDÌ\s*Ostriche & Bollicine/i.test(body1));
+await vet.getByRole("button", { name: "Sposta su: Ostriche & Bollicine" }).click();
+await page.waitForTimeout(1500);
+await openMenu();
+check("vetrina: le frecce cambiano l'ordine", /Ostriche & Bollicine[\s\S]*Caviale & Tartufo bianco/i.test(await phone.locator("body").innerText()));
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/vetrina-gestione.png` });
+
+// --- «Vedi nel menù»: anteprima della sezione (vuota: lo dice), senza pagina di benvenuto
+await page.getByRole("navigation", { name: "Categorie" }).getByRole("button", { name: /^Salatini/ }).click();
+await page.getByRole("button", { name: "Vedi nel menù" }).click();
+await sheet().waitFor();
+check("«Vedi nel menù» su una sezione vuota: lo dice", /«Salatini» è vuota: i clienti non la vedono/.test(await sheet().innerText()));
+check("anteprima: senza la pagina di benvenuto", /festa=0/.test(await sheet().locator("iframe").getAttribute("src")));
+await page.keyboard.press("Escape");
+await sheet().waitFor({ state: "detached" });
+await page.getByRole("navigation", { name: "Categorie" }).getByRole("button", { name: /^Tartare/ }).click();
+await page.getByRole("button", { name: "Vedi nel menù" }).click();
+await sheet().waitFor();
+check("«Vedi nel menù»: apre il menù sulla sezione", (await sheet().locator("iframe").getAttribute("src")) === "/menu?festa=0#tartare");
+await page.waitForTimeout(2500);
+const frameTop = await sheet().frameLocator("iframe").locator("#tartare").evaluate((el) => el.getBoundingClientRect().top).catch(() => 9999);
+check("anteprima: la sezione è in vista", frameTop >= 0 && frameTop < 200, String(frameTop));
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/vedi-nel-menu.png` });
+await page.keyboard.press("Escape");
 
 // --- Allergeni: eventi finiti o nascosti non contano
 DB(`delete from "MenuItem" where id='e2e_cat_item'`);

@@ -108,7 +108,7 @@ await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 18
 const dialog = () => page.locator('[role="dialog"]');
 const section = async (name) => {
   await goTab(page, "Menù");
-  await page.locator('nav[aria-label="Sezioni"] button', { hasText: name }).click();
+  await page.locator('nav[aria-label="Categorie"] button', { hasText: name }).click();
 };
 const row = (name) => page.locator("li", { has: page.locator(`button[aria-label="Modifica ${name}"]`) });
 const settle = (ms = 1200) => page.waitForTimeout(ms);

@@ -119,16 +119,16 @@ await dlg.getByRole("button", { name: "Chiudi" }).click();
 await p.waitForTimeout(400);
 check("nuova informazione: nome cancellato, la X chiude senza chiedere", (await bar().count()) === 0 && (await dlg.count()) === 0);
 
-// «Testi della sezione»: «Elimina l'avviso» toglie solo l'avviso (con conferma) e si può annullare
+// «Testi della categoria»: «Elimina l'avviso» toglie solo l'avviso (con conferma) e si può annullare
 const tart = DB(`select id from "MenuSection" where slug='tartare'`);
 DB(`update "MenuSection" set note='Nota di prova', "addonTitle"='Novità di prova', addon='Testo di prova dell''avviso' where id='${tart}'`);
 await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 await goTab(p, "Menù");
-await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Tartare" }).click();
+await p.locator('nav[aria-label="Categorie"] button', { hasText: "Tartare" }).click();
 await p.getByRole("button", { name: /Modifica la nota sotto il titolo|Modifica i testi/ }).first().click();
 await dlg.waitFor();
 await dlg.getByRole("button", { name: "Elimina l'avviso" }).click();
-check("avviso: chiede conferma", (await dlg.getByText("Eliminare l'avviso a fondo sezione?").count()) === 1);
+check("avviso: chiede conferma", (await dlg.getByText("Eliminare l'avviso in fondo alla categoria?").count()) === 1);
 await dlg.getByRole("button", { name: "No, tienila" }).click();
 check("avviso: «No, tienila» non toglie niente", DB(`select addon from "MenuSection" where id='${tart}'`) === "Testo di prova dell'avviso");
 await dlg.getByRole("button", { name: "Elimina l'avviso" }).click();

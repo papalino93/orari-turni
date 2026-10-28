@@ -43,12 +43,12 @@ async function sheets(name, w, h, theme) {
     await p.screenshot({ path: `${OUT}/${name}_scheda-${what}.png` });
   };
   await goTab(p, "Menù");
-  await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+  await p.locator('nav[aria-label="Categorie"] button', { hasText: "Rossi" }).click();
   await p.getByRole("button", { name: /^Modifica Avignonesi/ }).first().click();
   await snap("vino");
   await p.keyboard.press("Escape"); await discardIfAsked(p);
   await goTab(p, "Menù");
-  await p.locator('nav[aria-label="Sezioni"] button', { hasText: "Taglieri" }).click();
+  await p.locator('nav[aria-label="Categorie"] button', { hasText: "Taglieri" }).click();
   await p.getByRole("button", { name: /^Modifica Tagliere Classico/ }).first().click();
   await snap("piatto");
   await p.keyboard.press("Escape"); await discardIfAsked(p);
