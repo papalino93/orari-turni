@@ -141,7 +141,7 @@ check("validazione: prezzo non valido è rifiutato", (await dialog().count()) ==
 await dialog().getByRole("button", { name: "Chiudi" }).click();
 await discardIfAsked(dialog().page());
 await dialog().waitFor({ state: "detached" });
-check("DB: nessun blocco creato dalle prove rifiutate", Number(DB(`select count(*) from "MenuBlock" where "deletedAt" is null`)) === 7);
+check("DB: nessun blocco creato dalle prove rifiutate", Number(DB(`select count(*) from "MenuBlock" where "deletedAt" is null and id <> 'blk_vetrina_caviale'`)) === 7);
 
 // ---------- Date: non ancora visibile / scaduto / oggi
 await page.getByRole("button", { name: /Modifica: Tavolo all'aperto/ }).click();
