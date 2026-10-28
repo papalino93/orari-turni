@@ -305,6 +305,10 @@ model MenuItem {
   // [{ "label": "0,4 l", "cents": 600 }]. Alternativo a priceCents.
   variants         Json?
   enomatic         Boolean   @default(false)
+  // Solo menù fisso, facoltativi: la voce si vede solo in questo periodo (giorni
+  // commerciali YYYY-MM-DD, es. l'olio nuovo dal 5 al 30 novembre). Vuoti = sempre.
+  availableFrom    String?
+  availableTo      String?
   // Solo vini: caratteristiche (BIO, BIODYNAMIC, VEGAN, NO_ADDED_SULFITES), vedi lib/wine-traits.ts.
   traits           String[]  @default([])
   // Riga di solo testo tra le voci (nome = testo; niente prezzo né allergeni).

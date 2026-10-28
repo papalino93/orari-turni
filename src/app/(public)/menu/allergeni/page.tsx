@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ALLERGENS, allergenState } from "@/lib/allergens";
-import { businessDayKey, isPromoMenuVisible } from "@/lib/menu-format";
+import { businessDayKey, isPromoMenuVisible, inPeriod } from "@/lib/menu-format";
 import { loadDaily, loadMenu, loadVisiblePromos } from "@/lib/menu";
 import { Ornament } from "../ornament";
 import { AllergenExplorer, type ExplorerSection } from "./allergen-explorer";
@@ -29,11 +29,11 @@ export default async function AllergeniPage() {
       id: s.id,
       title: s.title,
       groups: s.groups
-        .filter((g) => g.items.some((i) => !i.textOnly))
+        .filter((g) => g.items.some((i) => !i.textOnly && inPeriod(i, dayKey)))
         .map((g) => ({
           id: g.id,
           title: g.title,
-          items: g.items.filter((i) => !i.textOnly).map((i) => ({
+          items: g.items.filter((i) => !i.textOnly && inPeriod(i, dayKey)).map((i) => ({
             id: i.id,
             name: i.name,
             description: i.description,

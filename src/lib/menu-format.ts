@@ -19,6 +19,18 @@ export function isSoldOut(item: { soldOutDay: string | null }, dayKey: string): 
   return item.soldOutDay === dayKey;
 }
 
+// Voci a tempo (es. l'olio nuovo dal 5 al 30 novembre): fuori periodo non si vedono.
+// before = non ancora, after = finito.
+export function periodStatus(item: { availableFrom?: string | null; availableTo?: string | null }, dayKey: string): "in" | "before" | "after" {
+  if (item.availableFrom && dayKey < item.availableFrom) return "before";
+  if (item.availableTo && dayKey > item.availableTo) return "after";
+  return "in";
+}
+
+export function inPeriod(item: { availableFrom?: string | null; availableTo?: string | null }, dayKey: string): boolean {
+  return periodStatus(item, dayKey) === "in";
+}
+
 // "12" per i prezzi interi, "1,30" altrimenti; "—" quando il prezzo non c'è
 // (es. un vino non disponibile al calice).
 export function formatPrice(cents: number | null | undefined): string {
