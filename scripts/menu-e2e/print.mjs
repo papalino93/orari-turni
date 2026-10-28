@@ -20,8 +20,11 @@ await tool(page, "Menù da stampare");
 await page.waitForURL(/\/gestione-menu\/stampa/);
 await page.waitForLoadState("networkidle");
 const text = await page.locator("main").innerText();
-const sections = DB(`select string_agg(title, '|' order by "sortOrder") from "MenuSection" where "promoId" is null and "dailyOnly"=false`).split("|");
+// Le sezioni con almeno una voce (una sezione vuota, es. «Salatini» appena creata, non si stampa).
+const sections = DB(`select string_agg(title, '|' order by "sortOrder") from "MenuSection" s where "promoId" is null and "dailyOnly"=false and s."deletedAt" is null and exists (select 1 from "MenuGroup" g join "MenuItem" i on i."groupId"=g.id where g."sectionId"=s.id and g."deletedAt" is null and i."deletedAt" is null)`).split("|");
+const empty = DB(`select coalesce(string_agg(title, '|'), '') from "MenuSection" s where "promoId" is null and "dailyOnly"=false and s."deletedAt" is null and not exists (select 1 from "MenuGroup" g join "MenuItem" i on i."groupId"=g.id where g."sectionId"=s.id and g."deletedAt" is null and i."deletedAt" is null)`).split("|").filter(Boolean);
 check("tutte le sezioni del menù", sections.every((t) => text.toUpperCase().includes(t.toUpperCase())), sections.join(", "));
+check("le sezioni vuote non si stampano", empty.every((t) => !text.split("\n").some((l) => l.trim().toUpperCase() === t.toUpperCase())), empty.join(", "));
 check("data di aggiornamento", /Aggiornato al \d{1,2} \w+ \d{4}/.test(text));
 check("legenda degli allergeni", /1\s*Glutine/.test(text) && /14\s*Molluschi/.test(text));
 check("esaurito di oggi: tolto", !text.includes("Tagliere Classico"));
