@@ -593,6 +593,44 @@ export async function setSoldOut(idInput: string, soldOutInput: boolean): Promis
   });
 }
 
+// «I consigli della casa» dal riquadro «In vetrina»: consiglia o togli una voce del menù
+// fisso con un tocco (stesse regole della spunta nella scheda della voce).
+export async function setRecommended(idInput: string, recommendedInput: boolean): Promise<ActionResult<ChangeResult>> {
+  return runAction(async () => {
+    const editor = await requireMenuEditor();
+    const id = parseId(idInput, "voce");
+    const recommended = Boolean(recommendedInput);
+    const item = await prisma.menuItem.findFirst({
+      where: { id, deletedAt: null },
+      include: { group: { include: { section: true } } },
+    });
+    assert(item, "Voce non trovata.");
+    if (item.recommended === recommended) return { changeId: null };
+    if (recommended) {
+      const section = item.group.section;
+      assert(!item.textOnly && !item.group.deletedAt && !section.promoId && !section.dailyOnly && !section.deletedAt, "Si possono consigliare solo vini e piatti del menù fisso.");
+      const others = await prisma.menuItem.count({
+        where: { recommended: true, deletedAt: null, textOnly: false, group: { deletedAt: null, section: { promoId: null, dailyOnly: false, deletedAt: null } } },
+      });
+      assert(others < MAX_RECOMMENDED, `Hai già ${MAX_RECOMMENDED} consigli: togline uno prima, poi consiglia questa voce.`);
+    }
+    const changeId = await prisma.$transaction(async (tx) => {
+      await tx.menuItem.update({ where: { id }, data: { recommended } });
+      return logChange(tx, {
+        actorName: editor.name,
+        action: "UPDATE",
+        entity: "item",
+        entityId: id,
+        label: item.name,
+        before: { recommended: item.recommended },
+        after: { recommended },
+      });
+    });
+    revalidateMenu();
+    return { changeId };
+  });
+}
+
 // "Riattiva tutto" a inizio turno. Azzera anche eventuali segni vecchi (di
 // giorni passati, già senza effetto) per non lasciare dati morti in giro.
 export async function resetSoldOut(): Promise<ActionResult<ChangeResult>> {

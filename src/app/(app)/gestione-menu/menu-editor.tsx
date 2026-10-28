@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
-import { blockStatus, blockSummary, comparePromos, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
+import { blockStatus, blockSummary, comparePromos, dishLabel, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
 import { traitLabel } from "@/lib/wine-traits";
 import { isItalianWine } from "@/lib/wine-order";
 import { createGroup, deleteGroup, deleteItem, moveGroup, moveItem, renameGroup, resetSoldOut, saveTextRow, setGroupFormats, setSoldOut, undoChange } from "./actions";
@@ -533,6 +533,22 @@ export function MenuEditor({
 
           <VetrinaPanel
             blocks={blocks.filter((b) => b.kind === "HIGHLIGHT")}
+            consigli={sections.flatMap((s) =>
+              s.groups.flatMap((g) =>
+                g.items
+                  .filter((i) => !i.textOnly)
+                  .map((i) => ({
+                    id: i.id,
+                    groupId: g.id,
+                    name: s.kind === "FOOD" ? dishLabel(g.title, i.name) : i.name,
+                    detail: s.kind === "WINE" ? (i.wineName ?? i.denomination ?? i.sub ?? "") : "",
+                    category: s.label,
+                    kind: s.kind,
+                    recommended: i.recommended,
+                  })),
+              ),
+            )}
+            onOpenItem={(itemId, groupId) => setSheet({ type: "item", itemId, groupId })}
             today={today}
             run={run}
             onEdit={(id) => setSheet({ type: "block", id, vetrina: true })}
