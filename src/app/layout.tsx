@@ -4,7 +4,8 @@ import Script from "next/script";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem('theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}`;
+// Tema: quello scelto in Account; se non è mai stato scelto, quello del telefono/computer.
+const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){}`;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

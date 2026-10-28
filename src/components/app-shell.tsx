@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { InstallBanner, EmployeeInstallPrompt } from "@/components/install-banner";
+import { InstallBanner, EmployeeInstallPrompt, InstalledMark } from "@/components/install-banner";
 import { VERSION_LABEL } from "@/lib/version";
 import { BrandMark } from "@/components/brand-mark";
 
@@ -33,17 +33,23 @@ export function AppShell({
   userName,
   role,
   canEditMenu,
+  appInstalled,
+  showMail,
   children,
 }: {
   userName: string;
   role: "ADMIN" | "EMPLOYEE";
   canEditMenu: boolean;
+  // App già installata su un telefono di questa persona: niente inviti a installarla.
+  appInstalled: boolean;
+  // «Mail» si accende da Account (finché l'invio non è collegato resta nascosta).
+  showMail: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const isAdmin = role === "ADMIN";
   const navItems = isAdmin
-    ? ADMIN_NAV_ITEMS
+    ? ADMIN_NAV_ITEMS.filter((item) => showMail || item.href !== "/mail")
     : canEditMenu
       ? [...EMPLOYEE_NAV_ITEMS, EMPLOYEE_MENU_NAV_ITEM]
       : EMPLOYEE_NAV_ITEMS;
@@ -85,20 +91,20 @@ export function AppShell({
                   }`}
                 >
                   <Icon active={!!active} />
-                  {/* Sul tablet verticale le voci sono solo icone: con «Mail» le parole non starebbero più nella barra. */}
-                  <span className="md:max-lg:hidden">{item.label}</span>
+                  {/* Sul tablet verticale, con 5 voci («Mail» accesa) le parole non starebbero: solo icone. */}
+                  <span className={navItems.length > 4 ? "md:max-lg:hidden" : ""}>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-2 lg:gap-3">
+          <div className="flex shrink-0 items-center gap-1.5 lg:gap-3">
             {isAdmin && (
               <Link
                 href="/account"
                 aria-label="Account"
                 title="Account"
-                className={`flex h-9 w-9 items-center justify-center rounded-full border border-brand-band-border transition-colors hover:text-brand-band-foreground ${
+                className={`flex h-11 w-11 items-center justify-center rounded-full border border-brand-band-border transition-colors hover:text-brand-band-foreground ${
                   pathname?.startsWith("/account") ? "text-brand-band-foreground" : "text-brand-band-foreground-muted"
                 }`}
               >
@@ -111,7 +117,7 @@ export function AppShell({
             <button
               type="button"
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="rounded-full border border-brand-band-border px-3 py-1.5 text-xs font-medium text-brand-band-foreground-muted transition-colors hover:text-brand-band-foreground"
+              className="min-h-11 rounded-full border border-brand-band-border px-4 text-xs font-medium text-brand-band-foreground-muted transition-colors hover:text-brand-band-foreground"
             >
               Esci
             </button>
@@ -120,7 +126,8 @@ export function AppShell({
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-6 sm:px-6 md:pb-10">
-        {isAdmin ? <InstallBanner /> : <EmployeeInstallPrompt />}
+        <InstalledMark installed={appInstalled} />
+        {appInstalled ? null : isAdmin ? <InstallBanner /> : <EmployeeInstallPrompt />}
         {children}
         <p className="mt-10 text-center text-[11px] text-foreground-muted/70" aria-label="Versione dell'app">
           {VERSION_LABEL}

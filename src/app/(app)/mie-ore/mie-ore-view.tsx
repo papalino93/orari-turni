@@ -22,7 +22,10 @@ export function MieOreView({
   lastMonthReopenNote,
   wasHiredByReviewMonth,
   preview = false,
+  notConfirmed = false,
 }: {
+  /** Settimana futura che il titolare non ha ancora confermato: i turni non si mostrano. */
+  notConfirmed?: boolean;
   employee: { id: string; name: string; jobTitle: string | null; photoVersion: string | null };
   weekStartKey: string;
   dateKeys: string[];
@@ -171,7 +174,16 @@ export function MieOreView({
           : (days.some((d) => isToday(d)) ? "Questa settimana include oggi. " : "") + "Sola lettura — è l'orario compilato dal titolare."}
       </p>
 
-      <EmployeeWeekCard employee={{ ...employee, role: "EMPLOYEE", sortOrder: 0 }} days={days} schedule={schedule} />
+      {notConfirmed ? (
+        <div className="rounded-2xl border border-dashed border-border bg-surface px-5 py-8 text-center">
+          <p className="text-sm font-medium text-foreground">Orari non ancora confermati</p>
+          <p className="mt-1 text-sm text-foreground-muted">
+            Il titolare sta preparando i turni di questa settimana. Li vedrai qui appena li conferma.
+          </p>
+        </div>
+      ) : (
+        <EmployeeWeekCard employee={{ ...employee, role: "EMPLOYEE", sortOrder: 0 }} days={days} schedule={schedule} />
+      )}
 
       {/* Vedere un orario sbagliato qui e non sapere dove correggerlo era il
           punto morto del percorso: la correzione vive in una sezione con un

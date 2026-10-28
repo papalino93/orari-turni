@@ -18,7 +18,10 @@ export function ExportButton({
   leaveEntries,
   closures,
   employeeFilter,
+  needsConfirm = false,
 }: {
+  // Settimana futura non ancora confermata: inviarla vuol dire confermarla.
+  needsConfirm?: boolean;
   weekStartKey: string;
   employees: Employee[];
   blocks: Block[];
@@ -48,16 +51,17 @@ export function ExportButton({
   // Esportare la settimana È l'atto che conta come "condivisa": non un
   // interruttore separato da ricordarsi di premere. Se fallisce, il
   // download è comunque riuscito — non blocchiamo l'utente per questo.
+  // Inviare gli orari di una settimana non ancora confermata la conferma: da lì i
+  // dipendenti la vedono in «Le mie ore» (la finestra lo dice prima, i pulsanti
+  // dicono «Conferma e…»). Il passato e la settimana in corso non vanno confermati.
   async function markShared() {
-    // Esportare il foglio di un solo dipendente non è "aver comunicato l'orario
-    // allo staff": marcare la settimana come condivisa farebbe sparire il
-    // promemoria anche per tutti gli altri, che non hanno ricevuto niente.
-    if (employeeFilter) return;
+    if (!needsConfirm) return;
     try {
-      await setWeekPublished(weekStartKey, true);
+      const result = await setWeekPublished(weekStartKey, true);
+      if (result.ok) toast.showSuccess("Orari confermati: i dipendenti li vedono in «Le mie ore»");
       router.refresh();
     } catch {
-      // silenzioso, non critico
+      toast.showError("Orari inviati, ma la conferma non è riuscita: premi «Conferma orari della settimana».");
     }
   }
 
@@ -106,7 +110,7 @@ export function ExportButton({
         // non comunicava di essere IL modo per far avere l'orario allo
         // staff. Stile pieno + etichetta esplicita + icona di invio: si
         // deve capire a colpo d'occhio, non dedurlo.
-        className="flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
+        className="flex min-h-11 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
       >
         <SendIcon />
         Invia orari
@@ -133,10 +137,17 @@ export function ExportButton({
             >
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-sm font-medium text-foreground">Anteprima orario</p>
-                <button type="button" onClick={() => setOpen(false)} className="text-xs text-foreground-muted hover:text-foreground">
+                <button type="button" onClick={() => setOpen(false)} className="min-h-11 rounded-full px-3 text-sm text-foreground-muted hover:text-foreground">
                   Chiudi
                 </button>
               </div>
+
+              {needsConfirm && (
+                <p className="mb-3 rounded-xl border border-gold/40 bg-gold/10 px-3 py-2.5 text-sm text-foreground">
+                  Gli orari di questa settimana <b>non sono ancora confermati</b>. Inviandoli li confermi: i dipendenti li
+                  vedranno anche in «Le mie ore».
+                </p>
+              )}
 
               <div role="group" aria-label="Cosa inviare" className="mb-3 flex gap-1 rounded-full bg-surface-2 p-1 text-sm">
                 {[
@@ -148,7 +159,7 @@ export function ExportButton({
                     type="button"
                     aria-pressed={afternoonOnly === o.v}
                     onClick={() => chooseAfternoon(o.v)}
-                    className={`min-h-9 flex-1 rounded-full px-3 font-medium ${afternoonOnly === o.v ? "bg-accent text-accent-foreground" : "text-foreground-muted hover:text-foreground"}`}
+                    className={`min-h-11 flex-1 rounded-full px-3 font-medium ${afternoonOnly === o.v ? "bg-accent text-accent-foreground" : "text-foreground-muted hover:text-foreground"}`}
                   >
                     {o.label}
                   </button>
@@ -177,7 +188,7 @@ export function ExportButton({
               </div>
 
               <div className="mt-4">
-                <ExportChoiceButtons downloading={downloading} onImage={downloadImage} onPdf={downloadPdf} />
+                <ExportChoiceButtons downloading={downloading} onImage={downloadImage} onPdf={downloadPdf} confirmFirst={needsConfirm} />
               </div>
             </div>
           </div>

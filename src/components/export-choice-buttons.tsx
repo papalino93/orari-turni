@@ -11,9 +11,12 @@ export function ExportChoiceButtons({
   disabled,
   onImage,
   onPdf,
+  confirmFirst = false,
 }: {
   downloading: "image" | "pdf" | null;
   disabled?: boolean;
+  // Orari non ancora confermati: inviarli li conferma («Conferma e…»).
+  confirmFirst?: boolean;
   onImage: () => void;
   onPdf: () => void;
 }) {
@@ -28,7 +31,7 @@ export function ExportChoiceButtons({
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-foreground">
           <ImageIcon />
         </span>
-        <span className="text-sm font-semibold text-foreground">{downloading === "image" ? "Preparazione…" : "Immagine"}</span>
+        <span className="text-sm font-semibold text-foreground">{downloading === "image" ? "Preparazione…" : confirmFirst ? "Conferma e invia immagine" : "Immagine"}</span>
         <span className="text-xs text-foreground-muted">Condividi su WhatsApp</span>
       </button>
       <button
@@ -40,7 +43,7 @@ export function ExportChoiceButtons({
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/15">
           <DocumentIcon />
         </span>
-        <span className="text-sm font-semibold">{downloading === "pdf" ? "Preparazione…" : "PDF"}</span>
+        <span className="text-sm font-semibold">{downloading === "pdf" ? "Preparazione…" : confirmFirst ? "Conferma e scarica PDF" : "PDF"}</span>
         <span className="text-xs opacity-80">Formato A4</span>
       </button>
     </div>

@@ -10,6 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -27,7 +28,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (res?.error) {
-      setError("Username o password non corretti.");
+      setError("Nome utente o password non corretti.");
       return;
     }
     router.push("/orari");
@@ -73,7 +74,7 @@ export default function LoginPage() {
               tema chiaro impostato. */}
           <div className="space-y-1.5">
             <label htmlFor="username" className="text-sm font-medium text-[#a39d9a]">
-              Username
+              Nome utente
             </label>
             <input
               id="username"
@@ -89,15 +90,30 @@ export default function LoginPage() {
             <label htmlFor="password" className="text-sm font-medium text-[#a39d9a]">
               Password
             </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full rounded-lg border border-[#2f2a2f] bg-[#221f24] px-3 py-2.5 text-[#f3efe9] outline-none transition-colors focus:border-accent"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full rounded-lg border border-[#2f2a2f] bg-[#221f24] py-2.5 pl-3 pr-12 text-[#f3efe9] outline-none transition-colors focus:border-accent"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Nascondi la password" : "Mostra la password"}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[#a39d9a] hover:text-[#f3efe9]"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+                  <circle cx="12" cy="12" r="3" />
+                  {showPassword && <path d="M4 4l16 16" />}
+                </svg>
+              </button>
+            </div>
           </div>
 
           {error && <p className="rounded-lg bg-[#3a1c1a] px-3 py-2 text-sm text-[#e2574c]">{error}</p>}
@@ -105,10 +121,11 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-brand-band px-3 py-2.5 font-medium text-brand-band-foreground transition-colors hover:bg-brand-band-solid-hover disabled:opacity-60"
+            className="min-h-11 w-full rounded-lg bg-accent px-3 py-2.5 font-medium text-accent-foreground transition-colors hover:bg-accent-hover disabled:opacity-60"
           >
             {loading ? "Accesso in corso…" : "Accedi"}
           </button>
+          <p className="text-center text-xs text-[#a39d9a]">Password dimenticata? Chiedi al titolare.</p>
         </form>
         <p className="mt-4 text-center text-[11px] text-brand-band-foreground-muted" aria-label="Versione dell'app">
           {VERSION_LABEL}

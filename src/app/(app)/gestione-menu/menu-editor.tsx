@@ -1300,7 +1300,7 @@ function GroupCard({
         <div className="border-b border-border bg-surface-2/50 px-3 py-3">
           <p className="text-xs font-medium text-foreground">Formati del gruppo</p>
           <p className="mt-0.5 text-[11px] text-foreground-muted">
-            Da 2 a 4 colonne di prezzi uguali per tutte le voci (es. 0,2 l · 0,4 l · 1 l). In ogni voce scrivi solo i prezzi; casella vuota = quel
+            Da 2 a 4 colonne di prezzi uguali per tutte le voci (es. 0,2 l · 0,4 l · 1 l). In ogni voce scrivi solo i prezzi; se una casella è vuota, quel
             formato non c&apos;è.
           </p>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -1425,7 +1425,9 @@ function GroupCard({
                         : "border-border text-foreground-muted hover:border-danger hover:text-danger"
                     }`}
                   >
+                    {/* Da esaurita il pulsante dice anche cosa fa il tocco. */}
                     Esaurito
+                    {sold && <span className="block text-[10px] font-medium leading-tight opacity-90">tocca per rimettere</span>}
                   </button>
               </li>
             );

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { daysInMonth, toDateKey, todayKey } from "@/lib/week";
+import { employeeVisibleDates } from "@/lib/week-visibility";
 import { RevisioneView } from "./revisione-view";
 
 export default async function RevisionePage({
@@ -52,12 +53,16 @@ export default async function RevisionePage({
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
   const monthEnd = new Date(Date.UTC(year, month, 0));
 
-  const [blocks, leaveEntries, closures, submission] = await Promise.all([
+  const [rawBlocks, rawLeaveEntries, closures, submission] = await Promise.all([
     prisma.shiftBlock.findMany({ where: { employeeId: employee.id, date: { gte: monthStart, lte: monthEnd } } }),
     prisma.leaveEntry.findMany({ where: { employeeId: employee.id, date: { gte: monthStart, lte: monthEnd } } }),
     prisma.closureDay.findMany({ where: { date: { gte: monthStart, lte: monthEnd } } }),
     prisma.monthlySubmission.findUnique({ where: { employeeId_year_month: { employeeId: employee.id, year, month } } }),
   ]);
+  // Come in «Le mie ore»: le settimane dopo quella in corso si vedono solo se confermate.
+  const visible = await employeeVisibleDates();
+  const blocks = rawBlocks.filter((b) => visible(b.date));
+  const leaveEntries = rawLeaveEntries.filter((l) => visible(l.date));
 
   return (
     <RevisioneView

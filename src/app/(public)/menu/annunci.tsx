@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { formatPromoDates } from "@/lib/menu-format";
 
 type Notice = { id: string; slug: string; title: string; label: string | null; body: string | null; startDate: string; endDate: string };
 
@@ -22,7 +21,7 @@ export function Annunci({ notices }: { notices: Notice[] }) {
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="text-pretty text-[16.5px] font-medium leading-snug text-[#1F2621]">{n.title}</span>
             <span className="menu-sans text-[11px] uppercase tracking-[0.14em] text-[#5B605A]">
-              {n.label || "Avviso"} · {formatPromoDates(n.startDate, n.endDate)}
+              {n.label || "Avviso"}
             </span>
           </span>
           {n.body && (

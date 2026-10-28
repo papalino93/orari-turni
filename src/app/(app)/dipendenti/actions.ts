@@ -1,5 +1,6 @@
 "use server";
 
+import { employeeVisibleDates } from "@/lib/week-visibility";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser, requireSelfOrAdmin } from "@/lib/guard";
@@ -404,7 +405,7 @@ export async function getEmployeeScheduleRange(
     // Il titolare può esportare l'orario di chiunque; un dipendente solo il
     // proprio — usata sia dalla scheda dipendente in Dipendenti sia da
     // "Le mie ore" (Area Dipendenti).
-    await requireSelfOrAdmin(employeeId);
+    const auth = await requireSelfOrAdmin(employeeId);
     const fromKey = parseDateKey(fromKeyInput, "data di inizio");
     const toKey = parseDateKey(toKeyInput, "data di fine");
     assert(fromKey <= toKey, "La data di inizio deve precedere quella di fine.");
@@ -418,6 +419,8 @@ export async function getEmployeeScheduleRange(
       prisma.leaveEntry.findMany({ where: { employeeId, date: { gte: from, lte: to } } }),
       prisma.closureDay.findMany({ where: { date: { gte: from, lte: to } } }),
     ]);
+    // Un dipendente non esporta le settimane future che il titolare non ha ancora confermato.
+    const visible = auth.role === "EMPLOYEE" ? await employeeVisibleDates() : () => true;
 
     return {
       employee: employee
@@ -428,12 +431,12 @@ export async function getEmployeeScheduleRange(
             photoVersion: employee.photoUpdatedAt ? String(employee.photoUpdatedAt.getTime()) : null,
           }
         : null,
-      blocks: blocks.map((b) => ({
+      blocks: blocks.filter((b) => visible(b.date)).map((b) => ({
         dateKey: toDateKey(b.date),
         startTime: b.startTime,
         endTime: b.endTime,
       })),
-      leaveEntries: leaveEntries.map((l) => ({
+      leaveEntries: leaveEntries.filter((l) => visible(l.date)).map((l) => ({
         dateKey: toDateKey(l.date),
         type: l.type,
         quantity: l.quantity,

@@ -114,7 +114,9 @@ export default async function OrariPage({
       }))}
       closures={closures.map((c) => ({ dateKey: toDateKey(c.date), reason: c.reason }))}
       weekPlan={
-        weekPlan ? { publishedAt: weekPlan.publishedAt ? weekPlan.publishedAt.toISOString() : null } : { publishedAt: null }
+        weekPlan
+          ? { publishedAt: weekPlan.publishedAt ? weekPlan.publishedAt.toISOString() : null, changedAfterConfirm: Boolean(weekPlan.changedAfterConfirmAt) }
+          : { publishedAt: null, changedAfterConfirm: false }
       }
     />
   );

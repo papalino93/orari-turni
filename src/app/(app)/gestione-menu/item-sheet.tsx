@@ -340,7 +340,7 @@ export function ItemSheet({
       <p className="text-sm text-foreground">
         Solo in un periodo <span className="text-foreground-muted">(facoltativo)</span>
         <span className="block text-[11px] text-foreground-muted">
-          Per una cosa di stagione (es. l&apos;olio nuovo): sul menù compare il primo giorno e sparisce da sola dopo l&apos;ultimo. Vuoto = sempre.
+          Per una cosa di stagione (es. l&apos;olio nuovo): sul menù compare il primo giorno e sparisce da sola dopo l&apos;ultimo. Se lasci vuoto, la voce c&apos;è sempre.
         </span>
       </p>
       <div className="grid grid-cols-2 gap-3">
@@ -415,7 +415,7 @@ export function ItemSheet({
               <Field label={italian ? "Regione" : "Regione (facoltativa)"}>
                 <input value={region} onChange={(e) => setRegion(e.target.value)} maxLength={60} required={italian} list="wine-regions" autoComplete="off" className={inputClass} placeholder="es. Toscana" />
               </Field>
-              <Field label="Nazione (vuota = Italia)">
+              <Field label="Nazione" hint="Se la lasci vuota vale Italia.">
                 <input value={country} onChange={(e) => setCountry(e.target.value)} maxLength={60} list="wine-countries" autoComplete="off" className={inputClass} placeholder="es. Italia" />
               </Field>
             </div>
@@ -433,7 +433,7 @@ export function ItemSheet({
 
             <Block title="Prezzi">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Calice (€)" hint="Vuoto = non al calice">
+              <Field label="Calice (€)" hint="Lascialo vuoto se non lo servi al calice.">
                 <input
                   value={priceGlass}
                   onChange={(e) => setPriceGlass(e.target.value)}
@@ -588,7 +588,7 @@ export function ItemSheet({
                     ))}
                   </div>
                   <p className="text-[11px] text-foreground-muted">
-                    Formati uguali per tutto il gruppo «{targetGroupData?.title}». Casella vuota = formato non disponibile. Per cambiarli: «Formati» sul
+                    Formati uguali per tutto il gruppo «{targetGroupData?.title}». Se una casella è vuota, quel formato non c&apos;è. Per cambiarli: «Formati» sul
                     gruppo.
                   </p>
                 </>

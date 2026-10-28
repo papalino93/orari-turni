@@ -126,8 +126,8 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
       </nav>
       <p className="mb-3 text-xs text-foreground-muted">
         Scrivi il nuovo prezzo (es. 7 oppure 7,50): le caselle cambiate si colorano. Puoi passare da una categoria all&apos;altra e salvare tutto alla fine.
-        {section?.kind === "WINE" && " Calice vuoto = non si vende al calice."}
-        {section?.groups.some((g) => g.formats) && " Nei gruppi con i formati (es. birre), casella vuota = formato non disponibile."}
+        {section?.kind === "WINE" && " Se il calice è vuoto, non si vende al calice."}
+        {section?.groups.some((g) => g.formats) && " Nei gruppi con i formati (es. birre), se una casella è vuota quel formato non c'è."}
       </p>
 
       {section && (

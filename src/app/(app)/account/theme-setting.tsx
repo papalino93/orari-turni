@@ -15,7 +15,7 @@ export function ThemeSetting() {
     <div className="flex items-center justify-between gap-4 px-5 py-4">
       <div>
         <p className="text-sm font-medium text-foreground">Aspetto</p>
-        <p className="text-xs text-foreground-muted">Scuro di default, puoi passare a chiaro quando vuoi.</p>
+        <p className="text-xs text-foreground-muted">All&apos;inizio segue il telefono o il computer; qui puoi scegliere tu.</p>
       </div>
       {mounted && (
         <div className="flex gap-1 rounded-full border border-border bg-surface-2 p-1">

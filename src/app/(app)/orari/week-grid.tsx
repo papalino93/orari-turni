@@ -551,7 +551,7 @@ export function EmployeeWeekCard({
                 {dayLabel(d)}
                 {isToday(d) && <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-label="Oggi" />}
               </span>
-              <DayCellContent entry={entry} align="right" />
+              <DayCellContent entry={entry} align="right" readOnly={!onEdit} forEmployee={!onEdit} />
             </button>
           );
         })}

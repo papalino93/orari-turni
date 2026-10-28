@@ -31,9 +31,15 @@ const KIND_STYLE: Record<DayEntry["kind"], string> = {
 export function DayCellContent({
   entry,
   align = "left",
+  readOnly = false,
+  forEmployee = false,
 }: {
   entry: DayEntry;
   align?: "left" | "right";
+  // Sola lettura: un giorno vuoto non mostra il «+» (non si può aggiungere nulla).
+  readOnly?: boolean;
+  // Vista del dipendente: «da verificare» è un lavoro del titolare, non si mostra.
+  forEmployee?: boolean;
 }) {
   if (entry.kind === "CHIUSO") {
     return (
@@ -44,6 +50,7 @@ export function DayCellContent({
   }
 
   if (entry.kind === "NON_PIANIFICATO") {
+    if (readOnly) return <span className="text-xs text-foreground-muted/70">Nessun turno</span>;
     return (
       <span className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-border text-xs text-foreground-muted/70">
         +
@@ -61,7 +68,7 @@ export function DayCellContent({
 
   return (
     <div className={`flex flex-col gap-0.5 ${align === "right" ? "items-end" : "items-start"}`}>
-      {entry.needsVerification && (
+      {entry.needsVerification && !forEmployee && (
         <span className="flex items-center gap-1 text-[10px] font-medium text-gold">
           <span className="h-1.5 w-1.5 rounded-full bg-gold" /> da verificare
         </span>

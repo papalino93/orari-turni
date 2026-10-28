@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast, runWithToast } from "@/components/toast";
 import { regenerateEmployeePassword, setEmployeePassword, updateEmployeeUsername } from "./actions";
+import { ConfirmSheet } from "@/components/confirm-sheet";
 
 // La password resta leggibile (non un hash) apposta: il titolare deve
 // poterla rileggere per comunicarla a voce, non solo resettarla alla cieca
@@ -59,9 +60,12 @@ export function EmployeeCredentials({
     }
   }
 
+  // Una password nuova toglie l'accesso con quella vecchia: prima si chiede conferma.
+  const [askRegenerate, setAskRegenerate] = useState(false);
   function regenerate() {
     startTransition(async () => {
       const result = await runWithToast(toast, () => regenerateEmployeePassword(employeeId), "Nuova password generata");
+      setAskRegenerate(false);
       if (result) {
         setPasswordValue(result.password);
         setReveal(true);
@@ -145,19 +149,31 @@ export function EmployeeCredentials({
             onClick={() => setReveal((r) => !r)}
             aria-label={reveal ? "Nascondi password" : "Mostra password"}
             title={reveal ? "Nascondi password" : "Mostra password"}
-            className="p-1.5 text-foreground-muted hover:text-foreground"
+            className="flex h-11 w-11 items-center justify-center text-foreground-muted hover:text-foreground"
           >
             {reveal ? <EyeOffIcon /> : <EyeIcon />}
           </button>
           <button
             type="button"
             disabled={pending}
-            onClick={regenerate}
-            className="px-1 py-1.5 text-foreground-muted underline decoration-dotted hover:text-foreground disabled:opacity-50"
+            onClick={() => setAskRegenerate(true)}
+            className="ml-2 min-h-11 rounded-full border border-border px-3 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
           >
-            Rigenera
+            Nuova password
           </button>
         </div>
+        {askRegenerate && (
+          <ConfirmSheet
+            title="Creare una nuova password?"
+            confirmLabel="Sì, nuova password"
+            busyLabel="Creo…"
+            busy={pending}
+            onConfirm={regenerate}
+            onCancel={() => setAskRegenerate(false)}
+          >
+            <p>Con la password attuale non si potrà più entrare: dovrai dare quella nuova al dipendente.</p>
+          </ConfirmSheet>
+        )}
       </div>
     </div>
   );
