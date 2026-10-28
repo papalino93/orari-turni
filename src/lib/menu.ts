@@ -21,7 +21,7 @@ export async function loadMenu() {
   return prisma.menuSection.findMany({
     // Le sezioni collegate a un evento (promoId) non sono sezioni fisse del menù:
     // stanno nella pagina dell'evento (vedi loadVisiblePromos / loadPromoBySlug).
-    where: { promoId: null, dailyOnly: false },
+    where: { promoId: null, dailyOnly: false, deletedAt: null },
     orderBy: { sortOrder: "asc" },
     include: {
       groups: {
@@ -44,6 +44,7 @@ export async function loadBlocks(): Promise<MenuBlockView[]> {
     id: b.id,
     kind: b.kind,
     label: b.label,
+    title: b.title,
     text: b.text,
     priceCents: b.priceCents,
     placement: b.placement,

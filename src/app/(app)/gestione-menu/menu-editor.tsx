@@ -9,6 +9,7 @@ import { isItalianWine } from "@/lib/wine-order";
 import { createGroup, deleteGroup, deleteItem, moveGroup, moveItem, renameGroup, resetSoldOut, saveTextRow, setGroupFormats, setSoldOut, undoChange } from "./actions";
 import type { ChangeResult } from "./actions";
 import { BlockSheet, BlocksPanel, type SectionChoice } from "./block-ui";
+import { CategorySheet } from "./category-ui";
 import { DailyPanel, type DailyData } from "./daily-ui";
 import { ImportSheet } from "./import-sheet";
 import { ItemSheet } from "./item-sheet";
@@ -60,6 +61,7 @@ export type EditorSection = {
   slug: string;
   label: string;
   title: string;
+  kicker: string;
   promoId: string | null;
   dailyOnly: boolean;
   kind: "WINE" | "FOOD";
@@ -118,6 +120,7 @@ type SheetState =
   | { type: "item"; itemId: string | null; groupId: string; queue?: QueueItem[] }
   | { type: "import"; groupId: string }
   | { type: "texts" }
+  | { type: "category"; id: string | null }
   | { type: "block"; id: string | null; sectionId?: string }
   | { type: "venue"; kind: VenueSheetKind }
   | { type: "history" }
@@ -135,7 +138,7 @@ type Tab = "menu" | "eventi" | "locale" | "strumenti";
 const TABS: { id: Tab; label: string; hint: string }[] = [
   { id: "menu", label: "Menù", hint: "Sezioni, voci, esauriti, Oggi fuori menù" },
   { id: "eventi", label: "Eventi e annunci", hint: "Locandine, date, menù delle serate" },
-  { id: "locale", label: "Orari e contatti", hint: "Copertina, orari, contatti, coperto e avvisi" },
+  { id: "locale", label: "Orari e contatti", hint: "Copertina, orari, contatti, coperto, avvisi e vetrine" },
   { id: "strumenti", label: "Strumenti", hint: "Prezzi, ordine, storico, stampa, QR, guida" },
 ];
 
@@ -218,9 +221,11 @@ export function MenuEditor({
   const sectionBlocks = section ? blocks.filter((b) => b.placement === "SECTIONS" && b.sectionIds.includes(section.id)) : [];
   // Piatti con allergeni "da compilare": sul menù dei clienti risultano "da
   // verificare con il personale". Gli eventi già conclusi non contano.
-  const liveEventSections = promos.flatMap((p) =>
-    p.section && p.hasMenu && effectiveStatus(p, today) !== "past" && !p.allergenNotice && p.menuMode !== "FILE" ? [p.section] : [],
-  );
+  // Allergeni da chiedere solo per gli eventi ancora da fare e visibili: un evento finito o
+  // nascosto (es. l'Oktoberfest passata) non chiede più nulla.
+  const asksAllergens = (p: EditorPromo) =>
+    Boolean(p.section) && p.hasMenu && !p.hidden && effectiveStatus(p, today) !== "past" && !p.allergenNotice && p.menuMode !== "FILE";
+  const liveEventSections = promos.flatMap((p) => (asksAllergens(p) && p.section ? [p.section] : []));
   const missingAllergens = [...daily.sections, ...sections, ...liveEventSections].reduce(
     (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed && !i.textOnly).length, 0) : 0),
     0,
@@ -232,7 +237,7 @@ export function MenuEditor({
     ...daily.sections.map((s) => ({ key: null, section: s })),
     ...sections.map((s) => ({ key: s.slug, section: s })),
     ...promos.flatMap((p) =>
-      p.section && effectiveStatus(p, today) !== "past" && !p.allergenNotice && p.menuMode !== "FILE" ? [{ key: `promo:${p.id}`, section: p.section }] : [],
+      asksAllergens(p) && p.section ? [{ key: `promo:${p.id}`, section: p.section }] : [],
     ),
   ].flatMap((target) =>
     target.section.kind === "FOOD"
@@ -622,6 +627,13 @@ export function MenuEditor({
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => setSheet({ type: "category", id: null })}
+              className="flex min-h-10 items-center rounded-full border border-dashed border-border px-3.5 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground lg:rounded-xl"
+            >
+              + Nuova sezione
+            </button>
           </nav>
           )}
 
@@ -677,7 +689,18 @@ export function MenuEditor({
           {section && !(activePromo && !activePromo.hasMenu) && (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
+                <div className="flex min-w-0 items-center gap-1">
+                  <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
+                  {!activePromo && (
+                    <button
+                      type="button"
+                      onClick={() => setSheet({ type: "category", id: section.id })}
+                      className="min-h-9 rounded-full px-2.5 text-xs font-medium text-foreground-muted hover:bg-surface-2 hover:text-foreground"
+                    >
+                      Modifica sezione
+                    </button>
+                  )}
+                </div>
                 {/* «+ Aggiungi» anche qui, vicino alla sezione: la voce va in questa sezione. */}
                 {!activePromo && section.groups.length > 0 && (
                   <button
@@ -858,6 +881,15 @@ export function MenuEditor({
           onClose={() => setSheet(null)}
         />
       )}
+      {sheet?.type === "category" && (sheet.id === null || sections.some((s) => s.id === sheet.id)) && (
+        <CategorySheet
+          section={sheet.id ? (sections.find((s) => s.id === sheet.id) ?? null) : null}
+          sections={sections}
+          run={run}
+          onClose={() => setSheet(null)}
+          onCreated={(slug) => select(slug)}
+        />
+      )}
       {sheet?.type === "texts" && section && <SectionTextsSheet section={section} run={run} onClose={() => setSheet(null)} />}
       {sheet?.type === "history" && <HistorySheet history={history} onUndo={undo} onClose={() => setSheet(null)} />}
       {sheet?.type === "add" && (
@@ -911,8 +943,8 @@ function SectionTexts({
     const live = blockStatus(b, today) === "live";
     top.push({
       key: b.id,
-      tag: b.kind === "PRICE" ? "Prezzo" : b.kind === "NOTICE" ? "Avviso" : "Testo",
-      title: b.kind === "PRICE" || b.priceCents !== null ? priceLine(b) : b.label,
+      tag: b.kind === "PRICE" ? "Prezzo" : b.kind === "NOTICE" ? "Avviso" : b.kind === "HIGHLIGHT" ? "Vetrina" : "Testo",
+      title: b.kind === "HIGHLIGHT" ? [b.label, b.title].filter(Boolean).join(" · ") : b.kind === "PRICE" || b.priceCents !== null ? priceLine(b) : b.label,
       text: b.text,
       note: [!live ? "non visibile oggi" : null, others.length ? `anche in ${others.join(", ")}` : null].filter(Boolean).join(" · ") || undefined,
       dim: !live,

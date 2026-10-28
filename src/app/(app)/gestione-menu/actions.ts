@@ -83,9 +83,9 @@ const ITEM_KEYS = [
 const RESTORABLE: Record<string, readonly string[]> = {
   item: [...ITEM_KEYS, "soldOutDay", "deletedAt"],
   group: ["title", "columns", "formats", "deletedAt"],
-  section: ["note", "addonTitle", "addon"],
+  section: ["note", "addonTitle", "addon", "title", "label", "kicker", "deletedAt"],
   promo: ["title", "label", "body", "showFrom", "startDate", "endDate", "startTime", "endTime", "hidden", "hasMenu", "deletedAt"],
-  block: ["kind", "label", "text", "priceCents", "placement", "sectionIds", "startDate", "endDate", "hidden", "deletedAt"],
+  block: ["kind", "label", "title", "text", "priceCents", "placement", "sectionIds", "startDate", "endDate", "hidden", "deletedAt"],
 };
 
 function parseAllergens(value: unknown): string[] {
@@ -677,7 +677,7 @@ export async function reorder(
     let current: { id: string; sortOrder: number }[];
     let label: string;
     if (level === "section") {
-      current = await prisma.menuSection.findMany({ where: { promoId: null, dailyOnly: false }, select: { id: true, sortOrder: true } });
+      current = await prisma.menuSection.findMany({ where: { promoId: null, dailyOnly: false, deletedAt: null }, select: { id: true, sortOrder: true } });
       label = "Ordine delle sezioni";
     } else if (level === "group") {
       const sectionId = parseId(parentIdInput, "sezione");
@@ -842,7 +842,7 @@ export async function createGroup(sectionIdInput: string, titleInput: string): P
     const editor = await requireMenuEditor();
     const sectionId = parseId(sectionIdInput, "sezione");
     const title = parseText(titleInput, "nome del gruppo", { max: 80, required: true });
-    const section = await prisma.menuSection.findUnique({ where: { id: sectionId } });
+    const section = await prisma.menuSection.findFirst({ where: { id: sectionId, deletedAt: null } });
     assert(section, "Sezione non trovata.");
 
     const last = await prisma.menuGroup.findFirst({

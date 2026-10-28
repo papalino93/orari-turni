@@ -32,10 +32,12 @@ export const DB = (sql) =>
     .toString()
     .trim();
 
-// Riporta i blocchi informativi allo stato della migrazione: solo «Chiusura cucina»
-// (testo) e «Coperto € 1,00» (voce con prezzo), sotto Taglieri & Pinse e Tartare.
+// Riporta i blocchi informativi allo stato delle migrazioni: «Chiusura cucina»
+// (testo) e «Coperto € 1,00» (voce con prezzo), sotto Taglieri & Pinse e Tartare,
+// e il riquadro in vetrina di caviale e tartufo bianco in cima al menù.
 export function resetBlocks() {
-  DB(`delete from "MenuBlock" where id not in ('blk_kitchen_note','blk_cover')`);
+  DB(`delete from "MenuBlock" where id not in ('blk_kitchen_note','blk_cover','blk_vetrina_caviale')`);
+  DB(`update "MenuBlock" set "deletedAt"=null, hidden=false, "startDate"=null, "endDate"=null, kind='HIGHLIGHT', placement='TOP', "sectionIds"='{}', label='Su prenotazione', title='Caviale & Tartufo bianco', text='Per prezzi e disponibilità chiedete al nostro personale.', "priceCents"=null where id='blk_vetrina_caviale'`);
   DB(`update "MenuBlock" set "deletedAt"=null, hidden=false, "startDate"=null, "endDate"=null, placement='SECTIONS', "sectionIds"='{menu_sec_taglieri,menu_sec_tartare}' where id in ('blk_kitchen_note','blk_cover')`);
   DB(`update "MenuBlock" set label='Coperto', "priceCents"=100, kind='PRICE', "sortOrder"=1 where id='blk_cover'`);
   DB(`update "MenuBlock" set kind='TEXT', "sortOrder"=0 where id='blk_kitchen_note'`);

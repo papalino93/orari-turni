@@ -14,6 +14,7 @@ function toEditorSection(s: LoadedSection, dayKey: string): EditorSection {
     slug: s.slug,
     label: s.label,
     title: s.title,
+    kicker: s.kicker,
     promoId: s.promoId,
     dailyOnly: s.dailyOnly,
     kind: s.kind,

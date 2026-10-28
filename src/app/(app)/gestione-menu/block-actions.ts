@@ -13,8 +13,9 @@ import type { ChangeResult } from "./actions";
 // modifica registrata nello storico (con «Annulla»), cache rigenerata.
 
 export type BlockInput = {
-  kind: "TEXT" | "PRICE" | "NOTICE";
+  kind: "TEXT" | "PRICE" | "NOTICE" | "HIGHLIGHT";
   label?: string;
+  title?: string;
   text?: string;
   price?: string;
   placement: "TOP" | "BOTTOM" | "SECTIONS";
@@ -25,10 +26,11 @@ export type BlockInput = {
 };
 
 async function parseBlockInput(input: BlockInput) {
-  const kind = parseEnum(input.kind, ["TEXT", "PRICE", "NOTICE"] as const, "tipo");
+  const kind = parseEnum(input.kind, ["TEXT", "PRICE", "NOTICE", "HIGHLIGHT"] as const, "tipo");
   const placement = parseEnum(input.placement, ["TOP", "BOTTOM", "SECTIONS"] as const, "posizione");
 
   let label: string | null = null;
+  let title: string | null = null;
   let text: string | null = null;
   let priceCents: number | null = null;
   if (kind === "PRICE") {
@@ -37,6 +39,11 @@ async function parseBlockInput(input: BlockInput) {
     assert(priceCents !== null, "Inserisci il prezzo (esempio: 1 oppure 1,50).");
     // Descrizione facoltativa sotto la riga del prezzo (es. «Oli all'arancia, basilico o peperoncino»).
     text = parseText(input.text, "descrizione", { max: 400 }) || null;
+  } else if (kind === "HIGHLIGHT") {
+    // Riquadro in vetrina: titoletto e testo facoltativi, il titolo no (es. «Caviale & Tartufo bianco»).
+    label = parseText(input.label, "titoletto", { max: 60 }) || null;
+    title = parseText(input.title, "titolo", { max: 80, required: true });
+    text = parseText(input.text, "testo", { max: 300 }) || null;
   } else {
     label = parseText(input.label, "titoletto", { max: 60 }) || null;
     text = parseText(input.text, "testo", { max: 400, required: true });
@@ -59,10 +66,10 @@ async function parseBlockInput(input: BlockInput) {
   const endDate = input.endDate ? parseDateKey(input.endDate, "«al»") : null;
   assert(!startDate || !endDate || startDate <= endDate, "La data «al» non può essere prima di «dal».");
 
-  return { kind, placement, label, text, priceCents, sectionIds, startDate, endDate, hidden: Boolean(input.hidden) };
+  return { kind, placement, label, title, text, priceCents, sectionIds, startDate, endDate, hidden: Boolean(input.hidden) };
 }
 
-const FIELDS = ["kind", "label", "text", "priceCents", "placement", "sectionIds", "startDate", "endDate", "hidden"] as const;
+const FIELDS = ["kind", "label", "title", "text", "priceCents", "placement", "sectionIds", "startDate", "endDate", "hidden"] as const;
 
 function snapshot(b: Record<string, unknown>) {
   const out: Record<string, unknown> = {};

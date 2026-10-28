@@ -14,6 +14,8 @@ import {
   formatMoney,
 } from "@/lib/menu-format";
 import { deleteBlock, moveBlock, saveBlock } from "./block-actions";
+import { VetrinaCard } from "@/app/(public)/menu/menu-blocks";
+import { sans, serif } from "@/app/(public)/menu/fonts";
 import { Field, Sheet, dateInputClass, inputClass } from "./sheet";
 import type { RunFn } from "./menu-editor";
 
@@ -27,7 +29,7 @@ const PLACEMENT_TITLES: Record<BlockPlacement, string> = {
   BOTTOM: "In fondo al menù",
 };
 
-const KIND_TAGS: Record<BlockKind, string> = { TEXT: "Testo", PRICE: "Prezzo", NOTICE: "Avviso" };
+const KIND_TAGS: Record<BlockKind, string> = { TEXT: "Testo", PRICE: "Prezzo", NOTICE: "Avviso", HIGHLIGHT: "Vetrina" };
 
 function whereLabel(block: MenuBlockView, choices: SectionChoice[]): string {
   if (block.placement !== "SECTIONS") return PLACEMENT_LABELS[block.placement];
@@ -83,7 +85,7 @@ export function BlocksPanel({
                 <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent-hover">{blocks.length}</span>
               ) : undefined
             }
-            subtitle={blocks.length === 0 ? "Coperto, chiusura cucina, avvisi: nessuna ancora." : blocks.map((b) => blockSummary(b)).join(" · ")}
+            subtitle={blocks.length === 0 ? "Coperto, chiusura cucina, avvisi, riquadri in vetrina: nessuna ancora." : blocks.map((b) => blockSummary(b)).join(" · ")}
           />
         </button>
         <button
@@ -177,10 +179,11 @@ const KIND_HELP: Record<BlockKind, string> = {
   TEXT: "Un paragrafo in corsivo, per esempio «La cucina chiude circa 40–50 minuti prima della chiusura del negozio».",
   PRICE: "Una riga con un costo, per esempio «Coperto € 1,00»; sotto si può aggiungere una descrizione.",
   NOTICE: "Un riquadro ben visibile, per esempio «Domenica cucina chiusa» o una novità con il suo prezzo.",
+  HIGHLIGHT: "Un riquadro elegante bordeaux e oro per una proposta speciale, per esempio «Su prenotazione · Caviale & Tartufo bianco».",
 };
 
 const PLACEMENT_HELP: Record<BlockPlacement, string> = {
-  TOP: "Appena sotto «In evidenza», prima delle sezioni.",
+  TOP: "Dopo «In evidenza» e «I consigli della casa», prima delle sezioni.",
   SECTIONS: "Sotto il titolo di una o più sezioni (anche i menù speciali degli eventi).",
   BOTTOM: "In fondo al menù, prima della legenda degli allergeni.",
 };
@@ -202,6 +205,7 @@ export function BlockSheet({
 }) {
   const [kind, setKind] = useState<BlockKind>(block?.kind ?? "TEXT");
   const [label, setLabel] = useState(block?.label ?? "");
+  const [title, setTitle] = useState(block?.title ?? "");
   const [text, setText] = useState(block?.text ?? "");
   const [price, setPrice] = useState(block?.priceCents != null ? formatMoney(block.priceCents) : "");
   const [placement, setPlacement] = useState<BlockPlacement>(block?.placement ?? (forSectionId ? "SECTIONS" : "TOP"));
@@ -220,6 +224,10 @@ export function BlockSheet({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (kind === "HIGHLIGHT" && !title.trim()) {
+      setError("Scrivi il titolo del riquadro.");
+      return;
+    }
     if (placement === "SECTIONS" && sectionIds.length === 0) {
       setError("Scegli almeno una sezione in cui mostrarlo.");
       return;
@@ -234,6 +242,7 @@ export function BlockSheet({
         saveBlock(block?.id ?? null, {
           kind,
           label,
+          title,
           text,
           price,
           placement,
@@ -261,7 +270,7 @@ export function BlockSheet({
       <form onSubmit={submit} className="space-y-4">
         <div>
           <p className="mb-1 text-xs font-medium text-foreground-muted">Che cos&apos;è</p>
-          <div role="radiogroup" aria-label="Tipo di informazione" className="grid grid-cols-3 gap-2">
+          <div role="radiogroup" aria-label="Tipo di informazione" className="grid grid-cols-2 gap-2">
             {(Object.keys(BLOCK_KIND_LABELS) as BlockKind[]).map((k) => (
               <button
                 key={k}
@@ -280,7 +289,25 @@ export function BlockSheet({
           <p className="mt-1.5 text-[11px] text-foreground-muted/90">{KIND_HELP[kind]}</p>
         </div>
 
-        {kind === "PRICE" ? (
+        {kind === "HIGHLIGHT" ? (
+          <>
+            <Field label="Titoletto (facoltativo)" hint="La riga piccola in oro sopra il titolo.">
+              <input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={60} className={inputClass} placeholder="es. Su prenotazione" />
+            </Field>
+            <Field label="Titolo">
+              <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} className={inputClass} placeholder="es. Caviale & Tartufo bianco" />
+            </Field>
+            <Field label="Testo (facoltativo)">
+              <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={300} rows={3} className={inputClass} placeholder="es. Per prezzi e disponibilità chiedete al nostro personale." />
+            </Field>
+            <div>
+              <p className="mb-1 text-xs font-medium text-foreground-muted">Anteprima</p>
+              <div className={`${serif.variable} ${sans.variable} rounded-2xl bg-[#F4EEE3] p-3`}>
+                <VetrinaCard block={{ label: label.trim() || null, title: title.trim() || "Titolo", text: text.trim() || null }} />
+              </div>
+            </div>
+          </>
+        ) : kind === "PRICE" ? (
           <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
             <Field label="Nome">
               <input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={60} className={inputClass} placeholder="es. Coperto" />

@@ -1,26 +1,8 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, EB_Garamond, Jost } from "next/font/google";
 import "./menu.css";
+import { body, sans, serif } from "./fonts";
 import { MenuStats } from "./stats";
 import { SmoothAnchors } from "./smooth-anchors";
-
-const serif = Cormorant_Garamond({
-  subsets: ["latin", "latin-ext"],
-  style: ["normal", "italic"],
-  variable: "--font-menu-serif",
-  display: "swap",
-});
-const body = EB_Garamond({
-  subsets: ["latin", "latin-ext"],
-  style: ["normal", "italic"],
-  variable: "--font-menu-body",
-  display: "swap",
-});
-const sans = Jost({
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-menu-sans",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Menù — L'Angolo del Vino",
