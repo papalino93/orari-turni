@@ -120,7 +120,7 @@ await openNew();
 await dialog().getByLabel("Testo").fill("Senza sezioni");
 await dialog().getByRole("radio", { name: /Sotto il titolo di una categoria/ }).click();
 await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
-check("validazione: «sotto una sezione» senza sezioni scelte è rifiutato", /almeno una sezione/i.test(await dialog().innerText()));
+check("validazione: «sotto una sezione» senza sezioni scelte è rifiutato", /almeno una categoria/i.test(await dialog().innerText()));
 await dialog().getByRole("radio", { name: /In cima al menù/ }).click();
 await dialog().getByLabel("Dal", { exact: true }).fill(biz(5));
 await dialog().getByLabel("Al", { exact: true }).fill(biz(2));
