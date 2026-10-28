@@ -552,9 +552,12 @@ export function VetrinaPanel({
                     aria-label={`Sul menù: ${b.title}`}
                     disabled={busyId === b.id}
                     onClick={() => toggle(b)}
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${!b.hidden ? "bg-accent" : "bg-surface-2 ring-1 ring-inset ring-border"}`}
+                    className="flex h-11 w-14 shrink-0 items-center justify-center rounded-full disabled:opacity-60"
                   >
-                    <span aria-hidden className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${!b.hidden ? "left-[1.375rem]" : "left-0.5"}`} />
+                    {/* Zona di tocco grande (44 px), disegno dell'interruttore piccolo. */}
+                    <span aria-hidden className={`relative h-6 w-11 rounded-full transition-colors ${!b.hidden ? "bg-accent" : "bg-surface-2 ring-1 ring-inset ring-border"}`}>
+                      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${!b.hidden ? "left-[1.375rem]" : "left-0.5"}`} />
+                    </span>
                   </button>
                 </div>
               </li>
