@@ -14,6 +14,7 @@ import {
   formatMoney,
 } from "@/lib/menu-format";
 import { deleteBlock, moveBlock, saveBlock, setBlockHidden } from "./block-actions";
+import { setRecommended } from "./actions";
 import { VetrinaCard } from "@/app/(public)/menu/menu-blocks";
 import { sans, serif } from "@/app/(public)/menu/fonts";
 import { Field, Sheet, dateInputClass, inputClass } from "./sheet";
@@ -455,21 +456,38 @@ export function BlockSheet({
 // «In vetrina» (scheda Menù): i riquadri bordeaux e oro, come li vedono i clienti, con
 // l'interruttore «Sul menù» per accenderli o spegnerli con un tocco, lo stato (date) e
 // l'ordine. Si modificano nel foglio dedicato.
+// Una voce del menù fisso che si può consigliare (per «I consigli della casa»).
+export type ConsiglioChoice = { id: string; groupId: string; name: string; detail: string; category: string; kind: "WINE" | "FOOD"; recommended: boolean };
+const MAX_CONSIGLI = 4;
+
 export function VetrinaPanel({
   blocks,
+  consigli,
   today,
   run,
   onEdit,
   onAdd,
+  onOpenItem,
 }: {
   blocks: MenuBlockView[];
+  consigli: ConsiglioChoice[];
   today: string;
   run: RunFn;
   onEdit: (id: string) => void;
   onAdd: () => void;
+  onOpenItem: (itemId: string, groupId: string) => void;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const live = blocks.filter((b) => blockStatus(b, today) === "live").length;
+  const chosen = consigli.filter((c) => c.recommended);
+
+  async function recommend(c: ConsiglioChoice, value: boolean) {
+    setBusyId(c.id);
+    const ok = await run(() => setRecommended(c.id, value), value ? `«${c.name}» tra i consigli della casa` : `«${c.name}» tolto dai consigli della casa`);
+    setBusyId(null);
+    if (ok && value) setPicking(false);
+  }
 
   async function toggle(b: MenuBlockView) {
     setBusyId(b.id);
@@ -490,18 +508,72 @@ export function VetrinaPanel({
           icon={IconVetrina}
           tone="accent"
           title="In vetrina"
-          subtitle={
-            blocks.length === 0
-              ? "Proposte speciali in un riquadro elegante (es. caviale e tartufo su prenotazione)."
-              : live === 0
-                ? "Nessun riquadro sul menù in questo momento."
-                : `${live === 1 ? "1 riquadro" : `${live} riquadri`} sul menù dei clienti, dopo «I consigli della casa».`
-          }
+          subtitle="Quello che i clienti vedono subito dopo la copertina: i consigli della casa e i riquadri speciali."
         />
-        <button type="button" onClick={onAdd} className="min-h-10 shrink-0 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover">
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-muted">
+          I consigli della casa · {chosen.length} di {MAX_CONSIGLI}
+        </p>
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          disabled={chosen.length >= MAX_CONSIGLI}
+          className="min-h-10 shrink-0 rounded-full border border-accent/40 px-3.5 text-xs font-semibold text-accent-hover hover:bg-accent/10 disabled:opacity-40"
+        >
+          + Aggiungi consiglio
+        </button>
+      </div>
+      {chosen.length === 0 ? (
+        <p className="mt-2 rounded-xl border border-dashed border-border px-3 py-2.5 text-sm text-foreground-muted">
+          Nessun consiglio. Scegli fino a {MAX_CONSIGLI} vini o piatti da mettere in evidenza.
+        </p>
+      ) : (
+        <ul className="mt-2 space-y-2">
+          {chosen.map((c) => (
+            <li key={c.id} className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-1.5">
+              <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground-muted">{c.kind === "WINE" ? "Vino" : "Piatto"}</span>
+              <button type="button" onClick={() => onOpenItem(c.id, c.groupId)} aria-label={`Apri: ${c.name}`} className="min-h-11 min-w-0 flex-1 text-left">
+                <span className="block truncate text-sm font-medium text-foreground">{c.name}</span>
+                <span className="block truncate text-[11px] text-foreground-muted">{[c.detail, c.category].filter(Boolean).join(" · ")}</span>
+              </button>
+              <button
+                type="button"
+                disabled={busyId === c.id}
+                onClick={() => recommend(c, false)}
+                aria-label={`Togli dai consigli: ${c.name}`}
+                className="min-h-10 shrink-0 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
+              >
+                Togli
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {chosen.length >= MAX_CONSIGLI && <p className="mt-1.5 text-[11px] text-foreground-muted">Sono già {MAX_CONSIGLI}: per aggiungerne un altro, prima togline uno.</p>}
+
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-muted">
+          Riquadri speciali{blocks.length > 0 ? ` · ${live} sul menù` : ""}
+        </p>
+        <button type="button" onClick={onAdd} className="min-h-10 shrink-0 rounded-full border border-accent/40 px-3.5 text-xs font-semibold text-accent-hover hover:bg-accent/10">
           + Nuovo riquadro
         </button>
       </div>
+      {blocks.length === 0 && (
+        <p className="mt-2 rounded-xl border border-dashed border-border px-3 py-2.5 text-sm text-foreground-muted">
+          Nessun riquadro. Servono per le proposte speciali, per esempio «Su prenotazione · Caviale & Tartufo bianco».
+        </p>
+      )}
+      {picking && (
+        <ConsigliPicker
+          choices={consigli.filter((c) => !c.recommended)}
+          busyId={busyId}
+          onPick={(c) => recommend(c, true)}
+          onClose={() => setPicking(false)}
+        />
+      )}
       {blocks.length > 0 && (
         <ul className="mt-3 space-y-2">
           {blocks.map((b, index) => {
@@ -566,5 +638,61 @@ export function VetrinaPanel({
         </ul>
       )}
     </section>
+  );
+}
+
+// «+ Aggiungi» ai consigli della casa: cerca tra vini e piatti del menù fisso.
+function ConsigliPicker({
+  choices,
+  busyId,
+  onPick,
+  onClose,
+}: {
+  choices: ConsiglioChoice[];
+  busyId: string | null;
+  onPick: (c: ConsiglioChoice) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const norm = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const q = norm(query.trim());
+  const list = q ? choices.filter((c) => norm(`${c.name} ${c.detail} ${c.category}`).includes(q)) : choices;
+  return (
+    <Sheet title="Aggiungi ai consigli della casa" onClose={onClose} dirty={false}>
+      <div className="space-y-3">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Cerca un vino o un piatto…"
+          aria-label="Cerca un vino o un piatto"
+          autoFocus
+          className={inputClass}
+        />
+        {list.length === 0 ? (
+          <p className="px-1 py-4 text-sm text-foreground-muted">Nessuna voce trovata.</p>
+        ) : (
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+            {list.slice(0, 60).map((c) => (
+              <li key={c.id} className="flex items-center gap-2 px-3 py-1.5">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-foreground">{c.name}</span>
+                  <span className="block truncate text-[11px] text-foreground-muted">{[c.kind === "WINE" ? "Vino" : "Piatto", c.detail, c.category].filter(Boolean).join(" · ")}</span>
+                </span>
+                <button
+                  type="button"
+                  disabled={busyId !== null}
+                  onClick={() => onPick(c)}
+                  aria-label={`Consiglia: ${c.name}`}
+                  className="min-h-10 shrink-0 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Consiglia
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Sheet>
   );
 }

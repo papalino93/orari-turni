@@ -170,6 +170,36 @@ await openMenu();
 check("vetrina: le frecce cambiano l'ordine", /Ostriche & Bollicine[\s\S]*Caviale & Tartufo bianco/i.test(await phone.locator("body").innerText()));
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/vetrina-gestione.png` });
 
+// --- «I consigli della casa» in «In vetrina»: si vedono, si tolgono, si aggiungono
+const recBefore = DB(`select coalesce(string_agg(id, ','), '') from "MenuItem" where recommended and "deletedAt" is null`);
+DB(`update "MenuItem" set recommended=false where recommended`);
+const tartare = DB(`select i.id from "MenuItem" i join "MenuGroup" g on g.id=i."groupId" join "MenuSection" s on s.id=g."sectionId" where s.slug='tartare' and i."deletedAt" is null and not i."textOnly" limit 1`);
+const tartareName = DB(`select name from "MenuItem" where id='${tartare}'`);
+DB(`update "MenuItem" set recommended=true where id='${tartare}'`);
+await page.reload({ waitUntil: "networkidle" });
+await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+const vt = await vet.innerText();
+check("consigli: «I consigli della casa · 1 di 4» con la voce consigliata", /I consigli della casa · 1 di 4/i.test(vt) && vt.includes(tartareName), vt.replace(/\n/g, " | ").slice(0, 200));
+await vet.getByRole("button", { name: new RegExp(`^Togli dai consigli: .*${tartareName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).click();
+await page.waitForTimeout(1500);
+check("consigli: «Togli» lo toglie dai consigli", DB(`select recommended::text from "MenuItem" where id='${tartare}'`) === "false");
+await vet.getByRole("button", { name: "+ Aggiungi consiglio" }).click();
+await sheet().waitFor();
+await sheet().getByRole("searchbox", { name: "Cerca un vino o un piatto" }).fill("revi");
+check("consigli: la ricerca trova il vino anche senza accento", (await sheet().getByRole("button", { name: /^Consiglia: Rev/ }).count()) >= 1);
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/consigli-aggiungi.png` });
+await sheet().getByRole("button", { name: /^Consiglia: Rev/ }).first().click();
+await sheet().waitFor({ state: "detached" });
+await page.waitForTimeout(1500);
+check("consigli: «Consiglia» lo aggiunge", DB(`select count(*) from "MenuItem" where recommended and name like 'Rev%'`) === "1");
+await openMenu();
+check("menù: il vino aggiunto compare in «I consigli della casa»", /Rev/.test(await phone.locator("#v-consigli").innerText().catch(() => "")));
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/consigli-vetrina.png` });
+DB(`update "MenuItem" set recommended=false where recommended`);
+if (recBefore) DB(`update "MenuItem" set recommended=true where id in (${recBefore.split(",").map((x) => `'${x}'`).join(",")})`);
+await page.reload({ waitUntil: "networkidle" });
+await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+
 // --- «Vedi nel menù»: anteprima della sezione (vuota: lo dice), senza pagina di benvenuto
 await page.getByRole("navigation", { name: "Categorie" }).getByRole("button", { name: /^Salatini/ }).click();
 await page.getByRole("button", { name: "Vedi nel menù" }).click();
