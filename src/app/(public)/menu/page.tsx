@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { businessDayKey, dishLabel, formatPrice, isSoldOut, nb, originLabel, parseFormats, parseVariants, promoStatus, wineDetail } from "@/lib/menu-format";
+import { businessDayKey, dishLabel, formatPrice, inPeriod, isSoldOut, nb, originLabel, parseFormats, parseVariants, promoStatus, wineDetail, withDay } from "@/lib/menu-format";
 import { loadDaily, loadMenu, loadVenue, loadVisibleBlocks, loadVisiblePromos } from "@/lib/menu";
 import { VERSION_LABEL } from "@/lib/version";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
@@ -53,6 +53,8 @@ export default async function MenuPage() {
           ...group,
           kind: section.kind,
           items: group.items
+            // Voci a tempo (es. l'olio nuovo dal… al…): fuori periodo non ci sono.
+            .filter((item) => inPeriod(item, dayKey))
             .map((item) => ({ ...item, soldOut: isSoldOut(item, dayKey) }))
             .filter((item) => !(section.kind === "WINE" && item.soldOut)),
         }))
@@ -357,6 +359,11 @@ export default async function MenuPage() {
                           {recommendedIds.has(item.id) && (
                             <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A6A2E]">
                               Consigliato
+                            </span>
+                          )}
+                          {item.availableTo && !item.soldOut && (
+                            <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A6A2E]">
+                              Fino {withDay("al", item.availableTo)}
                             </span>
                           )}
                           {item.soldOut && (

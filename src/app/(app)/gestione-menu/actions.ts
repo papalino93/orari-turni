@@ -10,7 +10,7 @@ import { diff, logChange, type Fields } from "@/lib/menu-log";
 import { businessDayKey, parseFormats, parseVariants, type MenuVariant } from "@/lib/menu-format";
 import { MAX_IMPORT_ROWS, type ImportRowInput } from "@/lib/menu-import";
 import { parsePrice, revalidateMenu } from "@/lib/menu";
-import { assert, parseEnum, parseId, parseText, runAction, ValidationError, type ActionResult } from "@/lib/validation";
+import { assert, parseDateKey, parseEnum, parseId, parseText, runAction, ValidationError, type ActionResult } from "@/lib/validation";
 
 // Ogni azione qui sotto parte da requireMenuEditor(): il Proxy non conosce il
 // permesso "può modificare il menù" (vive nel database), quindi questo è il
@@ -50,6 +50,9 @@ export type ItemInput = {
   allergensReviewed?: boolean;
   // Più formati con prezzo (es. birra 0,2 l · 0,4 l · 1 l): alternativi al prezzo singolo.
   variants?: { label: string; price: string }[];
+  // Solo menù fisso, facoltativi: periodo in cui la voce si vede (YYYY-MM-DD).
+  availableFrom?: string;
+  availableTo?: string;
 };
 
 const ITEM_KEYS = [
@@ -74,6 +77,8 @@ const ITEM_KEYS = [
   "allergens",
   "allergensReviewed",
   "variants",
+  "availableFrom",
+  "availableTo",
   "groupId",
 ] as const;
 
@@ -132,8 +137,16 @@ function toItemData<T extends { variants: MenuVariant[] | null }>(data: T) {
 
 // requireRegion: dalla scheda la regione dei vini italiani è obbligatoria; «Incolla più
 // voci» non ha la colonna, e la gestione segnala poi «Manca la regione».
+function parsePeriod(input: ItemInput) {
+  const availableFrom = input.availableFrom ? parseDateKey(input.availableFrom, "«dal»") : null;
+  const availableTo = input.availableTo ? parseDateKey(input.availableTo, "«al»") : null;
+  assert(!availableFrom || !availableTo || availableFrom <= availableTo, "La data «al» non può essere prima di «dal».");
+  return { availableFrom, availableTo };
+}
+
 function parseItemInput(kind: MenuSectionKind, input: ItemInput, { requireRegion = false } = {}) {
   const name = parseText(input.name, "nome", { max: 120, required: true });
+  const period = parsePeriod(input);
   if (kind === "WINE") {
     const wineName = parseText(input.wineName, "nome del vino", { max: 120 }) || null;
     const vintage = parseText(input.vintage, "annata", { max: 20 }) || null;
@@ -171,6 +184,7 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput, { requireRegion
       allergens: [] as string[],
       allergensReviewed: false,
       variants: null as MenuVariant[] | null,
+      ...period,
     };
   }
   const description = parseText(input.description, "descrizione", { max: 300 }) || null;
@@ -201,6 +215,7 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput, { requireRegion
     allergens: allergensReviewed ? parseAllergens(input.allergens) : [],
     allergensReviewed,
     variants,
+    ...period,
   };
 }
 
@@ -262,6 +277,8 @@ export async function saveItem(idInput: string | null, input: ItemInput): Promis
 
     // «Consigliato» e «Sta bene con…» valgono solo per il menù fisso (non per eventi né «Oggi fuori menù»).
     if (group.section.promoId || group.section.dailyOnly) {
+      data.availableFrom = null;
+      data.availableTo = null;
       data.recommended = false;
       data.pairDishIds = [];
       data.pairHideIds = [];

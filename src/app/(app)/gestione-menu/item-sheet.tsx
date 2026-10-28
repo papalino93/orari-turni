@@ -7,7 +7,7 @@ import { WINE_TRAITS } from "@/lib/wine-traits";
 import { isItalianWine } from "@/lib/wine-order";
 import { TraitIcon } from "@/app/(public)/menu/wine-traits";
 import { deleteItem, duplicateItem, moveItem, saveItem, setGroupFormats } from "./actions";
-import { Field, Sheet, inputClass } from "./sheet";
+import { Field, Sheet, dateInputClass, inputClass } from "./sheet";
 import type { EditorItem, EditorSection, PairDish, PairWine, RunFn } from "./menu-editor";
 
 function priceInput(cents: number | null): string {
@@ -157,6 +157,9 @@ export function ItemSheet({
   // «Consigliato dalla casa»: solo per il menù fisso, non per eventi e «Oggi fuori menù».
   const canRecommend = !section.promoId && !section.dailyOnly;
   const [recommended, setRecommended] = useState(item?.recommended ?? false);
+  // Voce a tempo (solo menù fisso): si vede solo dal… al… (es. l'olio nuovo).
+  const [availableFrom, setAvailableFrom] = useState(item?.availableFrom ?? "");
+  const [availableTo, setAvailableTo] = useState(item?.availableTo ?? "");
   // «Sta bene con…» (vini): i piatti che consigliano questo vino compaiono da soli; se ne
   // aggiungono a mano (pairDishIds) o si nascondono quelli automatici (pairHideIds).
   const [pairDishIds, setPairDishIds] = useState<string[]>(item?.pairDishIds ?? []);
@@ -229,6 +232,8 @@ export function ItemSheet({
           traits: isWine ? traits : [],
           pairWineId: canPair ? pairWineId : null,
           recommended: canRecommend && recommended,
+          availableFrom: canRecommend ? availableFrom : "",
+          availableTo: canRecommend ? availableTo : "",
           pairDishIds: isWine && canRecommend ? pairDishIds : [],
           pairHideIds: isWine && canRecommend ? pairHideIds : [],
           allergens: allergenMode === "some" ? allergens : [],
@@ -325,6 +330,29 @@ export function ItemSheet({
       </label>
       {recommended && others >= 4 && (
         <p className="text-[11px] font-medium text-gold">Ce ne sono già 4: per consigliare questa, togline prima uno da «In vetrina» (scheda Menù).</p>
+      )}
+    </div>
+  ) : null;
+
+  // «Solo in un periodo»: compare il primo giorno e sparisce da sola dopo l'ultimo.
+  const periodBlock = canRecommend ? (
+    <div className="space-y-2 rounded-xl border border-border p-3">
+      <p className="text-sm text-foreground">
+        Solo in un periodo <span className="text-foreground-muted">(facoltativo)</span>
+        <span className="block text-[11px] text-foreground-muted">
+          Per una cosa di stagione (es. l&apos;olio nuovo): sul menù compare il primo giorno e sparisce da sola dopo l&apos;ultimo. Vuoto = sempre.
+        </span>
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Dal">
+          <input type="date" value={availableFrom} onChange={(e) => setAvailableFrom(e.target.value)} className={dateInputClass} />
+        </Field>
+        <Field label="Al">
+          <input type="date" value={availableTo} onChange={(e) => setAvailableTo(e.target.value)} min={availableFrom || undefined} className={dateInputClass} />
+        </Field>
+      </div>
+      {availableFrom && availableTo && availableTo < availableFrom && (
+        <p className="text-[11px] font-medium text-danger">La data «Al» non può essere prima di «Dal».</p>
       )}
     </div>
   ) : null;
@@ -474,6 +502,7 @@ export function ItemSheet({
               </Block>
             )}
             {recommendBlock}
+            {periodBlock}
 
             {name.trim() && (
               <div className="rounded-xl bg-surface-2 px-3.5 py-3" aria-label="Come si legge sul menù">
@@ -650,6 +679,7 @@ export function ItemSheet({
 
             {canPair && <PairPicker wines={wines} value={pairWineId} onChange={setPairWineId} lost={pairLost} />}
             {recommendBlock}
+            {periodBlock}
 
             <fieldset ref={allergensRef} className="scroll-mt-4">
               <legend className="mb-1 text-xs font-medium text-foreground-muted">Allergeni</legend>

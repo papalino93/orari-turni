@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ALLERGENS, allergenNumbers, allergenState } from "@/lib/allergens";
 import { getMenuEditor } from "@/lib/guard";
-import { businessDayKey, formatPrice, isSoldOut, nb, originLabel, parseVariants, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
+import { businessDayKey, formatPrice, inPeriod, isSoldOut, nb, originLabel, parseVariants, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
 import { loadMenu, loadVisibleBlocks } from "@/lib/menu";
 import { traitLabel } from "@/lib/wine-traits";
 import { PrintBar } from "./print-bar";
@@ -27,7 +27,7 @@ export default async function StampaMenuPage({ searchParams }: { searchParams: P
     .map((s) => ({
       ...s,
       groups: s.groups
-        .map((g) => ({ ...g, items: g.items.filter((i) => withSoldOut || !isSoldOut(i, dayKey)) }))
+        .map((g) => ({ ...g, items: g.items.filter((i) => inPeriod(i, dayKey) && (withSoldOut || !isSoldOut(i, dayKey))) }))
         .filter((g) => g.items.length > 0),
     }))
     .filter((s) => s.groups.length > 0);

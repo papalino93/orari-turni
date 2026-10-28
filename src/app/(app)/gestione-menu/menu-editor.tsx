@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
-import { blockStatus, blockSummary, comparePromos, dishLabel, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
+import { blockStatus, blockSummary, comparePromos, dishLabel, formatBlockDates, periodStatus, withDay, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
 import { traitLabel } from "@/lib/wine-traits";
 import { isItalianWine } from "@/lib/wine-order";
 import { createGroup, deleteGroup, deleteItem, moveGroup, moveItem, renameGroup, resetSoldOut, saveTextRow, setGroupFormats, setSoldOut, undoChange } from "./actions";
@@ -52,6 +52,9 @@ export type EditorItem = {
   soldOut: boolean;
   // Riga di solo testo tra le voci (nome = testo).
   textOnly: boolean;
+  // Voci a tempo: periodo in cui si vede (YYYY-MM-DD), null = sempre.
+  availableFrom: string | null;
+  availableTo: string | null;
 };
 
 export type EditorGroup = { id: string; title: string; columns: boolean; formats: string[] | null; items: EditorItem[] };
@@ -228,7 +231,7 @@ export function MenuEditor({
     Boolean(p.section) && p.hasMenu && !p.hidden && effectiveStatus(p, today) !== "past" && !p.allergenNotice && p.menuMode !== "FILE";
   const liveEventSections = promos.flatMap((p) => (asksAllergens(p) && p.section ? [p.section] : []));
   const missingAllergens = [...daily.sections, ...sections, ...liveEventSections].reduce(
-    (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed && !i.textOnly).length, 0) : 0),
+    (n, s) => n + (s.kind === "FOOD" ? s.groups.reduce((m, g) => m + g.items.filter((i) => !i.allergensReviewed && !i.textOnly && periodStatus(i, today) !== "after").length, 0) : 0),
     0,
   );
   // Piatti con allergeni da compilare, nell'ordine in cui si vedono (sezioni fisse, poi eventi non conclusi):
@@ -243,7 +246,7 @@ export function MenuEditor({
   ].flatMap((target) =>
     target.section.kind === "FOOD"
       ? target.section.groups.flatMap((g) =>
-          g.items.filter((i) => !i.allergensReviewed && !i.textOnly).map((i) => ({ itemId: i.id, groupId: g.id, name: i.name, key: target.key })),
+          g.items.filter((i) => !i.allergensReviewed && !i.textOnly && periodStatus(i, today) !== "after").map((i) => ({ itemId: i.id, groupId: g.id, name: i.name, key: target.key })),
         )
       : [],
   );
@@ -797,6 +800,7 @@ export function MenuEditor({
               {section.groups.map((group, index) => {
                 return (
                   <GroupCard
+                    today={today}
                     key={group.id}
                     group={group}
                     kind={section.kind}
@@ -1089,7 +1093,9 @@ function GroupCard({
   onImport,
   closed,
   onToggleClosed,
+  today,
 }: {
+  today: string;
   group: EditorGroup;
   kind: "WINE" | "FOOD";
   isFirst: boolean;
@@ -1382,6 +1388,15 @@ function GroupCard({
                     {item.enomatic && <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-accent">Enomatic</span>}
                     {item.recommended && <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-gold">Consigliato</span>}
                   </span>
+                  {(item.availableFrom || item.availableTo) && (
+                    <span className={`block text-[11px] font-medium ${periodStatus(item, today) === "in" ? "text-success" : "text-gold"}`}>
+                      {periodStatus(item, today) === "after"
+                        ? `Finita ${withDay("il", item.availableTo!)}: i clienti non la vedono più`
+                        : periodStatus(item, today) === "before"
+                          ? `Sul menù ${formatBlockDates(item.availableFrom, item.availableTo)}: ora i clienti non la vedono`
+                          : `Sul menù ${formatBlockDates(item.availableFrom, item.availableTo)}`}
+                    </span>
+                  )}
                   {secondary && <span className="block line-clamp-2 break-words text-xs text-foreground-muted">{secondary}</span>}
                   <span className="block text-xs text-foreground-muted/90">{priceSummary(item, kind)}</span>
                   {kind === "WINE" && item.traits.length > 0 && (

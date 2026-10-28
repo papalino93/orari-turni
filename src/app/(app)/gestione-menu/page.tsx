@@ -52,6 +52,8 @@ function toEditorSection(s: LoadedSection, dayKey: string): EditorSection {
         allergensReviewed: i.allergensReviewed,
         soldOut: isSoldOut(i, dayKey),
         textOnly: i.textOnly,
+        availableFrom: i.availableFrom,
+        availableTo: i.availableTo,
       })),
     })),
   };
