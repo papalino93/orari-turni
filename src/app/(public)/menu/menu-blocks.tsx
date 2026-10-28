@@ -1,4 +1,5 @@
 import { type MenuBlockView, nb, priceLine } from "@/lib/menu-format";
+import { Amp } from "./amp";
 
 // Informazioni del menù (coperto, chiusura cucina, avvisi…): tre aspetti, uno per
 // tipo. Le voci con prezzo sono righe in maiuscoletto bordeaux, i testi paragrafi
@@ -35,9 +36,8 @@ export function MenuBlockItem({ block }: { block: MenuBlockView }) {
 }
 
 // Riquadro in vetrina: bordeaux e oro, per proposte speciali (es. «Su prenotazione ·
-// Caviale & Tartufo bianco»). La «&» del titolo è in oro.
+// Caviale & Tartufo bianco»). La «&» del titolo è in oro e dritta.
 export function VetrinaCard({ block }: { block: Pick<MenuBlockView, "label" | "title" | "text"> }) {
-  const parts = (block.title ?? "").split(/( & )/);
   return (
     <div
       className="mx-auto w-full max-w-[480px] rounded-[18px] px-[22px] pb-6 pt-[26px] text-center text-[#F4EEE3]"
@@ -45,7 +45,7 @@ export function VetrinaCard({ block }: { block: Pick<MenuBlockView, "label" | "t
     >
       {block.label && <div className="font-[family-name:var(--font-menu-sans)] text-[11px] font-medium uppercase tracking-[0.32em] text-[#D8B97A]">{nb(block.label)}</div>}
       <div className="mt-2.5 text-balance font-[family-name:var(--font-menu-serif)] text-[34px] font-medium italic leading-[1.1]">
-        {parts.map((p, i) => (p === " & " ? <span key={i} className="text-[#D8B97A]"> & </span> : p))}
+        <Amp text={block.title ?? ""} className="text-[#D8B97A]" />
       </div>
       {block.text && (
         <>
