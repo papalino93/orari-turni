@@ -70,6 +70,15 @@ await page.getByRole("heading", { name: "Prova E2E" }).waitFor({ timeout: 20000 
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/categoria-creata.png` });
 check("nuova categoria: si apre subito, con «+ Aggiungi una voce»", (await page.getByRole("heading", { name: "Prova E2E", exact: true }).count()) >= 1 && (await page.getByRole("button", { name: "+ Aggiungi una voce in «Prova E2E»" }).count()) === 1);
 
+// «Riordina sezioni» sotto l'elenco: si apre già sull'ordine delle sezioni.
+await page.getByRole("button", { name: "Riordina sezioni" }).click();
+await sheet().waitFor();
+const reorderText = await sheet().innerText();
+check("«Riordina sezioni»: si apre sulle sezioni, con Prova E2E dopo Tartare", /Tartare[\s\S]*Prova E2E[\s\S]*Salatini[\s\S]*Bevande/.test(reorderText) && !/Nessuna voce/.test(reorderText), reorderText.replace(/\n/g, " | ").slice(0, 200));
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/riordina-sezioni.png` });
+await page.keyboard.press("Escape");
+await sheet().waitFor({ state: "detached" });
+
 // Vuota non si vede; con una voce sì
 await openMenu();
 check("menù: la categoria vuota non si vede", !(await navLabels()).includes("prova e2e"));

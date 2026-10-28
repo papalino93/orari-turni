@@ -126,7 +126,8 @@ type SheetState =
   | { type: "history" }
   | { type: "preview" }
   | { type: "qr" }
-  | { type: "reorder" }
+  // sections: aperto da «Riordina sezioni», direttamente sull'ordine delle sezioni.
+  | { type: "reorder"; sections?: boolean }
   | { type: "prices" }
   | { type: "promo"; id: string | null; kind?: "EVENT" | "NOTICE" }
   | { type: "promo-duplicate"; id: string }
@@ -634,6 +635,15 @@ export function MenuEditor({
             >
               + Nuova sezione
             </button>
+            {sections.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setSheet({ type: "reorder", sections: true })}
+                className="flex min-h-10 items-center rounded-full border border-dashed border-border px-3.5 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground lg:rounded-xl"
+              >
+                Riordina sezioni
+              </button>
+            )}
           </nav>
           )}
 
@@ -840,8 +850,8 @@ export function MenuEditor({
           sections={sections}
           promos={currentPromos}
           today={today}
-          startOnPromos={promoSelected && currentPromos.length > 1}
-          startSectionId={promoSelected ? null : (section?.id ?? null)}
+          startOnPromos={!sheet.sections && promoSelected && currentPromos.length > 1}
+          startSectionId={sheet.sections || promoSelected ? null : (section?.id ?? null)}
           run={run}
           onClose={() => setSheet(null)}
         />

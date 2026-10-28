@@ -133,7 +133,7 @@ export function CategorySheet({
         )}
 
         {section && (
-          <p className="text-[11px] leading-snug text-foreground-muted/90">Per spostarla nel menù: «Strumenti» → «Riordina».</p>
+          <p className="text-[11px] leading-snug text-foreground-muted/90">Per spostarla nel menù: «Riordina sezioni», sotto l'elenco delle sezioni.</p>
         )}
 
         {!section && (

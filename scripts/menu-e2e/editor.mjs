@@ -20,7 +20,7 @@ page.setDefaultTimeout(60000);
 await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 check("editor: titolo Menù", await page.locator("h1:has-text('Menù')").count() === 1);
-const chips = (await page.locator('nav[aria-label="Sezioni"] button').allInnerTexts()).filter((c) => c !== "+ Nuova sezione");
+const chips = (await page.locator('nav[aria-label="Sezioni"] button').allInnerTexts()).filter((c) => c !== "+ Nuova sezione" && c !== "Riordina sezioni");
 check("editor: 8 sezioni (con Salatini) e «+ Nuova sezione»", chips.length === 8 && (await page.getByRole("button", { name: "+ Nuova sezione" }).count()) === 1, chips.map((c) => c.replace(/\n/g, " ")).join("|"));
 
 const toast = () => page.locator('[role="status"]').last();
