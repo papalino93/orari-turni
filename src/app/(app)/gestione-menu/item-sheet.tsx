@@ -170,6 +170,8 @@ export function ItemSheet({
   );
   const [allergenMode, setAllergenMode] = useState<AllergenState>(item ? allergenState(item) : "unknown");
   const [allergens, setAllergens] = useState<string[]>(item?.allergens ?? []);
+  const [traces, setTraces] = useState<string[]>(item?.allergenTraces ?? []);
+  const [tracesOpen, setTracesOpen] = useState((item?.allergenTraces ?? []).length > 0);
   const [targetGroup, setTargetGroup] = useState(groupId);
   // Formati del gruppo (es. birre 0,2 l · 0,4 l · 1 l): un prezzo per colonna.
   const declaredFormats = isWine ? null : (sections.flatMap((x) => x.groups).find((g) => g.id === targetGroup)?.formats ?? null);
@@ -238,6 +240,7 @@ export function ItemSheet({
           pairHideIds: isWine && canRecommend ? pairHideIds : [],
           allergens: allergenMode === "some" ? allergens : [],
           allergensReviewed: allergenMode !== "unknown",
+          allergenTraces: traces.filter((c) => !(allergenMode === "some" && allergens.includes(c))),
           variants: !formatsMode
             ? []
             : groupFormats
@@ -745,6 +748,41 @@ export function ItemSheet({
               )}
               {allergenMode === "some" && allergens.length === 0 && (
                 <p className="mt-1.5 text-[11px] text-danger">Spunta almeno un allergene, oppure scegli «Nessuno».</p>
+              )}
+              {/* Facoltativo: allergeni non tra gli ingredienti ma possibili (stessa cucina, stesso forno…). */}
+              {!tracesOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setTracesOpen(true)}
+                  className="mt-2 flex min-h-11 items-center text-xs font-medium text-accent underline underline-offset-4"
+                >
+                  + Può contenere tracce di… (facoltativo)
+                </button>
+              ) : (
+                <div className="mt-3">
+                  <div className="text-xs font-medium text-foreground-muted">Può contenere tracce di… (facoltativo)</div>
+                  <p className="mt-0.5 text-[11px] text-foreground-muted">
+                    Allergeni che non sono tra gli ingredienti ma possono esserci per contaminazione. Sul menù compare sotto gli allergeni.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {ALLERGENS.filter((a) => !(allergenMode === "some" && allergens.includes(a.code))).map((a) => {
+                      const on = traces.includes(a.code);
+                      return (
+                        <button
+                          key={a.code}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => setTraces((prev) => (on ? prev.filter((c) => c !== a.code) : [...prev, a.code]))}
+                          className={`min-h-11 rounded-full border px-3 text-xs font-medium ${
+                            on ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground-muted"
+                          }`}
+                        >
+                          {a.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </fieldset>
           </>

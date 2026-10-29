@@ -50,6 +50,7 @@ function toEditorSection(s: LoadedSection, dayKey: string): EditorSection {
         variants: parseVariants(i.variants),
         allergens: i.allergens,
         allergensReviewed: i.allergensReviewed,
+        allergenTraces: i.allergenTraces,
         soldOut: isSoldOut(i, dayKey),
         textOnly: i.textOnly,
         availableFrom: i.availableFrom,
