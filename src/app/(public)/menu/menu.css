@@ -108,6 +108,13 @@ html[data-menu-large] .menu-root .menu-main {
   .festa-8-testo { font-size: 19px; line-height: 1.38; }
   .festa-8-logo { transform: scale(0.88); }
 }
+/* Schermi grandi (tablet verticale, computer): lettera più grande e al centro, invece di
+   tanto vuoto tra la firma e il pulsante in fondo. */
+@media (min-width: 700px) and (min-height: 900px) {
+  .festa-8 > div { justify-content: center; max-width: 520px; }
+  .festa-8-testo { font-size: 25px; }
+  .festa-8 .festa-8-pulsante { margin-top: 28px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .festa-8, .festa-8-dopo { animation: none; }
 }
