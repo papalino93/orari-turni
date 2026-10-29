@@ -116,7 +116,7 @@ export function FestaBenvenuto() {
           ref={pulsante}
           type="button"
           onClick={chiudi}
-          className="festa-8-dopo menu-sans mt-auto flex min-h-[52px] w-full items-center justify-center rounded-full bg-[#F4EEE3] pt-0 text-[16px] font-medium tracking-[0.05em] text-[#4A0C18] outline-offset-4 focus-visible:outline-2 focus-visible:outline-[#D8B97A]"
+          className="festa-8-dopo festa-8-pulsante menu-sans mt-auto flex min-h-[52px] w-full items-center justify-center rounded-full bg-[#F4EEE3] pt-0 text-[16px] font-medium tracking-[0.05em] text-[#4A0C18] outline-offset-4 focus-visible:outline-2 focus-visible:outline-[#D8B97A]"
         >
           Entra nel menù
         </button>
