@@ -116,7 +116,7 @@ export default async function DipendentiPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="app-wide mx-auto max-w-4xl">
       <h1 className="mb-1 text-xl font-semibold tracking-tight">Dipendenti</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         Gestisci l&apos;elenco di dipendenti e titolare. Il titolare compare negli orari ma non nel registro ferie.

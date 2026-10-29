@@ -183,3 +183,16 @@ body {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* «Vista larga» (pulsante accanto al tema, solo da computer): niente larghezza massima
+   e meno spazio vuoto intorno al contenuto. */
+@media (min-width: 1024px) {
+  html[data-wide="1"] .app-wide {
+    max-width: none;
+  }
+  html[data-wide="1"] main.app-wide {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    padding-top: 1rem;
+  }
+}

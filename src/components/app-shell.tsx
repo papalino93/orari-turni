@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { WideToggle } from "@/components/wide-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { InstallBanner, EmployeeInstallPrompt, InstalledMark } from "@/components/install-banner";
 import { VERSION_LABEL } from "@/lib/version";
@@ -69,7 +70,7 @@ export function AppShell({
           sfondo bordeaux resta esteso fin sotto la barra di stato (l'effetto
           voluto); solo il contenuto vero scende sotto di essa. */}
       <header className="sticky top-0 z-30 bg-brand-band pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(0,0,0,0.18)] backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <div className="app-wide mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex shrink-0 items-center gap-2.5">
             <BrandMark className="h-11" />
           </div>
@@ -111,6 +112,7 @@ export function AppShell({
                 <GearIcon />
               </Link>
             )}
+            <WideToggle />
             <ThemeToggle />
             {/* Il nome solo dove c'è spazio: sul tablet la barra ha già le voci del menù. */}
             <span className="hidden text-sm text-brand-band-foreground-muted sm:block md:hidden lg:block">{userName}</span>
@@ -125,7 +127,7 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-6 sm:px-6 md:pb-10">
+      <main className="app-wide mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-6 sm:px-6 md:pb-10">
         <InstalledMark installed={appInstalled} />
         {appInstalled ? null : isAdmin ? <InstallBanner /> : <EmployeeInstallPrompt />}
         {children}
