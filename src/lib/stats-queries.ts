@@ -6,9 +6,9 @@ import { romeParts } from "@/lib/menu-stats";
 
 export type Period = "7" | "30" | "90" | "all" | "custom";
 export const PERIODS: { value: Period; label: string }[] = [
-  { value: "7", label: "7 giorni" },
-  { value: "30", label: "30 giorni" },
-  { value: "90", label: "3 mesi" },
+  { value: "7", label: "Ultimi 7 giorni" },
+  { value: "30", label: "Ultimi 30 giorni" },
+  { value: "90", label: "Ultimi 3 mesi" },
   { value: "all", label: "Tutto il tempo" },
   { value: "custom", label: "Dal… al…" },
 ];
