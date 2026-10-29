@@ -329,54 +329,53 @@ export function StatsView({
 
       <TodayCard stats={data.todayStats} recent={data.recent} today={data.today} counting={enabled} since={setting.since} />
 
-      {/* Prima di «Inizia a contare» non c'è nulla da filtrare: niente periodi. */}
-      {setting.since && (
-      <nav aria-label="Periodo" className="flex flex-wrap items-center gap-2">
-        {PERIODS.filter((p) => p.value !== "custom").map((p) => (
-          <Link
-            key={p.value}
-            href={`/statistiche?p=${p.value}`}
-            aria-current={p.value === period ? "page" : undefined}
-            className={`flex min-h-10 items-center rounded-full border px-4 text-sm ${
-              p.value === period ? "border-accent bg-accent text-accent-foreground" : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
-            }`}
-          >
-            {p.label}
-          </Link>
-        ))}
-        {/* Periodo a scelta: un normale modulo con le due date (funziona anche senza JavaScript). */}
-        <form action="/statistiche" className={`flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 ${period === "custom" ? "border-accent" : "border-border"}`}>
-          <label className="flex items-center gap-1.5 text-sm text-foreground-muted">
-            Dal
-            <input type="date" name="dal" defaultValue={custom.from ?? setting.since ?? ""} max={data.today} className="min-h-9 rounded-lg border border-border bg-surface px-2 text-sm text-foreground" />
-          </label>
-          <label className="flex items-center gap-1.5 text-sm text-foreground-muted">
-            al
-            <input type="date" name="al" defaultValue={custom.to ?? data.today} max={data.today} className="min-h-9 rounded-lg border border-border bg-surface px-2 text-sm text-foreground" />
-          </label>
-          <button type="submit" className="min-h-9 rounded-full bg-surface-2 px-3 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground">
-            Mostra
-          </button>
-        </form>
-      </nav>
-      )}
-      {setting.since && (
-        <nav aria-label="Scorciatoie" className="-mt-2 flex flex-wrap items-center gap-2">
-          {data.shortcuts.map((c) => {
-            const on = period === "custom" && data.from === c.dal && data.to === c.al;
-            return (
-              <Link
-                key={c.label}
-                href={`/statistiche?dal=${c.dal}&al=${c.al}`}
-                aria-current={on ? "page" : undefined}
-                className={`flex min-h-9 items-center rounded-full border px-3 text-sm ${on ? "border-accent bg-accent text-accent-foreground" : "border-border text-foreground-muted hover:border-accent hover:text-foreground"}`}
-              >
-                {c.label}
+      {/* Prima di «Inizia a contare» non c'è nulla da filtrare: niente periodi.
+          Una riga sola: prima i periodi del calendario (oggi, settimana, mese), poi quelli
+          «a ritroso» e in fondo le date a scelta, chiuse finché non servono. */}
+      {setting.since && (() => {
+        const chip = (on: boolean) =>
+          `flex min-h-10 shrink-0 items-center rounded-full border px-4 text-sm ${
+            on ? "border-accent bg-accent text-accent-foreground" : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
+          }`;
+        const onShortcut = data.shortcuts.some((c) => period === "custom" && data.from === c.dal && data.to === c.al);
+        return (
+          <div className="space-y-2">
+          {/* Sul telefono una riga che scorre di lato; dal tablet in su va a capo. */}
+          <nav aria-label="Periodo" className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+            {data.shortcuts.map((c) => {
+              const on = period === "custom" && data.from === c.dal && data.to === c.al;
+              return (
+                <Link key={c.label} href={`/statistiche?dal=${c.dal}&al=${c.al}`} aria-current={on ? "page" : undefined} className={chip(on)}>
+                  {c.label}
+                </Link>
+              );
+            })}
+            {PERIODS.filter((p) => p.value !== "custom").map((p) => (
+              <Link key={p.value} href={`/statistiche?p=${p.value}`} aria-current={p.value === period ? "page" : undefined} className={chip(p.value === period)}>
+                {p.label}
               </Link>
-            );
-          })}
-        </nav>
-      )}
+            ))}
+          </nav>
+            {/* Periodo a scelta: un normale modulo con le due date (funziona anche senza JavaScript). */}
+            <details open={period === "custom" && !onShortcut} className="group">
+              <summary className={`${chip(period === "custom" && !onShortcut)} w-fit cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>Date a scelta…</summary>
+              <form action="/statistiche" className="mt-2 flex w-fit max-w-full flex-wrap items-center gap-2 rounded-2xl border border-border px-3 py-2">
+                <label className="flex items-center gap-1.5 text-sm text-foreground-muted">
+                  Dal
+                  <input type="date" name="dal" defaultValue={custom.from ?? setting.since ?? ""} max={data.today} className="min-h-10 rounded-lg border border-border bg-surface px-2 text-sm text-foreground" />
+                </label>
+                <label className="flex items-center gap-1.5 text-sm text-foreground-muted">
+                  al
+                  <input type="date" name="al" defaultValue={custom.to ?? data.today} max={data.today} className="min-h-10 rounded-lg border border-border bg-surface px-2 text-sm text-foreground" />
+                </label>
+                <button type="submit" className="min-h-10 rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground">
+                  Mostra
+                </button>
+              </form>
+            </details>
+          </div>
+        );
+      })()}
       {period === "custom" && data.from && (
         <p className="-mt-2 text-xs text-foreground-muted">
           {data.from === data.to ? (
@@ -528,7 +527,12 @@ export function StatsView({
                 <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
                   <EffectBars {...data.effect} />
                   <div className="md:text-center">
-                    {data.effect.offAvg > 0 ? (
+                    {/* Con pochi giorni di evento la percentuale sarebbe un numero a caso: non si mostra. */}
+                    {data.effect.onDays < 4 ? (
+                      <p className="max-w-[16rem] text-sm text-foreground-muted">
+                        Solo {data.effect.onDays} {data.effect.onDays === 1 ? "giorno" : "giorni"} con un evento: troppo pochi per dire se portano più gente. Scegli un periodo più lungo.
+                      </p>
+                    ) : data.effect.offAvg > 0 ? (
                       <p className="text-4xl font-semibold tabular-nums text-foreground">
                         {data.effect.onAvg >= data.effect.offAvg ? "+" : "−"}
                         {Math.abs(Math.round(((data.effect.onAvg - data.effect.offAvg) / data.effect.offAvg) * 100))}%
@@ -536,9 +540,9 @@ export function StatsView({
                     ) : (
                       <p className="text-4xl font-semibold text-foreground">—</p>
                     )}
-                    <p className="mt-1 max-w-[16rem] text-xs text-foreground-muted">
-                      {data.effect.onDays < 3 ? "Pochi giorni con un evento: prendila come un'indicazione, non come una regola." : "aperture al giorno nei giorni di un evento rispetto agli altri"}
-                    </p>
+                    {data.effect.onDays >= 4 && (
+                      <p className="mt-1 max-w-[16rem] text-xs text-foreground-muted">aperture al giorno nei giorni di un evento rispetto agli altri</p>
+                    )}
                   </div>
                 </div>
               ) : (

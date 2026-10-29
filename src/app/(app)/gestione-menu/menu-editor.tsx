@@ -261,9 +261,9 @@ export function MenuEditor({
       ),
     );
   const wineNames = new Map(wines.map((w) => [w.id, w.name]));
-  // Piatti del menù fisso (non di eventi né «Oggi fuori menù»): per «Sta bene con…» dei vini.
+  // Piatti del menù fisso (non di eventi né «Oggi fuori menù», né le bevande): per «Sta bene con…» dei vini.
   const dishes: PairDish[] = sections
-    .filter((s) => s.kind === "FOOD" && !s.promoId && !s.dailyOnly)
+    .filter((s) => s.kind === "FOOD" && !s.promoId && !s.dailyOnly && s.slug !== "bevande")
     .flatMap((s) => s.groups.flatMap((g) => g.items.filter((i) => !i.textOnly).map((i) => ({ id: i.id, name: i.name, section: s.label, pairWineId: i.pairWineId }))));
   // Quante voci sono già «consigliate» (al massimo 4): lo dice anche la scheda.
   const recommendedCount = sections.filter((s) => !s.promoId && !s.dailyOnly).flatMap((s) => s.groups.flatMap((g) => g.items)).filter((i) => i.recommended && !i.textOnly).length;

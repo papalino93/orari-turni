@@ -3,7 +3,7 @@
 // del browser (clock di Playwright); ?festa=1 mostra l'anteprima.
 import { launch, login, check, BASE, results, ADMIN_PW } from "./lib.mjs";
 
-const b = await launch();
+const b = await launch({ benvenuto: true });
 const at = async (iso, { w = 390, h = 844 } = {}) => {
   const ctx = await b.newContext({ viewport: { width: w, height: h } });
   const p = await ctx.newPage();

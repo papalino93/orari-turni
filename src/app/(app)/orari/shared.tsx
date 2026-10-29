@@ -886,13 +886,13 @@ export function DayEditorModal({
                 // confermata con un secondo passaggio esplicito prima di eseguirla.
                 <span className="flex items-center gap-2 text-xs">
                   <span className="text-foreground-muted">
-                    {extraDays.length > 0 ? `Svuotare ${extraDays.length + 1} giornate?` : "Confermi?"}
+                    {extraDays.length > 0 ? `Svuotare ${extraDays.length + 1} giornate?` : "Svuotare la giornata?"}
                   </span>
                   <button
                     type="button"
                     onClick={clearDay}
                     disabled={pending}
-                    className="font-semibold text-danger hover:underline disabled:opacity-50"
+                    className="min-h-11 rounded-lg bg-danger px-3 font-semibold text-white disabled:opacity-50"
                   >
                     {pending ? "Svuoto…" : "Sì, svuota"}
                   </button>
@@ -900,7 +900,7 @@ export function DayEditorModal({
                     type="button"
                     onClick={() => setConfirmingClear(false)}
                     disabled={pending}
-                    className="text-foreground-muted hover:text-foreground disabled:opacity-50"
+                    className="min-h-11 rounded-lg px-2 text-foreground-muted hover:text-foreground disabled:opacity-50"
                   >
                     Annulla
                   </button>
@@ -914,7 +914,7 @@ export function DayEditorModal({
                   // capiva che fosse cliccabile, né che fosse l'altra azione
                   // possibile insieme a Salva. Ora è un pulsante con contorno
                   // in rosso, distinto ma non invadente come un pieno.
-                  className="rounded-lg border border-danger/40 px-3 py-2 text-xs font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
+                  className="min-h-11 rounded-lg border border-danger/40 px-3 text-xs font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
                 >
                   {extraDays.length > 0 ? `Svuota ${extraDays.length + 1} giornate` : "Svuota giornata"}
                 </button>
@@ -923,14 +923,14 @@ export function DayEditorModal({
                 <button
                   type="button"
                   onClick={guard.requestClose}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground-muted hover:text-foreground"
+                  className="min-h-11 rounded-lg border border-border px-4 text-sm font-medium text-foreground-muted hover:text-foreground"
                 >
                   Annulla
                 </button>
                 <button
                   type="submit"
                   disabled={pending}
-                  className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
+                  className="min-h-11 rounded-lg bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
                 >
                   {pending ? "Salvo…" : "Salva"}
                 </button>

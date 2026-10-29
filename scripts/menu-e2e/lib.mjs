@@ -9,9 +9,25 @@ export const ADMIN_PW = need("E2E_ADMIN_PASSWORD");
 export const EMP_PW = need("E2E_EMPLOYEE_PASSWORD");
 export const BASE = "http://localhost:3100";
 export const SHOTS = process.env.SHOTS;
-export async function launch() {
+export async function launch({ benvenuto = false } = {}) {
   // Lingua italiana anche per i campi data (altrimenti il browser senza testa li scrive 07/27/2026).
-  return chromium.launch({ executablePath: process.env.CHROME_PATH || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox", "--lang=it"], env: { ...process.env, LANGUAGE: "it", LANG: "it_IT.UTF-8" } });
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox", "--lang=it"], env: { ...process.env, LANGUAGE: "it", LANG: "it_IT.UTF-8" } });
+  // Le prove saltano la pagina di benvenuto delle ricorrenze (lib/ricorrenze.ts), come chi
+  // l'ha già vista: nei giorni in cui è attiva coprirebbe il menù. Con ?festa=1 si vede lo stesso;
+  // la prova della pagina stessa usa launch({ benvenuto: true }).
+  if (benvenuto) return browser;
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async (options) => {
+    const context = await newContext(options);
+    await context.addInitScript(() => {
+      try {
+        sessionStorage.setItem("festa-8-anni-vista", "1");
+      } catch {}
+    });
+    return context;
+  };
+  browser.newPage = async (options) => (await browser.newContext(options)).newPage();
+  return browser;
 }
 export async function login(page, username, password) {
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle", timeout: 120000 });

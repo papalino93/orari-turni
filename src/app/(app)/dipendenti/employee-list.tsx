@@ -137,6 +137,9 @@ function EmployeeCard({
   const [deletionImpact, setDeletionImpact] = useState<{ shifts: number; leaves: number; balances: number } | null>(null);
   const [showPdfExport, setShowPdfExport] = useState(false);
   const [showPhotoEditor, setShowPhotoEditor] = useState(false);
+  // Sul telefono la scheda resta chiusa (nome, ore e mesi da approvare): settimana,
+  // accesso e azioni si aprono con un tocco. Dal tablet in su è sempre aperta.
+  const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const toast = useToast();
@@ -337,6 +340,19 @@ function EmployeeCard({
         <PendingMonths employeeId={employee.id} submissions={employee.pendingSubmissions} />
       )}
 
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-11 w-full items-center justify-between gap-2 border-b border-border px-4 text-left text-xs font-medium text-foreground-muted sm:hidden"
+      >
+        <span>{open ? "Chiudi i dettagli" : employee.active ? "Settimana, accesso e azioni" : "Azioni"}</span>
+        <svg aria-hidden width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${open ? "rotate-180" : ""}`}>
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+
+      <div className={open ? "" : "hidden sm:block"}>
       {employee.active && (
         <div className="divide-y divide-border">
           {weekDays.map((d) => {
@@ -397,14 +413,14 @@ function EmployeeCard({
                   : `Eliminando ${employee.name} verranno rimossi anche ${plural(deletionImpact.shifts, "turno", "turni")}, ${plural(deletionImpact.leaves, "voce di ferie/permessi", "voci di ferie/permessi")} e ${plural(deletionImpact.balances, "saldo collegato", "saldi collegati")}. Per il personale storico è preferibile disattivare invece di eliminare.`}
             </p>
             <div className="mt-2 flex justify-end gap-2">
-              <button type="button" onClick={() => setConfirmingDelete(false)} className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted">
+              <button type="button" onClick={() => setConfirmingDelete(false)} className="min-h-11 rounded-full border border-border px-4 text-xs font-medium text-foreground-muted">
                 Annulla
               </button>
               <button
                 type="button"
                 disabled={pending || deletionImpact === null}
                 onClick={confirmDelete}
-                className="rounded-full bg-danger px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                className="min-h-11 rounded-full bg-danger px-4 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
                 Elimina definitivamente
               </button>
@@ -416,7 +432,7 @@ function EmployeeCard({
               <button
                 type="button"
                 onClick={() => setShowPdfExport(true)}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
+                className="min-h-11 rounded-full border border-border px-4 text-xs font-medium text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
               >
                 PDF
               </button>
@@ -443,13 +459,14 @@ function EmployeeCard({
             <button
               type="button"
               onClick={openDeleteConfirm}
-              className="text-xs font-medium text-foreground-muted/70 hover:text-danger"
+              className="min-h-11 text-xs font-medium text-foreground-muted/70 hover:text-danger"
               title="Elimina definitivamente"
             >
               Elimina definitivamente
             </button>
           </>
         )}
+      </div>
       </div>
 
       {showPdfExport && (

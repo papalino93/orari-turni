@@ -1,20 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 
 type Platform = "ios" | "android" | "other";
 
 export default function InstallaPage() {
   const [platform, setPlatform] = useState<Platform>("other");
   const [standalone, setStandalone] = useState(false);
+  // Dal computer: un QR per aprire questa stessa pagina sul telefono.
+  const [qr, setQr] = useState<string | null>(null);
 
   useEffect(() => {
     const ua = navigator.userAgent;
+    // L'iPad si presenta come un Mac: lo si riconosce dallo schermo touch.
+    const ipad = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- dipende da navigator/matchMedia, non disponibili al primo render lato server
-    if (/iPhone|iPad|iPod/.test(ua)) setPlatform("ios");
+    if (/iPhone|iPad|iPod/.test(ua) || ipad) setPlatform("ios");
     else if (/Android/.test(ua)) setPlatform("android");
+    else
+      QRCode.toDataURL(`${location.origin}/installa`, { margin: 1, width: 360, color: { dark: "#1a1a1a", light: "#ffffff" } })
+        .then(setQr)
+        .catch(() => {});
 
-    setStandalone(window.matchMedia("(display-mode: standalone)").matches);
+    setStandalone(window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
   }, []);
 
   const guides = platform === "android" ? [ANDROID, IOS] : [IOS, ANDROID];
@@ -35,6 +44,19 @@ export default function InstallaPage() {
           <p className="text-xs text-foreground-muted">Così apparirà l&apos;icona sulla tua schermata Home</p>
         </div>
       </div>
+
+      {qr && !standalone && (
+        <div className="mb-6 flex items-center gap-5 rounded-2xl border border-accent/40 bg-surface px-5 py-4">
+          {/* eslint-disable-next-line @next/next/no-img-element -- immagine generata qui, niente da ottimizzare */}
+          <img src={qr} alt="Codice QR per aprire questa pagina sul telefono" width={120} height={120} className="shrink-0 rounded-lg bg-white p-1" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Sei al computer?</p>
+            <p className="mt-1 text-sm text-foreground-muted">
+              Inquadra il codice con la fotocamera del telefono: si apre questa pagina, e da lì segui i passi qui sotto.
+            </p>
+          </div>
+        </div>
+      )}
 
       {standalone && (
         <div className="mb-6 rounded-2xl border border-success/30 bg-success-bg px-5 py-4 text-sm text-success">
@@ -63,12 +85,12 @@ const IOS: Guide = {
   id: "ios",
   label: "iPhone / iPad (Safari)",
   icon: <ShareIcon />,
-  note: "Funziona solo aprendo il sito con Safari — non da Chrome, non dall'app di WhatsApp o Instagram: solo Safari sa creare l'icona giusta.",
+  note: "Funziona aprendo il sito con Safari: se l'hai aperto da WhatsApp o da un'altra app, tocca prima «Apri in Safari». Se «Aggiungi alla schermata Home» non c'è, scorri fino in fondo all'elenco e tocca «Modifica azioni» per aggiungerlo.",
   steps: [
     "Apri questo sito con Safari.",
-    "Tocca l'icona Condividi (il quadrato con la freccia verso l'alto), in basso al centro dello schermo.",
+    "Tocca l'icona Condividi (il quadrato con la freccia verso l'alto): sull'iPhone è nella barra in basso, sull'iPad in alto a destra.",
     "Scorri l'elenco e tocca “Aggiungi alla schermata Home”.",
-    "Tocca “Aggiungi” in alto a destra.",
+    "Lascia attivo “Apri come app web”, se compare, e tocca “Aggiungi” in alto a destra.",
   ],
 };
 
