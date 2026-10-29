@@ -327,12 +327,12 @@ export function ItemSheet({
         <span>
           Consigliato dalla casa
           <span className="block text-[11px] text-foreground-muted">
-            Sul menù compare la scritta «Consigliato» e la voce entra in «I consigli della casa», sotto la copertina. Al massimo 4 in tutto: li vedi tutti nella scheda Menù, in «In vetrina».
+            Sul menù compare la scritta «Consigliato» e la voce entra in «I consigli della casa», sotto la copertina. Al massimo 4 in tutto: li vedi tutti in «In vetrina», nella sezione Menù.
           </span>
         </span>
       </label>
       {recommended && others >= 4 && (
-        <p className="text-[11px] font-medium text-gold">Ce ne sono già 4: per consigliare questa, togline prima uno da «In vetrina» (scheda Menù).</p>
+        <p className="text-[11px] font-medium text-gold">Ce ne sono già 4: per consigliare questa, togline prima uno da «In vetrina» (sezione Menù).</p>
       )}
     </div>
   ) : null;

@@ -19,7 +19,7 @@ const settle = (ms = 1500) => page.waitForTimeout(ms);
 
 await tool(page, "Riordina");
 await dialog().waitFor();
-check("si apre «Riordina»", (await dialog().getByRole("heading", { name: "Riordina" }).count()) === 1);
+check("si apre «Riordina» (titolo «Ordina categorie»)", (await dialog().getByRole("heading", { name: "Ordina categorie" }).count()) === 1);
 await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Categorie" }).click();
 check("livello sezioni: tutte le sezioni fisse", (await dialog().locator("li[data-id]").count()) === startSections.split(" | ").length);
 check("«Salva ordine» spento finché non si cambia", await dialog().getByRole("button", { name: "Salva ordine" }).isDisabled());
