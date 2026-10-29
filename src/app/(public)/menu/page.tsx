@@ -491,7 +491,7 @@ export default async function MenuPage() {
         <div className="mt-[72px] flex flex-col items-center gap-3.5 text-center">
           <Ornament color="#9C7A45" />
           <p className="m-0 max-w-[420px] text-balance text-[15.5px] italic leading-normal text-[#5B605A]">
-            Prezzi in euro. I vini indicati “Enomatic” fanno parte del Progetto Enomatic.
+            Prezzi in euro. I vini segnati “Enomatic” sono vini pregiati serviti al calice dalla macchina Enomatic, che li conserva a temperatura controllata e al riparo dall’aria: freschi come appena stappati.
           </p>
           <Link
             href="/menu/allergeni"

@@ -457,7 +457,7 @@ export function ItemSheet({
             </div>
             <label className="flex min-h-11 items-center gap-3 text-sm text-foreground">
               <input type="checkbox" checked={enomatic} onChange={(e) => setEnomatic(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
-              Fa parte del Progetto Enomatic
+              Servito dalla macchina Enomatic
             </label>
             </Block>
 
