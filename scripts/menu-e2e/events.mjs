@@ -114,22 +114,27 @@ await dialog().waitFor({ state: "detached" });
 await settle();
 check("DB: formati salvati come JSON", DB(`select variants::text from "MenuItem" where name='Paulaner Helles'`).includes('"cents": 600'));
 
-// ---- pubblico: evento in corso a pagina piena subito dopo la copertina
+// ---- pubblico: evento in corso = prima scheda grande «in corso» di «In evidenza», prima della carta
 await pub.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
-const order = await pub.evaluate(() => {
-  const ev = document.querySelector('[id^="evento-"]');
-  const carta = document.getElementById("carta");
+const order = await pub.evaluate((s) => {
   const strip = document.querySelector('section[aria-label="In evidenza"]');
-  return { ev: !!ev, before: ev && carta ? !!(ev.compareDocumentPosition(carta) & Node.DOCUMENT_POSITION_FOLLOWING) : false, strip: !!strip };
-});
-check("pubblico: evento in corso aperto prima del menù", order.ev && order.before);
-check("pubblico: evento in corso non duplicato nella striscia", !order.strip);
-const live = (await pub.locator('[id^="evento-"]').innerText()).replace(/ /g, " ");
-check("pubblico: menù speciale con formati e prezzi", /Paulaner Helles/.test(live) && /0,2 l\s*3,50/.test(live) && /0,4 l\s*6/.test(live) && /1 l\s*11/.test(live));
-check("pubblico: 'Vai al menù' presente", (await pub.locator('a[href="#carta"]').count()) >= 2);
-check("pubblico: locandina caricata", await pub.locator('[id^="evento-"] img').first().evaluate((i) => i.complete && i.naturalWidth > 0));
+  const first = strip?.querySelector("a");
+  const carta = document.getElementById("carta");
+  return {
+    first: first?.getAttribute("href") === `/menu/p/${s}`,
+    live: /in corso/i.test(first?.textContent ?? ""),
+    before: strip && carta ? !!(strip.compareDocumentPosition(carta) & Node.DOCUMENT_POSITION_FOLLOWING) : false,
+    inline: !!document.querySelector('[id^="evento-"]'),
+  };
+}, slug);
+check("pubblico: evento in corso = prima scheda «in corso» di In evidenza, prima del menù", order.first && order.live && order.before, JSON.stringify(order));
+check("pubblico: l'evento non è più aperto a pagina piena (la carta resta vicina)", !order.inline);
+const card = pub.locator('section[aria-label="In evidenza"] a').first();
+check("pubblico: locandina caricata nella scheda", await card.locator("img").first().evaluate((i) => i.complete && i.naturalWidth > 0));
+const live = (await publicText(`/menu/p/${slug}`)).text.replace(/ /g, " ");
+check("pubblico: menù speciale con formati e prezzi nella pagina dell'evento", /Paulaner Helles/.test(live) && /0,2 l\s*3,50/.test(live) && /0,4 l\s*6/.test(live) && /1 l\s*11/.test(live));
 if (SHOTS) {
-  await pub.evaluate(() => document.querySelector('[id^="evento-"]')?.scrollIntoView());
+  await card.scrollIntoViewIfNeeded();
   await pub.waitForTimeout(500);
   await pub.screenshot({ path: `${SHOTS}/evento-live-390.png` });
 }
@@ -152,7 +157,7 @@ check("gestione: «Evento senza menù dedicato» al posto del menù speciale", (
 let menu = await publicText("/menu");
 check("annunciato: scheda nella striscia In evidenza", /In evidenza/i.test(menu.text) && /Serata Jazz/.test(menu.text));
 check("tipo personalizzato: compare sulla scheda", /Musica dal vivo/i.test(await pub.locator('section[aria-label="In evidenza"]').innerText()));
-check("annunciato: non aperto a pagina piena", (await pub.locator('[id^="evento-"]').count()) === 1);
+check("annunciato: non aperto a pagina piena", (await pub.locator('[id^="evento-"]').count()) === 0);
 const jazzSlug = DB(`select slug from "MenuPromo" where title='Serata Jazz'`);
 const jazzPage = await publicText(`/menu/p/${jazzSlug}`);
 check("tipo personalizzato: compare sulla pagina dell'evento", /musica dal vivo/i.test(jazzPage.text));

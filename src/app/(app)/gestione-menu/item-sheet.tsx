@@ -764,14 +764,18 @@ export function ItemSheet({
           </select>
         </Field>
 
-        <button
-          type="submit"
-          onClick={progress ? (e) => void submit(e, true) : undefined}
-          disabled={busy || !name.trim() || (!isWine && allergenMode === "some" && allergens.length === 0)}
-          className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
-        >
-          {busy ? "Salvo…" : progress ? (nextMissing ? "Salva e passa al successivo" : "Salva e chiudi") : item ? "Salva" : "Aggiungi"}
-        </button>
+        {/* «Salva» resta sempre in vista in fondo allo schermo: la scheda è lunga e per
+            cambiare un prezzo non si deve scorrere fino in fondo. */}
+        <div className="sticky bottom-0 z-10 -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-mx-6 sm:px-6 sm:pb-3">
+          <button
+            type="submit"
+            onClick={progress ? (e) => void submit(e, true) : undefined}
+            disabled={busy || !name.trim() || (!isWine && allergenMode === "some" && allergens.length === 0)}
+            className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+          >
+            {busy ? "Salvo…" : progress ? (nextMissing ? "Salva e passa al successivo" : "Salva e chiudi") : item ? "Salva" : "Aggiungi"}
+          </button>
+        </div>
 
         {progress && nextMissing && (
           <button

@@ -268,6 +268,15 @@ function PeriodsLayout({
   onEdit: (employeeId: string, dateKey: string) => void;
   onManageDay: (dateKey: string) => void;
 }) {
+  // Telefono: giorni a fisarmonica. Aperto solo oggi (o il lunedì, se la settimana non
+  // contiene oggi); gli altri chiusi con un riassunto, si aprono con un tocco.
+  const dayKeys = days.map((d) => toDateKey(d));
+  const defaultOpen = days.find((d) => isToday(d)) ? toDateKey(days.find((d) => isToday(d))!) : dayKeys[0];
+  const [openKeys, setOpenKeys] = useState<string[]>([defaultOpen]);
+  const effectiveOpen = openKeys.some((k) => dayKeys.includes(k)) ? openKeys : [defaultOpen];
+  const toggleDay = (key: string) =>
+    setOpenKeys(effectiveOpen.includes(key) ? effectiveOpen.filter((k) => k !== key) : [...effectiveOpen, key]);
+
   function weeklyHours(employeeId: string, period?: Period) {
     if (period === undefined) return schedule.employeeHours(employeeId);
     return (
@@ -324,7 +333,7 @@ function PeriodsLayout({
             .filter((e) => e.role !== "OWNER")
             .map((emp) => (
               <span key={emp.id} className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground-muted">
-                {emp.name}: <span className="font-semibold text-foreground">{weeklyHours(emp.id)}h</span>
+                {emp.name}: <span className="font-semibold text-foreground">{formatHours(weeklyHours(emp.id))}</span>
               </span>
             ))}
         </div>
@@ -333,26 +342,48 @@ function PeriodsLayout({
         {days.map((d) => {
           const dateKey = toDateKey(d);
           const closed = schedule.isClosed(dateKey);
+          const open = effectiveOpen.includes(dateKey);
+          const working = orderedEmployees.filter((e) => schedule.entry(e.id, dateKey).kind === "TURNO").length;
+          const away = orderedEmployees.filter((e) => ["FERIE", "PERMESSO", "MALATTIA"].includes(schedule.entry(e.id, dateKey).kind)).length;
+          const summary = closed
+            ? "🔒 Locale chiuso"
+            : [working === 0 ? "Nessuno al lavoro" : `${working} al lavoro`, away > 0 ? `${away} assent${away === 1 ? "e" : "i"}` : null].filter(Boolean).join(" · ");
           return (
             <div key={dateKey} className={`overflow-hidden rounded-2xl border bg-surface ${isToday(d) ? "border-accent/50" : "border-border"}`}>
-              <button
-                type="button"
-                onClick={() => onManageDay(dateKey)}
-                className="flex w-full items-center justify-between border-b border-border px-4 py-3 text-left active:bg-surface-2"
-              >
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  {dayLabel(d, true)} <span className="font-normal text-foreground-muted">{formatDayMonth(d)}</span>
-                  {isToday(d) && (
-                    <span className="rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
-                      Oggi
+              <div className={`flex items-center ${open ? "border-b border-border" : ""}`}>
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  data-giorno={dateKey}
+                  onClick={() => toggleDay(dateKey)}
+                  className="flex min-h-12 min-w-0 flex-1 items-center justify-between gap-2 px-4 py-2.5 text-left active:bg-surface-2"
+                >
+                  <span className="flex min-w-0 flex-col">
+                    <span className="flex items-center gap-2 text-sm font-semibold">
+                      {dayLabel(d, true)} <span className="font-normal text-foreground-muted">{formatDayMonth(d)}</span>
+                      {isToday(d) && (
+                        <span className="rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
+                          Oggi
+                        </span>
+                      )}
                     </span>
-                  )}
-                </div>
-                {closed && (
-                  <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[11px] font-medium text-danger">🔒 Locale chiuso</span>
-                )}
-              </button>
-              {closed ? (
+                    <span className={`text-[11px] ${closed ? "text-danger" : "text-foreground-muted"}`}>{summary}</span>
+                  </span>
+                  <svg aria-hidden width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-foreground-muted transition-transform ${open ? "rotate-180" : ""}`}>
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+                {/* Chiudere (o riaprire) il locale in questa giornata: prima si scopriva solo toccando l'intestazione. */}
+                <button
+                  type="button"
+                  onClick={() => onManageDay(dateKey)}
+                  aria-label={`${closed ? "Riapri" : "Chiudi"} il locale: ${dayLabel(d, true)} ${formatDayMonth(d)}`}
+                  className="mr-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-2 hover:text-foreground"
+                >
+                  {closed ? <LockOpenIcon /> : <LockClosedIcon />}
+                </button>
+              </div>
+              {!open ? null : closed ? (
                 <p className="px-4 py-4 text-sm text-foreground-muted">Nessun turno: il locale non apre in questa giornata.</p>
               ) : (
                 PERIODS.map((period) => (
