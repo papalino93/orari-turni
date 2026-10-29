@@ -110,7 +110,7 @@ export function PromoCard({
             {promo.kind === "EVENT"
               ? promo.hasMenu
                 ? "Locandina in «In evidenza» dal giorno scelto; il menù speciale solo durante l'evento."
-                : "Locandina in «In evidenza» dal giorno scelto; nei giorni dell'evento si apre dopo la copertina."
+                : "Locandina in «In evidenza» dal giorno scelto; nei giorni dell'evento è la prima, con «in corso»."
               : "Compare in una riga sotto la copertina dal giorno di inizio fino alla fine."}{" "}
             Dopo la fine sparisce da sola.
           </p>
@@ -443,7 +443,7 @@ export function PromoSheet({
 
         {isEvent && (
           <p className="-mt-1 text-[11px] text-foreground-muted">
-            Da «Mostra la locandina dal» compare nella striscia «In evidenza»; nei giorni dell&apos;evento si apre a pagina piena subito dopo la copertina.
+            Da «Mostra la locandina dal» compare nella striscia «In evidenza»; nei giorni dell&apos;evento è la prima, con la scritta «in corso».
           </p>
         )}
 

@@ -295,7 +295,7 @@ export function StatsView({
   const hasData = data.opens > 0 || data.weeks.some((w) => w.count > 0);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 px-4 pb-16 pt-6">
+    <div className="app-wide mx-auto max-w-5xl space-y-5 px-4 pb-16 pt-6">
       <div>
         <h1 className="text-xl font-semibold text-foreground">Statistiche del menù</h1>
         <p className="mt-1 text-sm text-foreground-muted">

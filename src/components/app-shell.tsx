@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { WideToggle } from "@/components/wide-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { InstallBanner, EmployeeInstallPrompt, InstalledMark } from "@/components/install-banner";
 import { VERSION_LABEL } from "@/lib/version";
@@ -69,12 +70,12 @@ export function AppShell({
           sfondo bordeaux resta esteso fin sotto la barra di stato (l'effetto
           voluto); solo il contenuto vero scende sotto di essa. */}
       <header className="sticky top-0 z-30 bg-brand-band pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(0,0,0,0.18)] backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <div className="app-wide mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex shrink-0 items-center gap-2.5">
             <BrandMark className="h-11" />
           </div>
 
-          <nav className="hidden items-center gap-0.5 md:flex lg:gap-1">
+          <nav className={`hidden items-center gap-0.5 lg:gap-1 ${navItems.length > 1 ? "md:flex" : ""}`}>
             {navItems.map((item) => {
               const active = pathname?.startsWith(item.href);
               const Icon = item.icon;
@@ -111,6 +112,7 @@ export function AppShell({
                 <GearIcon />
               </Link>
             )}
+            <WideToggle />
             <ThemeToggle />
             {/* Il nome solo dove c'è spazio: sul tablet la barra ha già le voci del menù. */}
             <span className="hidden text-sm text-brand-band-foreground-muted sm:block md:hidden lg:block">{userName}</span>
@@ -125,7 +127,7 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-6 sm:px-6 md:pb-10">
+      <main className={`app-wide mx-auto w-full max-w-6xl flex-1 px-4 pt-6 sm:px-6 md:pb-10 ${navItems.length > 1 ? "pb-28" : "pb-10"}`}>
         <InstalledMark installed={appInstalled} />
         {appInstalled ? null : isAdmin ? <InstallBanner /> : <EmployeeInstallPrompt />}
         {children}
@@ -138,24 +140,27 @@ export function AppShell({
           foglio dell'app (che lo fanno già tutti), questa è l'unica barra
           fissa a fondo schermo presente su ogni pagina mobile — senza,
           le etichette finiscono a ridosso dell'Home Indicator gestuale. */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex bg-brand-band shadow-[0_-1px_0_rgba(0,0,0,0.18)] backdrop-blur md:hidden">
-        {navItems.map((item) => {
-          const active = pathname?.startsWith(item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-1 flex-col items-center gap-1 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] text-[11px] font-medium transition-colors ${
-                active ? "text-brand-band-foreground" : "text-brand-band-foreground-muted"
-              }`}
-            >
-              <Icon active={!!active} />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Con una voce sola (il dipendente senza il menù) la barra in basso non serve a niente. */}
+      {navItems.length > 1 && (
+        <nav className="fixed inset-x-0 bottom-0 z-30 flex bg-brand-band shadow-[0_-1px_0_rgba(0,0,0,0.18)] backdrop-blur md:hidden">
+          {navItems.map((item) => {
+            const active = pathname?.startsWith(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-1 flex-col items-center gap-1 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] text-[11px] font-medium transition-colors ${
+                  active ? "text-brand-band-foreground" : "text-brand-band-foreground-muted"
+                }`}
+              >
+                <Icon active={!!active} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
     </div>
   );
 }

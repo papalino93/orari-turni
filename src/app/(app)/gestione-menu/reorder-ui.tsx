@@ -130,6 +130,9 @@ function SortableList({ rows, onChange, onOpen }: { rows: Row[]; onChange: (rows
 // «Riordina»: tre livelli (sezioni → gruppi di una sezione → voci di un gruppo), più
 // «Eventi e annunci» (l'ordine in «In evidenza»). L'ordine si salva tutto insieme con
 // «Salva ordine» e si annulla con un tocco.
+// Il titolo dice cosa si sta ordinando: lo stesso nome del pulsante che porta qui («Ordina categorie»).
+const SHEET_TITLE = { promo: "Ordina eventi e annunci", section: "Ordina categorie", group: "Ordina i gruppi", item: "Ordina le voci" } as const;
+
 export function ReorderSheet({
   sections,
   promos,
@@ -208,7 +211,7 @@ export function ReorderSheet({
   }
 
   return (
-    <Sheet title="Riordina" onClose={onClose} dirty={changed} onSave={save}>
+    <Sheet title={SHEET_TITLE[level]} onClose={onClose} dirty={changed} onSave={save}>
       {promos.length > 1 && (
         <div role="tablist" aria-label="Cosa riordinare" className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1 text-sm">
           {[
@@ -257,7 +260,7 @@ export function ReorderSheet({
 
       <p className="mb-3 text-xs text-foreground-muted">
         {level === "promo"
-          ? "L'ordine in «In evidenza», da sinistra a destra. Nei giorni dell'evento la sua pagina si apre comunque in cima al menù. Un evento nuovo si mette dopo quelli ordinati qui."
+          ? "L'ordine in «In evidenza», da sinistra a destra. Nei giorni dell'evento va comunque per prima. Un evento nuovo si mette dopo quelli ordinati qui."
           : level === "section"
           ? "L'ordine delle categorie sul menù (Oggi fuori menù resta sempre in cima). «Apri» per riordinare i gruppi di una categoria."
           : level === "group"

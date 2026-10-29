@@ -5,7 +5,7 @@ import { Providers } from "@/components/providers";
 import "./globals.css";
 
 // Tema: quello scelto in Account; se non è mai stato scelto, quello del telefono/computer.
-const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){}`;
+const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.setAttribute('data-theme',t);if(localStorage.getItem('wide')==='1')document.documentElement.setAttribute('data-wide','1');}catch(e){}`;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

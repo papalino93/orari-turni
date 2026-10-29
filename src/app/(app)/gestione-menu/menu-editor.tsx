@@ -419,7 +419,7 @@ export function MenuEditor({
   const promoToDuplicate = sheet?.type === "promo-duplicate" ? (promos.find((p) => p.id === sheet.id) ?? null) : null;
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="app-wide mx-auto max-w-5xl">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight">Menù</h1>
