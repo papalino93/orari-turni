@@ -83,7 +83,7 @@ export function CopyWeekButton({
         type="button"
         onClick={() => setOpen(true)}
         title="Ricopia turni, riposi e orari ridotti dalla settimana precedente"
-        className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-xs font-medium text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
+        className="flex min-h-11 items-center gap-1.5 rounded-full border border-border px-4 text-xs font-medium text-foreground-muted transition-colors hover:border-accent hover:text-foreground"
       >
         <RepeatIcon />
         Ripeti settimana

@@ -18,6 +18,7 @@ export function PanelHead({
   subtitle,
   badge,
   chevron,
+  chevronMobileOnly = false,
 }: {
   icon: React.ReactNode;
   tone: PanelTone;
@@ -26,6 +27,8 @@ export function PanelHead({
   badge?: React.ReactNode;
   /** Riquadro che si apre e chiude: freccia accanto al titolo. */
   chevron?: "open" | "closed";
+  /** La freccia solo sul telefono (dal tablet in su il riquadro è sempre aperto). */
+  chevronMobileOnly?: boolean;
 }) {
   return (
     <span className="flex min-w-0 flex-1 items-center gap-3">
@@ -47,7 +50,7 @@ export function PanelHead({
               strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className={`text-foreground-muted transition-transform ${chevron === "open" ? "rotate-180" : ""}`}
+              className={`text-foreground-muted transition-transform ${chevron === "open" ? "rotate-180" : ""} ${chevronMobileOnly ? "sm:hidden" : ""}`}
             >
               <path d="M6 9l6 6 6-6" />
             </svg>

@@ -313,7 +313,7 @@ export function OrariView({
               type="button"
               disabled={confirming}
               onClick={() => setVerifyAsk(true)}
-              className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold hover:bg-gold/20"
+              className="min-h-11 rounded-full border border-gold/40 bg-gold/10 px-4 text-xs font-medium text-gold hover:bg-gold/20"
               title="Segna come verificati i turni passati in questo periodo"
             >
               {confirming ? "Verifica…" : `⚠️ ${schedule.unverifiedPastBlocks} da verificare`}

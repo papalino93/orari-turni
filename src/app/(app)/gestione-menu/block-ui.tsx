@@ -479,6 +479,7 @@ export function VetrinaPanel({
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+  const [open, setOpen] = useState(false);
   const live = blocks.filter((b) => blockStatus(b, today) === "live").length;
   const chosen = consigli.filter((c) => c.recommended);
 
@@ -503,14 +504,31 @@ export function VetrinaPanel({
 
   return (
     <section aria-label="In vetrina" className="mb-5 rounded-2xl border border-accent/25 bg-gradient-to-br from-accent/[0.08] to-accent/[0.01] px-4 py-3.5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Sul telefono è una riga che si apre al tocco: prima delle voci da segnare esaurite
+          non devono esserci due schermate da scorrere. Dal tablet in su è sempre aperto. */}
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-11 w-full items-center text-left sm:pointer-events-none"
+      >
         <PanelHead
           icon={IconVetrina}
           tone="accent"
           title="In vetrina"
-          subtitle="Quello che i clienti vedono subito dopo la copertina: i consigli della casa e i riquadri speciali."
+          chevron={open ? "open" : "closed"}
+          chevronMobileOnly
+          subtitle={
+            <>
+              <span className="sm:hidden">
+                {chosen.length} {chosen.length === 1 ? "consiglio" : "consigli"} · {live} {live === 1 ? "riquadro" : "riquadri"} sul menù
+              </span>
+              <span className="hidden sm:inline">Quello che i clienti vedono subito dopo la copertina: i consigli della casa e i riquadri speciali.</span>
+            </>
+          }
         />
-      </div>
+      </button>
+      <div className={open ? "" : "hidden sm:block"}>
 
       <div className="mt-4 flex items-center justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-muted">
@@ -637,6 +655,7 @@ export function VetrinaPanel({
           })}
         </ul>
       )}
+      </div>
     </section>
   );
 }
