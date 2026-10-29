@@ -4,7 +4,8 @@ import { ALLERGENS, allergenState } from "@/lib/allergens";
 import { businessDayKey, isPromoMenuVisible, inPeriod } from "@/lib/menu-format";
 import { loadDaily, loadMenu, loadVisiblePromos } from "@/lib/menu";
 import { Ornament } from "../ornament";
-import { AllergenExplorer, type ExplorerSection } from "./allergen-explorer";
+import { Suspense } from "react";
+import { AllergenExplorer, AllergenExplorerFromUrl, type ExplorerSection } from "./allergen-explorer";
 
 // Come /menu: in cache, rigenerata ogni minuto e a ogni modifica del menù.
 export const revalidate = 60;
@@ -39,6 +40,7 @@ export default async function AllergeniPage() {
             description: i.description,
             state: allergenState(i),
             allergens: i.allergens,
+            traces: i.allergenTraces,
           })),
         })),
     }))
@@ -81,7 +83,9 @@ export default async function AllergeniPage() {
           </p>
         </div>
 
-        <AllergenExplorer sections={sections} />
+        <Suspense fallback={<AllergenExplorer sections={sections} />}>
+          <AllergenExplorerFromUrl sections={sections} />
+        </Suspense>
 
         <section className="mt-16">
           <h2 className="menu-serif m-0 text-center text-[34px] font-medium leading-[1.1] text-[#6B1020]">I 14 allergeni</h2>

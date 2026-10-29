@@ -48,6 +48,8 @@ export type ItemInput = {
   // Solo piatti. allergensReviewed false = "da compilare" (non è "nessuno").
   allergens?: string[];
   allergensReviewed?: boolean;
+  // Solo piatti, facoltativo: «Può contenere tracce di…».
+  allergenTraces?: string[];
   // Più formati con prezzo (es. birra 0,2 l · 0,4 l · 1 l): alternativi al prezzo singolo.
   variants?: { label: string; price: string }[];
   // Solo menù fisso, facoltativi: periodo in cui la voce si vede (YYYY-MM-DD).
@@ -76,6 +78,7 @@ const ITEM_KEYS = [
   "pairHideIds",
   "allergens",
   "allergensReviewed",
+  "allergenTraces",
   "variants",
   "availableFrom",
   "availableTo",
@@ -183,6 +186,7 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput, { requireRegion
       // I vini non hanno allergeni per voce: vale la nota unica "solfiti".
       allergens: [] as string[],
       allergensReviewed: false,
+      allergenTraces: [] as string[],
       variants: null as MenuVariant[] | null,
       ...period,
     };
@@ -214,6 +218,8 @@ function parseItemInput(kind: MenuSectionKind, input: ItemInput, { requireRegion
     pairHideIds: [] as string[],
     allergens: allergensReviewed ? parseAllergens(input.allergens) : [],
     allergensReviewed,
+    // Una traccia di ciò che il piatto già contiene non aggiunge niente.
+    allergenTraces: parseAllergens(input.allergenTraces).filter((c) => !(allergensReviewed && (input.allergens ?? []).includes(c))),
     variants,
     ...period,
   };
@@ -482,6 +488,7 @@ export async function duplicateItem(idInput: string): Promise<ActionResult<Chang
           pairHideIds: source.pairHideIds,
           allergens: source.allergens,
           allergensReviewed: source.allergensReviewed,
+          allergenTraces: source.allergenTraces,
           variants: source.variants === null ? Prisma.DbNull : (source.variants as Prisma.InputJsonValue),
           onlyDay: source.onlyDay,
           sortOrder: source.sortOrder + 1,
@@ -534,6 +541,7 @@ export async function reproposeItem(idInput: string): Promise<ActionResult<Chang
           traits: source.traits,
           allergens: source.allergens,
           allergensReviewed: source.allergensReviewed,
+          allergenTraces: source.allergenTraces,
           variants: source.variants === null ? Prisma.DbNull : (source.variants as Prisma.InputJsonValue),
           onlyDay: today,
           sortOrder: (last?.sortOrder ?? -1) + 1,

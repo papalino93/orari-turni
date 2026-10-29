@@ -49,6 +49,7 @@ export type EditorItem = {
   variants: { label: string; cents: number }[] | null;
   allergens: string[];
   allergensReviewed: boolean;
+  allergenTraces?: string[];
   soldOut: boolean;
   // Riga di solo testo tra le voci (nome = testo).
   textOnly: boolean;

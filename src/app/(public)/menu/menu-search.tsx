@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { originLabel } from "@/lib/menu-format";
 import { track } from "./stats";
 import { WINE_TRAITS, traitLabel } from "@/lib/wine-traits";
+import { allergenLabel } from "@/lib/allergens";
 
 export type SearchItem = {
   id: string;
@@ -34,6 +35,23 @@ function haystack(i: SearchItem): string {
 
 const MAX_RESULTS = 40;
 
+// Parole che fanno pensare a un allergene: la ricerca propone i piatti adatti.
+const ALLERGEN_WORDS: [string, string][] = [
+  ["glutine", "GLUTINE"], ["celiac", "GLUTINE"], ["gluten", "GLUTINE"],
+  ["crostace", "CROSTACEI"], ["uov", "UOVA"], ["pesce", "PESCE"], ["arachid", "ARACHIDI"], ["soia", "SOIA"],
+  ["latte", "LATTE"], ["lattosio", "LATTE"], ["latticin", "LATTE"],
+  ["frutta a guscio", "FRUTTA_A_GUSCIO"], ["noci", "FRUTTA_A_GUSCIO"], ["nocciol", "FRUTTA_A_GUSCIO"], ["mandorl", "FRUTTA_A_GUSCIO"], ["pistacch", "FRUTTA_A_GUSCIO"],
+  ["sedano", "SEDANO"], ["senape", "SENAPE"], ["sesamo", "SESAMO"], ["lupin", "LUPINI"], ["mollusc", "MOLLUSCHI"],
+  ["allergen", ""], ["intolleran", ""],
+];
+
+function allergensIn(query: string): string[] | null {
+  const q = norm(query);
+  const hits = ALLERGEN_WORDS.filter(([w]) => q.split(/\s+/).some((t) => t.length >= 3 && (t.startsWith(w) || w.startsWith(t) && t.length >= 4)) || (w.includes(" ") && q.includes(w)));
+  if (hits.length === 0) return null;
+  return [...new Set(hits.map(([, c]) => c).filter(Boolean))];
+}
+
 // Ricerca nel menù: per nome, zona, uvaggio e ingredienti, con due filtri rapidi.
 // Scegliere un risultato chiude la ricerca e porta alla voce, evidenziandola.
 export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: () => void }) {
@@ -58,6 +76,7 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
 
   const tokens = norm(query).split(/\s+/).filter(Boolean);
   const active = tokens.length > 0 || glass || enomatic || trait.size > 0;
+  const allergens = allergensIn(query);
   const results = active
     ? index
         .filter(({ item, text }) => (!glass || item.glass) && (!enomatic || item.enomatic) && [...trait].every((c) => item.traits.includes(c)) && tokens.every((t) => text.includes(t)))
@@ -160,7 +179,21 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
             Scrivi il nome di un vino, un vitigno, una zona o un ingrediente.
           </p>
         )}
-        {active && results.length === 0 && (
+        {allergens && (
+          <a
+            href={allergens.length ? `/menu/allergeni?evita=${allergens.join(",")}` : "/menu/allergeni"}
+            className="menu-rule-soft mt-4 flex min-h-14 items-center justify-between gap-3 rounded-2xl border bg-[#FBF7EF] px-4 py-3 !no-underline"
+          >
+            <span>
+              <span className="block text-[18px] font-medium leading-tight text-[#1F2621]">
+                {allergens.length ? `Piatti senza ${allergens.map((c) => allergenLabel(c).toLowerCase()).join(" e ")}` : "Allergeni e intolleranze"}
+              </span>
+              <span className="menu-sans block text-[13px] leading-snug text-[#4A504B]">Filtra i piatti per gli allergeni da evitare</span>
+            </span>
+            <span aria-hidden className="text-[20px] text-[#6B1020]">›</span>
+          </a>
+        )}
+        {active && results.length === 0 && !allergens && (
           <p className="mt-10 text-center text-[17px] italic leading-normal text-[#5B605A]">Nessun risultato. Prova con meno parole.</p>
         )}
         {active && results.length > 0 && (

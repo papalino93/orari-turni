@@ -41,12 +41,17 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
     check("allergeni: nessun form/link interno", (await page.locator("main form, main input").count()) === 0 && (await page.evaluate(() => [...document.querySelectorAll("a")].every((a) => ["/menu"].includes(a.getAttribute("href"))))));
     // filtro
     await page.getByRole("button", { name: "Glutine", exact: true }).click();
+    // Di base restano solo i piatti adatti: spariscono quelli con glutine e quelli da verificare.
+    check("filtro Glutine: Orzo nascosto", (await row("Orzo").count()) === 0);
+    check("filtro Glutine: kombucha da verificare nascosti", (await page.locator(".menu-rule-soft", { hasText: "Da verificare con il personale" }).count()) === 0);
+    check("filtro Glutine: Acqua resta", (await row("Acqua").count()) === 1);
+    await page.getByLabel(/Mostra solo i piatti adatti/).uncheck();
     const orzo = await row("Orzo").innerText();
-    check("filtro Glutine: Orzo segnalato 'Contiene: Glutine'", /Contiene: Glutine/.test(orzo));
+    check("filtro Glutine, tutti i piatti: Orzo segnalato 'Contiene: Glutine'", /Contiene: Glutine/.test(orzo));
     const dimmed = await row("Orzo").locator("div").first().evaluate((el) => getComputedStyle(el).opacity);
-    check("filtro Glutine: Orzo attenuato", Number(dimmed) < 1, dimmed);
-    check("filtro Glutine: kombucha restano 'da verificare'", (await page.locator(".menu-rule-soft", { hasText: "Da verificare con il personale" }).count()) === 2);
-    check("filtro Glutine: Acqua non attenuata", Number(await row("Acqua").locator("div").first().evaluate((el) => getComputedStyle(el).opacity)) === 1);
+    check("filtro Glutine, tutti i piatti: Orzo attenuato", Number(dimmed) < 1, dimmed);
+    check("filtro Glutine, tutti i piatti: kombucha restano 'da verificare'", (await page.locator(".menu-rule-soft", { hasText: "Da verificare con il personale" }).count()) === 2);
+    check("filtro Glutine, tutti i piatti: Acqua non attenuata", Number(await row("Acqua").locator("div").first().evaluate((el) => getComputedStyle(el).opacity)) === 1);
     if (SHOTS) {
       await page.screenshot({ path: `${SHOTS}/allergeni-390-top.png` });
       await page.evaluate(() => window.scrollTo(0, 900));
@@ -79,12 +84,12 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
   const kitchen = async (id) => ((await page.locator(`#${id}`).innerText()).match(/la cucina chiude/i) ?? []).length;
   check("avviso cucina: vicino al coperto in Taglieri e in Tartare", (await kitchen("taglieri")) === 1 && (await kitchen("tartare")) === 1);
   check("avviso cucina: non in Bevande né nei vini", (await kitchen("bevande")) === 0 && (await kitchen("bianchi")) === 0);
-  // numeri degli allergeni accanto ai piatti + legenda 1–14 in fondo
+  // nomi degli allergeni sotto i piatti + nota in fondo con il filtro
   const classico = (await page.locator("#taglieri .menu-rule-soft", { hasText: "Tagliere Classico" }).innerText()).replace(/\u00A0/g, " ");
-  check("allergeni sul menù: Tagliere Classico = 7 · 12 (latte, solfiti)", /7 · 12/.test(classico), classico.replace(/\n/g, " | "));
+  check("allergeni sul menù: Tagliere Classico = Latte · Solfiti", /Latte · Solfiti/.test(classico), classico.replace(/\n/g, " | "));
   check("allergeni sul menù: kombucha 'da verificare'", (await page.locator("#bevande .menu-rule-soft", { hasText: "Kombucha" }).first().innerText()).toLowerCase().includes("da verificare"));
-  check("allergeni sul menù: i vini non hanno numeri", !/allergeni/i.test(await page.locator("#bianchi").innerText()));
-  check("legenda allergeni in fondo: 14 voci numerate", (await page.locator('section[aria-label="Legenda degli allergeni"] ol > li').count()) === 14);
+  check("allergeni sul menù: i vini non hanno la riga allergeni", !/allergeni/i.test(await page.locator("#bianchi").innerText()));
+  check("nota allergeni in fondo con «Filtra per allergene»", (await page.locator('section[aria-label="Allergeni"]').getByRole("link", { name: "Filtra per allergene" }).count()) === 1);
   await ctx.close();
 }
 

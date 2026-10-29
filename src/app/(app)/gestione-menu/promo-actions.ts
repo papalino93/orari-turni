@@ -320,6 +320,7 @@ export async function duplicatePromo(
                 traits: item.traits,
                 allergens: item.allergens,
                 allergensReviewed: item.allergensReviewed,
+                allergenTraces: item.allergenTraces,
                 textOnly: item.textOnly,
                 sortOrder: item.sortOrder,
               })),

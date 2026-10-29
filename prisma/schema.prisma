@@ -336,6 +336,8 @@ model MenuItem {
   // allergene" da "non ancora compilato" (vedi pagina /menu/allergeni).
   allergens         String[]  @default([])
   allergensReviewed Boolean   @default(false)
+  // «Può contenere tracce di…»: allergeni non tra gli ingredienti, possibili per contaminazione.
+  allergenTraces    String[]  @default([])
   // Giorno commerciale (YYYY-MM-DD, vedi lib/menu.ts) in cui la voce è stata
   // segnata esaurita: vale solo per quel giorno, così il ripristino è
   // automatico senza bisogno di un cron.

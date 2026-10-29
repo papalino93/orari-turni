@@ -68,7 +68,7 @@ t = await menu();
 check("pubblico: «Oggi fuori menù» in cima al menù", t.toLowerCase().indexOf("oggi fuori menù") > 0);
 const oggi = (await pub.locator("#oggi").innerText()).replace(/ /g, " ");
 check("pubblico: piatto con descrizione e prezzo", /Risotto ai porcini/.test(oggi) && /Riso carnaroli/.test(oggi) && /14/.test(oggi));
-check("pubblico: allergeni del piatto (7 = latte)", /Allergeni\s*7/i.test(oggi.replace(/\n/g, " ")));
+check("pubblico: allergeni del piatto (latte)", /Allergeni\s*Latte/i.test(oggi.replace(/\n/g, " ")));
 check("pubblico: vino con prezzo bottiglia 35 e calice 8", /Vermentino di Gallura/.test(oggi) && /\b35\b/.test(oggi) && /\b8\b/.test(oggi));
 const firstChip = (await pub.locator("nav[aria-label='Sezioni del menù'] a").first().innerText()).trim();
 check("pubblico: il primo chip è «Oggi»", /oggi/i.test(firstChip), firstChip);

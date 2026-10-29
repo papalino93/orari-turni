@@ -313,11 +313,14 @@ export default async function MenuPage() {
                   {group.kind === "FOOD" && parseFormats(group.formats) && <FormatHeader formats={parseFormats(group.formats)!} />}
                   {group.columns && (
                     <>
-                      <div title="Calice" className="flex w-9 flex-none justify-end">
+                      {/* Icona e parola: chi non riconosce il disegno legge «calice» e «bottiglia». */}
+                      <div className="flex w-9 flex-none flex-col items-end gap-0.5">
                         <GlassIcon />
+                        <span className="menu-sans text-[9.5px] leading-none text-[#5B605A]">calice</span>
                       </div>
-                      <div title="Bottiglia" className="flex w-10 flex-none justify-end">
+                      <div className="flex w-10 flex-none flex-col items-end gap-0.5">
                         <BottleIcon />
+                        <span className="menu-sans text-[9.5px] leading-none text-[#5B605A]">bottiglia</span>
                       </div>
                     </>
                   )}
