@@ -35,9 +35,10 @@ export function PhoneQr({ admin }: { admin: boolean }) {
   );
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+// clip: false dove servono anteprime che escono dal riquadro (passando col cursore).
+function Section({ title, hint, children, clip = true }: { title: string; hint?: string; children: React.ReactNode; clip?: boolean }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-surface">
+    <section className={`${clip ? "overflow-hidden" : ""} rounded-2xl border border-border bg-surface`}>
       <div className="border-b border-border px-5 py-4">
         <h2 className="text-base font-semibold text-foreground">{title}</h2>
         {hint && <p className="mt-0.5 text-sm text-foreground-muted">{hint}</p>}
@@ -58,7 +59,7 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
       if (r !== null) router.refresh();
     });
   return (
-    <Section title="Chi può usare i widget" hint="Tu e il consulente li avete tutti. Ai dipendenti si possono dare solo quelli «Per tutti», più «I miei turni»: per ognuno scegli se può usarli e quali.">
+    <Section clip={false} title="Chi può usare i widget" hint="Tu e il consulente li avete tutti. Ai dipendenti si possono dare solo quelli «Per tutti», più «I miei turni»: per ognuno scegli se può usarli e quali.">
       <details className="group border-b border-border px-5 py-3">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium text-accent-ink [&::-webkit-details-marker]:hidden">
           Come autorizzare un dipendente
@@ -119,14 +120,21 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
                         type="button"
                         aria-pressed={has}
                         aria-label={`${has ? "✓ " : ""}${w.nome}`}
+                        title={w.descrizione}
                         disabled={pending}
                         onClick={() => save(e.id, next, has ? `Tolto «${w.nome}» a ${e.name}` : `Dato «${w.nome}» a ${e.name}`)}
-                        className={`flex min-h-11 flex-col items-start gap-1.5 rounded-xl border p-2 text-left text-xs font-medium transition-colors disabled:opacity-60 ${
-                          has ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground-muted opacity-70"
+                        className={`group relative flex min-h-11 flex-col items-start gap-1.5 rounded-xl border p-2 text-left text-xs font-medium transition-colors disabled:opacity-60 ${
+                          has ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground-muted"
                         }`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element -- anteprima statica */}
-                        <img src={`/widget/anteprime/crema/${w.id === "pannello" ? "pannello-dip" : w.id}-${size}.png`} alt="" className="h-14 w-auto rounded-md" />
+                        <img src={`/widget/anteprime/crema/${w.id === "pannello" ? "pannello-dip" : w.id}-${size}.png`} alt="" className={`h-14 w-auto rounded-md ${has ? "" : "opacity-60"}`} />
+                        {/* Passando sopra col cursore (computer): l'anteprima grande, com'è sul telefono del dipendente. */}
+                        <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden -translate-x-1/2 rounded-2xl border border-border bg-surface p-2 shadow-2xl [@media(hover:hover)]:group-hover:block">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- anteprima statica */}
+                          <img src={`/widget/anteprime/crema/${w.id === "pannello" ? "pannello-dip" : w.id}-${size}.png`} alt="" className={`block max-w-none rounded-[14px] ${size === "small" ? "w-[160px]" : size === "large" ? "w-[300px]" : "w-[340px]"}`} />
+                          <span className="mt-1.5 block max-w-[300px] px-1 text-[11px] font-normal leading-snug text-foreground-muted">{w.descrizione}</span>
+                        </span>
                         <span>
                           {has ? "✓ " : ""}
                           {w.nome}
