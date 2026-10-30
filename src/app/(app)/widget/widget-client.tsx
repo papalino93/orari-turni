@@ -59,7 +59,7 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
       if (r !== null) router.refresh();
     });
   return (
-    <Section title="Chi può usare i widget" hint="Tu e il consulente li avete tutti. Per ogni dipendente scegli se può usarli e quali.">
+    <Section title="Chi può usare i widget" hint="Tu e il consulente li avete tutti. Ai dipendenti si possono dare solo quelli «Per tutti», più «I miei turni»: per ognuno scegli se può usarli e quali.">
       <details className="group border-b border-border px-5 py-3">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium text-accent-ink [&::-webkit-details-marker]:hidden">
           Come autorizzare un dipendente
@@ -108,23 +108,30 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
                 </button>
               </div>
               {on && (
-                <div className="mt-1 flex flex-wrap gap-2 pb-1">
+                // Ogni widget con la sua anteprima (com'è per il dipendente): si vede cosa si sta dando.
+                <div className="mt-1 grid grid-cols-2 gap-2 pb-1 sm:grid-cols-3">
                   {widgets.map((w) => {
                     const has = e.widgets.includes(w.id);
                     const next = has ? e.widgets.filter((x) => x !== w.id) : [...e.widgets, w.id];
+                    const size = w.sizes.includes("medium") ? "medium" : w.sizes.includes("small") ? "small" : "large";
                     return (
                       <button
                         key={w.id}
                         type="button"
                         aria-pressed={has}
+                        aria-label={`${has ? "✓ " : ""}${w.nome}`}
                         disabled={pending}
                         onClick={() => save(e.id, next, has ? `Tolto «${w.nome}» a ${e.name}` : `Dato «${w.nome}» a ${e.name}`)}
-                        className={`min-h-11 rounded-full border px-3.5 text-xs font-medium transition-colors disabled:opacity-60 ${
-                          has ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground-muted"
+                        className={`flex min-h-11 flex-col items-start gap-1.5 rounded-xl border p-2 text-left text-xs font-medium transition-colors disabled:opacity-60 ${
+                          has ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground-muted opacity-70"
                         }`}
                       >
-                        {has ? "✓ " : ""}
-                        {w.nome}
+                        {/* eslint-disable-next-line @next/next/no-img-element -- anteprima statica */}
+                        <img src={`/widget/anteprime/crema/${w.id === "pannello" ? "pannello-dip" : w.id}-${size}.png`} alt="" className="h-14 w-auto rounded-md" />
+                        <span>
+                          {has ? "✓ " : ""}
+                          {w.nome}
+                        </span>
                       </button>
                     );
                   })}
@@ -186,9 +193,24 @@ export function ThemePicker({ current, preview, word }: { current: string; previ
 }
 
 // ---------- I widget disponibili, con l'anteprima e il nome che si sceglie sul telefono
-export function WidgetGallery({ widgets, theme, dipendente = false }: { widgets: WidgetDef[]; theme: string; dipendente?: boolean }) {
+// Al titolare la galleria è divisa in due: «Per tutti» (si possono dare ai dipendenti) e «Solo per te e il consulente».
+export function WidgetGallery({
+  widgets,
+  theme,
+  dipendente = false,
+  title = "I tuoi widget",
+  hint = "Com'è ognuno e in che grandezza va. Sul telefono, alla voce «Script», scegli il nome scritto qui.",
+  note,
+}: {
+  widgets: WidgetDef[];
+  theme: string;
+  dipendente?: boolean;
+  title?: string;
+  hint?: string;
+  note?: Record<string, string>;
+}) {
   return (
-    <Section title="I tuoi widget" hint="Com'è ognuno e in che grandezza va. Sul telefono, alla voce «Script», scegli il nome scritto qui.">
+    <Section title={title} hint={hint}>
       <ul className="divide-y divide-border">
         {widgets.map((w) => {
           const preview = w.sizes.includes("medium") ? "medium" : w.sizes.includes("small") ? "small" : "large";
@@ -213,6 +235,7 @@ export function WidgetGallery({ widgets, theme, dipendente = false }: { widgets:
                     {w.sizes.some((s) => s.startsWith("accessory")) ? ", anche sulla schermata di blocco" : ""}
                   </span>
                 </p>
+                {note?.[w.id] && <p className="mt-1.5 text-xs font-medium text-accent-ink">{note[w.id]}</p>}
               </div>
             </li>
           );
