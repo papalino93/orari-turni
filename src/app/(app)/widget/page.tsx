@@ -25,9 +25,9 @@ export default async function WidgetPage() {
           </div>
         ) : (
           <>
+            <ThemePicker current={themeOf(emp?.widgetTheme)} {...themeExample(allowed)} />
             <Installer ownerName={emp!.name} example={scriptFiles(allowed[0])[0].file} />
             <WidgetGallery widgets={allowed} theme={themeOf(emp?.widgetTheme)} dipendente />
-            <ThemePicker current={themeOf(emp?.widgetTheme)} {...themeExample(allowed)} />
             <DeviceList devices={devices.map((d) => toRow(d, emp!.name))} title="I tuoi telefoni collegati" />
           </>
         )}
@@ -45,6 +45,7 @@ export default async function WidgetPage() {
   const rows = devices.map((d) => toRow(d, names.get(d.userId ?? d.employeeId ?? "") ?? "—"));
   return (
     <Layout admin>
+      <ThemePicker current={themeOf(user?.widgetTheme)} {...themeExample(ADMIN_WIDGETS)} />
       <Installer ownerName={user?.name ?? ""} example="Angolo grande · Pannello" />
       <WidgetGallery
         title="Per tutti"
@@ -62,7 +63,6 @@ export default async function WidgetPage() {
         widgets={ADMIN_WIDGETS.filter((w) => w.per === "admin")}
         theme={themeOf(user?.widgetTheme)}
       />
-      <ThemePicker current={themeOf(user?.widgetTheme)} {...themeExample(ADMIN_WIDGETS)} />
       <AuthorizeList employees={employees} widgets={EMPLOYEE_WIDGETS} />
       <DeviceList devices={rows} title="Telefoni collegati" showOwner />
     </Layout>
