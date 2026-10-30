@@ -238,13 +238,13 @@ export function ReorderSheet({
 
       {!onPromos && (
         <nav aria-label="Livello" className="mb-3 flex flex-wrap items-center gap-1 text-sm">
-          <button type="button" onClick={() => go({ sectionId: null, groupId: null })} className={`rounded-lg px-2 py-1 ${level === "section" ? "font-semibold text-foreground" : "text-accent hover:underline"}`}>
+          <button type="button" onClick={() => go({ sectionId: null, groupId: null })} className={`rounded-lg px-2 py-1 ${level === "section" ? "font-semibold text-foreground" : "text-accent-ink hover:underline"}`}>
             Categorie
           </button>
           {section && (
             <>
               <span className="text-foreground-muted">›</span>
-              <button type="button" onClick={() => go({ sectionId: section.id, groupId: null })} className={`rounded-lg px-2 py-1 ${level === "group" ? "font-semibold text-foreground" : "text-accent hover:underline"}`}>
+              <button type="button" onClick={() => go({ sectionId: section.id, groupId: null })} className={`rounded-lg px-2 py-1 ${level === "group" ? "font-semibold text-foreground" : "text-accent-ink hover:underline"}`}>
                 {section.label}
               </button>
             </>
@@ -318,7 +318,7 @@ export function ReorderSheet({
           type="button"
           disabled={!changed || busy}
           onClick={save}
-          className="ml-auto min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-40"
+          className="ml-auto min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:bg-surface-2 disabled:text-foreground-muted disabled:ring-1 disabled:ring-border"
         >
           {busy ? "Salvo…" : "Salva ordine"}
         </button>

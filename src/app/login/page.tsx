@@ -59,7 +59,7 @@ export default function LoginPage() {
           <div className="mb-4 flex justify-center">
             <BrandMark className="h-20" plainClassName="h-16" stroke={2.2} />
           </div>
-          <p className="text-sm text-white/70">Accedi per gestire orari, copertura e ferie</p>
+          <p className="text-sm text-white/70">Accedi per orari, turni e menù</p>
         </div>
 
         <form

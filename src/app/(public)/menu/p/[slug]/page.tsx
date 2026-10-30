@@ -58,7 +58,7 @@ export default async function PromoPage({ params }: { params: Promise<{ slug: st
             href="/menu"
             className="menu-sans flex min-h-11 items-center text-[11px] font-medium uppercase tracking-[0.22em] underline underline-offset-4"
           >
-            Vai al menù
+            Torna al menù
           </Link>
         </div>
       </main>

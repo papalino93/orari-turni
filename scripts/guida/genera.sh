@@ -14,6 +14,7 @@ node shots.mjs
 node shots-guide.mjs
 node shots-new.mjs
 node shots-consigli.mjs
+node shots-vetrina.mjs
 node shots-mac.mjs
 cd "$ROOT/.tmp-guida"
 node "$G/tojpg.mjs"

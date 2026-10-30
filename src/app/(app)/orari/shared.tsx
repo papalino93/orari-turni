@@ -21,7 +21,7 @@ export function orderEmployees<T extends { sortOrder: number; name: string }>(em
 const KIND_STYLE: Record<DayEntry["kind"], string> = {
   TURNO: "",
   RIPOSO: "bg-surface-2 text-foreground-muted",
-  FERIE: "bg-accent/15 text-accent",
+  FERIE: "bg-accent/15 text-accent-ink",
   PERMESSO: "bg-gold/15 text-gold",
   MALATTIA: "bg-danger/10 text-danger",
   CHIUSO: "bg-surface-2 text-foreground-muted",
@@ -810,7 +810,7 @@ export function DayEditorModal({
                         prev.length === selectableDays.length ? [] : selectableDays.map((d) => d.dateKey),
                       )
                     }
-                    className="text-xs font-medium text-accent hover:underline"
+                    className="text-xs font-medium text-accent-ink hover:underline"
                   >
                     {extraDays.length === selectableDays.length ? "Deseleziona tutti" : "Tutta la settimana"}
                   </button>
@@ -1007,7 +1007,7 @@ function ModeButton({
   danger?: boolean;
 }) {
   const activeClass = accent
-    ? "border-accent text-accent bg-accent/10"
+    ? "border-accent text-accent-ink bg-accent/10"
     : gold
       ? "border-gold text-gold bg-gold/10"
       : danger

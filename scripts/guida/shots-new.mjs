@@ -11,7 +11,7 @@ const mk = async (w, h, dsf = 2) => {
   await ctx.addInitScript(() => {
     document.addEventListener("DOMContentLoaded", () => {
       const st = document.createElement("style");
-      st.textContent = "nextjs-portal{display:none!important}";
+      st.textContent = "nextjs-portal{display:none!important} svg:has(+ img.brand-logo-invert){display:none!important}";
       document.head.appendChild(st);
     });
   });
@@ -49,7 +49,7 @@ const toEl = async (page, loc, offset = 70) => {
   // Tabella prezzi (Rossi), con un prezzo cambiato
   await tool(page, "Tabella prezzi");
   await settle(page, 600);
-  await dialog(page).getByRole("navigation", { name: "Sezione" }).getByRole("button", { name: /^Rossi/ }).click();
+  await dialog(page).getByRole("navigation", { name: "Categoria" }).getByRole("button", { name: /^Rossi/ }).click();
   await settle(page, 300);
   await dialog(page).getByRole("textbox", { name: /^Calice · Mastrojanni/ }).first().fill("9");
   await settle(page, 300);
@@ -59,7 +59,7 @@ const toEl = async (page, loc, offset = 70) => {
   // Riordina: i vini di Rossi · Italia, uno «preso» in mano
   await tool(page, "Riordina");
   await settle(page, 500);
-  await dialog(page).getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Sezioni" }).click();
+  await dialog(page).getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Categorie" }).click();
   await settle(page, 300);
   await page.screenshot({ path: `${OUT}/ges-riordina-sezioni.png` });
   await dialog(page).getByRole("button", { name: "Apri Rossi" }).click();
@@ -70,7 +70,7 @@ const toEl = async (page, loc, offset = 70) => {
   await settle(page, 500);
   // Scheda del vino
   await goTab(page, "Menù");
-  await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+  await page.locator('nav[aria-label="Categorie"] button', { hasText: "Rossi" }).click();
   await page.getByRole("button", { name: /^Modifica Avignonesi/ }).first().click();
   await settle(page, 700);
   await page.screenshot({ path: `${OUT}/ges-vino-1.png` });

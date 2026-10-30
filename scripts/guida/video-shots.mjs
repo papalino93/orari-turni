@@ -32,14 +32,15 @@ async function session(kind, { admin = true, theme = THEME[kind] } = {}) {
     try { localStorage.setItem("install-banner-dismissed", "1"); localStorage.setItem("theme", th); localStorage.setItem("menu-staff-device", "1"); } catch {}
     document.addEventListener("DOMContentLoaded", () => {
       const st = document.createElement("style");
-      st.textContent = "nextjs-portal{display:none!important} a[href=\"/gestione-menu/servizio\"]{display:none!important} html{scroll-behavior:auto!important}";
+      st.textContent = "nextjs-portal{display:none!important} svg:has(+ img.brand-logo-invert){display:none!important} a[href=\"/gestione-menu/servizio\"]{display:none!important} html{scroll-behavior:auto!important}";
       document.head.appendChild(st);
     });
   }, theme);
   const page = await ctx.newPage();
   page.setDefaultTimeout(60000);
   const settle = (ms = 700) => page.waitForTimeout(ms);
-  const dlg = () => page.locator('[role="dialog"]');
+  // Niente finestra degli errori di Next (l'orologio finto della foto non coincide con quello del server).
+  const dlg = () => page.locator('[role="dialog"]:not([data-nextjs-dialog])');
   const api = {
     page, dlg, settle,
     top: () => page.evaluate(() => window.scrollTo(0, 0)),
@@ -204,7 +205,7 @@ if (run("p")) {
   await s.box("add-save", save);
   await s.closeSheet();
 
-  await s.page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+  await s.page.locator('nav[aria-label="Categorie"] button', { hasText: "Rossi" }).click();
   await s.settle(600);
   const esaurito = s.page.getByRole("button", { name: /^Esaurito$/ });
   // il titolo del gruppo «Italia» subito sotto la barra di ricerca
@@ -240,7 +241,8 @@ if (run("c")) {
   });
   data.boxes["c-row"] = row;
   await s.shot("before");
-  DB(`update "MenuItem" set "soldOutDay"='2026-10-04' where name='Avignonesi'`);
+  // Esaurito «oggi» per il server: la giornata del locale (cambia alle 5 del mattino), non la data finta del telefono.
+  DB(`update "MenuItem" set "soldOutDay"=to_char((now() at time zone 'Europe/Rome') - interval '5 hours','YYYY-MM-DD') where name='Avignonesi'`);
   await s.page.reload({ waitUntil: "networkidle" });
   await s.settle(1400);
   await s.page.evaluate((v) => window.scrollTo(0, v), y);
@@ -384,6 +386,14 @@ if (run("ms")) {
   const pill = (name) => nav("Tipi di statistiche").getByRole("link", { name: new RegExp(name) });
   const card = (t) => P.getByRole("heading", { name: t, exact: true }).first().locator("xpath=ancestor::section[1]");
   const open = async (url) => { await P.goto(`${BASE}${url}`, { waitUntil: "networkidle", timeout: 120000 }); await s.settle(2200); };
+  // «Aperture di oggi» confronta alla stessa ora: qualche apertura finta entro l'ora di adesso, così a
+  // qualunque ora si rifà il video il riquadro non mostra zero (si tolgono alla fine).
+  const ora = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Rome", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+  for (const [n, k] of [[0, 34], [1, 29], [7, 31]]) {
+    const day = `to_char((now() at time zone 'Europe/Rome') - interval '${n} days','YYYY-MM-DD')`;
+    const wd = `extract(isodow from (now() at time zone 'Europe/Rome') - interval '${n} days')::int`;
+    DB(`insert into "MenuEvent" (id, day, hour, weekday, kind) select 'vid_e_${n}_' || g, ${day}, g % ${ora + 1}, ${wd}, 'open' from generate_series(1, ${k}) g`);
+  }
   await open("/statistiche");
   await s.shot("stats");
   await s.box("stats-today", P.getByRole("region", { name: "Aperture di oggi" }));
@@ -391,8 +401,8 @@ if (run("ms")) {
   // un po' più giù: scorciatoie in vista
   await P.evaluate(() => window.scrollTo(0, 190)); await s.settle(700);
   await s.shot("stats-s");
-  await s.box("stats-shortcuts", nav("Scorciatoie"));
-  await s.box("stats-sc-week", nav("Scorciatoie").getByRole("link", { name: "Settimana scorsa" }));
+  await s.box("stats-shortcuts", nav("Periodo"));
+  await s.box("stats-sc-week", nav("Periodo").getByRole("link", { name: "Settimana scorsa" }));
   await s.box("stats-today-s", P.getByRole("region", { name: "Aperture di oggi" }));
   await P.evaluate(() => window.scrollTo(0, 0)); await s.settle(500);
   const kpi = P.getByText("Aperture del menù", { exact: true }).locator("xpath=..");
@@ -403,13 +413,13 @@ if (run("ms")) {
     await pill(g).first().click(); await s.settle(1300);
     await s.shot(`stats-g${i + 1}`);
     if (i === 0) for (const [j, g2] of ["Panoramica", "Quando", "Cosa cercano", "Cosa guardano", "Eventi e contatti"].entries()) await s.box(`stats-pillS-${j}`, pill(g2));
-    for (const t of [["Giorni e orari"], ["Cercate ma non trovate", "Le parole più cercate"], ["Sezioni più aperte"], ["Gli eventi funzionano?", "Contatti toccati", "Pagine degli eventi aperte"]][i]) {
+    for (const t of [["Giorni e orari"], ["Cercate ma non trovate", "Le parole più cercate"], ["Categorie più aperte"], ["Gli eventi funzionano?", "Contatti toccati", "Pagine degli eventi aperte"]][i]) {
       try { await s.box(`stats-card-${t.toLowerCase().replace(/[^a-z]+/g, "-")}`, card(t)); } catch {}
     }
   }
   // una settimana scelta con la scorciatoia
   await open("/statistiche");
-  await nav("Scorciatoie").getByRole("link", { name: "Settimana scorsa" }).click();
+  await nav("Periodo").getByRole("link", { name: "Settimana scorsa" }).click();
   await P.waitForURL(/dal=/); await s.settle(2200);
   await P.evaluate(() => window.scrollTo(0, 480)); await s.settle(700);
   await s.shot("stats-week");
@@ -430,6 +440,7 @@ if (run("ms")) {
   await s.shot("stats-day");
   await s.box("stats-note2", P.getByText(/^Giorno:/));
   await s.box("stats-kpi1d", P.getByText("Aperture del menù", { exact: true }).locator("xpath=.."));
+  DB(`delete from "MenuEvent" where id like 'vid_e_%'`);
   await P.context().close();
 }
 

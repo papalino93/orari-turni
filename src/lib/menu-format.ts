@@ -254,21 +254,22 @@ export const BLOCK_KIND_LABELS: Record<BlockKind, string> = {
   HIGHLIGHT: "Riquadro in vetrina",
 };
 
-// Riassunto di una riga: la voce con prezzo, oppure il testo accorciato.
+// Riassunto di una riga: la voce con prezzo, oppure il testo (accorciato solo se lunghissimo:
+// sullo schermo lo taglia la larghezza, su due righe).
 export function blockSummary(b: MenuBlockView): string {
   const text = (b.text ?? "").replace(/\s+/g, " ").trim();
   if (b.kind === "PRICE") {
     const full = text ? `${priceLine(b)} · ${text}` : priceLine(b);
-    return full.length > 90 ? `${full.slice(0, 87)}…` : full;
+    return full.length > 160 ? `${full.slice(0, 157)}…` : full;
   }
   if (b.kind === "HIGHLIGHT") {
     const full = [b.label, b.title, text].filter(Boolean).join(" · ");
-    return full.length > 90 ? `${full.slice(0, 87)}…` : full;
+    return full.length > 160 ? `${full.slice(0, 157)}…` : full;
   }
   const title = b.priceCents !== null ? priceLine(b) : b.label;
   const head = title ? `${title}: ` : "";
   const full = `${head}${text}`;
-  return full.length > 90 ? `${full.slice(0, 87)}…` : full;
+  return full.length > 160 ? `${full.slice(0, 157)}…` : full;
 }
 
 export function formatBlockDates(startKey: string | null, endKey: string | null): string | null {

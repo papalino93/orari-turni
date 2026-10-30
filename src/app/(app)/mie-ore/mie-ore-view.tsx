@@ -99,7 +99,7 @@ export function MieOreView({
   return (
     <div className="mx-auto max-w-xl">
       {preview && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent-ink">
           <span>
             Stai visualizzando come <strong>{employee.name}</strong> — sola lettura.
           </span>
@@ -171,7 +171,7 @@ export function MieOreView({
       <p className="mb-4 text-xs text-foreground-muted">
         {deactivatedAtKey
           ? "Account disattivato: puoi consultare solo lo storico fino alla data di disattivazione."
-          : (days.some((d) => isToday(d)) ? "Questa settimana include oggi. " : "") + "Sola lettura — è l'orario compilato dal titolare."}
+          : (days.some((d) => isToday(d)) ? "Questa settimana include oggi. " : "") + "L'orario lo prepara il titolare: qui puoi solo guardarlo."}
       </p>
 
       {notConfirmed ? (

@@ -12,7 +12,7 @@ const APP_STORE = "https://apps.apple.com/it/app/scriptable/id1405459188";
 const HOME_SIZES: WidgetSize[] = ["small", "medium", "large"];
 
 // Dal computer: un QR per aprire questa pagina sul telefono (i passi si fanno lì).
-export function PhoneQr() {
+export function PhoneQr({ admin }: { admin: boolean }) {
   const [qr, setQr] = useState<string | null>(null);
   useEffect(() => {
     const ua = navigator.userAgent;
@@ -28,8 +28,8 @@ export function PhoneQr() {
       <div>
         <p className="text-sm font-semibold text-foreground">Sei al computer?</p>
         <p className="mt-1 text-sm text-foreground-muted">
-          I widget si mettono dal telefono: inquadra il codice con la fotocamera dell&apos;iPhone e segui i passi da lì. Da qui puoi
-          scegliere chi li può usare.
+          I widget si mettono dal telefono: inquadra il codice con la fotocamera dell&apos;iPhone e segui i passi da lì.
+          {admin && " Da qui puoi scegliere chi li può usare."}
         </p>
       </div>
     </div>
@@ -61,7 +61,7 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
   return (
     <Section title="Chi può usare i widget" hint="Tu e il consulente li avete tutti. Per ogni dipendente scegli se può usarli e quali.">
       <details className="group border-b border-border px-5 py-3">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium text-accent [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium text-accent-ink [&::-webkit-details-marker]:hidden">
           Come autorizzare un dipendente
           <span aria-hidden className="transition-transform group-open:rotate-180">⌄</span>
         </summary>
@@ -138,7 +138,9 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
 }
 
 // ---------- Colori dei widget: valgono per tutti i propri telefoni, subito (al primo aggiornamento)
-export function ThemePicker({ current }: { current: string }) {
+// example: il widget delle anteprime e dell'esempio, uno di quelli che la persona può usare.
+export function ThemePicker({ current, example = "aperture" }: { current: string; example?: string }) {
+  const preview = example === "qr" ? "qr-small" : `${example}-medium`;
   const [pending, start] = useTransition();
   const router = useRouter();
   const toast = useToast();
@@ -162,13 +164,13 @@ export function ThemePicker({ current }: { current: string }) {
               className={`flex flex-col items-start gap-2 rounded-2xl border p-3 text-left transition-colors ${on ? "border-accent bg-accent/5 ring-2 ring-accent/40" : "border-border hover:border-accent"}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- anteprima statica */}
-              <img src={`/widget/anteprime/${t.id}/aperture-medium.png`} alt="" className="w-full rounded-[14px] shadow-sm" />
+              <img src={`/widget/anteprime/${t.id}/${preview}.png`} alt="" className={`rounded-[14px] shadow-sm ${example === "qr" ? "w-1/2" : "w-full"}`} />
               <span className="flex w-full items-center justify-between gap-2">
                 <span>
                   <span className="block text-sm font-semibold text-foreground">{t.nome}</span>
                   <span className="block text-xs text-foreground-muted">{t.descrizione}</span>
                 </span>
-                <span className={`shrink-0 text-xs font-medium ${on ? "text-accent" : "text-foreground-muted"}`}>{on ? "✓ In uso" : "Usa questi"}</span>
+                <span className={`shrink-0 text-xs font-medium ${on ? "text-accent-ink" : "text-foreground-muted"}`}>{on ? "✓ In uso" : "Usa questi"}</span>
               </span>
             </button>
           );
@@ -176,7 +178,7 @@ export function ThemePicker({ current }: { current: string }) {
       </div>
       <p className="px-5 pb-4 text-xs text-foreground-muted">
         Vuoi un widget di un colore diverso dagli altri? Aggiungi il nome dei colori dopo la parola nel campo «Parameter», es.{" "}
-        <code className="rounded bg-surface-2 px-1 font-mono text-foreground">aperture nero</code>.
+        <code className="rounded bg-surface-2 px-1 font-mono text-foreground">{example} nero</code>.
       </p>
     </Section>
   );
@@ -231,7 +233,7 @@ function CopyWord({ word }: { word: string }) {
       aria-label={`Copia la parola ${word}`}
     >
       Parameter: <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[12px] text-foreground">{word}</code>
-      <span className="font-medium text-accent">{done ? "Copiata ✓" : "Copia"}</span>
+      <span className="font-medium text-accent-ink">{done ? "Copiata ✓" : "Copia"}</span>
     </button>
   );
 }
@@ -353,7 +355,7 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
                   type="button"
                   disabled={pending || !phone.trim()}
                   onClick={create}
-                  className="min-h-11 rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground disabled:opacity-50"
+                  className="min-h-11 rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground disabled:bg-surface-2 disabled:text-foreground-muted disabled:ring-1 disabled:ring-border"
                 >
                   {pending ? "Collego…" : "Crea il collegamento"}
                 </button>
@@ -372,22 +374,22 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
             </>
           )}
         </Step>
-        <Step n={3} title="Incollalo in Scriptable">
+        <Step n={3} title="Incolla lo script in Scriptable">
           <p>
-            Apri Scriptable, tocca <Key>+</Key> in alto a destra, tieni premuto nella pagina vuota e scegli <Key>Incolla</Key>.
+            Apri Scriptable, tocca <Key>+</Key> in alto a destra, tieni premuto nella pagina vuota e scegli <span className="whitespace-nowrap"><Key>Incolla</Key>.</span>
           </p>
           <p>
-            Tocca il titolo in alto (es. «Untitled Script»), scrivi <b className="text-foreground">Angolo del Vino</b> e tocca <Key>Fine</Key>.
+            Tocca il titolo in alto (es. «Untitled Script»), scrivi <b className="text-foreground">Angolo del Vino</b> e tocca <span className="whitespace-nowrap"><Key>Fine</Key>.</span>
           </p>
         </Step>
         <Step n={4} title="Aggiungi il widget alla Home">
           <p>
             Tieni premuto su uno spazio vuoto della Home finché le icone tremano, tocca <Key>Modifica</Key> in alto a sinistra, poi
-            <Key>Aggiungi widget</Key>.
+            <span className="whitespace-nowrap"><Key>Aggiungi widget</Key>.</span>
           </p>
           <p>
             Cerca <b className="text-foreground">Scriptable</b>, scorri fino alla grandezza che vuoi (piccolo, medio o grande) e tocca
-            <Key>Aggiungi widget</Key>.
+            <span className="whitespace-nowrap"><Key>Aggiungi widget</Key>.</span>
           </p>
         </Step>
         <Step n={5} title="Scegli quale widget mostrare">
@@ -407,14 +409,14 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
         </Step>
         <Step n={6} title="Schermata di blocco (facoltativo)">
           <p>
-            Tieni premuto sulla schermata di blocco, tocca <Key>Personalizza</Key> → <Key>Schermata di blocco</Key>, tocca lo spazio sotto
+            Tieni premuto sulla schermata di blocco, tocca <Key>Personalizza</Key> → <span className="whitespace-nowrap"><Key>Schermata di blocco</Key>,</span> tocca lo spazio sotto
             l&apos;ora, scegli Scriptable e poi, come al punto 5, lo script e la parola. Lì si vede anche a telefono bloccato: mettici
             solo cose che possono vedere tutti.
           </p>
         </Step>
       </ol>
       <details className="group border-t border-border px-5 py-3">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium text-accent [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium text-accent-ink [&::-webkit-details-marker]:hidden">
           Domande frequenti
           <span aria-hidden className="transition-transform group-open:rotate-180">⌄</span>
         </summary>

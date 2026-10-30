@@ -42,9 +42,13 @@ function Card({ promo, dayKey, big }: { promo: StripPromo; dayKey: string; big: 
       {/* Tutto allineato in alto e «Scopri» sempre in fondo: due schede affiancate
           restano in riga anche con titoli di lunghezza diversa. */}
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 self-stretch py-0.5">
-        <div className="menu-sans truncate text-[12px] font-medium uppercase leading-snug tracking-[0.18em] text-[#9C7A45]">
-          {status === "live" ? `${name} · in corso` : name}
-        </div>
+        {/* «In corso» è un bollino a parte: con un'etichetta lunga non finisce mai nei puntini. */}
+        {status === "live" && (
+          <span className="menu-sans self-start rounded-full bg-[#6B1020] px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-[#F4EEE3]">
+            In corso
+          </span>
+        )}
+        <div className="menu-sans line-clamp-2 text-[12px] font-medium uppercase leading-snug tracking-[0.18em] text-[#9C7A45]">{name}</div>
         <div className="menu-sans -mt-1 truncate text-[15px] text-[#4A504B]">{formatPromoDates(promo.startDate, promo.endDate)}</div>
         <div className={`menu-serif mt-0.5 line-clamp-3 text-balance font-medium leading-[1.05] text-[#6B1020] ${big ? "text-[29px] sm:text-[35px]" : "text-[27px]"}`}>
           {promo.title}

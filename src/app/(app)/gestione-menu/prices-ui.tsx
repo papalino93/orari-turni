@@ -57,7 +57,7 @@ function PriceInput({ value, original, label, onChange }: { value: string; origi
       aria-invalid={bad || undefined}
       placeholder="—"
       className={`h-10 w-[4.5rem] shrink-0 rounded-lg border px-2 text-right text-base tabular-nums text-foreground outline-none focus:border-accent sm:text-sm ${
-        bad ? "border-danger bg-danger-bg" : changed ? "border-accent bg-accent/15 font-semibold text-accent" : "border-border bg-surface-2"
+        bad ? "border-danger bg-danger-bg" : changed ? "border-accent bg-accent/15 font-semibold text-accent-ink" : "border-border bg-surface-2"
       }`}
     />
   );
@@ -119,7 +119,7 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
               className={`min-h-9 rounded-full px-3 text-xs font-medium ${active ? "bg-accent text-accent-foreground" : "border border-border text-foreground-muted hover:border-accent hover:text-foreground"}`}
             >
               {s.label}
-              {n > 0 && <span className={`ml-1.5 ${active ? "text-accent-foreground/80" : "text-accent"}`}>· {n}</span>}
+              {n > 0 && <span className={`ml-1.5 ${active ? "text-accent-foreground/80" : "text-accent-ink"}`}>· {n}</span>}
             </button>
           );
         })}
@@ -230,7 +230,7 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
           type="button"
           disabled={changes.length === 0 || problems.length > 0 || busy}
           onClick={save}
-          className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-40"
+          className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:bg-surface-2 disabled:text-foreground-muted disabled:ring-1 disabled:ring-border"
         >
           {busy ? "Salvo…" : "Salva tutto"}
         </button>

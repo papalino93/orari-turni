@@ -93,7 +93,7 @@ function PendingMonthRow({
               type="button"
               disabled={pending}
               onClick={() => setAskApprove(true)}
-              className="min-h-11 rounded-full bg-gold px-4 text-xs font-medium text-[#2b2107] hover:opacity-90 disabled:opacity-50"
+              className="min-h-11 rounded-full bg-gold px-4 text-xs font-semibold text-background hover:opacity-90 disabled:opacity-50"
             >
               {pending ? "…" : "Approva"}
             </button>

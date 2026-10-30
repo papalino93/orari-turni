@@ -83,7 +83,7 @@ export function EmployeeCredentials({
         <Link
           href={`/mie-ore?viewAs=${employeeId}`}
           title="Vedi esattamente cosa vede questo dipendente, in sola lettura"
-          className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-foreground-muted hover:text-accent"
+          className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-foreground-muted hover:text-accent-ink"
         >
           <EyeIcon /> Visualizza come
         </Link>

@@ -10,6 +10,8 @@
   --accent: #8a2740;
   --accent-hover: #a3304d;
   --accent-foreground: #fdf2f4;
+  /* Scritte e collegamenti color bordeaux: sul fondo scuro un rosa chiaro, sennò non si leggono. */
+  --accent-ink: #e98ba2;
   --gold: #c9a24b;
   /* Colori dei grafici (statistiche): controllati per daltonici e contrasto su questo sfondo. */
   --chart: #c4506d;
@@ -31,6 +33,7 @@
   --accent: #8a2740;
   --accent-hover: #711f34;
   --accent-foreground: #fdf2f4;
+  --accent-ink: #8a2740;
   --gold: #93701f;
   --chart: #8a2740;
   --chart-2: #93701f;
@@ -77,6 +80,7 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-ink: var(--accent-ink);
   --color-gold: var(--gold);
   --color-chart: var(--chart);
   --color-chart-2: var(--chart-2);

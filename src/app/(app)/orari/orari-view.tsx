@@ -704,7 +704,7 @@ function ViewSwitcher({ view, onSelect }: { view: ViewMode; onSelect: (v: ViewMo
         className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:border-accent"
       >
         {VIEW_LABELS[view]}
-        {VIEW_EDITABLE[view] && <EditPencilIcon className="text-accent" />}
+        {VIEW_EDITABLE[view] && <EditPencilIcon className="text-accent-ink" />}
         <ChevronIcon className={`text-foreground-muted transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
@@ -783,7 +783,7 @@ function DisplayModeMenu({ mode, onSelect }: { mode: DisplayMode; onSelect: (m: 
             >
               {m === "periods" ? <PeriodsIcon /> : <PersonIcon />}
               {DISPLAY_MODE_LABELS[m]}
-              {m === mode && <CheckIcon className="ml-auto text-accent" />}
+              {m === mode && <CheckIcon className="ml-auto text-accent-ink" />}
             </button>
           ))}
         </div>

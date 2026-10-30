@@ -120,7 +120,7 @@ function GuideCard({ guide, highlighted }: { guide: Guide; highlighted: boolean 
         </span>
         <p className="text-sm font-semibold text-foreground">{guide.label}</p>
         {highlighted && (
-          <span className="ml-auto rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent">
+          <span className="ml-auto rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent-ink">
             Il tuo telefono
           </span>
         )}

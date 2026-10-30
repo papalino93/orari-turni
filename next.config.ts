@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import pkg from "./package.json";
 
 const nextConfig: NextConfig = {
+  // Niente pulsantino «N» di sviluppo: copre le foto della guida e del giro.
+  devIndicators: false,
   // Numero di versione mostrato sul sito (vedi src/lib/version.ts): quello di
   // package.json, da aumentare a ogni rilascio, più il commit di Vercel.
   env: {

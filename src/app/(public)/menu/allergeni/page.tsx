@@ -79,7 +79,7 @@ export default async function AllergeniPage() {
 
         <div className="mx-auto mt-6 max-w-[400px] border-y px-1 py-[14px] text-center">
           <p className="menu-sans m-0 text-[12px] font-medium uppercase tracking-[0.18em] text-[#6B1020]">
-            I vini contengono solfiti (anidride solforosa)
+            I vini contengono solfiti
           </p>
         </div>
 

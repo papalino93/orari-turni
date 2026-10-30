@@ -80,5 +80,5 @@ for (const [l, n] of [["Henriot · Brut Souverain", 22], ["Avignonesi · Da-Di",
 for (const [l, n] of [["Mastrojanni", 16], ["Revì · Brut Millesimato", 9]]) ev("pair", l, n);
 for (const [l, n] of [["Rossi", 96], ["Bollicine", 81], ["Taglieri & Pinse", 74], ["Bianchi", 58], ["Tartare", 41], ["Rosé & Orange", 33]]) ev("section", l, n);
 for (const [l, n] of [["Oktoberfest", 27], ["Crudité & Champagne", 21]]) ev("event", l, n);
-for (const [l, n] of [["WhatsApp", 18], ["Chiama", 11], ["Indicazioni", 9], ["Instagram", 7], ["Recensione", 3]]) ev("contact", l, n);
+for (const [l, n] of [["WhatsApp", 18], ["Chiama", 11], ["Come arrivare", 9], ["Instagram", 7], ["Recensione", 3]]) ev("contact", l, n);
 console.log("demo pronta", today);

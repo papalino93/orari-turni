@@ -11,7 +11,7 @@ await ctx.addInitScript(() => {
   try { localStorage.setItem("theme", "light"); } catch {}
   document.addEventListener("DOMContentLoaded", () => {
     const st = document.createElement("style");
-    st.textContent = "nextjs-portal{display:none!important}";
+    st.textContent = "nextjs-portal{display:none!important} svg:has(+ img.brand-logo-invert){display:none!important}";
     document.head.appendChild(st);
   });
 });
@@ -33,8 +33,10 @@ await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 await noBanner();
 await goTab(page, "Menù");
-await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+await page.locator('nav[aria-label="Categorie"] button', { hasText: "Rossi" }).click();
 await page.evaluate(() => window.scrollTo(0, 0));
+// Con «In vetrina» la pagina è lunga: rimpicciolita, la foto mostra anche categorie e voci (numeri 5 e 7).
+await page.evaluate(() => (document.documentElement.style.zoom = "0.72"));
 await settle(900);
 await shot("gestione");
 // Posizione delle parti della pagina, per i numeri della guida (in % dello schermo).
@@ -47,11 +49,12 @@ const parts = await page.evaluate(() => {
     search: r(document.querySelector('input[type="search"], [role="searchbox"]')),
     oggi: r(document.querySelector('section[aria-label="Oggi fuori menù"]')),
     addsec: r(byText("button", "+ Aggiungi un vino in")),
-    sezioni: r(document.querySelector('nav[aria-label="Sezioni"]')),
+    sezioni: r(document.querySelector('nav[aria-label="Categorie"]')),
     voci: r(document.querySelector("section h3 button")),
   };
 });
 writeFileSync(`${OUT}/mac-gestione.json`, JSON.stringify(parts, null, 1));
+await page.evaluate(() => (document.documentElement.style.zoom = ""));
 // Scheda del vino
 await page.getByRole("button", { name: /^Modifica Avignonesi/ }).first().click();
 await settle(800);
@@ -61,7 +64,7 @@ await settle(500);
 // Tabella prezzi
 await tool(page, "Tabella prezzi");
 await settle(600);
-await dialog().getByRole("navigation", { name: "Sezione" }).getByRole("button", { name: /^Rossi/ }).click();
+await dialog().getByRole("navigation", { name: "Categoria" }).getByRole("button", { name: /^Rossi/ }).click();
 await dialog().getByRole("textbox", { name: /^Calice · Mastrojanni/ }).first().fill("9");
 await settle(400);
 await shot("prezzi");
@@ -70,11 +73,9 @@ await settle(500);
 // Riordina
 await tool(page, "Riordina");
 await settle(500);
-await dialog().getByRole("button", { name: "Apri Italia" }).click().catch(async () => {
-  await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Sezioni" }).click();
-  await dialog().getByRole("button", { name: "Apri Rossi" }).click();
-  await dialog().getByRole("button", { name: "Apri Italia" }).click();
-});
+// Da Strumenti «Riordina» parte dalle categorie: si entra in Rossi › Italia.
+await dialog().getByRole("button", { name: "Apri Rossi" }).click();
+await dialog().getByRole("button", { name: "Apri Italia" }).click();
 await settle(500);
 await shot("riordina");
 await page.keyboard.press("Escape"); await discardIfAsked(page);

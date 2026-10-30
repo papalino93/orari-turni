@@ -470,7 +470,7 @@ export function PromoSheet({
                   onChange={() => setBlockIds((prev) => (prev.includes(b.id) ? prev.filter((x) => x !== b.id) : [...prev, b.id]))}
                   className="h-5 w-5 accent-[var(--accent)]"
                 />
-                <span className="min-w-0 flex-1 truncate">{blockSummary(b)}</span>
+                <span className="line-clamp-2 min-w-0 flex-1">{blockSummary(b)}</span>
               </label>
             ))}
           </fieldset>

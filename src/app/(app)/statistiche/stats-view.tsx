@@ -129,21 +129,24 @@ function TodayCard({ stats, recent, today, counting, since }: { stats: StatsData
         {!counting && <p className="mt-2 text-xs text-foreground-muted">{since ? "Conteggio in pausa." : "Il conteggio non è ancora iniziato."}</p>}
       </div>
       <dl className="flex gap-6 text-sm">
+        {/* Si confronta alla stessa ora (fino alle hh:59): il numero è quello «a quest'ora», sotto la giornata intera. */}
         <div>
-          <dt className="text-xs text-foreground-muted">Ieri</dt>
+          <dt className="text-xs text-foreground-muted">Ieri a quest&apos;ora</dt>
           <dd className="flex items-center gap-2 font-medium tabular-nums text-foreground">
-            {n(stats.yesterday)}
-            <Delta value={vs(stats.yesterday)} />
+            {n(stats.yesterdaySoFar)}
+            <Delta value={vs(stats.yesterdaySoFar)} />
           </dd>
+          <dd className="text-[11px] tabular-nums text-foreground-muted">in tutto il giorno {n(stats.yesterday)}</dd>
         </div>
         <div>
-          <dt className="text-xs text-foreground-muted">
-            {WEEKDAY_NAMES[weekdayOf(today)]} {weekdayOf(today) === 6 ? "scorsa" : "scorso"}
+          <dt className="text-xs text-foreground-muted first-letter:uppercase">
+            {WEEKDAY_NAMES[weekdayOf(today)]} {weekdayOf(today) === 6 ? "scorsa" : "scorso"} a quest&apos;ora
           </dt>
           <dd className="flex items-center gap-2 font-medium tabular-nums text-foreground">
-            {n(stats.lastWeek)}
-            <Delta value={vs(stats.lastWeek)} />
+            {n(stats.lastWeekSoFar)}
+            <Delta value={vs(stats.lastWeekSoFar)} />
           </dd>
+          <dd className="text-[11px] tabular-nums text-foreground-muted">in tutto il giorno {n(stats.lastWeek)}</dd>
         </div>
       </dl>
       <div className="ml-auto flex items-end gap-4">

@@ -87,7 +87,7 @@ function LeaveTypeRow({
       <div className="mb-2.5 flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-foreground-muted">{label}</p>
         {!readOnly && (
-          <button type="button" onClick={() => setEditing((v) => !v)} className="text-xs font-medium text-accent hover:text-accent-hover">
+          <button type="button" onClick={() => setEditing((v) => !v)} className="text-xs font-medium text-accent-ink hover:text-accent-hover">
             {section.summary.hasData ? "Modifica saldo" : "Imposta saldo"}
           </button>
         )}
@@ -160,9 +160,9 @@ function Stat({
   return (
     <div className={`rounded-lg px-3 py-2 ${highlight ? "bg-accent/10" : "bg-surface-2"} ${className ?? ""}`}>
       <p className="text-[10px] uppercase tracking-wide text-foreground-muted">{label}</p>
-      <p className={`text-sm font-semibold ${highlight ? "text-accent" : "text-foreground"}`}>
-        {/* All'italiana: 27,7 e non 27.7 (al massimo due decimali). */}
-        {String(Math.round(value * 100) / 100).replace(".", ",")} <span className="text-xs font-normal text-foreground-muted">{unit}</span>
+      <p className={`text-sm font-semibold ${highlight ? "text-accent-ink" : "text-foreground"}`}>
+        {/* All'italiana: 27,7 e non 27.7. Giorni con un decimale; ore con due (2,25 = 2 ore e un quarto). */}
+        {String(unit === "giorni" ? Math.round(value * 10) / 10 : Math.round(value * 100) / 100).replace(".", ",")} <span className="text-xs font-normal text-foreground-muted">{unit}</span>
       </p>
     </div>
   );

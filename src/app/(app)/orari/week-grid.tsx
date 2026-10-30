@@ -246,7 +246,7 @@ function DayHeaderCell({
         <span className="font-normal text-foreground-muted">{formatDayMonth(d)}</span>
       </button>
       {today && (
-        <span className="rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
+        <span className="rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent-ink">
           Oggi
         </span>
       )}
@@ -362,7 +362,7 @@ function PeriodsLayout({
                     <span className="flex items-center gap-2 text-sm font-semibold">
                       {dayLabel(d, true)} <span className="font-normal text-foreground-muted">{formatDayMonth(d)}</span>
                       {isToday(d) && (
-                        <span className="rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
+                        <span className="rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent-ink">
                           Oggi
                         </span>
                       )}
@@ -591,9 +591,9 @@ export function EmployeeWeekCard({
         <button
           type="button"
           onClick={() => setShowPdfExport(true)}
-          className="text-xs font-medium text-foreground-muted transition-colors hover:text-accent"
+          className="text-xs font-medium text-foreground-muted transition-colors hover:text-accent-ink"
         >
-          📄 Esporta orario di {employee.name.split(" ")[0]}
+          {onEdit ? `Scarica l'orario di ${employee.name.split(" ")[0]}` : "Scarica il mio orario"}
         </button>
       </div>
 

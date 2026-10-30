@@ -316,11 +316,11 @@ export default async function MenuPage() {
                       {/* Icona e parola: chi non riconosce il disegno legge «calice» e «bottiglia». */}
                       <div className="flex w-9 flex-none flex-col items-end gap-0.5">
                         <GlassIcon />
-                        <span className="menu-sans text-[9.5px] leading-none text-[#5B605A]">calice</span>
+                        <span className="menu-sans text-[10.5px] leading-none text-[#4A504B]">calice</span>
                       </div>
                       <div className="flex w-10 flex-none flex-col items-end gap-0.5">
                         <BottleIcon />
-                        <span className="menu-sans text-[9.5px] leading-none text-[#5B605A]">bottiglia</span>
+                        <span className="menu-sans text-[10.5px] leading-none text-[#4A504B]">bottiglia</span>
                       </div>
                     </>
                   )}
@@ -347,23 +347,28 @@ export default async function MenuPage() {
                       <div className="flex min-w-0 flex-1 flex-col gap-[3px] [overflow-wrap:anywhere]">
                         <div className="text-pretty text-[19px] font-medium leading-tight text-[#1F2621]">
                           {nb(item.name)}
+                          {/* Uno spazio vero tra nome ed etichette: se un'etichetta va a capo, riparte dal bordo senza rientro. */}
+                          {" "}
                           {item.enomatic && (
-                            <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#6B1020]">
+                            <span className="menu-sans whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#6B1020]">
                               Enomatic
                             </span>
                           )}
+                          {" "}
                           {recommendedIds.has(item.id) && (
-                            <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A6A2E]">
+                            <span className="menu-sans whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A6A2E]">
                               Consigliato
                             </span>
                           )}
+                          {" "}
                           {item.availableTo && !item.soldOut && (
-                            <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A6A2E]">
+                            <span className="menu-sans whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A6A2E]">
                               Fino {withDay("al", item.availableTo)}
                             </span>
                           )}
+                          {" "}
                           {item.soldOut && (
-                            <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#5B605A]">
+                            <span className="menu-sans whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#5B605A]">
                               Esaurito
                             </span>
                           )}
@@ -493,12 +498,15 @@ export default async function MenuPage() {
           <p className="m-0 max-w-[420px] text-balance text-[15.5px] italic leading-normal text-[#5B605A]">
             Prezzi in euro. I vini segnati “Enomatic” sono vini pregiati serviti al calice dalla macchina Enomatic, che li conserva a temperatura controllata e al riparo dall’aria: freschi come appena stappati.
           </p>
-          <Link
-            href="/menu/allergeni"
-            className="menu-sans flex min-h-11 items-center text-[11px] font-medium uppercase tracking-[0.22em] underline underline-offset-4"
-          >
-            Allergeni e intolleranze
-          </Link>
+          {/* Con i piatti la legenda qui sopra porta già alla pagina degli allergeni. */}
+          {!sections.some((s) => s.kind === "FOOD") && (
+            <Link
+              href="/menu/allergeni"
+              className="menu-sans flex min-h-11 items-center text-[11px] font-medium uppercase tracking-[0.22em] underline underline-offset-4"
+            >
+              Allergeni e intolleranze
+            </Link>
+          )}
         </div>
       </main>
 

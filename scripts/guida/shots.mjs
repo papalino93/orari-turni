@@ -8,7 +8,7 @@ const mk = async (w, h, dsf = 2) => {
   await ctx.addInitScript(() => {
     document.addEventListener('DOMContentLoaded', () => {
       const st = document.createElement('style');
-      st.textContent = 'nextjs-portal{display:none!important} a[href="/gestione-menu/servizio"]{display:none!important}';
+      st.textContent = 'nextjs-portal{display:none!important} svg:has(+ img.brand-logo-invert){display:none!important} a[href="/gestione-menu/servizio"]{display:none!important}';
       document.head.appendChild(st);
     });
   });
@@ -29,7 +29,7 @@ const scrollTo = async (page, sel, offset = 48) => {
   await page.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
   await settle(page, 1200);
   await page.screenshot({ path: `${OUT}/pub-hero.png` });
-  await scrollTo(page, "#evento-crudite-champagne", 12);
+  await scrollTo(page, 'section[aria-label="In evidenza"]', 12);
   await page.screenshot({ path: `${OUT}/pub-evento.png` });
   await scrollTo(page, "#oggi", 48);
   await page.screenshot({ path: `${OUT}/pub-oggi.png` });
@@ -40,10 +40,10 @@ const scrollTo = async (page, sel, offset = 48) => {
   await scrollTo(page, "#taglieri", 48);
   await page.screenshot({ path: `${OUT}/pub-taglieri.png` });
   // Abbinamento consigliato: il piatto, poi il tocco che porta al vino
-  await page.locator("a[data-pair-from]").first().evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 330));
+  await page.locator('a[data-pair-from]:not([data-pair-from="consigli"])').first().evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 330));
   await settle(page, 600);
   await page.screenshot({ path: `${OUT}/pub-abbinamento.png` });
-  await page.locator("a[data-pair-from]").first().click();
+  await page.locator('a[data-pair-from]:not([data-pair-from="consigli"])').first().click();
   await settle(page, 1600);
   await page.screenshot({ path: `${OUT}/pub-abbinamento-vino.png` });
   await page.getByRole("button", { name: /Torna a/ }).click();
@@ -51,7 +51,7 @@ const scrollTo = async (page, sel, offset = 48) => {
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await settle(page, 700);
   await page.screenshot({ path: `${OUT}/pub-footer.png` });
-  await scrollTo(page, 'section[aria-label="Legenda degli allergeni"]', 40);
+  await scrollTo(page, 'section[aria-label="Allergeni"]', 40);
   await page.screenshot({ path: `${OUT}/pub-legenda.png` });
   // Ricerca
   await page.evaluate(() => window.scrollTo(0, 900));
@@ -171,7 +171,7 @@ const scrollTo = async (page, sel, offset = 48) => {
   await settle(page, 900);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `${OUT}/gesd-top.png` });
-  await scrollTo(page, 'nav[aria-label="Sezioni"]', 120);
+  await scrollTo(page, 'nav[aria-label="Categorie"]', 120);
   await settle(page, 400);
   await page.screenshot({ path: `${OUT}/gesd-lista.png` });
   await ctx.close();

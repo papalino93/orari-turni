@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ALLERGENS, ALLERGEN_CODES, allergenLabel, type AllergenState } from "@/lib/allergens";
 
@@ -120,11 +120,14 @@ export function AllergenExplorer({ sections, initialAvoid = [] }: { sections: Ex
                       ) : item.state === "none" ? (
                         <span className="menu-sans text-[12px] font-medium text-[#4A504B]">Nessun allergene</span>
                       ) : (
-                        item.allergens.map((code) => (
-                          <span key={code} className="menu-sans rounded-full bg-[#E9DFCE] px-2.5 py-1 text-[12px] font-medium text-[#3F4540]">
-                            {allergenLabel(code)}
-                          </span>
-                        ))
+                        <span className="menu-sans text-[12.5px] font-medium leading-snug text-[#3F4540]">
+                          {item.allergens.map((code, i) => (
+                            <Fragment key={code}>
+                              {i > 0 && " · "}
+                              <span className="whitespace-nowrap">{allergenLabel(code)}</span>
+                            </Fragment>
+                          ))}
+                        </span>
                       )}
                     </div>
                     {!conflict && item.state !== "unknown" && item.traces.length > 0 && (

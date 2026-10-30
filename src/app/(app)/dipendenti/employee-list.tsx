@@ -81,7 +81,7 @@ export function EmployeeList({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
         {active.map((emp, i) => (
           <EmployeeCard
             key={emp.id}
@@ -97,7 +97,7 @@ export function EmployeeList({
       {inactive.length > 0 && (
         <div>
           <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground-muted">Disattivati</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
             {inactive.map((emp, i) => (
               <EmployeeCard
                 key={emp.id}
@@ -344,7 +344,7 @@ function EmployeeCard({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex min-h-11 w-full items-center justify-between gap-2 border-b border-border px-4 text-left text-xs font-medium text-foreground-muted sm:hidden"
+        className="flex min-h-11 w-full items-center justify-between gap-2 border-b border-border px-4 text-left text-xs font-medium text-foreground-muted"
       >
         <span>{open ? "Chiudi i dettagli" : employee.active ? "Settimana, accesso e azioni" : "Azioni"}</span>
         <svg aria-hidden width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${open ? "rotate-180" : ""}`}>
@@ -352,7 +352,7 @@ function EmployeeCard({
         </svg>
       </button>
 
-      <div className={open ? "" : "hidden sm:block"}>
+      <div className={open ? "" : "hidden"}>
       {employee.active && (
         <div className="divide-y divide-border">
           {weekDays.map((d) => {
