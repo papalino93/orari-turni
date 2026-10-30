@@ -34,11 +34,17 @@ const ap = await get("aperture", admin.k, { "X-Device-Name": "iPhone di Andrea" 
 check("titolare: «aperture» con i numeri", ap.status === 200 && typeof ap.body.oggi === "number" && typeof ap.body.ieri === "number" && ap.body.link.startsWith("/statistiche"), JSON.stringify(ap.body).slice(0, 120));
 check("risposta mai in cache condivisa", ap.cache === "no-store");
 check("colori di partenza: crema", ap.body.tema === "crema");
-for (const n of ["riepilogo", "settimana", "oggi", "dafare", "menu", "fuorimenu", "qr"]) {
+// I widget dei momenti della giornata, e quelli della prima versione (ancora validi per chi li ha).
+for (const n of ["pannello", "sala", "mattina", "stasera", "andamento", "clienti", "apri", "qr", "riepilogo", "settimana", "oggi", "dafare", "menu", "fuorimenu"]) {
   const r = await get(n, admin.k, { "X-Device-Name": "iPhone di Andrea" });
   check(`titolare: «${n}» risponde`, r.status === 200 && r.body.widget === n, `${r.status} ${JSON.stringify(r.body).slice(0, 80)}`);
 }
 check("titolare: «turni» non è suo (solo dipendenti)", (await get("turni", admin.k)).status === 403);
+check("titolare: il pannello è quello del titolare", (await get("pannello", admin.k)).body?.ruolo === "titolare");
+const el = await get("elenco", admin.k);
+check("installatore: l'elenco del titolare ha i 9 widget proposti", el.status === 200 && el.body.widget.length === 9 && el.body.widget[0].file === "Angolo · Pannello", JSON.stringify(el.body).slice(0, 120));
+check("installatore: niente widget della prima versione nell'elenco", !el.body.widget.some((w) => ["riepilogo", "menu", "fuorimenu"].includes(w.id)));
+check("installatore: senza chiave niente elenco", (await get("elenco")).status === 401);
 check("ultimo uso e nome del telefono salvati", DB(`select "deviceName" from "WidgetDevice" where id='${admin.dev}'`) === "iPhone di Andrea" && DB(`select "lastUsedAt" is not null from "WidgetDevice" where id='${admin.dev}'`) === "t");
 await get("aperture", admin.k, { "X-Device-Name": "iPhone di qualcun altro" });
 check("stessa chiave da un altro telefono: segnalata", DB(`select "otherDeviceAt" is not null from "WidgetDevice" where id='${admin.dev}'`) === "t");
@@ -53,6 +59,38 @@ check("dipendente: «qr» col link stampato sui tavoli", (await get("qr", dip.k)
 check("dipendente: «menu» non dato → 403", (await get("menu", dip.k)).body?.errore === "permesso");
 check("dipendente: statistiche mai (aperture) → 403", (await get("aperture", dip.k)).body?.errore === "permesso");
 check("dipendente: «dafare» mai → 403", (await get("dafare", dip.k)).status === 403);
+check("dipendente: «In sala» mai (statistiche) → 403", (await get("sala", dip.k)).body?.errore === "permesso");
+check("dipendente: «pannello» non dato → 403", (await get("pannello", dip.k)).body?.errore === "permesso");
+DB(`update "Employee" set widgets='{turni,qr,pannello}' where id='${marta}'`);
+const pd = await get("pannello", dip.k);
+check("dipendente: il suo pannello (turno, esauriti), senza statistiche", pd.body?.ruolo === "dipendente" && !("aperture" in pd.body) && "esauriti" in pd.body);
+const eld = await get("elenco", dip.k);
+check("installatore: il dipendente riceve solo i suoi 3 widget", eld.body?.widget?.map((w) => w.id).join(",") === "pannello,qr,turni", JSON.stringify(eld.body));
+
+// L'installatore, provato come lo farebbe Scriptable: crea uno script per widget, con la chiave.
+const inst = await (await fetch(`${BASE}/widget/installa.js`)).text();
+check("installatore servito, con il marchio che lo script controlla", inst.startsWith("// ANGOLO_INSTALLA"));
+{
+  const files = new Map();
+  const fmStub = { documentsDirectory: () => "/doc", joinPath: (a, b2) => `${a}/${b2}`, listContents: () => ["Angolo · Vecchio.js", "Altro.js"], remove: (f) => files.set(f, "TOLTO"), writeString: (f, t2) => files.set(f, t2) };
+  let detto = "";
+  const g = {
+    config: { runsInWidget: false },
+    Request: class { constructor(u) { this.u = u; this.headers = {}; } async loadJSON() { return (await fetch(this.u, { headers: { ...this.headers, "X-Forwarded-For": ip() } })).json(); } },
+    FileManager: { local: () => fmStub },
+    Alert: class { addAction() {} async presentAlert() { detto = this.title + " " + this.message; } },
+    Device: { name: () => "iPhone di prova" },
+    Script: { complete() {}, setWidget() {} },
+  };
+  const AF = Object.getPrototypeOf(async function () {}).constructor;
+  await new AF("SITO", "CHIAVE", "MODULO", ...Object.keys(g), inst)(BASE, dip.k, { filename: "/doc/Angolo del Vino – installa.js" }, ...Object.values(g));
+  const creati = [...files.keys()].filter((f) => files.get(f) !== "TOLTO").sort();
+  check("installatore: crea «Angolo · Pannello», «Angolo · QR del menù», «Angolo · I miei turni»", creati.join("|") === "/doc/Angolo · I miei turni.js|/doc/Angolo · Pannello.js|/doc/Angolo · QR del menù.js", creati.join("|"));
+  check("installatore: toglie gli «Angolo · …» che non servono più, non tocca gli altri script", files.get("/doc/Angolo · Vecchio.js") === "TOLTO" && !files.has("/doc/Altro.js"));
+  const pan = files.get("/doc/Angolo · Pannello.js");
+  check("ogni script ha sito, chiave e widget, e si può avviare", pan.includes(`const CHIAVE = "${dip.k}"`) && pan.includes('const WIDGET = "pannello"') && pan.startsWith("// Variables used by Scriptable.") && (() => { try { new AF(pan); return true; } catch { return false; } })());
+  check("installatore: alla fine dice quali sono pronti", /Pronti 3 widget/.test(detto) && /Angolo · Pannello/.test(detto));
+}
 
 DB(`update "WidgetDevice" set "revokedAt"=now() where id='${dip.dev}'`);
 check("telefono scollegato: «Accesso tolto»", (await get("turni", dip.k)).body?.errore === "tolto");
@@ -85,11 +123,12 @@ await p.getByRole("link", { name: /Widget sul telefono/ }).click();
 await p.waitForURL(/\/widget$/);
 await p.waitForLoadState("networkidle");
 check("Account → «Widget sul telefono»", (await p.getByRole("heading", { name: "Widget sul telefono", level: 1 }).count()) === 1);
-check("titolare: «Chi può usare i widget», «I widget», guida, telefoni", (await p.getByRole("heading", { name: "Chi può usare i widget" }).count()) === 1 && (await p.getByRole("heading", { name: "I widget", exact: true }).count()) === 1 && (await p.getByRole("heading", { name: "Mettere i widget sul telefono" }).count()) === 1 && (await p.getByRole("heading", { name: "Telefoni collegati" }).count()) === 1);
-check("titolare: 8 widget con anteprima (i suoi e quelli che può dare)", (await p.locator('img[alt^="Anteprima del widget"]').count()) === 8);
+check("titolare: «Chi può usare i widget», «I tuoi widget», guida, telefoni", (await p.getByRole("heading", { name: "Chi può usare i widget" }).count()) === 1 && (await p.getByRole("heading", { name: "I tuoi widget", exact: true }).count()) === 1 && (await p.getByRole("heading", { name: "Mettere i widget sul telefono" }).count()) === 1 && (await p.getByRole("heading", { name: "Telefoni collegati" }).count()) === 1);
+check("titolare: 9 widget con anteprima e il nome da scegliere sul telefono", (await p.locator('img[alt^="Anteprima del widget"]').count()) === 9 && (await p.getByText("Angolo · Andamento", { exact: true }).count()) === 1, String(await p.locator('img[alt^="Anteprima del widget"]').count()));
+check("niente più parole da scrivere nel campo «Parameter»", (await p.getByRole("button", { name: /Copia la parola/ }).count()) === 0);
 const srcs = await p.locator('img[alt^="Anteprima del widget"]').evaluateAll((els) => els.map((e) => e.getAttribute("src")));
 const imgsOk = (await Promise.all(srcs.map(async (u) => (await fetch(BASE + u)).headers.get("content-type") === "image/png"))).every(Boolean);
-check("le anteprime si caricano", imgsOk);
+check("le anteprime si caricano", imgsOk, srcs.join(" "));
 check("link a Scriptable sull'App Store", (await p.getByRole("link", { name: /Scarica dall.App Store/ }).getAttribute("href")) === "https://apps.apple.com/it/app/scriptable/id1405459188");
 
 // Autorizzare Marta: interruttore e widget uno per uno
@@ -99,14 +138,14 @@ const sw = p.getByRole("switch", { name: "Può usare i widget: Marta Neri" });
 check("Marta: non autorizzata all'inizio", (await sw.getAttribute("aria-checked")) === "false");
 await sw.click();
 await p.waitForTimeout(1500);
-check("accendendo: Marta ha i 4 widget dei dipendenti", DB(`select widgets::text from "Employee" where id='${marta}'`) === "{menu,fuorimenu,qr,turni}");
-await p.getByRole("button", { name: "✓ Anteprima menù" }).click();
+check("accendendo: Marta ha i 6 widget dei dipendenti", DB(`select widgets::text from "Employee" where id='${marta}'`) === "{pannello,stasera,clienti,apri,qr,turni}", DB(`select widgets::text from "Employee" where id='${marta}'`));
+await p.getByRole("button", { name: "✓ Stasera" }).click();
 await p.waitForTimeout(1500);
-check("togliendo un widget: solo quello sparisce", DB(`select widgets::text from "Employee" where id='${marta}'`) === "{fuorimenu,qr,turni}");
+check("togliendo un widget: solo quello sparisce", DB(`select widgets::text from "Employee" where id='${marta}'`) === "{pannello,clienti,apri,qr,turni}");
 if (SHOTS) await p.screenshot({ path: `${SHOTS}/widget-titolare.png`, fullPage: true });
 
 // Colori dei widget
-check("colori: 4 temi, «Crema» in uso", (await p.getByRole("button", { name: /Crema.*In uso/ }).count()) === 1 && (await p.locator('section:has(h2:text-is("Colori dei widget")) button').count()) === 4);
+check("colori: 8 temi, «Crema» in uso", (await p.getByRole("button", { name: /Crema.*In uso/ }).count()) === 1 && (await p.locator('section:has(h2:text-is("Colori dei widget")) button').count()) === 8);
 await p.getByRole("button", { name: /^Nero/ }).click();
 await p.waitForTimeout(1500);
 check("scegliendo «Nero»: salvato per la persona", DB(`select "widgetTheme" from "User" where username='andrea'`) === "nero");
@@ -120,9 +159,9 @@ await p.getByRole("button", { name: "Crea il collegamento" }).click();
 const area = p.getByLabel("Script da incollare in Scriptable");
 await area.waitFor();
 const script = await area.inputValue();
-check("script pronto, con sito e chiave", /const SITO = "http:\/\/localhost:3100";/.test(script) && /const CHIAVE = "adv_[A-Za-z0-9_-]{43}";/.test(script));
+check("script pronto, con sito e chiave, che scarica l'installatore", /const SITO = "http:\/\/localhost:3100";/.test(script) && /const CHIAVE = "adv_[A-Za-z0-9_-]{43}";/.test(script) && script.includes("/widget/installa.js"));
 const key = script.match(/const CHIAVE = "(adv_[^"]+)"/)[1];
-check("la chiave dello script funziona", (await get("riepilogo", key)).status === 200);
+check("la chiave dello script funziona", (await get("elenco", key)).status === 200);
 await p.getByRole("button", { name: "Copia lo script" }).click();
 await p.getByRole("button", { name: "Copiato ✓" }).waitFor({ timeout: 5000 }).catch(() => {});
 check("«Copia lo script» → «Copiato ✓»", (await p.getByRole("button", { name: "Copiato ✓" }).count()) === 1);
@@ -133,7 +172,7 @@ check("il telefono compare in «Telefoni collegati»", (await row.count()) === 1
 await row.getByRole("button", { name: "Scollega" }).click();
 await p.getByRole("button", { name: "Sì, scollega" }).click();
 await p.waitForTimeout(1500);
-check("«Scollega» con conferma: la chiave smette subito di funzionare", (await get("riepilogo", key)).body?.errore === "tolto");
+check("«Scollega» con conferma: la chiave smette subito di funzionare", (await get("pannello", key)).body?.errore === "tolto");
 
 // Dipendente
 const e = await (await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true })).newPage();
@@ -144,7 +183,8 @@ check("dipendente autorizzata: in «Le mie ore» c'è «Widget sul telefono»", 
 await e.goto(`${BASE}/widget`, { waitUntil: "networkidle" });
 check("dipendente: la pagina si apre (niente rimando)", new URL(e.url()).pathname === "/widget");
 check("dipendente: sceglie i suoi colori", (await e.getByRole("heading", { name: "Colori dei widget" }).count()) === 1);
-check("dipendente: vede solo i suoi 3 widget", (await e.locator('img[alt^="Anteprima del widget"]').count()) === 3);
+check("dipendente: vede solo i suoi 5 widget", (await e.locator('img[alt^="Anteprima del widget"]').count()) === 5);
+check("dipendente: l'anteprima del pannello è quella dei dipendenti", (await e.locator('img[alt="Anteprima del widget «Pannello»"]').getAttribute("src")).includes("pannello-dip"));
 check("dipendente: niente autorizzazioni né telefoni degli altri", (await e.getByRole("heading", { name: "Chi può usare i widget" }).count()) === 0 && (await e.getByRole("heading", { name: "I tuoi telefoni collegati" }).count()) === 1);
 if (SHOTS) await e.screenshot({ path: `${SHOTS}/widget-dipendente.png`, fullPage: true });
 DB(`update "Employee" set widgets='{}' where id='${marta}'`);

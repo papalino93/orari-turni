@@ -78,6 +78,11 @@ const PLAN = [
   ["andamento", ["large"], ADMIN],
   ["clienti", ["medium"], DIP],
 ];
+// Con FINTI=1 le anteprime della pagina «Widget sul telefono»: solo i widget proposti, nelle grandezze mostrate.
+if (process.env.FINTI) {
+  PLAN.length = 0;
+  PLAN.push(["pannello", ["large"], ADMIN], ["pannello", ["large"], DIP, "dip"], ["sala", ["medium"], ADMIN], ["mattina", ["medium"], ADMIN], ["stasera", ["medium"], ADMIN], ["clienti", ["medium"], DIP], ["andamento", ["large"], ADMIN], ["apri", ["small"], ADMIN], ["qr", ["small"], DIP], ["aperture", ["small", "accessoryRectangular", "accessoryCircular"], ADMIN], ["turni", ["small", "medium", "accessoryRectangular"], DIP]);
+}
 // Tre telefoni: mini (più stretto), Pro, Pro Max (più largo).
 // Misure vere dei widget (punti) per tre larghezze di schermo, come in misure() di angolo.js.
 const PHONES = {

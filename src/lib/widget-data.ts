@@ -474,9 +474,8 @@ export async function dataMattina() {
   const fuori = daily.piatti.length + daily.vini.length;
   const persone = [...staff.adesso, ...staff.dopo];
   const cose = [
-    fuori === 0
-      ? { testo: "Fuori menù di oggi da mettere", fatto: false, link: "/gestione-menu" }
-      : { testo: `Fuori menù: ${[...daily.piatti, ...daily.vini].map((x) => x.nome).slice(0, 2).join(", ")}`, fatto: true, link: "/gestione-menu" },
+    // Il fuori menù è facoltativo: se c'è lo si ricorda, se manca non è una cosa da fare.
+    fuori > 0 ? { testo: `Fuori menù: ${[...daily.piatti, ...daily.vini].map((x) => x.nome).slice(0, 2).join(", ")}`, fatto: true, link: "/gestione-menu" } : null,
     allergeni > 0 ? { testo: `${allergeni} ${allergeni === 1 ? "piatto" : "piatti"} senza allergeni`, fatto: false, link: "/gestione-menu" } : null,
     nextBlocks > 0 && !nextPlan?.publishedAt ? { testo: "Settimana prossima da confermare", fatto: false, link: `/orari?date=${nextMon}` } : null,
   ].filter(Boolean);

@@ -433,15 +433,16 @@ const wimg = (n, w) => `<img src="${ante(n)}" style="width:${w}mm;display:block;
 pages.push(`<section class="page wine">${chrome(pg(), "Widget sul telefono")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Widget sul telefono</div>
   <h2>I numeri del locale<br><em>sulla Home dell'iPhone</em></h2>
-  <p class="lead">Riquadri che si aggiornano da soli: aperture del menù di oggi, chi lavora, cosa c'è fuori menù, i turni di ognuno. Un tocco apre la pagina giusta. Funzionano con l'app gratuita Scriptable, su iPhone e iPad.</p></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:9mm;justify-items:center">
-    ${wimg("aperture-medium", 80)}${wimg("oggi-medium", 80)}${wimg("menu-medium", 80)}${wimg("turni-medium", 80)}
+  <p class="lead">Un widget per ogni momento: il pannello con le scorciatoie, «In sala» durante il servizio, «Prima di aprire» la mattina, «Stasera» per l'evento. Ogni riquadro si tocca e apre la pagina giusta. Funzionano con l'app gratuita Scriptable, su iPhone e iPad.</p></div>
+  <div style="display:flex;gap:6mm;margin-top:8mm;justify-content:center;align-items:flex-start">
+    ${wimg("pannello-large", 72)}
+    <div style="display:flex;flex-direction:column;gap:5mm">${wimg("sala-medium", 78)}${wimg("stasera-medium", 78)}</div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:auto">
-    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Dove si mettono</h3><p><b>Impostazioni</b> (l'ingranaggio in alto) → <b>Widget sul telefono</b>: la guida passo passo, la parola di ogni widget e i <b>Colori dei widget</b> (crema, bordeaux, nero, notte).</p></div>
-    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Per i dipendenti</h3><p>In <b>Chi può usare i widget</b> scegli chi e quali: i propri turni, il fuori menù, il QR. Mai statistiche né dati dei colleghi.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Dove si mettono</h3><p><b>Impostazioni</b> (l'ingranaggio in alto) → <b>Widget sul telefono</b>. Si incolla una volta l'installatore in Scriptable: crea «Angolo · Pannello», «Angolo · In sala»… e su ogni widget si sceglie dall'elenco.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Per i dipendenti</h3><p>In <b>Chi può usare i widget</b> scegli chi e quali: il loro pannello, i loro turni, «Da dire ai clienti», il QR. Mai statistiche né dati dei colleghi.</p></div>
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Una chiave per telefono</h3><p>Lo script di ogni telefono ha la sua chiave: si legge e basta. <b>Scollega</b> la spegne subito; dopo 90 giorni senza uso si spegne da sola.</p></div>
-    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Grandezze</h3><p>Piccolo, medio, grande e la schermata di blocco: il widget si adatta da solo alla grandezza scelta.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Otto colori</h3><p>Crema, carta, oro, bordeaux, notte, nero, oliva, blu: ognuno sceglie i suoi in <b>Colori dei widget</b>, con l'anteprima.</p></div>
   </div>
 </section>`);
 

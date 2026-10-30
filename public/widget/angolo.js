@@ -1,6 +1,6 @@
 // ANGOLO_WIDGET · L'Angolo del Vino · widget per Scriptable.
-// Questo file lo scarica lo script «Angolo del Vino» sul telefono (quello con la chiave),
-// così i miglioramenti arrivano senza reinstallare nulla. Riceve SITO e CHIAVE.
+// Questo file lo scaricano gli script «Angolo · …» sul telefono (quelli con la chiave, creati
+// dall'installatore), così i miglioramenti arrivano senza reinstallare nulla. Riceve SITO, CHIAVE e WIDGET.
 // Quattro temi (notte, bordeaux, crema, nero); margini 14, spazi multipli di 4, un solo numero protagonista.
 
 const VERSIONE = 1;
@@ -223,7 +223,13 @@ function lineaVerticale(stack, altezza) {
   return s;
 }
 
+// I link al menù dei clienti segnano il telefono come «del personale» (?personale=1): chi apre il menù
+// dal widget è il personale, non un cliente, e non deve contare nelle statistiche.
 function link(path) {
+  if (/^\/menu(\/|\?|#|$)/.test(path)) {
+    const [via, ancora] = path.split("#");
+    return `${SITO}${via}${via.includes("?") ? "&" : "?"}personale=1${ancora ? `#${ancora}` : ""}`;
+  }
   return `${SITO}${path}`;
 }
 
@@ -371,12 +377,12 @@ const FORMATI = {
   fuorimenu: ["medium", "large", "extraLarge"],
   qr: ["small", "large"],
   turni: ["small", "medium", "accessoryRectangular", "accessoryCircular", "accessoryInline"],
-  pannello: ["large", "extraLarge"],
+  pannello: ["large"],
   apri: ["small"],
   sala: ["medium"],
   mattina: ["medium"],
   stasera: ["medium"],
-  andamento: ["large", "extraLarge"],
+  andamento: ["large"],
   clienti: ["medium"],
 };
 
@@ -1273,10 +1279,11 @@ function wPannello(fam, d, v) {
   testo(fm, "FUORI MENÙ", F.titoletto(), C.oro);
   fm.addSpacer();
   if (d.fuori.length) {
-    for (const x of d.fuori) testo(fm, x, F.serif(12), C.crema);
+    for (const x of d.fuori) testo(fm, x, F.serif(CW < 300 ? 11 : 12), C.crema);
   } else {
-    testo(fm, dipendente ? "Niente di speciale oggi" : "Da mettere", dipendente ? F.testo(12) : F.serifForte(17), dipendente ? C.crema2 : C.rossoTesto, 2);
-    if (!dipendente) freccina(fm, "aggiungi  →");
+    // Il fuori menù è facoltativo: se oggi non c'è, niente rosso, solo la via per aggiungerlo.
+    testo(fm, "Oggi niente", F.serifCorsivo(16), C.crema2);
+    if (!dipendente) freccina(fm, "aggiungi  →", C.crema3);
   }
   w.addSpacer(gap);
 
@@ -1340,8 +1347,10 @@ function wSala(fam, d, v) {
   testo(sx, d.oggi, F.numero(40), C.crema);
   testo(sx, "aperture oggi", F.testo(10), C.crema2);
   sx.addSpacer(6);
-  pillola(riga(sx), d.delta);
-  sx.addSpacer(3);
+  if (d.delta !== null) {
+    pillola(riga(sx), d.delta);
+    sx.addSpacer(3);
+  }
   testo(sx, `ieri a quest'ora ${d.ieriFinora}`, F.testo(9), C.crema3);
   corpo.addSpacer(12);
   const dx = colonna(corpo);
@@ -1365,7 +1374,7 @@ function wSala(fam, d, v) {
   dx.addSpacer(6);
   const es = riga(dx);
   es.url = link(d.linkMenu);
-  testo(es, d.esauriti.length ? `${d.esauriti.length} esaurit${d.esauriti.length === 1 ? "o" : "i"}: ${d.esauriti.join(", ")}` : "Niente di esaurito", F.testo(10), C.crema2, 2);
+  testo(es, d.esauriti.length ? `${d.esauriti.length} esaurit${d.esauriti.length === 1 ? "o" : "i"}: ${d.esauriti.join(", ")}` : "Niente di esaurito", F.testo(10), C.crema2, misure(fam).H < 155 ? 1 : 2);
   es.addSpacer();
   // Le parole cercate che nel menù non ci sono: un'idea di cosa aggiungere.
   if (d.nonTrovati.length) {
@@ -1394,7 +1403,11 @@ function wMattina(fam, d, v) {
   testo(sx, d.ieri.aperture, F.numero(32), C.crema);
   testo(sx, "aperture", F.testo(10), C.crema2);
   sx.addSpacer(5);
-  pillola(riga(sx), d.ieri.delta, ` su ${d.ieri.giorno.slice(0, 3)}`);
+  if (d.ieri.delta !== null) {
+    pillola(riga(sx), d.ieri.delta);
+    sx.addSpacer(2);
+    testo(sx, `su ${d.ieri.giorno.slice(0, 3)}. scorso`, F.testo(9), C.crema3);
+  }
   corpo.addSpacer(8);
   lineaVerticale(corpo, 92);
   corpo.addSpacer(12);
@@ -1437,7 +1450,7 @@ function wMattina(fam, d, v) {
 
 // ---------- Stasera (medio): l'evento di oggi o il prossimo, con la locandina
 function wStasera(fam, d, v) {
-  if (!d.evento) return messaggio(fam, "Stasera", "Nessun evento in programma. Si crea da «Eventi e annunci».");
+  if (!d.evento) return messaggio(fam, "Stasera", "Nessun evento in programma.");
   const e = d.evento;
   const w = nuovoWidget(fam);
   const { CH } = misure(fam);
@@ -1564,7 +1577,7 @@ function wClienti(fam, d, v) {
   if (d.fuori.length) {
     for (const x of d.fuori.slice(0, 2)) {
       const r = riga(sx);
-      testo(r, x.nome, F.serif(12), C.crema);
+      testo(r, x.nome, F.serif(misure(fam).CW < 300 ? 11 : 12), C.crema);
       r.addSpacer(4);
       testo(r, x.prezzo, F.forte(10.5), C.oro);
       r.addSpacer();
@@ -1594,8 +1607,9 @@ function wClienti(fam, d, v) {
 }
 
 // ---------- Avvio (in fondo: prima devono esistere tutte le costanti qui sopra)
-// La prima parola che non è un tema dice quale widget (es. «aperture», «turni»).
-const param = (PAROLE.find((p) => !TEMI[p]) || "aperture").replace(/[^a-z]/g, "");
+// Quale widget: lo dice lo script «Angolo · …» creato dall'installatore (WIDGET); per quelli della
+// prima versione, la prima parola del campo «Parameter» che non è un colore (es. «aperture»).
+const param = ((typeof WIDGET !== "undefined" && WIDGET) || PAROLE.find((p) => !TEMI[p]) || "aperture").replace(/[^a-z]/g, "");
 let famiglia = config.widgetFamily;
 if (!config.runsInWidget) famiglia = await scegliAnteprima();
 

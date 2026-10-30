@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { runWithToast, useToast } from "@/components/toast";
-import { SIZE_LABELS, WIDGET_THEMES, type WidgetDef, type WidgetSize } from "@/lib/widgets";
+import { SIZE_LABELS, WIDGET_THEMES, scriptName, type WidgetDef, type WidgetSize } from "@/lib/widgets";
 import { createWidgetDevice, revokeWidgetDevice, setEmployeeWidgets, setWidgetTheme } from "./actions";
 
 const APP_STORE = "https://apps.apple.com/it/app/scriptable/id1405459188";
@@ -70,6 +70,7 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
             "Accendi «Può usare i widget» accanto al suo nome.",
             "Lascia spuntati solo i widget che vuoi dargli: vedi com'è ognuno qui sotto, in «I widget».",
             "Da quel momento, nella sua app, trova «Widget sul telefono» con la stessa guida per installarli: vede solo quelli che hai scelto.",
+            "Se gli dai un widget in più quando li ha già: apre Scriptable e tocca ▶ su «Angolo del Vino – installa». Il nuovo compare nell'elenco.",
             "Per togliere un widget togli la spunta; per togliere tutto spegni l'interruttore. Sul suo telefono il widget mostra «Accesso tolto» al primo aggiornamento.",
             "Telefono perso o cambiato? In fondo, in «Telefoni collegati», tocca «Scollega».",
           ].map((t, i) => (
@@ -80,7 +81,7 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
           ))}
         </ol>
         <p className="mb-1 text-xs text-foreground-muted">
-          Consiglio: «I miei prossimi orari» a tutti; «Oggi fuori menù ed eventi» a chi sta in sala. I dipendenti non vedono mai statistiche né dati dei colleghi.
+          Consiglio: «I miei turni» e «Pannello» a tutti; «Da dire ai clienti» e «Stasera» a chi sta in sala. I dipendenti non vedono mai statistiche né dati dei colleghi.
         </p>
       </details>
       {employees.length === 0 && <p className="px-5 py-4 text-sm text-foreground-muted">Nessun dipendente attivo.</p>}
@@ -139,8 +140,8 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
 
 // ---------- Colori dei widget: valgono per tutti i propri telefoni, subito (al primo aggiornamento)
 // example: il widget delle anteprime e dell'esempio, uno di quelli che la persona può usare.
-export function ThemePicker({ current, example = "aperture" }: { current: string; example?: string }) {
-  const preview = example === "qr" ? "qr-small" : `${example}-medium`;
+// preview: l'immagine di esempio (es. «sala-medium»), di un widget che la persona può usare.
+export function ThemePicker({ current, preview, word }: { current: string; preview: string; word: string }) {
   const [pending, start] = useTransition();
   const router = useRouter();
   const toast = useToast();
@@ -164,7 +165,7 @@ export function ThemePicker({ current, example = "aperture" }: { current: string
               className={`flex flex-col items-start gap-2 rounded-2xl border p-3 text-left transition-colors ${on ? "border-accent bg-accent/5 ring-2 ring-accent/40" : "border-border hover:border-accent"}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- anteprima statica */}
-              <img src={`/widget/anteprime/${t.id}/${preview}.png`} alt="" className={`rounded-[14px] shadow-sm ${example === "qr" ? "w-1/2" : "w-full"}`} />
+              <img src={`/widget/anteprime/${t.id}/${preview}.png`} alt="" className={`rounded-[14px] shadow-sm ${preview.endsWith("-small") ? "w-1/2" : preview.endsWith("-large") ? "w-2/3" : "w-full"}`} />
               <span className="flex w-full items-center justify-between gap-2">
                 <span>
                   <span className="block text-sm font-semibold text-foreground">{t.nome}</span>
@@ -177,37 +178,41 @@ export function ThemePicker({ current, example = "aperture" }: { current: string
         })}
       </div>
       <p className="px-5 pb-4 text-xs text-foreground-muted">
-        Vuoi un widget di un colore diverso dagli altri? Aggiungi il nome dei colori dopo la parola nel campo «Parameter», es.{" "}
-        <code className="rounded bg-surface-2 px-1 font-mono text-foreground">{example} nero</code>.
+        Vuoi un widget di un colore diverso dagli altri? Toccalo e nel campo «Parameter» scrivi il nome del colore, es.{" "}
+        <code className="rounded bg-surface-2 px-1 font-mono text-foreground">nero</code> per «{word}».
       </p>
     </Section>
   );
 }
 
-// ---------- I widget disponibili, con l'anteprima e la parola da scrivere
-export function WidgetGallery({ widgets, theme }: { widgets: WidgetDef[]; theme: string }) {
+// ---------- I widget disponibili, con l'anteprima e il nome che si sceglie sul telefono
+export function WidgetGallery({ widgets, theme, dipendente = false }: { widgets: WidgetDef[]; theme: string; dipendente?: boolean }) {
   return (
-    <Section title="I widget" hint="Com'è ognuno, in che grandezze va e la parola da scrivere nel campo «Parameter» del widget.">
+    <Section title="I tuoi widget" hint="Com'è ognuno e in che grandezza va. Sul telefono, alla voce «Script», scegli il nome scritto qui.">
       <ul className="divide-y divide-border">
         {widgets.map((w) => {
-          const preview = w.sizes.find((s) => s === "medium") ?? w.sizes.find((s) => HOME_SIZES.includes(s)) ?? "small";
-          const src = `/widget/anteprime/${theme}/${w.id}-${preview}.png`;
+          const preview = w.sizes.includes("medium") ? "medium" : w.sizes.includes("small") ? "small" : "large";
+          // Il pannello dei dipendenti è diverso (il loro turno, le loro ore): si mostra il loro.
+          const src = `/widget/anteprime/${theme}/${dipendente && w.id === "pannello" ? "pannello-dip" : w.id}-${preview}.png`;
+          const home = w.sizes.filter((s) => HOME_SIZES.includes(s));
           return (
             <li key={w.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
               {/* eslint-disable-next-line @next/next/no-img-element -- anteprima statica disegnata dal simulatore */}
               <img
                 src={src}
                 alt={`Anteprima del widget «${w.nome}»`}
-                className={`shrink-0 rounded-[18px] shadow-md ${preview === "small" ? "w-[132px]" : "w-full max-w-[300px]"}`}
+                className={`shrink-0 rounded-[18px] shadow-md ${preview === "small" ? "w-[132px]" : preview === "large" ? "w-full max-w-[240px]" : "w-full max-w-[300px]"}`}
               />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground">{w.nome}</p>
                 <p className="mt-0.5 text-sm text-foreground-muted">{w.descrizione}</p>
-                <p className="mt-1.5 text-xs text-foreground-muted">
-                  Grandezze: {w.sizes.filter((s) => HOME_SIZES.includes(s)).map((s) => SIZE_LABELS[s]).join(", ")}
-                  {w.sizes.some((s) => s.startsWith("accessory")) ? "; anche sulla schermata di blocco" : ""}
+                <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-foreground-muted">
+                  <span className="rounded-md border border-border bg-surface-2 px-1.5 py-0.5 font-medium text-foreground">{scriptName(w)}</span>
+                  <span>
+                    {home.map((s) => SIZE_LABELS[s]).join(" o ")}
+                    {w.sizes.some((s) => s.startsWith("accessory")) ? ", anche sulla schermata di blocco" : ""}
+                  </span>
                 </p>
-                <CopyWord word={w.id} />
               </div>
             </li>
           );
@@ -217,57 +222,34 @@ export function WidgetGallery({ widgets, theme }: { widgets: WidgetDef[]; theme:
   );
 }
 
-function CopyWord({ word }: { word: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(word);
-          setDone(true);
-          setTimeout(() => setDone(false), 1800);
-        } catch {}
-      }}
-      className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-3.5 text-xs text-foreground-muted hover:border-accent"
-      aria-label={`Copia la parola ${word}`}
-    >
-      Parameter: <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[12px] text-foreground">{word}</code>
-      <span className="font-medium text-accent-ink">{done ? "Copiata ✓" : "Copia"}</span>
-    </button>
-  );
-}
-
 // ---------- Installazione, passo passo
+// Lo script da incollare una volta: scarica dal sito l'installatore (installa.js) e lo avvia.
+// L'installatore crea gli script «Angolo · …», uno per widget, con la chiave di questo telefono.
 function scriptFor(origin: string, key: string, owner: string, phone: string) {
   return `// Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
-// icon-color: deep-brown; icon-glyph: wine-glass;
-// L'Angolo del Vino · widget di ${owner} (${phone})
+// icon-color: deep-brown; icon-glyph: magic;
+// L'Angolo del Vino · installatore dei widget di ${owner} (${phone})
+// Tocca ▶ in basso: crea gli script «Angolo · …», uno per widget. Riavvialo quando ti danno un widget nuovo.
 // Personale: non mandarlo ad altri, dentro c'è la chiave di questo telefono.
-// Per scollegarlo: app → Widget sul telefono → Scollega.
 const SITO = "${origin}";
 const CHIAVE = "${key}";
-const fm = FileManager.local();
-const copia = fm.joinPath(fm.documentsDirectory(), "angolo-disegno.js");
 let codice = null;
 try {
-  const r = new Request(SITO + "/widget/angolo.js");
-  r.timeoutInterval = 10;
+  const r = new Request(SITO + "/widget/installa.js");
+  r.timeoutInterval = 15;
   const t = await r.loadString();
-  if (r.response.statusCode === 200 && t.startsWith("// ANGOLO_WIDGET")) {
-    codice = t;
-    fm.writeString(copia, t);
-  }
+  if (r.response.statusCode === 200 && t.startsWith("// ANGOLO_INSTALLA")) codice = t;
 } catch (e) {}
-if (!codice && fm.fileExists(copia)) codice = fm.readString(copia);
 if (codice) {
   const Avvia = Object.getPrototypeOf(async function () {}).constructor;
-  await new Avvia("SITO", "CHIAVE", codice)(SITO, CHIAVE);
+  await new Avvia("SITO", "CHIAVE", "MODULO", codice)(SITO, CHIAVE, module);
 } else {
-  const w = new ListWidget();
-  w.addText("L'Angolo del Vino: la prima volta serve la rete.");
-  Script.setWidget(w);
+  const a = new Alert();
+  a.title = "Serve la rete";
+  a.message = "Collegati a internet e tocca di nuovo ▶.";
+  a.addAction("OK");
+  await a.presentAlert();
   Script.complete();
 }
 `;
@@ -374,44 +356,41 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
             </>
           )}
         </Step>
-        <Step n={3} title="Incolla lo script in Scriptable">
+        <Step n={3} title="Incollalo in Scriptable e avvialo">
           <p>
             Apri Scriptable, tocca <Key>+</Key> in alto a destra, tieni premuto nella pagina vuota e scegli <span className="whitespace-nowrap"><Key>Incolla</Key>.</span>
           </p>
           <p>
-            Tocca il titolo in alto (es. «Untitled Script»), scrivi <b className="text-foreground">Angolo del Vino</b> e tocca <span className="whitespace-nowrap"><Key>Fine</Key>.</span>
+            Tocca il titolo in alto (es. «Untitled Script») e scrivi <b className="text-foreground">Angolo del Vino – installa</b>. Poi tocca{" "}
+            <span className="whitespace-nowrap"><Key>▶</Key> in basso a destra.</span>
+          </p>
+          <p>
+            Compare «Pronti N widget»: nell&apos;elenco di Scriptable ora ci sono gli script <b className="text-foreground">Angolo · Pannello</b>,{" "}
+            <b className="text-foreground">Angolo · In sala</b>… uno per ogni widget qui sotto. Tocca <Key>OK</Key> e <Key>Fine</Key>.
           </p>
         </Step>
-        <Step n={4} title="Aggiungi il widget alla Home">
+        <Step n={4} title="Metti un widget sulla Home">
           <p>
             Tieni premuto su uno spazio vuoto della Home finché le icone tremano, tocca <Key>Modifica</Key> in alto a sinistra, poi
             <span className="whitespace-nowrap"><Key>Aggiungi widget</Key>.</span>
           </p>
           <p>
-            Cerca <b className="text-foreground">Scriptable</b>, scorri fino alla grandezza che vuoi (piccolo, medio o grande) e tocca
+            Cerca <b className="text-foreground">Scriptable</b>, scorri fino alla grandezza giusta (la trovi qui sotto, sotto ogni widget) e tocca
             <span className="whitespace-nowrap"><Key>Aggiungi widget</Key>.</span>
           </p>
         </Step>
         <Step n={5} title="Scegli quale widget mostrare">
           <p>
-            Tocca il widget appena messo (o tienilo premuto e scegli <Key>Modifica widget</Key>). Scriptable è in inglese: i campi si
-            chiamano così.
+            Tocca il widget appena messo (o tienilo premuto e scegli <Key>Modifica widget</Key>). Alla voce <b className="text-foreground">Script</b>{" "}
+            scegli dall&apos;elenco, ad esempio <b className="text-foreground">Angolo · {example}</b>. Non serve scrivere niente.
           </p>
-          <ul className="ml-1 list-inside list-disc space-y-1">
-            <li>
-              <b className="text-foreground">Script</b>: Angolo del Vino
-            </li>
-            <li>
-              <b className="text-foreground">Parameter</b>: la parola del widget, es. <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[12px] text-foreground">{example}</code> (le trovi più sotto, in «I widget», con «Copia»)
-            </li>
-          </ul>
-          <p>Tocca fuori dal riquadro: in qualche secondo compare il widget. Per averne altri ripeti i punti 4 e 5 con un&apos;altra parola.</p>
+          <p>Tocca fuori dal riquadro: in qualche secondo compare. Per averne altri ripeti i punti 4 e 5.</p>
         </Step>
         <Step n={6} title="Schermata di blocco (facoltativo)">
           <p>
             Tieni premuto sulla schermata di blocco, tocca <Key>Personalizza</Key> → <span className="whitespace-nowrap"><Key>Schermata di blocco</Key>,</span> tocca lo spazio sotto
-            l&apos;ora, scegli Scriptable e poi, come al punto 5, lo script e la parola. Lì si vede anche a telefono bloccato: mettici
-            solo cose che possono vedere tutti.
+            l&apos;ora, scegli Scriptable e poi, come al punto 5, lo script (es. «Angolo · Aperture di oggi» o «Angolo · I miei turni»). Si vede anche a
+            telefono bloccato: mettici solo cose che possono vedere tutti.
           </p>
         </Step>
       </ol>
@@ -425,6 +404,9 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
             ["Il widget non si aggiorna", "Lo decide l'iPhone: di solito ogni 15–30 minuti. In alto a destra c'è l'ora dell'ultimo aggiornamento; toccandolo si apre la pagina con i dati di adesso."],
             ["Compare «Accesso tolto»", "Il telefono è stato scollegato o il widget non ti è più permesso. Chiedi al titolare."],
             ["Compare «non aggiornato» in rosso", "Il telefono non era in rete: si vedono gli ultimi dati salvati, con la loro ora."],
+            ["Mi hanno dato un widget nuovo", "Apri Scriptable e tocca ▶ su «Angolo del Vino – installa»: il nuovo compare nell'elenco. Quelli tolti spariscono."],
+            ["Voglio un widget di un altro colore", "I colori si scelgono qui sotto, per tutti i tuoi widget. Per uno solo diverso: tocca il widget e alla voce «Parameter» scrivi il nome del colore (es. «nero» o «oliva»)."],
+            ["Avevo già i widget della prima versione", "Continuano a funzionare. Per avere i nuovi collega di nuovo il telefono (punto 2) e segui i passi; poi scollega il collegamento vecchio in «Telefoni collegati»."],
             ["Ho cambiato telefono", "Collega il nuovo dal punto 2 e, in «Telefoni collegati», scollega il vecchio."],
             ["Ho perso il telefono", "Scrivi al titolare: con «Scollega» il widget smette subito di mostrare dati. Il sito resta protetto dalla tua password."],
             ["Ci sono widget per Android?", "Per ora no: Scriptable esiste solo per iPhone e iPad."],
