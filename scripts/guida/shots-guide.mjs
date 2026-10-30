@@ -8,7 +8,7 @@ const mk = async (w, h) => {
   await ctx.addInitScript(() => {
     document.addEventListener("DOMContentLoaded", () => {
       const st = document.createElement("style");
-      st.textContent = "nextjs-portal{display:none!important}";
+      st.textContent = "nextjs-portal{display:none!important} svg:has(+ img.brand-logo-invert){display:none!important}";
       document.head.appendChild(st);
     });
   });

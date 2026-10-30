@@ -32,14 +32,15 @@ async function session(kind, { admin = true, theme = THEME[kind] } = {}) {
     try { localStorage.setItem("install-banner-dismissed", "1"); localStorage.setItem("theme", th); localStorage.setItem("menu-staff-device", "1"); } catch {}
     document.addEventListener("DOMContentLoaded", () => {
       const st = document.createElement("style");
-      st.textContent = "nextjs-portal{display:none!important} a[href=\"/gestione-menu/servizio\"]{display:none!important} html{scroll-behavior:auto!important}";
+      st.textContent = "nextjs-portal{display:none!important} svg:has(+ img.brand-logo-invert){display:none!important} a[href=\"/gestione-menu/servizio\"]{display:none!important} html{scroll-behavior:auto!important}";
       document.head.appendChild(st);
     });
   }, theme);
   const page = await ctx.newPage();
   page.setDefaultTimeout(60000);
   const settle = (ms = 700) => page.waitForTimeout(ms);
-  const dlg = () => page.locator('[role="dialog"]');
+  // Niente finestra degli errori di Next (l'orologio finto della foto non coincide con quello del server).
+  const dlg = () => page.locator('[role="dialog"]:not([data-nextjs-dialog])');
   const api = {
     page, dlg, settle,
     top: () => page.evaluate(() => window.scrollTo(0, 0)),

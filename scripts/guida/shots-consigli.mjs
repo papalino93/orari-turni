@@ -11,7 +11,7 @@ const mk = async () => {
     try { localStorage.setItem("menu-staff-device", "1"); localStorage.setItem("install-banner-dismissed", "1"); } catch {}
     document.addEventListener("DOMContentLoaded", () => {
       const st = document.createElement("style");
-      st.textContent = "nextjs-portal{display:none!important} html{scroll-behavior:auto!important}";
+      st.textContent = "nextjs-portal{display:none!important} svg:has(+ img.brand-logo-invert){display:none!important} html{scroll-behavior:auto!important}";
       document.head.appendChild(st);
     });
   });

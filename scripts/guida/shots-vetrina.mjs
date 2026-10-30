@@ -20,7 +20,7 @@ const mk = async (w, h, dsf = 2) => {
     localStorage.setItem("install-banner-dismissed", "1");
     document.addEventListener("DOMContentLoaded", () => {
       const st = document.createElement("style");
-      st.textContent = "nextjs-portal{display:none!important}";
+      st.textContent = "nextjs-portal{display:none!important} svg:has(+ img.brand-logo-invert){display:none!important}";
       document.head.appendChild(st);
     });
   });
