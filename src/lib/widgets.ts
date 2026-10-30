@@ -5,7 +5,7 @@
 // - «per: tutti»: titolare e consulente sempre; un dipendente solo se autorizzato.
 // - «per: dipendente»: dati personali del dipendente (i suoi turni).
 //
-// La parola (id) è quella che si scrive nel campo «Parametro» del widget su iPhone.
+// La parola (id) è quella che si scrive nel campo «Parameter» del widget su iPhone.
 
 export type WidgetSize = "small" | "medium" | "large" | "extraLarge" | "accessoryRectangular" | "accessoryCircular" | "accessoryInline";
 
@@ -47,6 +47,15 @@ export const SIZE_LABELS: Record<WidgetSize, string> = {
   accessoryCircular: "schermata di blocco, tondo",
   accessoryInline: "schermata di blocco, riga",
 };
+
+// Colori dei widget. Il primo è quello di partenza.
+export const WIDGET_THEMES = [
+  { id: "crema", nome: "Crema", descrizione: "Scritte bordeaux, come il menù stampato" },
+  { id: "bordeaux", nome: "Bordeaux", descrizione: "Scritte crema e oro" },
+  { id: "nero", nome: "Nero", descrizione: "Scritte crema, accenti color vino" },
+  { id: "notte", nome: "Bordeaux notte", descrizione: "Bordeaux scurissimo e oro" },
+] as const;
+export const DEFAULT_THEME = "crema";
 
 // Il QR stampato sui tavoli: non cambia mai.
 export const MENU_QR_URL = "https://qrco.de/bes4Ad";

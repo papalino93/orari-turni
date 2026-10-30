@@ -12,7 +12,7 @@ const MESSAGES: Record<string, string> = {
   scaduta: "Collegamento scaduto: non usato da 90 giorni. Ricollegalo da «Widget sul telefono».",
   permesso: "Questo widget non è tra i tuoi. Chiedi al titolare.",
   troppe: "Troppe richieste: riprova tra qualche minuto.",
-  sconosciuto: "Widget sconosciuto: controlla la parola nel campo «Parametro».",
+  sconosciuto: "Widget sconosciuto: controlla la parola nel campo «Parameter».",
 };
 
 function json(body: unknown, status = 200) {
@@ -38,5 +38,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ nome: st
     : null;
   if (!data) return json({ errore: "permesso", messaggio: MESSAGES.permesso }, 403);
   const origin = new URL(req.url).origin;
-  return json({ widget: nome, sito: origin, ...data });
+  return json({ widget: nome, sito: origin, tema: auth.tema, ...data });
 }

@@ -31,6 +31,20 @@ const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).form
 DB(`delete from "ShiftBlock" where id like 'simw_%'`);
 const staff = DB(`select id from "Employee" where active and username is not null order by "sortOrder" limit 5`).split("\n");
 const turni = [["10:00", "15:00"], ["10:00", "15:00"], ["17:00", "23:30"], ["17:00", "24:00"], ["18:00", "23:30"]];
+// Con ANTEPRIME=<cartella>: dati realistici per le immagini della guida (aperture di oggi,
+// un turno domani per il dipendente) e foto senza cornice, una per widget e grandezza.
+const ANTEPRIME = process.env.ANTEPRIME;
+// Con TEMA=crema|bordeaux|nero|notte: il widget con quei colori (come scriverlo nel campo «Parameter»).
+const TEMA = process.env.TEMA || "";
+if (ANTEPRIME) {
+  mkdirSync(ANTEPRIME, { recursive: true });
+  const wd = ((new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7) + 1;
+  const values = Array.from({ length: 31 }, (_, i) => `('simw_e_${i}', '${today}', ${12 + (i % 10)}, ${wd}, 'open')`).join(",");
+  DB(`insert into "MenuEvent" (id, day, hour, weekday, kind) values ${values}`);
+  const tomorrow = new Date(`${today}T12:00:00Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  DB(`insert into "ShiftBlock" (id, "employeeId", date, "startTime", "endTime", "updatedAt") values ('simw_m', '${emp}', '${tomorrow.toISOString().slice(0, 10)}', '18:00', '23:30', now())`);
+}
 staff.forEach((id, i) => DB(`insert into "ShiftBlock" (id, "employeeId", date, "startTime", "endTime", "updatedAt") values ('simw_${i}', '${id}', '${today}', '${turni[i][0]}', '${turni[i][1] === "24:00" ? "00:00" : turni[i][1]}', now())`));
 
 const PLAN = [
@@ -68,17 +82,17 @@ for (const [nome, families, chiaveDi] of PLAN) {
   for (const fam of families) {
     for (const [phone, scale] of Object.entries(PHONES)) {
       if (fam.startsWith("accessory") && phone !== "pro") continue;
-      await page.setContent(`<html><head><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Baskervville:ital,wght@0,400;0,600;1,400&display=swap"><style>body{margin:0;background:#3a2a30;padding:24px;display:inline-block}#w{border-radius:22px;overflow:hidden;position:relative}#w.acc{background:#3b2730;border-radius:0}</style></head><body><div id="w"></div></body></html>`);
+      await page.setContent(`<html><head><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Baskervville:ital,wght@0,400;0,600;1,400&display=swap"><style>body{margin:0;background:${process.env.ANTEPRIME ? "transparent" : "#3a2a30"};padding:24px;display:inline-block}#w{border-radius:22px;overflow:hidden;position:relative}#w.acc{background:#3b2730;border-radius:0}</style></head><body><div id="w"></div></body></html>`);
       await page.evaluate(() => document.fonts.ready);
       const result = await page.evaluate(
-        async ({ sim, script, nome, fam, chiave, base, scale, screen }) => {
+        async ({ sim, script, nome, fam, chiave, base, scale, screen, tema }) => {
           window.__screenWidth = screen;
           window.__isPad = fam === "extraLarge";
           window.config = { widgetFamily: fam, runsInWidget: true };
           eval(sim);
           const [W, H] = scale[fam] || window.__sim.SIZES[fam];
           let widget = null;
-          window.args = { widgetParameter: nome };
+          window.args = { widgetParameter: tema ? `${nome} ${tema}` : nome };
           window.config = { widgetFamily: fam, runsInWidget: true };
           window.Script = { setWidget: (w) => (widget = w), complete: () => {} };
           const AF = Object.getPrototypeOf(async function () {}).constructor;
@@ -124,14 +138,15 @@ for (const [nome, families, chiaveDi] of PLAN) {
           if (!fam.startsWith("accessory") && gap > H * 0.4) out.push(`spazio vuoto di ${Math.round(gap)} px`);
           return { problems: out, W, H };
         },
-        { sim, script, nome, fam, chiave, base: BASE, scale, screen: SCREEN[phone] },
+        { sim, script, nome, fam, chiave, base: BASE, scale, screen: SCREEN[phone], tema: TEMA },
       );
-      const tag = `${nome}-${fam}-${phone}`;
+      const tag = `${nome}-${fam}${TEMA ? "-" + TEMA : ""}-${phone}`;
       if (result.error) {
         problems.push(`${tag}: ERRORE ${result.error}`);
         continue;
       }
       await page.locator("#w").screenshot({ path: `${OUT}/${tag}.png` });
+      if (ANTEPRIME && phone === "pro") await page.locator("#w").screenshot({ path: `${ANTEPRIME}/${nome}-${fam}${TEMA ? "-" + TEMA : ""}.png`, omitBackground: true });
       for (const p of result.problems) problems.push(`${tag}: ${p}`);
     }
   }
@@ -139,5 +154,6 @@ for (const [nome, families, chiaveDi] of PLAN) {
 await browser.close();
 DB(`delete from "WidgetDevice" where name = 'Simulatore'`);
 DB(`delete from "ShiftBlock" where id like 'simw_%'`);
+DB(`delete from "MenuEvent" where id like 'simw_e_%'`);
 console.log(problems.length ? problems.join("\n") : "nessun problema");
 console.log(`\nfoto in ${OUT}`);

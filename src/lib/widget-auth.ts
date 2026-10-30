@@ -4,7 +4,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { KEY_IDLE_DAYS, widgetById } from "@/lib/widgets";
+import { DEFAULT_THEME, KEY_IDLE_DAYS, widgetById } from "@/lib/widgets";
 
 const PREFIX = "adv_";
 
@@ -26,11 +26,11 @@ const FAIL_WINDOW = 10 * 60_000;
 const PER_MINUTE = 60;
 
 export type WidgetOwner =
-  | { kind: "admin"; userId: string; name: string }
-  | { kind: "employee"; employeeId: string; name: string; widgets: string[] };
+  | { kind: "admin"; userId: string; name: string; tema: string | null }
+  | { kind: "employee"; employeeId: string; name: string; widgets: string[]; tema: string | null };
 
 export type WidgetAuth =
-  | { ok: true; owner: WidgetOwner; deviceId: string }
+  | { ok: true; owner: WidgetOwner; deviceId: string; tema: string }
   | { ok: false; status: number; code: "chiave" | "tolto" | "permesso" | "troppe" | "scaduta" };
 
 export async function authenticateWidget(req: Request, widgetId: string): Promise<WidgetAuth> {
@@ -66,11 +66,11 @@ export async function authenticateWidget(req: Request, widgetId: string): Promis
 
   let owner: WidgetOwner | null = null;
   if (device.userId) {
-    const user = await prisma.user.findUnique({ where: { id: device.userId }, select: { id: true, name: true } });
-    if (user) owner = { kind: "admin", userId: user.id, name: user.name };
+    const user = await prisma.user.findUnique({ where: { id: device.userId }, select: { id: true, name: true, widgetTheme: true } });
+    if (user) owner = { kind: "admin", userId: user.id, name: user.name, tema: user.widgetTheme };
   } else if (device.employeeId) {
-    const emp = await prisma.employee.findUnique({ where: { id: device.employeeId }, select: { id: true, name: true, active: true, role: true, widgets: true } });
-    if (emp && emp.active && emp.role === "EMPLOYEE" && emp.widgets.length > 0) owner = { kind: "employee", employeeId: emp.id, name: emp.name, widgets: emp.widgets };
+    const emp = await prisma.employee.findUnique({ where: { id: device.employeeId }, select: { id: true, name: true, active: true, role: true, widgets: true, widgetTheme: true } });
+    if (emp && emp.active && emp.role === "EMPLOYEE" && emp.widgets.length > 0) owner = { kind: "employee", employeeId: emp.id, name: emp.name, widgets: emp.widgets, tema: emp.widgetTheme };
   }
   if (!owner) return { ok: false, status: 403, code: "tolto" };
 
@@ -90,5 +90,5 @@ export async function authenticateWidget(req: Request, widgetId: string): Promis
       ...(deviceName && device.deviceName && deviceName !== device.deviceName ? { otherDeviceAt: new Date(now) } : {}),
     },
   });
-  return { ok: true, owner, deviceId: device.id };
+  return { ok: true, owner, deviceId: device.id, tema: owner.tema ?? DEFAULT_THEME };
 }

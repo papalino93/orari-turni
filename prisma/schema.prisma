@@ -30,6 +30,8 @@ model User {
   // Prima volta che ha aperto l'app installata (icona sulla Home): da lì in poi
   // non le si propone più di installarla, nemmeno dal browser.
   appInstalledAt DateTime?
+  // Colori dei widget scelti in «Widget sul telefono» (lib/widgets.ts); null = crema.
+  widgetTheme    String?
 }
 
 enum EmployeeRole {
@@ -76,6 +78,7 @@ model Employee {
   // Widget sulla Home del telefono (Scriptable) che il titolare gli permette: codici di
   // lib/widgets.ts. Vuoto = non autorizzato. Letto a ogni richiesta del widget.
   widgets        String[]  @default([])
+  widgetTheme    String?
 
   photo               EmployeePhoto?
   shiftBlocks         ShiftBlock[]

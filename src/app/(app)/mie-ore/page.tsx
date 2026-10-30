@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -91,7 +92,23 @@ export default async function MieOrePage({
   const blocks = notConfirmed ? [] : rawBlocks;
   const leaveEntries = notConfirmed ? [] : rawLeaveEntries;
 
+  // Widget sul telefono: il collegamento compare solo a chi il titolare li ha dati.
+  const widgetLink = !preview && employee.widgets.length > 0 && (
+    <Link
+      href="/widget"
+      className="mx-auto mb-4 flex min-h-11 max-w-xl items-center justify-between rounded-2xl border border-border bg-surface px-5 py-3 transition-colors hover:border-accent"
+    >
+      <span>
+        <span className="block text-sm font-medium text-foreground">Widget sul telefono</span>
+        <span className="block text-xs text-foreground-muted">I tuoi turni sulla schermata Home dell&apos;iPhone</span>
+      </span>
+      <span className="text-foreground-muted">›</span>
+    </Link>
+  );
+
   return (
+    <>
+    {widgetLink}
     <MieOreView
       notConfirmed={notConfirmed}
       employee={{
@@ -129,5 +146,6 @@ export default async function MieOrePage({
       }))}
       closures={closures.map((c) => ({ dateKey: toDateKey(c.date), reason: c.reason }))}
     />
+    </>
   );
 }

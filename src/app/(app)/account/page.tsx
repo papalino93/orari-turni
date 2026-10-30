@@ -50,6 +50,17 @@ export default async function AccountPage() {
         </Link>
       )}
 
+      <Link
+        href="/widget"
+        className="mb-6 flex min-h-11 items-center justify-between rounded-2xl border border-border bg-surface px-5 py-4 transition-colors hover:border-accent"
+      >
+        <div>
+          <p className="text-sm font-medium text-foreground">Widget sul telefono</p>
+          <p className="mt-0.5 text-xs text-foreground-muted">Riquadri sulla Home dell&apos;iPhone; scegli anche quali dare ai dipendenti</p>
+        </div>
+        <span className="text-foreground-muted">›</span>
+      </Link>
+
       <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
         {users.map((u) => (
           <div key={u.id} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">

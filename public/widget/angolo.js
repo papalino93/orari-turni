@@ -1,28 +1,49 @@
 // ANGOLO_WIDGET · L'Angolo del Vino · widget per Scriptable.
 // Questo file lo scarica lo script «Angolo del Vino» sul telefono (quello con la chiave),
 // così i miglioramenti arrivano senza reinstallare nulla. Riceve SITO e CHIAVE.
-// Disegno «Bordeaux notte»: margini 14, spazi multipli di 4, un solo numero protagonista.
+// Quattro temi (notte, bordeaux, crema, nero); margini 14, spazi multipli di 4, un solo numero protagonista.
 
 const VERSIONE = 1;
 
-// ---------- Colori e caratteri (uguali per tutti i widget)
-const C = {
-  fondo1: new Color("#2E0B15"),
-  fondo2: new Color("#1A060B"),
-  riquadro: new Color("#F4EEE3", 0.05),
-  crema: new Color("#F4EEE3"),
-  crema2: new Color("#F4EEE3", 0.64),
-  crema3: new Color("#F4EEE3", 0.42),
-  linea: new Color("#F4EEE3", 0.1),
-  oro: new Color("#D8B97A"),
-  oroFondo: new Color("#D8B97A", 0.16),
-  verde: new Color("#8FB59A"),
-  ambra: new Color("#E2B04A"),
-  rosso: new Color("#D46A55"),
-  rossoTesto: new Color("#EE9A86"),
-  rossoFondo: new Color("#D46A55", 0.18),
-  neutroFondo: new Color("#F4EEE3", 0.09),
+// ---------- Temi: la seconda parola del campo «Parameter» (es. «aperture crema»).
+// testo = scritte principali, accento = titoletti, grafici e prezzi.
+const TEMI = {
+  notte: { fondo: ["#2E0B15", "#1A060B"], testo: "#F4EEE3", accento: "#D8B97A", verde: "#8FB59A", ambra: "#E2B04A", rosso: "#D46A55", rossoTesto: "#EE9A86", avatar: "#E2C48C", avatarTesto: "#2A0A12", qr: "#F4EEE3" },
+  bordeaux: { fondo: ["#7A1428", "#4E0B19"], testo: "#F7EFE2", accento: "#EBCF95", verde: "#B5D6BD", ambra: "#F2C462", rosso: "#FF9C85", rossoTesto: "#FFC2B3", avatar: "#F4E2BC", avatarTesto: "#5A0F1F", qr: "#F7EFE2" },
+  crema: { fondo: ["#FAF5EC", "#EFE5D3"], testo: "#4A0C18", accento: "#8B2440", verde: "#4E7C5C", ambra: "#B0790F", rosso: "#B53A2C", rossoTesto: "#A3322A", avatar: "#8B2440", avatarTesto: "#FAF5EC", qr: "#FFFFFF", chiaro: true },
+  nero: { fondo: ["#1B1416", "#0B0809"], testo: "#F4EEE3", accento: "#D0607A", verde: "#8FB59A", ambra: "#E2B04A", rosso: "#E0705C", rossoTesto: "#F09A88", avatar: "#D0607A", avatarTesto: "#1B1416", qr: "#F4EEE3" },
 };
+const PAROLE = String(args.widgetParameter || "").trim().toLowerCase().split(/[\s,]+/).filter(Boolean);
+
+// I nomi restano quelli del primo disegno: «crema» = scritte principali, «oro» = accento.
+// Il tema si sceglie dopo aver letto i dati: quello del campo «Parameter» vince, poi quello
+// scelto nel sito («Colori dei widget»), poi «crema».
+let C = null;
+function colori(nome) {
+  const T = TEMI[nome] || TEMI.crema;
+  return {
+    fondo1: new Color(T.fondo[0]),
+    fondo2: new Color(T.fondo[1]),
+    riquadro: new Color(T.testo, T.chiaro ? 0.05 : 0.06),
+    crema: new Color(T.testo),
+    crema2: new Color(T.testo, T.chiaro ? 0.72 : 0.66),
+    crema3: new Color(T.testo, T.chiaro ? 0.52 : 0.44),
+    linea: new Color(T.testo, T.chiaro ? 0.12 : 0.1),
+    oro: new Color(T.accento),
+    oroFondo: new Color(T.accento, T.chiaro ? 0.1 : 0.17),
+    oroArea: new Color(T.accento, T.chiaro ? 0.14 : 0.2),
+    oroBordo: new Color(T.accento, 0.65),
+    verde: new Color(T.verde),
+    ambra: new Color(T.ambra),
+    rosso: new Color(T.rosso),
+    rossoTesto: new Color(T.rossoTesto),
+    rossoFondo: new Color(T.rosso, T.chiaro ? 0.12 : 0.18),
+    neutroFondo: new Color(T.testo, T.chiaro ? 0.07 : 0.09),
+    avatar: new Color(T.avatar),
+    avatarTesto: new Color(T.avatarTesto),
+    qr: new Color(T.qr),
+  };
+}
 const F = {
   numero: (s) => Font.boldRoundedSystemFont(s),
   titoletto: () => Font.semiboldSystemFont(10),
@@ -241,7 +262,7 @@ function grafico(valori, w, h, opz = {}) {
     area.addLine(new Point(x(valori.length - 1), h));
     area.closeSubpath();
     ctx.addPath(area);
-    ctx.setFillColor(new Color("#D8B97A", 0.18));
+    ctx.setFillColor(C.oroArea);
     ctx.fillPath();
     const linea = new Path();
     valori.forEach((v, i) => (i ? linea.addLine(new Point(x(i), y(v))) : linea.move(new Point(x(i), y(v)))));
@@ -302,9 +323,9 @@ function avatar(stack, iniziali) {
   const s = stack.addStack();
   s.size = new Size(22, 22);
   s.cornerRadius = 11;
-  s.backgroundColor = new Color("#E2C48C");
+  s.backgroundColor = C.avatar;
   s.centerAlignContent();
-  testo(s, iniziali, Font.boldSystemFont(8.5), new Color("#2A0A12"));
+  testo(s, iniziali, Font.boldSystemFont(8.5), C.avatarTesto);
   return s;
 }
 
@@ -346,7 +367,7 @@ const FORMATI = {
 };
 
 function disegna(nome, fam, risposta) {
-  if (!FORMATI[nome]) return messaggio(fam, "Parametro", `Parola «${nome}» sconosciuta. Controlla il campo «Parametro» del widget.`);
+  if (!FORMATI[nome]) return messaggio(fam, "Parameter", `Parola «${nome}» sconosciuta. Controlla il campo «Parameter» del widget.`);
   if (risposta.errore) return messaggio(fam, risposta.codice === "rete" ? "Senza rete" : "Angolo del Vino", risposta.errore, risposta.codice === "tolto" ? C.rossoTesto : C.oro);
   if (!FORMATI[nome].includes(fam)) {
     const adatti = FORMATI[nome].filter((f) => NOMI_FORMATO[f]).map((f) => NOMI_FORMATO[f]);
@@ -952,10 +973,10 @@ function wQr(fam, d) {
   const r = riga(w);
   r.addSpacer();
   const box = r.addStack();
-  box.backgroundColor = C.crema;
+  box.backgroundColor = C.qr;
   box.cornerRadius = fam === "small" ? 12 : 20;
   box.setPadding(8, 8, 8, 8);
-  box.borderColor = new Color("#D8B97A", 0.6);
+  box.borderColor = C.oroBordo;
   box.borderWidth = 1.5;
   const img = box.addImage(QR);
   img.imageSize = new Size(lato, lato);
@@ -974,7 +995,9 @@ function wTurni(fam, d, v) {
   const p = d.prossimo;
   if (fam === "accessoryInline") {
     const w = accessorio();
-    testo(w, p ? `Turno · ${p.quando.slice(0, 3)} ${p.inizio}` : "Nessun turno in vista", F.forte(12), Color.white());
+    // «Turno · oggi 18:00», «Turno · domani 18:00», «Turno · lun 3 nov 18:00» (mai «Dom» per «domani»).
+    const giorno = p ? (p.quando === "Oggi" || p.quando === "Domani" ? p.quando.toLowerCase() : p.giorno.toLowerCase()) : "";
+    testo(w, p ? `Turno · ${giorno} ${p.inizio}` : "Nessun turno in vista", F.forte(12), Color.white());
     return w;
   }
   if (fam === "accessoryRectangular") {
@@ -992,7 +1015,8 @@ function wTurni(fam, d, v) {
     s.cornerRadius = 30;
     s.backgroundColor = new Color("#FFFFFF", 0.16);
     s.addSpacer();
-    const a = riga(s); a.addSpacer(); testo(a, p ? p.quando.slice(0, 3).toUpperCase() : "—", F.forte(9), new Color("#FFFFFF", 0.8)); a.addSpacer();
+    const etichetta = p ? (p.quando === "Oggi" ? "OGGI" : p.quando === "Domani" ? "DOMANI" : p.giorno.split(" ")[0].toUpperCase()) : "—";
+    const a = riga(s); a.addSpacer(); testo(a, etichetta, F.forte(8), new Color("#FFFFFF", 0.8)); a.addSpacer();
     const b = riga(s); b.addSpacer(); testo(b, p ? p.inizio : "", F.numero(15), Color.white()); b.addSpacer();
     s.addSpacer();
     return w;
@@ -1044,7 +1068,7 @@ function wTurni(fam, d, v) {
     c.cornerRadius = 9;
     c.backgroundColor = x.prossimo ? C.oroFondo : C.riquadro;
     if (x.prossimo) {
-      c.borderColor = new Color("#D8B97A", 0.7);
+      c.borderColor = C.oroBordo;
       c.borderWidth = 1;
     }
     c.setPadding(5, 0, 5, 0);
@@ -1080,12 +1104,15 @@ function wTurni(fam, d, v) {
 }
 
 // ---------- Avvio (in fondo: prima devono esistere tutte le costanti qui sopra)
-const param = ((args.widgetParameter || "").trim().toLowerCase() || "aperture").replace(/[^a-z]/g, "");
+// La prima parola che non è un tema dice quale widget (es. «aperture», «turni»).
+const param = (PAROLE.find((p) => !TEMI[p]) || "aperture").replace(/[^a-z]/g, "");
 let famiglia = config.widgetFamily;
 if (!config.runsInWidget) famiglia = await scegliAnteprima();
 
+// QR scuro su chiaro, sempre: è quello che le fotocamere leggono meglio.
 const QR = param === "qr" ? await caricaImmagine("qr.png") : null;
 const risposta = await caricaDati(param);
+C = colori(PAROLE.find((p) => TEMI[p]) || (risposta.dati && risposta.dati.tema) || "crema");
 const widget = disegna(param, famiglia, risposta);
 if (config.runsInWidget) Script.setWidget(widget);
 else await mostra(widget, famiglia);
