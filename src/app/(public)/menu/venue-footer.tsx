@@ -27,7 +27,7 @@ export function VenueInfo({ hours, contacts }: { hours: Hours; contacts: Contact
           <dl className="m-0 grid w-full grid-cols-[auto_1fr] gap-x-5 gap-y-1.5 text-[15px]">
             {rows.map((row) => (
               <div key={row.days} className="contents">
-                <dt className="menu-sans self-baseline text-[12px] uppercase tracking-[0.14em] text-[#E9DCC4]/80">{row.days}</dt>
+                <dt className="menu-sans self-baseline text-[12px] uppercase tracking-[0.14em] text-[#F4EEE3]/90">{row.days}</dt>
                 <dd className="m-0 self-baseline text-right text-[#F4EEE3]">{row.text}</dd>
               </div>
             ))}
@@ -49,7 +49,7 @@ export function VenueInfo({ hours, contacts }: { hours: Hours; contacts: Contact
           ))}
         </div>
       )}
-      {contacts.address && <div className="text-center text-[14px] italic text-[#E9DCC4]/80">{contacts.address}</div>}
+      {contacts.address && <div className="text-center text-[14px] italic text-[#F4EEE3]/90">{contacts.address}</div>}
     </section>
   );
 }

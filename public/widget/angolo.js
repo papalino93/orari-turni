@@ -13,7 +13,7 @@ const TEMI = {
   crema: { fondo: ["#FAF5EC", "#EFE5D3"], testo: "#4A0C18", accento: "#8B2440", verde: "#4E7C5C", ambra: "#B0790F", rosso: "#B53A2C", rossoTesto: "#A3322A", avatar: "#8B2440", avatarTesto: "#FAF5EC", qr: "#FFFFFF", chiaro: true },
   nero: { fondo: ["#1B1416", "#0B0809"], testo: "#F4EEE3", accento: "#D0607A", verde: "#8FB59A", ambra: "#E2B04A", rosso: "#E0705C", rossoTesto: "#F09A88", avatar: "#D0607A", avatarTesto: "#1B1416", qr: "#F4EEE3" },
   oliva: { fondo: ["#46512F", "#283019"], testo: "#F4EFE0", accento: "#E0C77E", verde: "#BFD8A0", ambra: "#EBC260", rosso: "#E8907A", rossoTesto: "#F4B6A2", avatar: "#E0C77E", avatarTesto: "#283019", qr: "#F4EFE0" },
-  oro: { fondo: ["#EEDCAE", "#D9BC7C"], testo: "#3B1A0E", accento: "#7C1D30", verde: "#3D6A44", ambra: "#7A5006", rosso: "#A0301F", rossoTesto: "#8E2A1D", avatar: "#7C1D30", avatarTesto: "#F3E4BE", qr: "#FFFFFF", chiaro: true },
+  oro: { fondo: ["#EEDCAE", "#D9BC7C"], testo: "#3B1A0E", accento: "#7C1D30", verde: "#3D6A44", ambra: "#6B2E08", rosso: "#A0301F", rossoTesto: "#8E2A1D", avatar: "#7C1D30", avatarTesto: "#F3E4BE", qr: "#FFFFFF", chiaro: true },
   blu: { fondo: ["#17264A", "#0A1328"], testo: "#EEF1F8", accento: "#E6C47E", verde: "#93C6A4", ambra: "#EBBB5E", rosso: "#EC8170", rossoTesto: "#F5AA9A", avatar: "#E6C47E", avatarTesto: "#0A1328", qr: "#EEF1F8" },
   carta: { fondo: ["#FFFFFF", "#F1EFEA"], testo: "#17191E", accento: "#8B2440", verde: "#2E6B47", ambra: "#94650A", rosso: "#B23A2E", rossoTesto: "#A3322A", avatar: "#17191E", avatarTesto: "#FFFFFF", qr: "#FFFFFF", chiaro: true },
 };

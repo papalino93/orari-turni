@@ -534,7 +534,7 @@ export function StatsView({
                     {/* Con pochi giorni di evento la percentuale sarebbe un numero a caso: non si mostra. */}
                     {data.effect.onDays < 4 ? (
                       <p className="max-w-[16rem] text-sm text-foreground-muted">
-                        Solo {data.effect.onDays} {data.effect.onDays === 1 ? "giorno" : "giorni"} con un evento: troppo pochi per dire se portano più gente. Scegli un periodo più lungo.
+                        Solo {data.effect.onDays} {data.effect.onDays === 1 ? "giorno" : "giorni"} con un evento: troppo pochi per dire se portano più gente. Il confronto si fa dopo qualche serata in più.
                       </p>
                     ) : data.effect.offAvg > 0 ? (
                       <p className="text-4xl font-semibold tabular-nums text-foreground">

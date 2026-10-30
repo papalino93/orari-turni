@@ -107,7 +107,7 @@ export function AppShell({
                 title="Impostazioni"
                 // Con la parola dove c'è spazio (computer largo): l'ingranaggio da solo non diceva dove porta.
                 className={`flex h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-brand-band-border transition-colors hover:text-brand-band-foreground xl:px-3.5 ${
-                  pathname?.startsWith("/account") ? "text-brand-band-foreground" : "text-brand-band-foreground-muted"
+                  pathname?.startsWith("/account") || pathname?.startsWith("/widget") || pathname?.startsWith("/installa") ? "bg-brand-band-active text-brand-band-foreground" : "text-brand-band-foreground-muted"
                 }`}
               >
                 <GearIcon />

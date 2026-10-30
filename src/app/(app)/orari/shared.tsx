@@ -53,7 +53,7 @@ export function DayCellContent({
     if (readOnly) return <span className="text-xs text-foreground-muted/70">Nessun turno</span>;
     return (
       // Tutta la casella si tocca; il «+» più grande e marcato dice che lì si aggiunge un turno.
-      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-foreground-muted/50 text-base text-foreground-muted">
+      <span className={`flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-foreground-muted/50 text-base text-foreground-muted ${align === "right" ? "ml-auto" : "mx-auto"}`}>
         +
       </span>
     );
