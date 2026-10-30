@@ -57,6 +57,18 @@ export function MenuStats() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // «?personale=1»: il link (o il QR) che il personale apre una volta dal proprio telefono, nel
+    // browser dove inquadra il QR. Da lì quel telefono non conta più, anche senza aver fatto l'accesso.
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("personale") === "1") {
+      try {
+        localStorage.setItem(STAFF_DEVICE_KEY, "1");
+      } catch {
+        // memoria non disponibile: si conta come prima
+      }
+      url.searchParams.delete("personale");
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    }
     if (isStaffDevice()) return;
     if (firstTimeToday("menu-stat-open")) track("open", pathname);
     const event = pathname.match(/^\/menu\/p\/([^/]+)/);

@@ -7,7 +7,7 @@ import { isStatKind, romeParts } from "@/lib/menu-stats";
 // tutto /menu: niente dati personali, niente cookie impostati. Non conta:
 // - quando le statistiche sono spente («Inizia a contare» in Statistiche);
 // - chi ha fatto l'accesso all'app (personale, titolare);
-// - robot, anteprime dei link e motori di ricerca (non sono clienti);
+// - robot, anteprime dei link, motori di ricerca e browser automatici (prove e controlli: non sono clienti);
 // - le versioni di prova pubblicate su Vercel (usano gli stessi dati della produzione);
 // - le raffiche (più di 40 eventi al minuto dallo stesso indirizzo).
 
@@ -24,7 +24,7 @@ function tooMany(ip: string): boolean {
   return entry.count > 40;
 }
 
-const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|lighthouse|pingdom|uptime|curl|wget|python-requests|vercel/i;
+const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|lighthouse|pingdom|uptime|curl|wget|python-requests|vercel|headless|playwright|puppeteer|phantomjs|selenium/i;
 
 const clean = (v: unknown, max: number) =>
   typeof v === "string" && v.trim() ? v.replace(/\s+/g, " ").trim().slice(0, max) : null;

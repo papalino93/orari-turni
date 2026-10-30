@@ -8,6 +8,7 @@ import { MONTH_NAMES, WEEKDAY_LABELS, WEEKDAY_NAMES } from "@/lib/menu-stats";
 import { PERIODS, type Period, type StatsData } from "@/lib/stats-queries";
 import type { StatsSetting } from "@/lib/menu";
 import { setStatsEnabled } from "./actions";
+import QRCode from "qrcode";
 import { Bars, Delta, EffectBars, Funnel, Heatmap, RankedList, Ranking, Sparkline, TrendChart, dec, fmtDay, fmtDayLong, n, weekdayOf } from "./stats-charts";
 
 function Card({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
@@ -590,6 +591,7 @@ export function StatsView({
         </>
       )}
 
+      <StaffPhoneCard />
       {enabled && (
         <section aria-label="Conteggio" className="mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-xs text-foreground-muted">
           {askPause ? (
@@ -615,7 +617,8 @@ export function StatsView({
           ) : (
             <>
               <p className="min-w-0 flex-1">
-                Si contano le aperture del menù{setting.since ? ` dal ${fmtDay(setting.since)}` : ""}. Non contano il personale con l&apos;accesso fatto né l&apos;Anteprima.
+                Si contano le aperture del menù{setting.since ? ` dal ${fmtDay(setting.since)}` : ""}. Non contano chi ha fatto l&apos;accesso, i telefoni
+                del personale segnati qui sopra, l&apos;Anteprima e i controlli automatici.
               </p>
               <button type="button" onClick={() => setAskPause(true)} className="min-h-9 rounded-full border border-border px-3 font-medium hover:border-accent hover:text-foreground">
                 Metti in pausa
@@ -625,5 +628,42 @@ export function StatsView({
         </section>
       )}
     </div>
+  );
+}
+
+// Il telefono del titolare che inquadra il QR con la fotocamera apre il menù in Safari, dove
+// non ha fatto l'accesso (l'app sulla Home ha una memoria separata): quelle aperture contavano.
+// Basta aprire una volta il link «personale» in quel browser: da lì il telefono non conta più.
+function StaffPhoneCard() {
+  const [qr, setQr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const link = () => `${window.location.origin}/menu?personale=1`;
+  useEffect(() => {
+    QRCode.toDataURL(link(), { margin: 1, width: 240 }).then(setQr).catch(() => {});
+  }, []);
+  return (
+    <section aria-label="Il tuo telefono non conta" className="mt-6 flex items-center gap-4 rounded-2xl border border-border bg-surface px-4 py-4">
+      {qr && (
+        // eslint-disable-next-line @next/next/no-img-element -- immagine generata qui
+        <img src={qr} alt="Codice QR per escludere il tuo telefono dalle statistiche" width={96} height={96} className="hidden shrink-0 rounded-lg bg-white p-1 sm:block" />
+      )}
+      <div className="min-w-0 flex-1 text-sm">
+        <p className="font-medium text-foreground">Il tuo telefono non deve contare</p>
+        <p className="mt-1 text-foreground-muted">
+          <span className="hidden sm:inline">Inquadra questo codice con la fotocamera del tuo telefono, una volta sola: </span>
+          <span className="sm:hidden">Copia il link, incollalo in Safari e aprilo, una volta sola: </span>
+          da lì le tue aperture del menù non contano più, anche quando inquadri il QR del locale. Va fatto su ogni telefono del personale.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard?.writeText(link()).then(() => setCopied(true)).catch(() => {});
+          }}
+          className="mt-2 min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+        >
+          {copied ? "Link copiato ✓" : "Copia il link"}
+        </button>
+      </div>
+    </section>
   );
 }
