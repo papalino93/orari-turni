@@ -81,7 +81,7 @@ export function EmployeeList({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
         {active.map((emp, i) => (
           <EmployeeCard
             key={emp.id}
@@ -97,7 +97,7 @@ export function EmployeeList({
       {inactive.length > 0 && (
         <div>
           <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground-muted">Disattivati</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
             {inactive.map((emp, i) => (
               <EmployeeCard
                 key={emp.id}

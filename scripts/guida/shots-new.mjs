@@ -49,7 +49,7 @@ const toEl = async (page, loc, offset = 70) => {
   // Tabella prezzi (Rossi), con un prezzo cambiato
   await tool(page, "Tabella prezzi");
   await settle(page, 600);
-  await dialog(page).getByRole("navigation", { name: "Sezione" }).getByRole("button", { name: /^Rossi/ }).click();
+  await dialog(page).getByRole("navigation", { name: "Categoria" }).getByRole("button", { name: /^Rossi/ }).click();
   await settle(page, 300);
   await dialog(page).getByRole("textbox", { name: /^Calice · Mastrojanni/ }).first().fill("9");
   await settle(page, 300);

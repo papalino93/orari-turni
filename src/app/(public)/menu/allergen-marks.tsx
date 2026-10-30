@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { ALLERGENS, allergenNumbers, allergenState } from "@/lib/allergens";
 import { Ornament } from "./ornament";
@@ -21,7 +22,15 @@ export function AllergenMarks({ item }: { item: { allergens: string[]; allergens
       {/* Se i nomi vanno a capo, ripartono sotto il primo nome e non sotto «Allergeni». */}
       <div className="menu-sans mt-0.5 flex items-baseline gap-2 text-[12.5px] font-medium leading-snug text-[#6B1020]">
         <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.18em] text-[#5B605A]">Allergeni</span>
-        <span className="min-w-0">{names.join(" · ")}</span>
+        <span className="min-w-0">
+          {names.map((n, i) => (
+            <Fragment key={n}>
+              {i > 0 && " · "}
+              {/* «Frutta a guscio» resta intero: si va a capo solo tra un nome e l'altro. */}
+              <span className="whitespace-nowrap">{n}</span>
+            </Fragment>
+          ))}
+        </span>
       </div>
       {tracesLine}
     </>
@@ -36,7 +45,7 @@ export function AllergenLegend() {
         <div className="menu-sans text-[11px] uppercase tracking-[0.34em] text-[#5B605A]">Allergeni</div>
         <Ornament color="#9C7A45" />
         <p className="m-0 mt-1 max-w-[420px] text-balance text-[15.5px] italic leading-normal text-[#4A504B]">
-          Sotto ogni piatto sono scritti gli allergeni presenti. I vini contengono solfiti. Per dubbi chiedete al personale.
+          Sotto ogni piatto sono scritti gli allergeni presenti. <span className="whitespace-nowrap">I vini contengono solfiti.</span> Per dubbi chiedete al personale.
         </p>
       </div>
       <Link

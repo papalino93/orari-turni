@@ -593,7 +593,7 @@ export function EmployeeWeekCard({
           onClick={() => setShowPdfExport(true)}
           className="text-xs font-medium text-foreground-muted transition-colors hover:text-accent-ink"
         >
-          📄 Esporta orario di {employee.name.split(" ")[0]}
+          {onEdit ? `Scarica l'orario di ${employee.name.split(" ")[0]}` : "Scarica il mio orario"}
         </button>
       </div>
 

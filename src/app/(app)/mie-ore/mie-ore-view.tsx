@@ -171,7 +171,7 @@ export function MieOreView({
       <p className="mb-4 text-xs text-foreground-muted">
         {deactivatedAtKey
           ? "Account disattivato: puoi consultare solo lo storico fino alla data di disattivazione."
-          : (days.some((d) => isToday(d)) ? "Questa settimana include oggi. " : "") + "Sola lettura — è l'orario compilato dal titolare."}
+          : (days.some((d) => isToday(d)) ? "Questa settimana include oggi. " : "") + "L'orario lo prepara il titolare: qui puoi solo guardarlo."}
       </p>
 
       {notConfirmed ? (

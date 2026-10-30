@@ -404,7 +404,7 @@ export function MenuEditor({
         type="button"
         onClick={() => select(`promo:${p.id}`)}
         aria-current={active ? "true" : undefined}
-        className={`flex min-h-10 max-w-full items-center justify-between gap-2 rounded-full px-3.5 text-sm font-medium transition-colors lg:rounded-xl lg:py-1.5 ${
+        className={`flex min-h-10 max-w-full items-center justify-between gap-2 rounded-full px-3.5 text-left text-sm font-medium transition-colors lg:rounded-xl lg:py-1.5 ${
           active
             ? "bg-accent text-accent-foreground"
             : "border border-border text-foreground-muted hover:border-accent hover:text-foreground lg:border-transparent"
@@ -602,7 +602,7 @@ export function MenuEditor({
             { label: "Storico", hint: "Tutte le modifiche, con chi le ha fatte; si può tornare indietro.", onClick: () => setSheet({ type: "history" }) },
             { label: "Anteprima", hint: "Il menù come lo vede il cliente, anche in un giorno scelto.", onClick: () => setSheet({ type: "preview" }) },
             { label: "Menù da stampare", hint: "Foglio A4 sempre aggiornato, da stampare o salvare in PDF.", href: "/gestione-menu/stampa" },
-            { label: "Codice QR", hint: "Il QR del menù da stampare (SVG e PNG).", onClick: () => setSheet({ type: "qr" }) },
+            { label: "Codice QR", hint: "Il QR del menù, da stampare o da mettere sul sito.", onClick: () => setSheet({ type: "qr" }) },
             { label: "Statistiche", hint: "Quante persone aprono il menù, quando e cosa cercano.", href: "/statistiche" },
             { label: "Guida (PDF)", hint: "Come si usa la gestione, passo per passo.", href: "/gestione-menu/guida", download: true },
             { label: "Guida (video)", hint: "Circa tre minuti: le cose principali, animate.", href: "/gestione-menu/guida/video", download: true },
@@ -1239,7 +1239,7 @@ function GroupCard({
           </form>
         ) : (
           <>
-            <h3 className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+            <h3 className="min-w-[8.5rem] flex-1 text-sm font-semibold text-foreground">
               <button
                 type="button"
                 onClick={onToggleClosed}

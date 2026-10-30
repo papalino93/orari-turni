@@ -18,7 +18,7 @@ export default async function WidgetPage() {
     const allowed = WIDGETS.filter((w) => emp?.widgets.includes(w.id));
     const devices = emp ? await prisma.widgetDevice.findMany({ where: { employeeId: emp.id, revokedAt: null }, orderBy: { createdAt: "desc" } }) : [];
     return (
-      <Layout>
+      <Layout admin={false}>
         {allowed.length === 0 ? (
           <div className="rounded-2xl border border-border bg-surface px-5 py-6 text-sm text-foreground-muted">
             Il titolare non ti ha ancora dato nessun widget. Quando lo farà, qui troverai la guida per metterli sulla Home del telefono.
@@ -27,7 +27,7 @@ export default async function WidgetPage() {
           <>
             <Installer ownerName={emp!.name} example={allowed[0].id} />
             <WidgetGallery widgets={allowed} theme={themeOf(emp?.widgetTheme)} />
-            <ThemePicker current={themeOf(emp?.widgetTheme)} />
+            <ThemePicker current={themeOf(emp?.widgetTheme)} example={allowed.some((w) => w.id === "turni") ? "turni" : allowed[0].id} />
             <DeviceList devices={devices.map((d) => toRow(d, emp!.name))} title="I tuoi telefoni collegati" />
           </>
         )}
@@ -44,7 +44,7 @@ export default async function WidgetPage() {
   const names = new Map<string, string>([...users.map((u) => [u.id, u.name] as const), ...employees.map((e) => [e.id, e.name] as const)]);
   const rows = devices.map((d) => toRow(d, names.get(d.userId ?? d.employeeId ?? "") ?? "—"));
   return (
-    <Layout>
+    <Layout admin>
       <Installer ownerName={user?.name ?? ""} example="aperture" />
       <WidgetGallery widgets={ADMIN_WIDGETS} theme={themeOf(user?.widgetTheme)} />
       <ThemePicker current={themeOf(user?.widgetTheme)} />
@@ -68,7 +68,7 @@ function toRow(d: { id: string; name: string; createdAt: Date; lastUsedAt: Date 
   };
 }
 
-function Layout({ children }: { children: React.ReactNode }) {
+function Layout({ children, admin }: { children: React.ReactNode; admin: boolean }) {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
@@ -78,7 +78,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           l&apos;app gratuita <b className="font-medium text-foreground">Scriptable</b>, su iPhone e iPad.
         </p>
       </div>
-      <PhoneQr />
+      <PhoneQr admin={admin} />
       {children}
     </div>
   );

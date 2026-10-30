@@ -12,7 +12,7 @@ const APP_STORE = "https://apps.apple.com/it/app/scriptable/id1405459188";
 const HOME_SIZES: WidgetSize[] = ["small", "medium", "large"];
 
 // Dal computer: un QR per aprire questa pagina sul telefono (i passi si fanno lì).
-export function PhoneQr() {
+export function PhoneQr({ admin }: { admin: boolean }) {
   const [qr, setQr] = useState<string | null>(null);
   useEffect(() => {
     const ua = navigator.userAgent;
@@ -28,8 +28,8 @@ export function PhoneQr() {
       <div>
         <p className="text-sm font-semibold text-foreground">Sei al computer?</p>
         <p className="mt-1 text-sm text-foreground-muted">
-          I widget si mettono dal telefono: inquadra il codice con la fotocamera dell&apos;iPhone e segui i passi da lì. Da qui puoi
-          scegliere chi li può usare.
+          I widget si mettono dal telefono: inquadra il codice con la fotocamera dell&apos;iPhone e segui i passi da lì.
+          {admin && " Da qui puoi scegliere chi li può usare."}
         </p>
       </div>
     </div>
@@ -138,7 +138,9 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
 }
 
 // ---------- Colori dei widget: valgono per tutti i propri telefoni, subito (al primo aggiornamento)
-export function ThemePicker({ current }: { current: string }) {
+// example: il widget delle anteprime e dell'esempio, uno di quelli che la persona può usare.
+export function ThemePicker({ current, example = "aperture" }: { current: string; example?: string }) {
+  const preview = example === "qr" ? "qr-small" : `${example}-medium`;
   const [pending, start] = useTransition();
   const router = useRouter();
   const toast = useToast();
@@ -162,7 +164,7 @@ export function ThemePicker({ current }: { current: string }) {
               className={`flex flex-col items-start gap-2 rounded-2xl border p-3 text-left transition-colors ${on ? "border-accent bg-accent/5 ring-2 ring-accent/40" : "border-border hover:border-accent"}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- anteprima statica */}
-              <img src={`/widget/anteprime/${t.id}/aperture-medium.png`} alt="" className="w-full rounded-[14px] shadow-sm" />
+              <img src={`/widget/anteprime/${t.id}/${preview}.png`} alt="" className={`rounded-[14px] shadow-sm ${example === "qr" ? "w-1/2" : "w-full"}`} />
               <span className="flex w-full items-center justify-between gap-2">
                 <span>
                   <span className="block text-sm font-semibold text-foreground">{t.nome}</span>
@@ -176,7 +178,7 @@ export function ThemePicker({ current }: { current: string }) {
       </div>
       <p className="px-5 pb-4 text-xs text-foreground-muted">
         Vuoi un widget di un colore diverso dagli altri? Aggiungi il nome dei colori dopo la parola nel campo «Parameter», es.{" "}
-        <code className="rounded bg-surface-2 px-1 font-mono text-foreground">aperture nero</code>.
+        <code className="rounded bg-surface-2 px-1 font-mono text-foreground">{example} nero</code>.
       </p>
     </Section>
   );
@@ -353,7 +355,7 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
                   type="button"
                   disabled={pending || !phone.trim()}
                   onClick={create}
-                  className="min-h-11 rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground disabled:opacity-50"
+                  className="min-h-11 rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground disabled:bg-surface-2 disabled:text-foreground-muted disabled:ring-1 disabled:ring-border"
                 >
                   {pending ? "Collego…" : "Crea il collegamento"}
                 </button>

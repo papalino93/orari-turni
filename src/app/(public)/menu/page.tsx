@@ -347,23 +347,28 @@ export default async function MenuPage() {
                       <div className="flex min-w-0 flex-1 flex-col gap-[3px] [overflow-wrap:anywhere]">
                         <div className="text-pretty text-[19px] font-medium leading-tight text-[#1F2621]">
                           {nb(item.name)}
+                          {/* Uno spazio vero tra nome ed etichette: se un'etichetta va a capo, riparte dal bordo senza rientro. */}
+                          {" "}
                           {item.enomatic && (
-                            <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#6B1020]">
+                            <span className="menu-sans whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#6B1020]">
                               Enomatic
                             </span>
                           )}
+                          {" "}
                           {recommendedIds.has(item.id) && (
-                            <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A6A2E]">
+                            <span className="menu-sans whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A6A2E]">
                               Consigliato
                             </span>
                           )}
+                          {" "}
                           {item.availableTo && !item.soldOut && (
-                            <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A6A2E]">
+                            <span className="menu-sans whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A6A2E]">
                               Fino {withDay("al", item.availableTo)}
                             </span>
                           )}
+                          {" "}
                           {item.soldOut && (
-                            <span className="menu-sans ml-[9px] whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#5B605A]">
+                            <span className="menu-sans whitespace-nowrap align-[2px] text-[10px] font-medium uppercase tracking-[0.18em] text-[#5B605A]">
                               Esaurito
                             </span>
                           )}

@@ -522,7 +522,7 @@ function dialog(s, w, h, title, x, y, scale) {
     ["Storico", "Tutte le modifiche, con chi le ha fatte: si può tornare indietro."],
     ["Anteprima", "Il menù come lo vede il cliente, anche in un giorno scelto."],
     ["Menù da stampare", "Foglio A4 sempre aggiornato, da stampare o salvare in PDF."],
-    ["Codice QR", "Il QR del menù da stampare (SVG e PNG)."],
+    ["Codice QR", "Il QR del menù, da stampare o da mettere sul sito."],
   ];
   const grid = el("div", "tools", null, s);
   const tiles = TOOLS.map(([n, d], j) => { const t = el("div", "tool" + (j === 5 ? " qr" : ""), `<b>${n}</b><span>${d}</span>`, grid); t.style.left = 60 + (j % 2) * 490 + "px"; t.style.top = 300 + Math.floor(j / 2) * 285 + "px"; return t; });

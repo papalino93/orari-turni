@@ -61,7 +61,7 @@ await settle(500);
 // Tabella prezzi
 await tool(page, "Tabella prezzi");
 await settle(600);
-await dialog().getByRole("navigation", { name: "Sezione" }).getByRole("button", { name: /^Rossi/ }).click();
+await dialog().getByRole("navigation", { name: "Categoria" }).getByRole("button", { name: /^Rossi/ }).click();
 await dialog().getByRole("textbox", { name: /^Calice · Mastrojanni/ }).first().fill("9");
 await settle(400);
 await shot("prezzi");
@@ -70,11 +70,9 @@ await settle(500);
 // Riordina
 await tool(page, "Riordina");
 await settle(500);
-await dialog().getByRole("button", { name: "Apri Italia" }).click().catch(async () => {
-  await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Categorie" }).click();
-  await dialog().getByRole("button", { name: "Apri Rossi" }).click();
-  await dialog().getByRole("button", { name: "Apri Italia" }).click();
-});
+// Da Strumenti «Riordina» parte dalle categorie: si entra in Rossi › Italia.
+await dialog().getByRole("button", { name: "Apri Rossi" }).click();
+await dialog().getByRole("button", { name: "Apri Italia" }).click();
 await settle(500);
 await shot("riordina");
 await page.keyboard.press("Escape"); await discardIfAsked(page);
