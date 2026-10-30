@@ -401,6 +401,7 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
         </summary>
         <dl className="mb-2 space-y-3 text-sm">
           {[
+            ["Toccando il widget mi chiede di accedere", "Il tocco apre Safari, non l'app sulla Home: hanno accessi separati. Accedi una volta in Safari con il tuo nome utente: resta valido finché lo usi almeno una volta al mese. Il menù dei clienti si apre sempre senza accesso."],
             ["Il widget non si aggiorna", "Lo decide l'iPhone: di solito ogni 15–30 minuti. In alto a destra c'è l'ora dell'ultimo aggiornamento; toccandolo si apre la pagina con i dati di adesso."],
             ["Compare «Accesso tolto»", "Il telefono è stato scollegato o il widget non ti è più permesso. Chiedi al titolare."],
             ["Compare «non aggiornato» in rosso", "Il telefono non era in rete: si vedono gli ultimi dati salvati, con la loro ora."],
