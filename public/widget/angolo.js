@@ -549,7 +549,8 @@ function wSettimana(fam, d, v) {
     if (url) c.url = link(url);
     testo(c, lab, F.testo(10), C.crema2);
     c.addSpacer(2);
-    testo(c, val || "—", serif ? F.serifCorsivo(16) : F.numero(16), C.crema);
+    // Nomi lunghi («Henriot · Brut Souverain»): su due righe invece di tagliarli.
+    testo(c, val || "—", serif ? F.serifCorsivo(15) : F.numero(16), C.crema, serif ? 2 : 1);
   };
   cella("Ora di punta", d.oraDiPunta, false, d.link);
   fondo.addSpacer(8);

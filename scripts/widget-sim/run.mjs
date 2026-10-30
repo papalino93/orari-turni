@@ -38,8 +38,18 @@ const ANTEPRIME = process.env.ANTEPRIME;
 const TEMA = process.env.TEMA || "";
 if (ANTEPRIME) {
   mkdirSync(ANTEPRIME, { recursive: true });
-  const wd = ((new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7) + 1;
-  const values = Array.from({ length: 31 }, (_, i) => `('simw_e_${i}', '${today}', ${12 + (i % 10)}, ${wd}, 'open')`).join(",");
+  // I confronti si fanno «alla stessa ora»: tutte le aperture finte stanno entro l'ora di adesso,
+  // così l'anteprima è uguale a qualunque ora la si rigeneri (ieri 46, stesso giorno della settimana ~43).
+  const ora = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Rome", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+  const giorno = (n) => {
+    const d = new Date(`${today}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.toISOString().slice(0, 10);
+  };
+  const quanti = [[0, 31], [1, 46], [7, 46], [14, 41], [21, 44], [28, 39], [35, 45], [42, 43], [49, 42], [56, 44]];
+  const values = quanti
+    .flatMap(([n, k]) => Array.from({ length: k }, (_, i) => `('simw_e_${n}_${i}', '${giorno(n)}', ${i % (ora + 1)}, ${(((new Date(`${giorno(n)}T12:00:00Z`).getUTCDay() + 6) % 7) + 1)}, 'open')`))
+    .join(",");
   DB(`insert into "MenuEvent" (id, day, hour, weekday, kind) values ${values}`);
   const tomorrow = new Date(`${today}T12:00:00Z`);
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
