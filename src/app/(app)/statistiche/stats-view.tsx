@@ -178,7 +178,7 @@ function DayByDay({ data, exportHref }: { data: StatsData; exportHref: string })
   const total = rows.reduce((a, r) => a + r.count, 0);
   const max = Math.max(1, ...rows.map((r) => r.count));
   return (
-    <Card title="Giorno per giorno" hint="Gli ultimi giorni del periodo scelto, dal più recente: si aprono e si richiudono con i pulsanti in fondo. Tocca un giorno per vederlo da solo.">
+    <Card title="I numeri di ogni giorno" hint="Gli ultimi giorni del periodo scelto, dal più recente: si aprono e si richiudono con i pulsanti in fondo. Tocca un giorno per vederlo da solo.">
       <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
         <p className="text-sm text-foreground">
           <span className="font-semibold tabular-nums">{n(total)}</span> <span className="text-foreground-muted">apertur{total === 1 ? "a" : "e"} in {n(rows.length)} giorn{rows.length === 1 ? "o" : "i"}</span>

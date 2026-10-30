@@ -103,13 +103,15 @@ export function AppShell({
             {isAdmin && (
               <Link
                 href="/account"
-                aria-label="Account"
-                title="Account"
-                className={`flex h-11 w-11 items-center justify-center rounded-full border border-brand-band-border transition-colors hover:text-brand-band-foreground ${
+                aria-label="Impostazioni"
+                title="Impostazioni"
+                // Con la parola dove c'è spazio (computer largo): l'ingranaggio da solo non diceva dove porta.
+                className={`flex h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-brand-band-border transition-colors hover:text-brand-band-foreground xl:px-3.5 ${
                   pathname?.startsWith("/account") ? "text-brand-band-foreground" : "text-brand-band-foreground-muted"
                 }`}
               >
                 <GearIcon />
+                <span className="hidden text-xs font-medium xl:inline">Impostazioni</span>
               </Link>
             )}
             <WideToggle />

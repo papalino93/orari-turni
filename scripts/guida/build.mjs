@@ -438,7 +438,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Widget sul telefono")}
     ${wimg("aperture-medium", 80)}${wimg("oggi-medium", 80)}${wimg("menu-medium", 80)}${wimg("turni-medium", 80)}
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:auto">
-    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Dove si mettono</h3><p>Account → <b>Widget sul telefono</b>: la guida passo passo, la parola di ogni widget e i <b>Colori dei widget</b> (crema, bordeaux, nero, notte).</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Dove si mettono</h3><p><b>Impostazioni</b> (l'ingranaggio in alto) → <b>Widget sul telefono</b>: la guida passo passo, la parola di ogni widget e i <b>Colori dei widget</b> (crema, bordeaux, nero, notte).</p></div>
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Per i dipendenti</h3><p>In <b>Chi può usare i widget</b> scegli chi e quali: i propri turni, il fuori menù, il QR. Mai statistiche né dati dei colleghi.</p></div>
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Una chiave per telefono</h3><p>Lo script di ogni telefono ha la sua chiave: si legge e basta. <b>Scollega</b> la spegne subito; dopo 90 giorni senza uso si spegne da sola.</p></div>
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Grandezze</h3><p>Piccolo, medio, grande e la schermata di blocco: il widget si adatta da solo alla grandezza scelta.</p></div>
@@ -542,7 +542,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Una cosa solo per un periodo (l'olio nuovo)?</h4><p>Nella voce, «Solo in un periodo»: Dal e Al. Compare il primo giorno e sparisce dopo l'ultimo; i clienti leggono «Fino al…».</p></div>
     <div><h4>Devo cambiare tanti prezzi: c'è un modo veloce?</h4><p>Sì: in «Strumenti», «Tabella prezzi». Si cambiano tutti quelli che servono, anche in categorie diverse, e si salva una volta sola.</p></div>
     <div><h4>Le statistiche registrano i clienti?</h4><p>No: niente nomi, telefoni o cookie. Si conta solo cosa succede (un'apertura, una ricerca), il giorno e l'ora.</p></div>
-    <div><h4>Posso vedere i numeri sul telefono senza aprire il sito?</h4><p>Sì, con i widget sulla Home dell'iPhone: Account → «Widget sul telefono». Lì scegli anche quali dare ai dipendenti.</p></div>
+    <div><h4>Posso vedere i numeri sul telefono senza aprire il sito?</h4><p>Sì, con i widget sulla Home dell'iPhone: Impostazioni (l'ingranaggio in alto) → «Widget sul telefono». Lì scegli anche quali dare ai dipendenti.</p></div>
     <div><h4>Mi serve il menù su carta: come faccio?</h4><p>In «Strumenti», «Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
 
     <div><h4>Come consiglio un vino o un piatto?</h4><p>In «In vetrina», «+ Aggiungi consiglio» (o nella voce, «Consigliato dalla casa»): compare in «I consigli della casa», al massimo 4.</p></div>

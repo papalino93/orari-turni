@@ -145,8 +145,8 @@ check("accesso: «Nome utente» e occhio per vedere la password", (await lp.getB
 check("tema: la prima volta segue il telefono (chiaro)", (await lp.evaluate(() => document.documentElement.dataset.theme)) === "light");
 
 // --- Bersagli in alto ≥ 44 px
-const sizes = await adm.evaluate(() => [...document.querySelectorAll("header a[aria-label='Account'], header button")].map((el) => Math.round(el.getBoundingClientRect().height)));
-check("intestazione: Account, tema ed Esci alti almeno 44 px", sizes.every((h) => h >= 44), JSON.stringify(sizes));
+const sizes = await adm.evaluate(() => [...document.querySelectorAll("header a[aria-label='Impostazioni'], header button")].map((el) => Math.round(el.getBoundingClientRect().height)));
+check("intestazione: Impostazioni, tema ed Esci alti almeno 44 px", sizes.every((h) => h >= 44), JSON.stringify(sizes));
 
 clean();
 DB(`update "Employee" set "appInstalledAt"=null where username='francesco'`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { dayLabel, formatDayMonth, isToday, parseDateKey, toDateKey } from "@/lib/week";
 import { entryForPeriod, formatHours, formatHoursNumber, PERIOD_LABEL, PERIODS, type DayEntry, type Employee, type Period, buildSchedule } from "@/lib/schedule";
 import { DayCellContent, DayEditorModal, orderEmployees } from "./shared";
@@ -158,7 +158,7 @@ function WeekClosureBar({
         hideOnMobile ? "hidden md:flex" : "flex"
       }`}
     >
-      <span className="mr-0.5 text-[11px] font-medium text-foreground-muted">Chiusure settimana</span>
+      <span className="mr-0.5 text-[11px] font-medium text-foreground-muted">Locale chiuso il:</span>
       {days.map((d) => {
         const dateKey = toDateKey(d);
         const closed = schedule.isClosed(dateKey);
@@ -174,8 +174,9 @@ function WeekClosureBar({
                 : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
             }`}
           >
-            {closed ? <LockClosedIcon /> : <LockOpenIcon />}
+            {closed && <LockClosedIcon />}
             {dayLabel(d)}
+            {closed && " · chiuso"}
           </button>
         );
       })}
@@ -208,15 +209,6 @@ function LockClosedIcon() {
   );
 }
 
-function LockOpenIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-      <rect x="4" y="10" width="16" height="11" rx="2" />
-      <path d="M7 10V7a5 5 0 0 1 9.5-2.2" />
-    </svg>
-  );
-}
-
 function DayHeaderCell({
   d,
   onManageDay,
@@ -240,7 +232,7 @@ function DayHeaderCell({
         title={closed ? "Locale chiuso — clicca per gestire" : "Clicca per chiudere il locale in questa giornata"}
       >
         <span className="flex items-center gap-1">
-          {closed ? <LockClosedIcon /> : <LockOpenIcon />}
+          {closed && <LockClosedIcon />}
           {dayLabel(d)}
         </span>
         <span className="font-normal text-foreground-muted">{formatDayMonth(d)}</span>
@@ -277,6 +269,22 @@ function PeriodsLayout({
   const toggleDay = (key: string) =>
     setOpenKeys(effectiveOpen.includes(key) ? effectiveOpen.filter((k) => k !== key) : [...effectiveOpen, key]);
 
+  // C'è altro da scorrere a destra? (tablet in verticale). Il ResizeObserver lo dice anche alla prima misura.
+  const scroller = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  const updateMore = () => {
+    const el = scroller.current;
+    if (el) setMore(el.scrollWidth - el.clientWidth - el.scrollLeft > 4);
+  };
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setMore(el.scrollWidth - el.clientWidth - el.scrollLeft > 4));
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+  }, []);
+
   function weeklyHours(employeeId: string, period?: Period) {
     if (period === undefined) return schedule.employeeHours(employeeId);
     return (
@@ -298,7 +306,7 @@ function PeriodsLayout({
           sabato lasciava Pomeriggio ancora fermo su lunedì, due metà della
           stessa settimana disallineate tra loro. */}
       <div className="relative hidden md:block">
-        <div className="overflow-x-auto">
+        <div ref={scroller} onScroll={updateMore} className="overflow-x-auto">
           <div className="w-max min-w-full space-y-4">
             {PERIODS.map((period) => (
               <PeriodTable
@@ -320,10 +328,13 @@ function PeriodsLayout({
             un contenuto che ci si aspetta possa scorrere, a differenza dei
             pulsanti della toolbar — qui la sfumatura basta, senza bisogno
             di spostare nulla in un menu. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent"
-        />
+        {/* Solo se c'è davvero altro a destra: sennò copriva «Tot. ore» anche dove la settimana sta tutta. */}
+        {more && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent"
+          />
+        )}
       </div>
 
       {/* Mobile */}
@@ -378,9 +389,10 @@ function PeriodsLayout({
                   type="button"
                   onClick={() => onManageDay(dateKey)}
                   aria-label={`${closed ? "Riapri" : "Chiudi"} il locale: ${dayLabel(d, true)} ${formatDayMonth(d)}`}
-                  className="mr-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-2 hover:text-foreground"
+                  className="mr-1.5 flex min-h-11 shrink-0 items-center px-1"
                 >
-                  {closed ? <LockOpenIcon /> : <LockClosedIcon />}
+                  {/* Una parola invece del lucchetto da solo: il lucchetto faceva pensare a «bloccato». */}
+                  <span className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-foreground-muted">{closed ? "Riapri" : "Chiudi"}</span>
                 </button>
               </div>
               {!open ? null : closed ? (

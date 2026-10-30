@@ -426,7 +426,7 @@ if (run("ms")) {
   await s.box("stats-note", P.getByText(/^Periodo: dal/));
   await s.box("stats-kpi1w", P.getByText("Aperture del menù", { exact: true }).locator("xpath=.."));
   // giorno per giorno
-  const dd = card("Giorno per giorno");
+  const dd = card("I numeri di ogni giorno");
   await dd.evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 130)); await s.settle(900);
   await s.shot("stats-days");
   await s.box("stats-dd", dd);

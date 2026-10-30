@@ -1,3 +1,4 @@
+import { Ornament } from "./ornament";
 import { mapsHref, telHref, weeklyRows, whatsappHref, type Contacts, type Hours } from "@/lib/menu-venue";
 
 // Orari e contatti a piè di pagina: ogni pulsante compare solo se il dato c'è.
@@ -50,5 +51,20 @@ export function VenueInfo({ hours, contacts }: { hours: Hours; contacts: Contact
       )}
       {contacts.address && <div className="text-center text-[14px] italic text-[#E9DCC4]/80">{contacts.address}</div>}
     </section>
+  );
+}
+
+// Piè di pagina bordeaux, uguale nel menù, negli allergeni e nelle pagine degli eventi:
+// logo, orari e contatti (prima le altre pagine avevano solo l'ornamento e sembravano rotte).
+export function MenuFooter({ hours, contacts, children }: { hours: Hours; contacts: Contacts; children?: React.ReactNode }) {
+  return (
+    <footer className="flex flex-col items-center gap-[18px] bg-[#6B1020] px-5 pb-[60px] pt-14 text-[#F4EEE3]">
+      {/* eslint-disable-next-line @next/next/no-img-element -- logo statico con filtri CSS */}
+      <img src="/menu/logo.png" alt="L’Angolo del Vino" className="h-auto w-[200px] [filter:invert(1)_sepia(0.25)]" />
+      <Ornament color="#C9A96E" />
+      <div className="menu-sans text-[10px] uppercase tracking-[0.4em] text-[#E9DCC4]">Enoteca</div>
+      <VenueInfo hours={hours} contacts={contacts} />
+      {children}
+    </footer>
   );
 }

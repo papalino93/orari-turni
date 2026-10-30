@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ALLERGENS, allergenState } from "@/lib/allergens";
 import { businessDayKey, isPromoMenuVisible, inPeriod } from "@/lib/menu-format";
-import { loadDaily, loadMenu, loadVisiblePromos } from "@/lib/menu";
+import { loadDaily, loadMenu, loadVenue, loadVisiblePromos } from "@/lib/menu";
+import { MenuFooter } from "../venue-footer";
 import { Ornament } from "../ornament";
 import { Suspense } from "react";
 import { AllergenExplorer, AllergenExplorerFromUrl, type ExplorerSection } from "./allergen-explorer";
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 
 export default async function AllergeniPage() {
   const dayKey = businessDayKey();
-  const [menu, promos, daily] = await Promise.all([loadMenu(), loadVisiblePromos(dayKey), loadDaily(dayKey)]);
+  const [menu, promos, daily, venue] = await Promise.all([loadMenu(), loadVisiblePromos(dayKey), loadDaily(dayKey), loadVenue()]);
   // Il menù speciale di un evento conta finché l'evento è in corso.
   const eventSections = promos.flatMap((p) =>
     p.kind === "EVENT" && p.hasMenu && p.menuMode !== "FILE" && p.section && isPromoMenuVisible(p, dayKey) ? [{ ...p.section, title: p.title }] : [],
@@ -116,10 +117,7 @@ export default async function AllergeniPage() {
         </div>
       </main>
 
-      <footer className="flex flex-col items-center gap-[18px] bg-[#6B1020] px-5 pb-[60px] pt-14 text-[#F4EEE3]">
-        <Ornament color="#C9A96E" />
-        <div className="menu-sans text-[10px] uppercase tracking-[0.4em] text-[#E9DCC4]">Enoteca</div>
-      </footer>
+      <MenuFooter hours={venue.hours} contacts={venue.contacts} />
     </>
   );
 }

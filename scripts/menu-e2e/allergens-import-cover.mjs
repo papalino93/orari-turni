@@ -38,7 +38,7 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
     check("allergeni: Acqua → Nessun allergene", /Nessun allergene/.test(await row("Acqua").innerText()));
     check("allergeni: 2 kombucha da verificare", (await page.locator(".menu-rule-soft", { hasText: "Da verificare con il personale" }).count()) === 2);
     check("allergeni: nessun vino in elenco", !text.includes("Champagne"));
-    check("allergeni: nessun form/link interno", (await page.locator("main form, main input").count()) === 0 && (await page.evaluate(() => [...document.querySelectorAll("a")].every((a) => ["/menu"].includes(a.getAttribute("href"))))));
+    check("allergeni: nessun form/link interno", (await page.locator("main form, main input").count()) === 0 && (await page.evaluate(() => [...document.querySelectorAll("a")].every((a) => a.getAttribute("href") === "/menu" || /^(tel:|https?:)/.test(a.getAttribute("href"))))));
     // filtro
     await page.getByRole("button", { name: "Glutine", exact: true }).click();
     // Di base restano solo i piatti adatti: spariscono quelli con glutine e quelli da verificare.

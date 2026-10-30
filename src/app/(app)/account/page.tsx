@@ -7,6 +7,8 @@ import { ThemeSetting } from "./theme-setting";
 import { MailSetting } from "./mail-setting";
 import { loadFeatures } from "@/lib/app-features";
 
+export const metadata = { title: "Impostazioni" };
+
 export default async function AccountPage() {
   const session = await getServerSession(authOptions);
   const [users, features] = await Promise.all([prisma.user.findMany({ orderBy: { createdAt: "asc" } }), loadFeatures()]);
@@ -14,11 +16,11 @@ export default async function AccountPage() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <h1 className="mb-1 text-xl font-semibold tracking-tight">Account</h1>
+      <h1 className="mb-1 text-xl font-semibold tracking-tight">Impostazioni</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         {users.length > 1
-          ? "Gli accessi del titolare hanno gli stessi permessi: da qui puoi cambiare la tua password e quella degli altri accessi. Le password dei dipendenti si cambiano da Dipendenti."
-          : "Da qui cambi la password del tuo accesso. Le password dei dipendenti si cambiano da Dipendenti."}
+          ? "Aspetto, app e widget sul telefono, password: la tua e quella degli altri accessi del titolare. Le password dei dipendenti si cambiano da Dipendenti."
+          : "Aspetto, app e widget sul telefono, password del tuo accesso. Le password dei dipendenti si cambiano da Dipendenti."}
       </p>
 
       <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-surface">
