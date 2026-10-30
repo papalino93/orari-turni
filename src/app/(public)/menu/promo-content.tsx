@@ -9,6 +9,7 @@ import {
   parseVariants,
   promoStatus,
   withDay,
+  nbPhone,
 } from "@/lib/menu-format";
 import type { loadPromoBySlug } from "@/lib/menu";
 import { whatsappHref, type Contacts } from "@/lib/menu-venue";
@@ -97,7 +98,7 @@ export function PromoContent({
 
       {promo.body && (
         <p className="mx-auto mt-7 max-w-[520px] whitespace-pre-line text-pretty text-center text-[17px] leading-normal text-[#3F4540]">
-          {promo.body}
+          {nbPhone(promo.body)}
         </p>
       )}
 

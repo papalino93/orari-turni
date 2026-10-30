@@ -7,7 +7,7 @@ import { isStatKind, romeParts } from "@/lib/menu-stats";
 // tutto /menu: niente dati personali, niente cookie impostati. Non conta:
 // - quando le statistiche sono spente («Inizia a contare» in Statistiche);
 // - chi ha fatto l'accesso all'app (personale, titolare);
-// - robot, anteprime dei link e motori di ricerca (non sono clienti);
+// - robot, anteprime dei link, motori di ricerca e browser automatici (prove e controlli: non sono clienti);
 // - le versioni di prova pubblicate su Vercel (usano gli stessi dati della produzione);
 // - le raffiche (più di 40 eventi al minuto dallo stesso indirizzo).
 
@@ -25,6 +25,8 @@ function tooMany(ip: string): boolean {
 }
 
 const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|lighthouse|pingdom|uptime|curl|wget|python-requests|vercel/i;
+// Browser automatici (i controlli fatti sul sito pubblicato): esclusi solo lì, le prove in locale li usano per contare.
+const AUTOMATION = /headless|playwright|puppeteer|phantomjs|selenium/i;
 
 const clean = (v: unknown, max: number) =>
   typeof v === "string" && v.trim() ? v.replace(/\s+/g, " ").trim().slice(0, max) : null;
@@ -34,7 +36,8 @@ export async function POST(request: NextRequest) {
   const staff = request.cookies.getAll().some((c) => c.name.includes("next-auth.session-token"));
   if (staff) return skip;
   if (process.env.VERCEL_ENV === "preview") return skip;
-  if (BOT.test(request.headers.get("user-agent") ?? "")) return skip;
+  const ua = request.headers.get("user-agent") ?? "";
+  if (BOT.test(ua) || (process.env.NODE_ENV === "production" && AUTOMATION.test(ua))) return skip;
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "?";
   if (tooMany(ip)) return skip;
 

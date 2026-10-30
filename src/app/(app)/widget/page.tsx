@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ADMIN_WIDGETS, DEFAULT_THEME, EMPLOYEE_WIDGETS, KEY_IDLE_DAYS, WIDGET_THEMES, WIDGETS } from "@/lib/widgets";
+import { ADMIN_WIDGETS, DEFAULT_THEME, EMPLOYEE_WIDGETS, KEY_IDLE_DAYS, WIDGET_THEMES, WIDGETS, type WidgetDef } from "@/lib/widgets";
 import { AuthorizeList, DeviceList, Installer, PhoneQr, ThemePicker, WidgetGallery, type DeviceRow } from "./widget-client";
 
 const themeOf = (t: string | null | undefined) => (WIDGET_THEMES.some((x) => x.id === t) ? (t as string) : DEFAULT_THEME);
@@ -15,7 +15,7 @@ export default async function WidgetPage() {
 
   if (isEmployee) {
     const emp = await prisma.employee.findUnique({ where: { id: session!.user!.employeeId! }, select: { id: true, name: true, widgets: true, widgetTheme: true } });
-    const allowed = WIDGETS.filter((w) => emp?.widgets.includes(w.id));
+    const allowed = WIDGETS.filter((w) => !w.vecchio && emp?.widgets.includes(w.id));
     const devices = emp ? await prisma.widgetDevice.findMany({ where: { employeeId: emp.id, revokedAt: null }, orderBy: { createdAt: "desc" } }) : [];
     return (
       <Layout admin={false}>
@@ -25,9 +25,9 @@ export default async function WidgetPage() {
           </div>
         ) : (
           <>
-            <Installer ownerName={emp!.name} example={allowed[0].id} />
-            <WidgetGallery widgets={allowed} theme={themeOf(emp?.widgetTheme)} />
-            <ThemePicker current={themeOf(emp?.widgetTheme)} example={allowed.some((w) => w.id === "turni") ? "turni" : allowed[0].id} />
+            <Installer ownerName={emp!.name} example={allowed[0].nome} />
+            <WidgetGallery widgets={allowed} theme={themeOf(emp?.widgetTheme)} dipendente />
+            <ThemePicker current={themeOf(emp?.widgetTheme)} {...themeExample(allowed)} />
             <DeviceList devices={devices.map((d) => toRow(d, emp!.name))} title="I tuoi telefoni collegati" />
           </>
         )}
@@ -45,13 +45,20 @@ export default async function WidgetPage() {
   const rows = devices.map((d) => toRow(d, names.get(d.userId ?? d.employeeId ?? "") ?? "—"));
   return (
     <Layout admin>
-      <Installer ownerName={user?.name ?? ""} example="aperture" />
+      <Installer ownerName={user?.name ?? ""} example="Pannello" />
       <WidgetGallery widgets={ADMIN_WIDGETS} theme={themeOf(user?.widgetTheme)} />
-      <ThemePicker current={themeOf(user?.widgetTheme)} />
+      <ThemePicker current={themeOf(user?.widgetTheme)} {...themeExample(ADMIN_WIDGETS)} />
       <AuthorizeList employees={employees} widgets={EMPLOYEE_WIDGETS} />
       <DeviceList devices={rows} title="Telefoni collegati" showOwner />
     </Layout>
   );
+}
+
+// L'esempio dei colori: un widget medio della persona (si legge meglio), sennò il primo.
+function themeExample(list: WidgetDef[]) {
+  const w = list.find((x) => x.id === "sala") ?? list.find((x) => x.sizes.includes("medium")) ?? list[0];
+  const size = w.sizes.includes("medium") ? "medium" : w.sizes.includes("large") ? "large" : "small";
+  return { preview: `${w.id}-${size}`, word: w.nome };
 }
 
 function toRow(d: { id: string; name: string; createdAt: Date; lastUsedAt: Date | null; otherDeviceAt: Date | null; deviceName: string | null }, owner: string): DeviceRow {

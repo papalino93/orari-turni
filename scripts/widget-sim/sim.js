@@ -299,7 +299,7 @@
       const ang = Math.atan2(g.endPoint.x - g.startPoint.x, -(g.endPoint.y - g.startPoint.y)) * (180 / Math.PI);
       d.style.background = `linear-gradient(${ang}deg, ${g.colors.map((c, i) => `${c.css()} ${(g.locations[i] ?? i) * 100}%`).join(", ")})`;
     }
-    if (el.cornerRadius) d.style.borderRadius = el.cornerRadius + "px";
+    if (el.cornerRadius) { d.style.borderRadius = el.cornerRadius + "px"; d.style.overflow = "hidden"; }
     if (el.borderWidth) d.style.border = `${el.borderWidth}px solid ${el.borderColor ? el.borderColor.css() : "transparent"}`;
     if (el.size.width > 0) { d.style.width = el.size.width + "px"; d.style.flexShrink = "0"; }
     if (el.size.height > 0) d.style.height = el.size.height + "px";

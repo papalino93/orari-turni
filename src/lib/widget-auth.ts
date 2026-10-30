@@ -33,7 +33,8 @@ export type WidgetAuth =
   | { ok: true; owner: WidgetOwner; deviceId: string; tema: string }
   | { ok: false; status: number; code: "chiave" | "tolto" | "permesso" | "troppe" | "scaduta" };
 
-export async function authenticateWidget(req: Request, widgetId: string): Promise<WidgetAuth> {
+// widgetId null: basta un telefono collegato (l'installatore chiede l'elenco dei widget della persona).
+export async function authenticateWidget(req: Request, widgetId: string | null): Promise<WidgetAuth> {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "?";
   const now = Date.now();
   const fail = failures.get(ip);
@@ -74,10 +75,10 @@ export async function authenticateWidget(req: Request, widgetId: string): Promis
   }
   if (!owner) return { ok: false, status: 403, code: "tolto" };
 
-  const def = widgetById(widgetId);
+  const def = widgetId === null ? null : widgetById(widgetId);
   const allowed =
-    !!def &&
-    (owner.kind === "admin" ? def.per !== "dipendente" : def.per !== "admin" && owner.widgets.includes(def.id));
+    widgetId === null ||
+    (!!def && (owner.kind === "admin" ? def.per !== "dipendente" : def.per !== "admin" && owner.widgets.includes(def.id)));
   if (!allowed) return { ok: false, status: 403, code: "permesso" };
 
   // Ultimo uso e telefono: se la stessa chiave arriva da un altro telefono, lo si segnala.

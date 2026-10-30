@@ -1,6 +1,6 @@
 import { authenticateWidget } from "@/lib/widget-auth";
-import { dataAperture, dataDaFare, dataFuoriMenu, dataMenu, dataOggi, dataQr, dataRiepilogo, dataSettimana, dataTurni } from "@/lib/widget-data";
-import { widgetById } from "@/lib/widgets";
+import { dataAndamento, dataAperture, dataClienti, dataDaFare, dataFuoriMenu, dataMattina, dataMenu, dataOggi, dataPannello, dataQr, dataRiepilogo, dataSala, dataSettimana, dataStasera, dataTurni } from "@/lib/widget-data";
+import { ADMIN_WIDGETS, WIDGETS, scriptName, widgetById } from "@/lib/widgets";
 
 // Dati di un widget per Scriptable: GET /api/widget/<nome> con «Authorization: Bearer <chiave>».
 // Mai in cache condivisa: ogni risposta dipende dalla chiave.
@@ -21,6 +21,16 @@ function json(body: unknown, status = 200) {
 
 export async function GET(req: Request, { params }: { params: Promise<{ nome: string }> }) {
   const { nome } = await params;
+  // L'elenco per l'installatore: i widget di questa persona, con il nome dello script da creare.
+  if (nome === "elenco") {
+    const auth = await authenticateWidget(req, null);
+    if (!auth.ok) return json({ errore: auth.code, messaggio: MESSAGES[auth.code] }, auth.status);
+    const list = auth.owner.kind === "admin" ? ADMIN_WIDGETS : WIDGETS.filter((w) => !w.vecchio && w.per !== "admin" && auth.owner.kind === "employee" && auth.owner.widgets.includes(w.id));
+    return json({
+      chi: auth.owner.name,
+      widget: list.map((w) => ({ id: w.id, nome: w.nome, file: scriptName(w), grandezze: w.sizes, icona: w.icona ?? { colore: "deep-brown", disegno: "wine-glass" } })),
+    });
+  }
   if (!widgetById(nome)) return json({ errore: "sconosciuto", messaggio: MESSAGES.sconosciuto }, 404);
   const auth = await authenticateWidget(req, nome);
   if (!auth.ok) return json({ errore: auth.code, messaggio: MESSAGES[auth.code] }, auth.status);
@@ -33,7 +43,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ nome: st
     : nome === "dafare" ? await dataDaFare()
     : nome === "menu" ? await dataMenu()
     : nome === "fuorimenu" ? await dataFuoriMenu()
-    : nome === "qr" ? dataQr()
+    : nome === "qr" || nome === "apri" ? dataQr()
+    : nome === "pannello" ? await dataPannello(auth.owner.kind === "employee" ? { kind: "employee", employeeId: auth.owner.employeeId } : { kind: "admin" })
+    : nome === "sala" ? await dataSala()
+    : nome === "mattina" ? await dataMattina()
+    : nome === "stasera" ? await dataStasera()
+    : nome === "andamento" ? await dataAndamento()
+    : nome === "clienti" ? await dataClienti()
     : auth.owner.kind === "employee" ? await dataTurni(auth.owner.employeeId)
     : null;
   if (!data) return json({ errore: "permesso", messaggio: MESSAGES.permesso }, 403);

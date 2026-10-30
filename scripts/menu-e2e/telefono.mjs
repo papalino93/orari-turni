@@ -38,7 +38,7 @@ check("orari: sul telefono è aperto un solo giorno (oggi)", states.length === 7
 const closedOne = heads.filter({ hasNotText: "Oggi" }).first();
 await closedOne.click();
 check("orari: un tocco apre un altro giorno", (await closedOne.getAttribute("aria-expanded")) === "true");
-check("orari: lucchetto per chiudere il locale su ogni giorno", (await p.getByRole("button", { name: /^(Chiudi|Riapri) il locale:/ }).count()) === 7);
+check("orari: «Chiudi» il locale su ogni giorno", (await p.getByRole("button", { name: /^(Chiudi|Riapri) il locale:/ }).count()) === 7);
 const pageH = await p.evaluate(() => document.documentElement.scrollHeight);
 check("orari: la settimana sul telefono è molto più corta (< 3.500 px)", pageH < 3500, String(pageH));
 if (SHOTS) await p.screenshot({ path: `${SHOTS}/tel-orari.png`, fullPage: true });

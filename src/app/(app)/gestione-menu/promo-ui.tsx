@@ -483,13 +483,16 @@ export function PromoSheet({
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={busy || converting || !title.trim()}
-          className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
-        >
-          {busy ? "Salvo…" : promo ? "Salva" : isEvent ? (hasMenu ? "Crea evento e componi il menù" : "Crea evento") : "Crea annuncio"}
-        </button>
+        {/* Come nella scheda di una voce: il pulsante resta in vista in fondo, senza scorrere tutta la scheda. */}
+        <div className="sticky bottom-0 z-10 -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-mx-6 sm:px-6 sm:pb-3">
+          <button
+            type="submit"
+            disabled={busy || converting || !title.trim()}
+            className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+          >
+            {busy ? "Salvo…" : promo ? "Salva" : isEvent ? (hasMenu ? "Crea evento e componi il menù" : "Crea evento") : "Crea annuncio"}
+          </button>
+        </div>
       </form>
     </Sheet>
   );

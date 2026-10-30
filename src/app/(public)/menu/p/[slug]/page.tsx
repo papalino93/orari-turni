@@ -6,6 +6,7 @@ import { loadPromoBySlug, loadVenue, loadVisibleBlocks } from "@/lib/menu";
 import { Ornament } from "../../ornament";
 import { PromoContent } from "../../promo-content";
 import { TornaSu } from "../../torna-su";
+import { MenuFooter } from "../../venue-footer";
 
 // Come /menu: in cache, rigenerata ogni minuto e a ogni modifica.
 export const revalidate = 60;
@@ -63,10 +64,7 @@ export default async function PromoPage({ params }: { params: Promise<{ slug: st
         </div>
       </main>
 
-      <footer className="flex flex-col items-center gap-[18px] bg-[#6B1020] px-5 pb-[60px] pt-14 text-[#F4EEE3]">
-        <Ornament color="#C9A96E" />
-        <div className="menu-sans text-[10px] uppercase tracking-[0.4em] text-[#E9DCC4]">Enoteca</div>
-      </footer>
+      <MenuFooter hours={venue.hours} contacts={venue.contacts} />
       <TornaSu />
     </>
   );

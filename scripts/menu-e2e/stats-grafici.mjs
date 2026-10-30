@@ -61,7 +61,7 @@ for (const [label, w, h, theme] of [["computer", 1280, 900, "light"], ["telefono
   check(`${label}: mappa orari, il momento più forte è indicato`, /momento più forte/.test(await p.locator("body").innerText()));
 
   // Giorno per giorno: gli ultimi 10, con «Mostra altri» e «Comprimi»
-  const dd = p.locator("section", { has: p.getByRole("heading", { name: "Giorno per giorno", exact: true }) }).first();
+  const dd = p.locator("section", { has: p.getByRole("heading", { name: "I numeri di ogni giorno", exact: true }) }).first();
   const rowsN = () => dd.locator("ol li a").count();
   check(`${label}: giorno per giorno parte dagli ultimi 10`, (await rowsN()) === 10, String(await rowsN()));
   await dd.getByRole("button", { name: /Mostra altri giorni \(4\)/ }).click();

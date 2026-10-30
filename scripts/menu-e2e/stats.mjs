@@ -131,7 +131,7 @@ await admin.goto(`${BASE}/statistiche`, { waitUntil: "networkidle" });
 const todayCard = await admin.getByRole("region", { name: "Aperture di oggi" }).innerText();
 check("oggi: riquadro sempre in cima con le aperture di oggi", /Aperture di oggi[\s\S]*?\b1\b/.test(todayCard) && /Ieri/.test(todayCard), todayCard.replace(/\n/g, " | "));
 check("periodo: una riga sola con Oggi, Ieri, settimana, mese e i periodi a ritroso", (await admin.getByRole("navigation", { name: "Periodo" }).getByRole("link").count()) === 10 && (await admin.getByRole("navigation", { name: "Scorciatoie" }).count()) === 0);
-const dayList = admin.locator("section", { has: admin.getByRole("heading", { name: "Giorno per giorno", exact: true }) });
+const dayList = admin.locator("section", { has: admin.getByRole("heading", { name: "I numeri di ogni giorno", exact: true }) });
 check("giorno per giorno: oggi in elenco con 1 apertura", /oggi\s*1\b/.test((await dayList.first().innerText()).replace(/\n/g, " ")));
 await dayList.first().locator("ol li a").first().click();
 await admin.waitForURL(/dal=\d{4}-\d{2}-\d{2}&al=\d{4}-\d{2}-\d{2}/);

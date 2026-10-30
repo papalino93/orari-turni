@@ -22,7 +22,7 @@ function key(owner) {
 DB(`delete from "WidgetDevice" where name = 'Simulatore'`);
 const userId = DB(`select id from "User" where username='andrea'`);
 const emp = DB(`select id from "Employee" where username='marta'`);
-DB(`update "Employee" set widgets='{menu,fuorimenu,qr,turni}' where id='${emp}'`);
+DB(`update "Employee" set widgets='{menu,fuorimenu,qr,turni,pannello,apri,stasera,clienti}' where id='${emp}'`);
 // Una chiave per widget: il freno contro le richieste a raffica vale per chiave.
 const ADMIN = () => key({ col: '"userId"', id: userId });
 const DIP = () => key({ col: '"employeeId"', id: emp });
@@ -68,7 +68,21 @@ const PLAN = [
   ["qr", ["small", "large"], DIP],
   ["turni", ["small", "medium", "accessoryRectangular", "accessoryCircular", "accessoryInline"], DIP],
   ["riepilogo", ["small"], ADMIN],
+  // Widget dei momenti della giornata.
+  ["pannello", ["large"], ADMIN],
+  ["pannello", ["large"], DIP, "dip"],
+  ["apri", ["small"], ADMIN],
+  ["sala", ["medium"], ADMIN],
+  ["mattina", ["medium"], ADMIN],
+  ["stasera", ["medium"], ADMIN],
+  ["andamento", ["large"], ADMIN],
+  ["clienti", ["medium"], DIP],
 ];
+// Con FINTI=1 le anteprime della pagina «Widget sul telefono»: solo i widget proposti, nelle grandezze mostrate.
+if (process.env.FINTI) {
+  PLAN.length = 0;
+  PLAN.push(["pannello", ["large"], ADMIN], ["pannello", ["large"], DIP, "dip"], ["sala", ["medium"], ADMIN], ["mattina", ["medium"], ADMIN], ["stasera", ["medium"], ADMIN], ["clienti", ["medium"], DIP], ["andamento", ["large"], ADMIN], ["apri", ["small"], ADMIN], ["qr", ["small"], DIP], ["aperture", ["small", "accessoryRectangular", "accessoryCircular"], ADMIN], ["turni", ["small", "medium", "accessoryRectangular"], DIP]);
+}
 // Tre telefoni: mini (più stretto), Pro, Pro Max (più largo).
 // Misure vere dei widget (punti) per tre larghezze di schermo, come in misure() di angolo.js.
 const PHONES = {
@@ -84,11 +98,20 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH 
 const page = await browser.newPage({ deviceScaleFactor: 2, viewport: { width: 900, height: 600 } });
 // Una pagina statica dello stesso sito (niente React che riscrive la pagina): così le richieste ai dati sono «stesso sito».
 await page.goto(`${BASE}/widget/angolo.js`, { waitUntil: "load" });
+// Con FINTI=1: dati di esempio di una serata (finti.mjs) al posto di quelli del database di prova.
+const FINTI = process.env.FINTI ? (await import("./finti.mjs")).FINTI : null;
+let finto = null;
+if (FINTI) {
+  await page.route(`${BASE}/api/widget/**`, (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ ...finto, tema: TEMA || "crema" }) }));
+  await page.route(`${BASE}/sim/*.png`, (route) => route.fulfill({ path: new URL(`../guida/assets/${route.request().url().split("/").pop()}`, import.meta.url).pathname }));
+}
 const problems = [];
 
-for (const [nome, families, chiaveDi] of PLAN) {
+for (const [nome, families, chiaveDi, chi] of PLAN) {
   if (ONLY.length && !ONLY.includes(nome)) continue;
   const chiave = chiaveDi();
+  if (FINTI) finto = FINTI[chi ? `${nome}-${chi}` : nome] ?? null;
+  if (FINTI && !finto) continue;
   for (const fam of families) {
     for (const [phone, scale] of Object.entries(PHONES)) {
       if (fam.startsWith("accessory") && phone !== "pro") continue;
@@ -150,13 +173,13 @@ for (const [nome, families, chiaveDi] of PLAN) {
         },
         { sim, script, nome, fam, chiave, base: BASE, scale, screen: SCREEN[phone], tema: TEMA },
       );
-      const tag = `${nome}-${fam}${TEMA ? "-" + TEMA : ""}-${phone}`;
+      const tag = `${nome}${chi ? "-" + chi : ""}-${fam}${TEMA ? "-" + TEMA : ""}-${phone}`;
       if (result.error) {
         problems.push(`${tag}: ERRORE ${result.error}`);
         continue;
       }
       await page.locator("#w").screenshot({ path: `${OUT}/${tag}.png` });
-      if (ANTEPRIME && phone === "pro") await page.locator("#w").screenshot({ path: `${ANTEPRIME}/${nome}-${fam}${TEMA ? "-" + TEMA : ""}.png`, omitBackground: true });
+      if (ANTEPRIME && phone === "pro") await page.locator("#w").screenshot({ path: `${ANTEPRIME}/${nome}${chi ? "-" + chi : ""}-${fam}${TEMA ? "-" + TEMA : ""}.png`, omitBackground: true });
       for (const p of result.problems) problems.push(`${tag}: ${p}`);
     }
   }

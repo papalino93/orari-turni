@@ -9,7 +9,7 @@ import { FormatHeader, FormatPrices, Variants } from "./item-prices";
 import { MenuBlocks } from "./menu-blocks";
 import { Amp } from "./amp";
 import { OpenStatusPill } from "./open-status";
-import { VenueInfo } from "./venue-footer";
+import { MenuFooter } from "./venue-footer";
 import { MenuNav } from "./menu-nav";
 import type { SearchItem } from "./menu-search";
 import { Annunci } from "./annunci";
@@ -510,14 +510,9 @@ export default async function MenuPage() {
         </div>
       </main>
 
-      <footer className="flex flex-col items-center gap-[18px] bg-[#6B1020] px-5 pb-[60px] pt-14 text-[#F4EEE3]">
-        {/* eslint-disable-next-line @next/next/no-img-element -- logo statico con filtri CSS */}
-        <img src="/menu/logo.png" alt="L’Angolo del Vino" className="h-auto w-[200px] [filter:invert(1)_sepia(0.25)]" />
-        <Ornament color="#C9A96E" />
-        <div className="menu-sans text-[10px] uppercase tracking-[0.4em] text-[#E9DCC4]">Enoteca</div>
-        <VenueInfo hours={venue.hours} contacts={venue.contacts} />
+      <MenuFooter hours={venue.hours} contacts={venue.contacts}>
         <div className="menu-sans text-[10px] tracking-[0.1em] text-[#E9DCC4]/60">{VERSION_LABEL}</div>
-      </footer>
+      </MenuFooter>
     </>
   );
 }
