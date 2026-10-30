@@ -15,6 +15,8 @@ export type WidgetDef = {
   descrizione: string;
   per: "admin" | "tutti" | "dipendente";
   sizes: WidgetSize[];
+  // Widget nuovi in prova: il sito li conosce ma la pagina non li propone ancora.
+  nuovo?: boolean;
 };
 
 export const WIDGETS: WidgetDef[] = [
@@ -26,13 +28,20 @@ export const WIDGETS: WidgetDef[] = [
   { id: "menu", nome: "Anteprima menù", descrizione: "Oggi fuori menù, i consigli della casa, gli esauriti e il prossimo evento.", per: "tutti", sizes: ["medium", "large"] },
   { id: "fuorimenu", nome: "Oggi fuori menù ed eventi", descrizione: "Il piatto e il vino del giorno, gli esauriti e l'evento di stasera.", per: "tutti", sizes: ["medium", "large"] },
   { id: "qr", nome: "QR del menù", descrizione: "Il codice QR dei tavoli, da mostrare a chi non lo trova.", per: "tutti", sizes: ["small", "large"] },
+  { id: "pannello", nome: "Pannello", descrizione: "Sei scorciatoie con il loro dato: menù, statistiche, QR, fuori menù, turni, da fare.", per: "tutti", sizes: ["large"], nuovo: true },
+  { id: "apri", nome: "Apri il menù", descrizione: "Un tocco e si apre il menù dei clienti, da mostrare.", per: "tutti", sizes: ["small"], nuovo: true },
+  { id: "sala", nome: "In sala", descrizione: "Durante il servizio: aperture contro ieri alla stessa ora, chi è al lavoro, esauriti, cercato e non trovato.", per: "admin", sizes: ["medium"], nuovo: true },
+  { id: "mattina", nome: "Prima di aprire", descrizione: "La mattina: com'è andata ieri e cosa c'è da fare oggi.", per: "admin", sizes: ["medium"], nuovo: true },
+  { id: "stasera", nome: "Stasera", descrizione: "L'evento di oggi o il prossimo, con locandina, orario e quanti l'hanno guardato.", per: "tutti", sizes: ["medium"], nuovo: true },
+  { id: "andamento", nome: "Andamento", descrizione: "Le ultime settimane, il mese contro il mese scorso, quanto rendono gli eventi, le ore del personale.", per: "admin", sizes: ["large"], nuovo: true },
+  { id: "clienti", nome: "Cosa dire ai clienti", descrizione: "Fuori menù di oggi, esauriti, consigli della casa ed evento di stasera.", per: "tutti", sizes: ["medium"], nuovo: true },
   { id: "turni", nome: "I miei prossimi orari", descrizione: "Il prossimo turno e la settimana, solo con gli orari già confermati.", per: "dipendente", sizes: ["small", "medium", "accessoryRectangular", "accessoryCircular", "accessoryInline"] },
 ];
 
 export const WIDGET_IDS = WIDGETS.map((w) => w.id);
 // Quelli che il titolare può dare a un dipendente.
-export const EMPLOYEE_WIDGETS = WIDGETS.filter((w) => w.per !== "admin");
-export const ADMIN_WIDGETS = WIDGETS.filter((w) => w.per !== "dipendente");
+export const EMPLOYEE_WIDGETS = WIDGETS.filter((w) => w.per !== "admin" && !w.nuovo);
+export const ADMIN_WIDGETS = WIDGETS.filter((w) => w.per !== "dipendente" && !w.nuovo);
 
 export function widgetById(id: string): WidgetDef | undefined {
   return WIDGETS.find((w) => w.id === id);

@@ -1,5 +1,5 @@
 import { authenticateWidget } from "@/lib/widget-auth";
-import { dataAperture, dataDaFare, dataFuoriMenu, dataMenu, dataOggi, dataQr, dataRiepilogo, dataSettimana, dataTurni } from "@/lib/widget-data";
+import { dataAndamento, dataAperture, dataClienti, dataDaFare, dataFuoriMenu, dataMattina, dataMenu, dataOggi, dataPannello, dataQr, dataRiepilogo, dataSala, dataSettimana, dataStasera, dataTurni } from "@/lib/widget-data";
 import { widgetById } from "@/lib/widgets";
 
 // Dati di un widget per Scriptable: GET /api/widget/<nome> con «Authorization: Bearer <chiave>».
@@ -33,7 +33,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ nome: st
     : nome === "dafare" ? await dataDaFare()
     : nome === "menu" ? await dataMenu()
     : nome === "fuorimenu" ? await dataFuoriMenu()
-    : nome === "qr" ? dataQr()
+    : nome === "qr" || nome === "apri" ? dataQr()
+    : nome === "pannello" ? await dataPannello(auth.owner.kind === "employee" ? { kind: "employee", employeeId: auth.owner.employeeId } : { kind: "admin" })
+    : nome === "sala" ? await dataSala()
+    : nome === "mattina" ? await dataMattina()
+    : nome === "stasera" ? await dataStasera()
+    : nome === "andamento" ? await dataAndamento()
+    : nome === "clienti" ? await dataClienti()
     : auth.owner.kind === "employee" ? await dataTurni(auth.owner.employeeId)
     : null;
   if (!data) return json({ errore: "permesso", messaggio: MESSAGES.permesso }, 403);

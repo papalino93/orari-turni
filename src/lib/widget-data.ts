@@ -371,3 +371,292 @@ export async function dataTurni(employeeId: string) {
   });
   return { aggiornato: clockNow(), prossimo, settimana, link: `/mie-ore?date=${dateKey}` };
 }
+
+// =====================================================================================
+// Widget pensati per i momenti della giornata: in sala, prima di aprire, stasera,
+// l'andamento, cosa dire ai clienti, il pannello con le scorciatoie.
+
+const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+// Un turno che finisce a mezzanotte (o dopo) è scritto «00:00»: vale 24:00.
+const endMin = (start: string, end: string) => (toMin(end) <= toMin(start) ? toMin(end) + 24 * 60 : toMin(end));
+
+// Chi è al lavoro adesso (e fino a quando), e chi arriva più tardi oggi.
+async function staffNow() {
+  const now = new Date();
+  const { dateKey, minutes } = romeNow(now);
+  const [blocks, closure] = await Promise.all([
+    prisma.shiftBlock.findMany({
+      where: { date: parseDateKey(dateKey), employee: { active: true } },
+      select: { startTime: true, endTime: true, employee: { select: { name: true, sortOrder: true } } },
+      orderBy: [{ startTime: "asc" }],
+    }),
+    prisma.closureDay.findUnique({ where: { date: parseDateKey(dateKey) }, select: { reason: true } }),
+  ]);
+  if (closure) return { chiuso: closure.reason || "Locale chiuso", adesso: [], dopo: [], stasera: [] };
+  const person = (b: (typeof blocks)[number]) => ({
+    nome: firstName(b.employee.name),
+    iniziali: initials(b.employee.name),
+    dalle: hhmm(b.startTime),
+    alle: b.endTime === "00:00" ? "24" : hhmm(b.endTime),
+    fine: endMin(b.startTime, b.endTime),
+  });
+  const adesso = blocks.filter((b) => toMin(b.startTime) <= minutes && minutes < endMin(b.startTime, b.endTime)).map(person);
+  const dopo = blocks.filter((b) => toMin(b.startTime) > minutes).map(person);
+  const stasera = blocks.filter((b) => periodOf(b) === "pomeriggio").map(person);
+  return { chiuso: null, adesso, dopo, stasera };
+}
+
+async function notFoundToday(day: string) {
+  const rows = await prisma.menuEvent.groupBy({ by: ["label"], where: { kind: "search_empty", label: { not: null }, day }, _count: { _all: true }, orderBy: { _count: { label: "desc" } }, take: 2 });
+  return rows.map((r) => ({ parola: r.label as string, volte: r._count._all }));
+}
+
+// ---------- In sala, dal vivo
+export async function dataSala() {
+  const { day: today, hour } = romeParts();
+  const yesterday = addDays(today, -1);
+  const business = businessDayKey(new Date());
+  const [rows, staff, esauriti, nonTrovati] = await Promise.all([
+    prisma.menuEvent.groupBy({ by: ["day", "hour"], where: { kind: "open", day: { in: [today, yesterday] } }, _count: { _all: true } }),
+    staffNow(),
+    soldOutNames(business),
+    notFoundToday(today),
+  ]);
+  const at = (d: string, h: number) => rows.find((r) => r.day === d && r.hour === h)?._count._all ?? 0;
+  // La giornata del locale sul grafico: dalle 10 alle 24, aperture accumulate ora per ora.
+  const ORE = Array.from({ length: 15 }, (_, i) => 10 + i);
+  const cumul = (d: string, fino: number) => {
+    let s = Array.from({ length: 10 }, (_, h) => at(d, h)).reduce((a, b) => a + b, 0);
+    return ORE.filter((h) => h <= fino).map((h) => (s += at(d, h)));
+  };
+  const oggi = Array.from({ length: 24 }, (_, h) => at(today, h)).reduce((a, b) => a + b, 0);
+  const ieriFinora = Array.from({ length: hour + 1 }, (_, h) => at(yesterday, h)).reduce((a, b) => a + b, 0);
+  return {
+    aggiornato: clockNow(),
+    oggi,
+    ieriFinora,
+    delta: delta(oggi, ieriFinora),
+    ultimaOra: at(today, hour),
+    oraPrima: hour > 0 ? at(today, hour - 1) : 0,
+    serieOggi: cumul(today, hour),
+    serieIeri: cumul(yesterday, 24),
+    ore: ORE,
+    alLavoro: staff.adesso,
+    arrivano: staff.dopo,
+    chiuso: staff.chiuso,
+    esauriti,
+    nonTrovati,
+    link: `/statistiche?dal=${today}&al=${today}`,
+    linkTurni: `/orari?date=${today}`,
+    linkMenu: "/gestione-menu",
+  };
+}
+
+// ---------- Prima di aprire (la mattina)
+export async function dataMattina() {
+  const { day: today } = romeParts();
+  const yesterday = addDays(today, -1);
+  const business = businessDayKey(new Date());
+  const nextMon = addDays(monday(today), 7);
+  const [per, hours, pick, daily, allergeni, staff, ev, nextBlocks, nextPlan] = await Promise.all([
+    opensPerDay(addDays(today, -8)),
+    prisma.menuEvent.groupBy({ by: ["hour"], where: { kind: "open", day: yesterday }, _count: { _all: true } }),
+    prisma.menuEvent.groupBy({ by: ["label"], where: { kind: "pick", label: { not: null }, day: yesterday }, _count: { _all: true }, orderBy: { _count: { label: "desc" } }, take: 1 }),
+    dailyLines(business),
+    allergensToDo(business),
+    staffNow(),
+    nextEvent(business),
+    prisma.shiftBlock.count({ where: { date: { gte: parseDateKey(nextMon), lte: parseDateKey(addDays(nextMon, 6)) } } }),
+    prisma.weekPlan.findUnique({ where: { weekStart: parseDateKey(nextMon) }, select: { publishedAt: true } }),
+  ]);
+  const count = (d: string) => per.get(d) ?? 0;
+  const peak = hours.reduce<{ hour: number; n: number } | null>((best, h) => (!best || h._count._all > best.n ? { hour: h.hour, n: h._count._all } : best), null);
+  const fuori = daily.piatti.length + daily.vini.length;
+  const persone = [...staff.adesso, ...staff.dopo];
+  const cose = [
+    fuori === 0
+      ? { testo: "Fuori menù di oggi da mettere", fatto: false, link: "/gestione-menu" }
+      : { testo: `Fuori menù: ${[...daily.piatti, ...daily.vini].map((x) => x.nome).slice(0, 2).join(", ")}`, fatto: true, link: "/gestione-menu" },
+    allergeni > 0 ? { testo: `${allergeni} ${allergeni === 1 ? "piatto" : "piatti"} senza allergeni`, fatto: false, link: "/gestione-menu" } : null,
+    nextBlocks > 0 && !nextPlan?.publishedAt ? { testo: "Settimana prossima da confermare", fatto: false, link: `/orari?date=${nextMon}` } : null,
+  ].filter(Boolean);
+  return {
+    aggiornato: clockNow(),
+    giorno: dayLong(today),
+    ieri: { aperture: count(yesterday), delta: delta(count(yesterday), count(addDays(yesterday, -7))), giorno: DAYS[weekday(yesterday)].toLowerCase(), oraDiPunta: peak ? `${peak.hour}–${peak.hour + 1}` : null, piuGuardato: pick[0]?.label ?? null },
+    oggi: {
+      chiuso: staff.chiuso,
+      persone: persone.map((p) => ({ nome: p.nome, iniziali: p.iniziali, dalle: p.dalle })),
+      evento: ev && ev.oggi ? { titolo: ev.titolo, ora: ev.ora } : null,
+    },
+    cose,
+    link: `/statistiche?dal=${yesterday}&al=${yesterday}`,
+    linkTurni: `/orari?date=${today}`,
+  };
+}
+
+// ---------- Stasera: l'evento di oggi, o il prossimo
+export async function dataStasera() {
+  const day = businessDayKey(new Date());
+  const ev = await prisma.menuPromo.findFirst({
+    where: { kind: "EVENT", deletedAt: null, hidden: false, endDate: { gte: day } },
+    orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
+    select: { id: true, title: true, label: true, slug: true, startDate: true, endDate: true, startTime: true, endTime: true, showFrom: true, imageUpdatedAt: true, hasMenu: true },
+  });
+  if (!ev) return { aggiornato: clockNow(), evento: null, link: "/gestione-menu" };
+  const oggi = ev.startDate <= day;
+  const giorni = oggi ? 0 : Math.round((toDate(ev.startDate).getTime() - toDate(day).getTime()) / 86_400_000);
+  const { minutes } = romeNow(new Date());
+  const inCorso = oggi && (!ev.startTime || toMin(ev.startTime) <= minutes);
+  const tra = inCorso ? "in corso" : oggi && ev.startTime ? (() => { const m = toMin(ev.startTime) - minutes; return m < 60 ? `tra ${m} min` : `tra ${Math.round(m / 60)} ${Math.round(m / 60) === 1 ? "ora" : "ore"}`; })() : giorni === 1 ? "domani" : `tra ${giorni} giorni`;
+  const [views, viewsToday, items] = await Promise.all([
+    prisma.menuEvent.count({ where: { kind: "event", target: ev.slug, day: { gte: ev.showFrom ?? addDays(ev.startDate, -7) } } }),
+    prisma.menuEvent.count({ where: { kind: "event", target: ev.slug, day: romeParts().day } }),
+    ev.hasMenu
+      ? prisma.menuItem.findMany({ where: { deletedAt: null, textOnly: false, group: { deletedAt: null, section: { promoId: ev.id, deletedAt: null } } }, select: { name: true, priceCents: true, priceGlassCents: true }, orderBy: [{ group: { sortOrder: "asc" } }, { sortOrder: "asc" }], take: 3 })
+      : Promise.resolve([]),
+  ]);
+  return {
+    aggiornato: clockNow(),
+    evento: {
+      titolo: ev.title,
+      tipo: ev.label || "Evento",
+      oggi,
+      tra,
+      giorno: Number(ev.startDate.slice(8)),
+      mese: MONTHS[Number(ev.startDate.slice(5, 7)) - 1].slice(0, 3).toUpperCase(),
+      quando: oggi ? (ev.startTime ? `Oggi ${hhmm(ev.startTime)}${ev.endTime ? `–${hhmm(ev.endTime)}` : ""}` : "Oggi") : `${dayShort(ev.startDate)}${ev.startTime ? ` · ${hhmm(ev.startTime)}` : ""}`,
+      locandina: ev.imageUpdatedAt ? `/menu/p/${ev.slug}/immagine?v=${ev.imageUpdatedAt.getTime()}` : null,
+      menu: items.map((i) => ({ nome: i.name, prezzo: i.priceCents !== null ? formatPrice(i.priceCents) : i.priceGlassCents !== null ? formatPrice(i.priceGlassCents) : "" })),
+      visite: views,
+      visiteOggi: viewsToday,
+    },
+    link: `/menu/p/${ev.slug}`,
+  };
+}
+
+// ---------- Andamento (per il consulente e il titolare)
+export async function dataAndamento() {
+  const { day: today } = romeParts();
+  const mon = monday(today);
+  const from = addDays(mon, -7 * 8);
+  const { since } = await loadStatsSetting();
+  const [per, byWd, byHour, events, oreQuesta, oreScorsa] = await Promise.all([
+    opensPerDay(from),
+    prisma.menuEvent.groupBy({ by: ["weekday"], where: { kind: "open", day: { gte: addDays(today, -56) } }, _count: { _all: true } }),
+    prisma.menuEvent.groupBy({ by: ["hour"], where: { kind: "open", day: { gte: addDays(today, -56) } }, _count: { _all: true } }),
+    prisma.menuPromo.findMany({ where: { kind: "EVENT", deletedAt: null, hidden: false, startDate: { lte: today }, endDate: { gte: addDays(today, -56) } }, select: { startDate: true, endDate: true } }),
+    weekHours(mon),
+    weekHours(addDays(mon, -7)),
+  ]);
+  const count = (d: string) => per.get(d) ?? 0;
+  const counted = (d: string) => !since || d >= since;
+  const settimane = Array.from({ length: 8 }, (_, i) => {
+    const start = addDays(from, i * 7);
+    return Array.from({ length: 7 }, (_, j) => count(addDays(start, j))).reduce((a, b) => a + b, 0);
+  });
+  // La settimana in corso contro la scorsa allo stesso punto (stesso giorno, giornate intere).
+  const wd = weekday(today);
+  const questaSettimana = Array.from({ length: wd + 1 }, (_, j) => count(addDays(mon, j))).reduce((a, b) => a + b, 0);
+  const scorsaStessoPunto = Array.from({ length: wd + 1 }, (_, j) => count(addDays(mon, j - 7))).reduce((a, b) => a + b, 0);
+  // Questo mese fino a oggi contro lo stesso numero di giorni del mese scorso.
+  const dom = Number(today.slice(8));
+  const monthStart = `${today.slice(0, 8)}01`;
+  const prevStart = (() => { const d = toDate(monthStart); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 10); })();
+  const mese = Array.from({ length: dom }, (_, i) => count(addDays(monthStart, i))).reduce((a, b) => a + b, 0);
+  const prevPer = await opensPerDay(prevStart);
+  const meseScorso = Array.from({ length: dom }, (_, i) => addDays(prevStart, i)).filter((d) => d < monthStart).reduce((s, d) => s + (prevPer.get(d) ?? 0), 0);
+  // Giorni con un evento contro gli altri, nelle ultime 8 settimane (solo giorni già contati e già finiti).
+  const evDays = new Set<string>();
+  for (const e of events) for (let d = e.startDate; d <= e.endDate; d = addDays(d, 1)) evDays.add(d);
+  const past = Array.from({ length: 56 }, (_, i) => addDays(today, -56 + i)).filter(counted);
+  const avg = (list: string[]) => (list.length ? Math.round(list.reduce((s, d) => s + count(d), 0) / list.length) : null);
+  const conEvento = avg(past.filter((d) => evDays.has(d)));
+  const senza = avg(past.filter((d) => !evDays.has(d)));
+  const bestWd = byWd.reduce<{ w: number; n: number } | null>((b, r) => (!b || r._count._all > b.n ? { w: r.weekday, n: r._count._all } : b), null);
+  const bestHour = byHour.reduce<{ h: number; n: number } | null>((b, r) => (!b || r._count._all > b.n ? { h: r.hour, n: r._count._all } : b), null);
+  return {
+    aggiornato: clockNow(),
+    settimane,
+    questaSettimana,
+    deltaSettimana: delta(questaSettimana, scorsaStessoPunto),
+    mese,
+    meseScorso,
+    deltaMese: delta(mese, meseScorso),
+    nomeMese: MONTHS[Number(today.slice(5, 7)) - 1],
+    nomeMeseScorso: MONTHS[(Number(today.slice(5, 7)) + 10) % 12],
+    giorniMese: dom,
+    eventi: conEvento !== null && senza !== null ? { conEvento, senza, delta: delta(conEvento, senza) } : null,
+    giornoForte: bestWd ? DAYS[(bestWd.w + 6) % 7] : null,
+    oraForte: bestHour ? `${bestHour.h}–${bestHour.h + 1}` : null,
+    ore: { questa: oreQuesta, scorsa: oreScorsa },
+    link: "/statistiche",
+    linkOre: `/orari?date=${mon}`,
+  };
+}
+
+// ---------- Cosa dire ai clienti (per chi è in sala)
+export async function dataClienti() {
+  const day = businessDayKey(new Date());
+  const [daily, esauriti, ev, consigli] = await Promise.all([
+    dailyLines(day),
+    soldOutNames(day),
+    nextEvent(day),
+    prisma.menuItem.findMany({
+      where: { deletedAt: null, recommended: true, textOnly: false, group: { deletedAt: null, section: { deletedAt: null, promoId: null, dailyOnly: false } } },
+      select: { name: true, availableFrom: true, availableTo: true, soldOutDay: true },
+      orderBy: { updatedAt: "asc" },
+    }),
+  ]);
+  return {
+    aggiornato: clockNow(),
+    fuori: [...daily.piatti, ...daily.vini].slice(0, 3).map((x) => ({ nome: x.nome, prezzo: x.prezzo })),
+    esauriti,
+    consigli: consigli.filter((c) => inPeriod(c, day) && c.soldOutDay !== day).slice(0, 3).map((c) => c.name),
+    evento: ev && ev.oggi ? { titolo: ev.titolo, ora: ev.ora } : ev ? { titolo: ev.titolo, quando: ev.quando } : null,
+    link: "/menu",
+  };
+}
+
+// La prima cosa da fare, detta per intero sotto il numero.
+const TODO_TEXT: Record<string, (n: number) => string> = {
+  allergeni: (n) => `${n} ${n === 1 ? "piatto" : "piatti"} senza allergeni`,
+  "da confermare": () => "orari da confermare",
+  "da approvare": (n) => `${n} ${n === 1 ? "mese" : "mesi"} da approvare`,
+};
+
+// ---------- Pannello: sei scorciatoie, ognuna con il suo dato
+export async function dataPannello(owner: { kind: "admin" } | { kind: "employee"; employeeId: string }) {
+  const day = businessDayKey(new Date());
+  const today = romeParts().day;
+  if (owner.kind === "employee") {
+    const [turni, daily, esauriti] = await Promise.all([dataTurni(owner.employeeId), dailyLines(day), soldOutNames(day)]);
+    return {
+      aggiornato: clockNow(),
+      ruolo: "dipendente",
+      turno: turni.prossimo ? { quando: turni.prossimo.quando, orario: `${hhmm(turni.prossimo.inizio)}–${hhmm(turni.prossimo.fine)}`, tra: turni.prossimo.tra, link: turni.prossimo.link } : null,
+      fuori: [...daily.piatti, ...daily.vini].map((x) => x.nome).slice(0, 2),
+      esauriti: esauriti.length,
+      link: "/menu",
+      linkTurni: turni.link,
+      linkOre: "/mie-ore",
+    };
+  }
+  const [ap, staff, daily, todo] = await Promise.all([dataAperture(), staffNow(), dailyLines(day), dataDaFare()]);
+  const daFare = todo.righe.filter((r) => r.n > 0 && r.breve !== "esauriti");
+  return {
+    aggiornato: clockNow(),
+    ruolo: "titolare",
+    aperture: ap.oggi,
+    delta: ap.deltaIeri,
+    ieriFinora: ap.ieri,
+    ultimi14: ap.ultimi14,
+    stasera: { chiuso: staff.chiuso, persone: staff.stasera.map((p) => p.iniziali), orario: staff.stasera.length ? `${staff.stasera[0].dalle}–${[...staff.stasera].sort((a, b) => b.fine - a.fine)[0].alle}` : null },
+    fuori: [...daily.piatti, ...daily.vini].map((x) => x.nome).slice(0, 2),
+    daFare: daFare.reduce((s, r) => s + r.n, 0),
+    daFarePrimo: daFare[0] ? { testo: TODO_TEXT[daFare[0].breve]?.(daFare[0].n) ?? `${daFare[0].n} ${daFare[0].breve}`, link: daFare[0].link } : null,
+    link: "/menu",
+    linkStatistiche: `/statistiche?dal=${today}&al=${today}`,
+    linkTurni: `/orari?date=${today}`,
+  };
+}
