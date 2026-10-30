@@ -313,7 +313,8 @@ export function MenuEditor({
     setTab(next);
     if (next === "menu" && promoSelected) setActiveSlug(lastSectionSlug);
     if (next === "eventi" && !promoSelected) {
-      const first = currentPromos[0] ?? archivePromos[0];
+      // Solo quelli in programma: un evento passato si apre dall'«Archivio», non da solo.
+      const first = currentPromos[0];
       if (first) setActiveSlug(`promo:${first.id}`);
     }
   }
@@ -704,7 +705,9 @@ export function MenuEditor({
         <div ref={contentRef} className="min-w-0 scroll-mt-20 space-y-4">
           {(tab === "menu" ? promoSelected : !promoSelected) ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-foreground-muted">
-              {tab === "eventi" ? "Nessun evento o annuncio: crealo con «+ Nuovo evento» o «+ Nuovo annuncio»." : "Scegli una categoria."}
+              {tab === "eventi"
+                ? `Nessun evento o annuncio in programma: crealo con «+ Nuovo evento» o «+ Nuovo annuncio».${archivePromos.length ? " Quelli passati sono nell'«Archivio», a sinistra: si riaprono per duplicarli." : ""}`
+                : "Scegli una categoria."}
             </p>
           ) : (
           <>
