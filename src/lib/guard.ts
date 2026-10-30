@@ -19,7 +19,7 @@ export type CurrentEmployee = {
 };
 
 export class AuthError extends Error {
-  constructor(message = "Sessione non valida. Esegui di nuovo l'accesso.") {
+  constructor(message = "Il sito non ti riconosce più: accedi di nuovo in un'altra scheda, poi torna qui e riprova.") {
     super(message);
     this.name = "AuthError";
   }
@@ -98,9 +98,17 @@ export async function getMenuEditor(): Promise<MenuEditor | null> {
 
 export async function requireMenuEditor(): Promise<MenuEditor> {
   const editor = await getMenuEditor();
-  if (!editor) throw new AuthError("Non hai il permesso di modificare il menù. Se la sessione è scaduta, accedi di nuovo.");
-  return editor;
+  if (editor) return editor;
+  // Due casi diversi, due messaggi: l'accesso non c'è più (password cambiata da un altro
+  // dispositivo, accesso chiuso) oppure un dipendente a cui è stato tolto il permesso.
+  const session = await getServerSession(authOptions);
+  if (!session?.user) throw new AuthError(SESSION_LOST);
+  throw new AuthError("Non hai più il permesso di modificare il menù: chiedi al titolare.");
 }
+
+// La finestra resta aperta con quello che si è scritto: basta rientrare in un'altra scheda e salvare di nuovo.
+export const SESSION_LOST =
+  "Il sito non ti riconosce più (la password è stata cambiata o l'accesso è stato chiuso). Apri il sito in un'altra scheda, accedi, poi torna qui e premi di nuovo: quello che hai scritto non si perde.";
 
 // Analoga a requireUser() ma per un login da dipendente (role "EMPLOYEE"):
 // usata dalle action dell'Area Dipendenti, dove ognuno può leggere e
