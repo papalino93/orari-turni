@@ -476,7 +476,7 @@ function wAperture(fam, d, v) {
     const r = riga(w);
     testo(r, `${Math.round((d.oggi / d.media) * 100)}% di un ${d.giornoSettimana} medio`, F.testo(9), C.crema3);
     r.addSpacer();
-    testo(r, `media ${d.media}`, F.testo(9), C.crema3);
+    testo(r, "confronti alla stessa ora", F.testo(9), C.crema3);
   }
   return w;
 }

@@ -68,7 +68,7 @@ export default async function AccountPage() {
               <p className="text-sm font-medium text-foreground">
                 {u.name}
                 {u.username === session?.user?.username && (
-                  <span className="ml-2 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent">
+                  <span className="ml-2 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent-ink">
                     Tu
                   </span>
                 )}

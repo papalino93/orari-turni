@@ -53,11 +53,11 @@ export function AddSheet({
           </button>
           <button type="button" className={big} onClick={() => onChoose({ type: "daily", kind: "FOOD" })}>
             <span className="text-sm font-semibold text-foreground">Il piatto di oggi</span>
-            <span className="text-xs text-foreground-muted">In «Oggi fuori menù»: sparisce da solo alle 5.</span>
+            <span className="text-xs text-foreground-muted">In «Oggi fuori menù»: sparisce da solo alle 5 del mattino.</span>
           </button>
           <button type="button" className={big} onClick={() => onChoose({ type: "daily", kind: "WINE" })}>
             <span className="text-sm font-semibold text-foreground">Il vino di oggi</span>
-            <span className="text-xs text-foreground-muted">In «Oggi fuori menù»: sparisce da solo alle 5.</span>
+            <span className="text-xs text-foreground-muted">In «Oggi fuori menù»: sparisce da solo alle 5 del mattino.</span>
           </button>
           <button type="button" className={big} onClick={() => onChoose({ type: "promo", kind: "EVENT" })}>
             <span className="text-sm font-semibold text-foreground">Un evento</span>

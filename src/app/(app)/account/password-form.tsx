@@ -33,7 +33,7 @@ export function PasswordForm({ userId, isSelf }: { userId: string; isSelf: boole
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="text-xs font-medium text-accent hover:text-accent-hover">
+      <button type="button" onClick={() => setOpen(true)} className="text-xs font-medium text-accent-ink hover:text-accent-hover">
         {isSelf ? "Cambia la tua password" : "Imposta nuova password"}
       </button>
     );

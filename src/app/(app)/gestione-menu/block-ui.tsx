@@ -125,7 +125,7 @@ export function BlocksPanel({
                       aria-label={`Modifica: ${blockSummary(b)}`}
                       className="min-h-10 min-w-0 flex-1 text-left"
                     >
-                      <span className={`block truncate text-sm ${status !== "live" ? "text-foreground-muted" : "text-foreground"}`}>
+                      <span className={`block line-clamp-2 text-sm ${status !== "live" ? "text-foreground-muted" : "text-foreground"}`}>
                         {blockSummary(b)}
                       </span>
                       <span className="block truncate text-[11px] text-foreground-muted">

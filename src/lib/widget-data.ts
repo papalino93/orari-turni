@@ -46,36 +46,48 @@ async function opensPerDay(from: string): Promise<Map<string, number>> {
   return new Map(rows.map((r) => [r.day, r._count._all]));
 }
 
+// Aperture fino a quest'ora, per i giorni indicati: i confronti si fanno alla stessa ora, altrimenti
+// una giornata appena iniziata contro giornate intere sembra sempre un crollo.
+async function opensSoFar(days: string[], hour: number): Promise<Map<string, number>> {
+  const rows = await prisma.menuEvent.groupBy({ by: ["day"], where: { kind: "open", day: { in: days }, hour: { lte: hour } }, _count: { _all: true } });
+  return new Map(rows.map((r) => [r.day, r._count._all]));
+}
+
 // ---------- Aperture di oggi
 export async function dataAperture() {
-  const today = romeParts().day;
+  const { day: today, hour } = romeParts();
   const { since } = await loadStatsSetting();
   const per = await opensPerDay(addDays(today, -63));
   const count = (d: string) => per.get(d) ?? 0;
-  // Media dello stesso giorno della settimana nelle 8 settimane prima (solo giorni già contati).
+  // Stesso giorno della settimana nelle 8 settimane prima (solo giorni già contati), alla stessa ora.
   const same = Array.from({ length: 8 }, (_, i) => addDays(today, -7 * (i + 1))).filter((d) => !since || d >= since);
-  const avg = same.length ? Math.round(same.reduce((s, d) => s + count(d), 0) / same.length) : null;
+  const yesterday = addDays(today, -1);
   const lastWeekDay = addDays(today, -7);
+  const soFar = await opensSoFar([yesterday, ...same], hour);
+  const at = (d: string) => soFar.get(d) ?? 0;
+  const avg = same.length ? Math.round(same.reduce((s, d) => s + at(d), 0) / same.length) : null;
   return {
     aggiornato: clockNow(),
     giorno: dayLong(today),
     giornoSettimana: DAYS[weekday(today)].toLowerCase(),
     oggi: count(today),
-    ieri: count(addDays(today, -1)),
-    deltaIeri: delta(count(today), count(addDays(today, -1))),
-    settimanaScorsa: count(lastWeekDay),
-    deltaSettimanaScorsa: delta(count(today), count(lastWeekDay)),
+    ieri: at(yesterday),
+    deltaIeri: delta(count(today), at(yesterday)),
+    settimanaScorsa: at(lastWeekDay),
+    deltaSettimanaScorsa: delta(count(today), at(lastWeekDay)),
+    ieriTotale: count(yesterday),
+    settimanaScorsaTotale: count(lastWeekDay),
     media: avg,
     ultimi14: Array.from({ length: 14 }, (_, i) => count(addDays(today, i - 13))),
     link: `/statistiche?dal=${today}&al=${today}`,
-    linkIeri: `/statistiche?dal=${addDays(today, -1)}&al=${addDays(today, -1)}`,
+    linkIeri: `/statistiche?dal=${yesterday}&al=${yesterday}`,
     linkSettimanaScorsa: `/statistiche?dal=${lastWeekDay}&al=${lastWeekDay}`,
   };
 }
 
 // ---------- Statistiche della settimana
 export async function dataSettimana() {
-  const today = romeParts().day;
+  const { day: today, hour } = romeParts();
   const mon = monday(today);
   const prevMon = addDays(mon, -7);
   const per = await opensPerDay(prevMon);
@@ -84,7 +96,9 @@ export async function dataSettimana() {
   const questa = Array.from({ length: wd + 1 }, (_, i) => count(addDays(mon, i)));
   const scorsa = Array.from({ length: 7 }, (_, i) => count(addDays(prevMon, i)));
   const totale = questa.reduce((a, b) => a + b, 0);
-  const stessoPunto = scorsa.slice(0, wd + 1).reduce((a, b) => a + b, 0);
+  // La settimana scorsa fino allo stesso giorno e alla stessa ora.
+  const oggiScorso = (await opensSoFar([addDays(prevMon, wd)], hour)).get(addDays(prevMon, wd)) ?? 0;
+  const stessoPunto = scorsa.slice(0, wd).reduce((a, b) => a + b, 0) + oggiScorso;
   const [hours, search, pick] = await Promise.all([
     prisma.menuEvent.groupBy({ by: ["hour"], where: { kind: "open", day: { gte: mon } }, _count: { _all: true } }),
     prisma.menuEvent.groupBy({ by: ["label"], where: { kind: "search", label: { not: null }, day: { gte: mon } }, _count: { _all: true }, orderBy: { _count: { label: "desc" } }, take: 1 }),

@@ -62,6 +62,8 @@ const close = async (p) => { await p.keyboard.press("Escape"); await discardIfAs
   // dipendenti: permesso menù
   await page.goto(`${BASE}/dipendenti`, { waitUntil: "networkidle", timeout: 120000 });
   await settle(page, 800);
+  // Le schede si aprono con «Settimana, accesso e azioni»: si apre la prima con l'interruttore del menù.
+  await page.getByRole("button", { name: "Settimana, accesso e azioni" }).first().click();
   const sw2 = page.locator('button[role="switch"][aria-label^="Può modificare il menù"]').first();
   if (await sw2.count()) await sw2.evaluate((el) => el.scrollIntoView({ block: "center" }));
   await settle(page, 500);

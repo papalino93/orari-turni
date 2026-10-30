@@ -61,7 +61,7 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
   return (
     <Section title="Chi può usare i widget" hint="Tu e il consulente li avete tutti. Per ogni dipendente scegli se può usarli e quali.">
       <details className="group border-b border-border px-5 py-3">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium text-accent [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium text-accent-ink [&::-webkit-details-marker]:hidden">
           Come autorizzare un dipendente
           <span aria-hidden className="transition-transform group-open:rotate-180">⌄</span>
         </summary>
@@ -168,7 +168,7 @@ export function ThemePicker({ current }: { current: string }) {
                   <span className="block text-sm font-semibold text-foreground">{t.nome}</span>
                   <span className="block text-xs text-foreground-muted">{t.descrizione}</span>
                 </span>
-                <span className={`shrink-0 text-xs font-medium ${on ? "text-accent" : "text-foreground-muted"}`}>{on ? "✓ In uso" : "Usa questi"}</span>
+                <span className={`shrink-0 text-xs font-medium ${on ? "text-accent-ink" : "text-foreground-muted"}`}>{on ? "✓ In uso" : "Usa questi"}</span>
               </span>
             </button>
           );
@@ -231,7 +231,7 @@ function CopyWord({ word }: { word: string }) {
       aria-label={`Copia la parola ${word}`}
     >
       Parameter: <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[12px] text-foreground">{word}</code>
-      <span className="font-medium text-accent">{done ? "Copiata ✓" : "Copia"}</span>
+      <span className="font-medium text-accent-ink">{done ? "Copiata ✓" : "Copia"}</span>
     </button>
   );
 }
@@ -372,22 +372,22 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
             </>
           )}
         </Step>
-        <Step n={3} title="Incollalo in Scriptable">
+        <Step n={3} title="Incolla lo script in Scriptable">
           <p>
-            Apri Scriptable, tocca <Key>+</Key> in alto a destra, tieni premuto nella pagina vuota e scegli <Key>Incolla</Key>.
+            Apri Scriptable, tocca <Key>+</Key> in alto a destra, tieni premuto nella pagina vuota e scegli <span className="whitespace-nowrap"><Key>Incolla</Key>.</span>
           </p>
           <p>
-            Tocca il titolo in alto (es. «Untitled Script»), scrivi <b className="text-foreground">Angolo del Vino</b> e tocca <Key>Fine</Key>.
+            Tocca il titolo in alto (es. «Untitled Script»), scrivi <b className="text-foreground">Angolo del Vino</b> e tocca <span className="whitespace-nowrap"><Key>Fine</Key>.</span>
           </p>
         </Step>
         <Step n={4} title="Aggiungi il widget alla Home">
           <p>
             Tieni premuto su uno spazio vuoto della Home finché le icone tremano, tocca <Key>Modifica</Key> in alto a sinistra, poi
-            <Key>Aggiungi widget</Key>.
+            <span className="whitespace-nowrap"><Key>Aggiungi widget</Key>.</span>
           </p>
           <p>
             Cerca <b className="text-foreground">Scriptable</b>, scorri fino alla grandezza che vuoi (piccolo, medio o grande) e tocca
-            <Key>Aggiungi widget</Key>.
+            <span className="whitespace-nowrap"><Key>Aggiungi widget</Key>.</span>
           </p>
         </Step>
         <Step n={5} title="Scegli quale widget mostrare">
@@ -407,14 +407,14 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
         </Step>
         <Step n={6} title="Schermata di blocco (facoltativo)">
           <p>
-            Tieni premuto sulla schermata di blocco, tocca <Key>Personalizza</Key> → <Key>Schermata di blocco</Key>, tocca lo spazio sotto
+            Tieni premuto sulla schermata di blocco, tocca <Key>Personalizza</Key> → <span className="whitespace-nowrap"><Key>Schermata di blocco</Key>,</span> tocca lo spazio sotto
             l&apos;ora, scegli Scriptable e poi, come al punto 5, lo script e la parola. Lì si vede anche a telefono bloccato: mettici
             solo cose che possono vedere tutti.
           </p>
         </Step>
       </ol>
       <details className="group border-t border-border px-5 py-3">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium text-accent [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium text-accent-ink [&::-webkit-details-marker]:hidden">
           Domande frequenti
           <span aria-hidden className="transition-transform group-open:rotate-180">⌄</span>
         </summary>

@@ -33,7 +33,7 @@ await login(page, "andrea", ADMIN_PW);
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 180000 });
 await noBanner();
 await goTab(page, "Menù");
-await page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+await page.locator('nav[aria-label="Categorie"] button', { hasText: "Rossi" }).click();
 await page.evaluate(() => window.scrollTo(0, 0));
 await settle(900);
 await shot("gestione");
@@ -47,7 +47,7 @@ const parts = await page.evaluate(() => {
     search: r(document.querySelector('input[type="search"], [role="searchbox"]')),
     oggi: r(document.querySelector('section[aria-label="Oggi fuori menù"]')),
     addsec: r(byText("button", "+ Aggiungi un vino in")),
-    sezioni: r(document.querySelector('nav[aria-label="Sezioni"]')),
+    sezioni: r(document.querySelector('nav[aria-label="Categorie"]')),
     voci: r(document.querySelector("section h3 button")),
   };
 });
@@ -71,7 +71,7 @@ await settle(500);
 await tool(page, "Riordina");
 await settle(500);
 await dialog().getByRole("button", { name: "Apri Italia" }).click().catch(async () => {
-  await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Sezioni" }).click();
+  await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Categorie" }).click();
   await dialog().getByRole("button", { name: "Apri Rossi" }).click();
   await dialog().getByRole("button", { name: "Apri Italia" }).click();
 });

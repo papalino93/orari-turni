@@ -61,19 +61,20 @@ export function DailyPanel({
           icon={IconToday}
           tone="gold"
           title="Oggi fuori menù"
-          subtitle="Il piatto e il vino del giorno: spariscono da soli alle 5:00."
+          subtitle="Il piatto e il vino del giorno: spariscono da soli alle 5 del mattino."
           badge={
             rows.length > 0 ? (
               <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-semibold text-gold">{rows.length} oggi</span>
             ) : undefined
           }
         />
-        <div className="flex gap-2">
+        {/* Sul telefono i pulsanti vanno sotto: la descrizione resta intera. */}
+        <div className="flex w-full gap-2 sm:w-auto">
           {foodGroup && (
             <button
               type="button"
               onClick={() => onAdd(foodGroup)}
-              className="min-h-10 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover"
+              className="min-h-10 flex-1 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover sm:flex-none"
             >
               + Piatto
             </button>
@@ -82,7 +83,7 @@ export function DailyPanel({
             <button
               type="button"
               onClick={() => onAdd(wineGroup)}
-              className="min-h-10 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover"
+              className="min-h-10 flex-1 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover sm:flex-none"
             >
               + Vino
             </button>

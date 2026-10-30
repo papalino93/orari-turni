@@ -266,7 +266,7 @@ const ROWS = [
 {
   const i = idx("schede"), T = starts[i], s = chapter(i);
   const CARDS = [
-    ["Menù", "Sezioni, voci, esauriti, Oggi fuori menù", `<path d="M18 8h28c0 14-4 24-14 26-10-2-14-12-14-26zM32 34v18M22 54h20"/>`],
+    ["Menù", "Categorie, voci, esauriti, vetrina", `<path d="M18 8h28c0 14-4 24-14 26-10-2-14-12-14-26zM32 34v18M22 54h20"/>`],
     ["Eventi e annunci", "Locandine, date, menù delle serate", `<rect x="10" y="14" width="44" height="40" rx="6"/><path d="M10 26h44M22 8v10M42 8v10M32 32l3 6 6.500 1-4.700 4.500 1.200 6.500L32 47l-6 3 1.200-6.500-4.700-4.500 6.500-1z"/>`],
     ["Orari e contatti", "Copertina, orari, contatti, coperto e avvisi", `<circle cx="32" cy="32" r="22"/><path d="M32 18v15l10 6"/>`],
     ["Strumenti", "Prezzi, ordine, storico, stampa, QR, guida", `<path d="M10 20h44M10 32h44M10 44h44"/><circle cx="24" cy="20" r="5.500" fill="#faf6f0"/><circle cx="42" cy="32" r="5.500" fill="#faf6f0"/><circle cx="28" cy="44" r="5.500" fill="#faf6f0"/>`],
@@ -310,8 +310,8 @@ const ROWS = [
       <div class="sbody"><div class="v v1">
         <div class="opt o1"><b>Un vino</b><span>Nella carta dei vini, al posto della sua regione.</span></div>
         <div class="opt"><b>Un piatto o una bevanda</b><span>Taglieri, tartare, bevande e le altre categorie.</span></div>
-        <div class="opt"><b>Il piatto di oggi</b><span>In «Oggi fuori menù»: sparisce da solo alle 5.</span></div>
-        <div class="opt"><b>Il vino di oggi</b><span>In «Oggi fuori menù»: sparisce da solo alle 5.</span></div>
+        <div class="opt"><b>Il piatto di oggi</b><span>In «Oggi fuori menù»: sparisce da solo alle 5 del mattino.</span></div>
+        <div class="opt"><b>Il vino di oggi</b><span>In «Oggi fuori menù»: sparisce da solo alle 5 del mattino.</span></div>
         <div class="opt"><b>Un evento</b><span>Locandina, date, orario e, se serve, il suo menù.</span></div>
         <div class="opt"><b>Un annuncio</b><span>Una riga sotto la copertina, es. «Lunedì chiusi per ferie».</span></div></div>
       <div class="v v2">

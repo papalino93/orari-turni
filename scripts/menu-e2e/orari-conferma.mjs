@@ -108,6 +108,7 @@ if (await send.count()) {
 // --- Dipendenti: nuova password e disattiva chiedono conferma
 const pwBefore = DB(`select password from "Employee" where id='${fra}'`);
 await adm.goto(`${BASE}/dipendenti`, { waitUntil: "networkidle" });
+for (const b of await adm.getByRole("button", { name: "Settimana, accesso e azioni" }).all()) await b.click();
 await adm.getByRole("button", { name: "Nuova password" }).first().click();
 check("dipendenti: «Nuova password» chiede conferma", (await adm.getByRole("alertdialog", { name: "Creare una nuova password?" }).count()) === 1);
 await adm.getByRole("alertdialog").getByRole("button", { name: "Annulla" }).click();
@@ -119,11 +120,11 @@ check("«Mail» non c'è nel menu", !/Mail/.test(await nav()));
 await adm.goto(`${BASE}/account`, { waitUntil: "networkidle" });
 const acc = await adm.locator("main").innerText();
 check("Account: niente testo tecnico (Claude, database)", !/Claude|database/.test(acc) && /Se dimentichi la password/.test(acc));
-await adm.getByRole("switch", { name: "Mostra «Mail» nel menu" }).click();
+await adm.getByRole("switch", { name: "Mostra «Mail» nel menù" }).click();
 await adm.waitForTimeout(1500);
 await adm.reload({ waitUntil: "networkidle" });
 check("Account: accesa «Mail» compare nel menu", /Mail/.test(await nav()));
-await adm.getByRole("switch", { name: "Mostra «Mail» nel menu" }).click();
+await adm.getByRole("switch", { name: "Mostra «Mail» nel menù" }).click();
 await adm.waitForTimeout(1500);
 
 // --- Installa: chi ha l'app installata non la vede più

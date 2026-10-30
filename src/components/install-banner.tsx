@@ -35,8 +35,11 @@ export function InstallBanner() {
   useEffect(() => {
     const alreadyStandalone = isStandalone();
     const dismissed = localStorage.getItem(DISMISSED_KEY) === "1";
+    // Solo su telefono e tablet: dal computer l'app non si installa sulla Home.
+    const ua = navigator.userAgent;
+    const mobile = /iPhone|iPad|iPod|Android/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- dipende da localStorage/matchMedia, non disponibili al primo render lato server
-    setVisible(!alreadyStandalone && !dismissed);
+    setVisible(mobile && !alreadyStandalone && !dismissed);
   }, []);
 
   if (!visible || pathname === "/installa") return null;
@@ -51,7 +54,7 @@ export function InstallBanner() {
       <span aria-hidden className="text-base">📲</span>
       <p className="flex-1 text-foreground-muted">
         Aggiungi l&apos;app alla schermata Home del telefono: si apre più in fretta, come un&apos;app vera.{" "}
-        <Link href="/installa" className="font-medium text-accent hover:text-accent-hover">
+        <Link href="/installa" className="font-medium text-accent-ink hover:text-accent-hover">
           Scopri come
         </Link>
       </p>

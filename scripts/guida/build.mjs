@@ -458,7 +458,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Guida · entrare")}
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:auto">
     <div class="card"><h3>Anche dal telefono</h3><p>Stesso indirizzo e stesse credenziali; sul telefono la barra è in basso. Si può aggiungere alla schermata Home con <span class="ui">Scopri come</span>.</p></div>
-    <div class="card"><h3>Chi può modificare</h3><p>Il titolare sempre. Un dipendente solo se in Dipendenti è acceso <span class="ui">Può modificare il menù</span>. Ogni modifica resta nello storico con il nome di chi l'ha fatta.</p></div>
+    <div class="card"><h3>Chi può modificare</h3><p>Il titolare sempre. Un dipendente solo se in Dipendenti, nella sua scheda (<span class="ui">Settimana, accesso e azioni</span>), è acceso <span class="ui">Può modificare il menù</span>. Ogni modifica resta nello storico con il nome di chi l'ha fatta.</p></div>
   </div>
 </section>`);
 
@@ -484,7 +484,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Guida · ogni giorno")}
   <h2>Le cose di tutti i giorni,<br><em>passo per passo</em></h2></div>
   <div class="howto">
     <div class="card"><h3>Un vino o un piatto è finito</h3><ol class="steps"><li>In alto, in <span class="ui">Cerca una voce del menù…</span>, scrivi il nome.</li><li>Tocca <span class="ui">Esaurito</span>.</li></ol><p class="res">Il vino sparisce dal menù, il piatto resta sbiadito. Alle 5 del mattino torna da solo. Per rimettere tutto subito: <span class="ui">Riattiva tutto</span>.</p></div>
-    <div class="card"><h3>Il piatto o il vino del giorno</h3><ol class="steps"><li>In «Oggi fuori menù» tocca <span class="ui">+ Piatto</span> o <span class="ui">+ Vino</span>.</li><li>Nome, prezzo e allergeni, poi <span class="ui">Aggiungi</span>.</li></ol><p class="res">Compare in cima al menù e sparisce alle 5. Per rimetterlo un altro giorno: <span class="ui">Riproponi</span>.</p></div>
+    <div class="card"><h3>Il piatto o il vino del giorno</h3><ol class="steps"><li>In «Oggi fuori menù» tocca <span class="ui">+ Piatto</span> o <span class="ui">+ Vino</span>.</li><li>Nome, prezzo e allergeni, poi <span class="ui">Aggiungi</span>.</li></ol><p class="res">Compare in cima al menù e sparisce alle 5 del mattino. Per rimetterlo un altro giorno: <span class="ui">Riproponi</span>.</p></div>
     <div class="card"><h3>Cambiare un prezzo o un testo</h3><ol class="steps"><li>Cerca la voce e tocca il suo nome.</li><li>Cambia il campo e tocca <span class="ui">Salva</span>.</li></ol><p class="res">Tanti prezzi insieme: in <span class="ui">Strumenti</span>, <span class="ui">Tabella prezzi</span>, poi <span class="ui">Salva tutto</span>.</p></div>
     <div class="card"><h3>Aggiungere un vino o un piatto</h3><ol class="steps"><li>Tocca la categoria (es. Rossi).</li><li>In fondo al gruppo tocca <span class="ui">+ Aggiungi vino</span> o <span class="ui">+ Aggiungi voce</span>.</li><li>Compila (per un vino italiano anche la <b>regione</b>) e tocca <span class="ui">Aggiungi</span>.</li></ol><p class="res">Il vino va da solo al posto della sua regione. Uno simile a un altro: aprilo e <span class="ui">Duplica</span>. Tante voci: <span class="ui">Incolla più voci</span>.</p></div>
     <div class="card"><h3>Abbinare un vino a un piatto</h3><ol class="steps"><li>Apri il piatto.</li><li>In <span class="ui">Abbinamento consigliato</span> scrivi il nome del vino e toccalo.</li><li>Tocca <span class="ui">Salva</span>.</li></ol><p class="res">Per toglierlo: ✕ accanto al vino, poi Salva. Un vino o un piatto «della casa»: in <span class="ui">In vetrina</span>, <span class="ui">+ Aggiungi consiglio</span> (al massimo 4).</p></div>
@@ -534,7 +534,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
 
     <div><h4>Il QR stampato va rifatto quando cambio i prezzi?</h4><p>No: porta sempre alla stessa pagina, che si aggiorna da sola. Va solo ripuntato una volta alla nuova pagina.</p></div>
     <div><h4>Posso caricare il menù di un evento in PDF?</h4><p>Sì: nell'evento scegli «PDF o foto» e «Carica PDF o foto». I clienti vedono le pagine dentro il menù, con l'avviso allergeni.</p></div>
-    <div><h4>Un dipendente può segnare gli esauriti?</h4><p>Sì, se in «Dipendenti» gli accendi «Può modificare il menù». Potrà cambiare anche voci e prezzi; ogni modifica resta nello storico con il suo nome.</p></div>
+    <div><h4>Un dipendente può segnare gli esauriti?</h4><p>Sì, se in «Dipendenti» apri la sua scheda («Settimana, accesso e azioni») e accendi «Può modificare il menù». Potrà cambiare anche voci e prezzi; ogni modifica resta nello storico con il suo nome.</p></div>
     <div><h4>Se non compilo gli allergeni di un piatto?</h4><p>Il cliente legge «Allergeni da verificare con il personale»: mai un'informazione che sembri sicura quando non lo è.</p></div>
     <div><h4>Come metto le birre in più formati?</h4><p>Nella prima birra, in «Prezzo», scegli «Più formati» e tocca i formati (es. 0,2 l · 0,4 l · 1 l): diventano le colonne del gruppo e nelle altre birre scrivi solo i prezzi.</p></div>
     <div><h4>Quando compare un evento?</h4><p>La locandina dal giorno scelto (di solito una settimana prima), nella striscia «In evidenza»; nei giorni dell'evento è la prima, con «in corso» e il menù speciale. Finito, sparisce da solo.</p></div>

@@ -18,9 +18,10 @@ export function AllergenMarks({ item }: { item: { allergens: string[]; allergens
   const names = allergenNumbers(item.allergens).map((n) => ALLERGENS[n - 1].label);
   return (
     <>
-      <div className="menu-sans mt-0.5 text-[12.5px] font-medium leading-snug text-[#6B1020]">
-        <span className="mr-2 text-[10px] font-medium uppercase tracking-[0.18em] text-[#5B605A]">Allergeni</span>
-        {names.join(" · ")}
+      {/* Se i nomi vanno a capo, ripartono sotto il primo nome e non sotto «Allergeni». */}
+      <div className="menu-sans mt-0.5 flex items-baseline gap-2 text-[12.5px] font-medium leading-snug text-[#6B1020]">
+        <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.18em] text-[#5B605A]">Allergeni</span>
+        <span className="min-w-0">{names.join(" · ")}</span>
       </div>
       {tracesLine}
     </>

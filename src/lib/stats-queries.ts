@@ -150,7 +150,23 @@ export async function loadStats(period: Period, since: string | null, custom?: {
   for (let d = to; d >= start; d = addDays(d, -1)) daily.push({ day: d, count: perDay.get(d) ?? 0 });
 
   // Oggi, ieri e lo stesso giorno della settimana scorsa: sempre in vista in cima alla pagina.
-  const todayStats = { today: perDay.get(today) ?? 0, yesterday: perDay.get(addDays(today, -1)) ?? 0, lastWeek: perDay.get(addDays(today, -7)) ?? 0 };
+  // Il confronto si fa «alla stessa ora»: una giornata appena iniziata contro giornate intere
+  // sembrerebbe sempre un crollo.
+  const nowHour = romeParts().hour;
+  const soFar = await prisma.menuEvent.groupBy({
+    by: ["day"],
+    where: { kind: "open", day: { in: [addDays(today, -1), addDays(today, -7)] }, hour: { lte: nowHour } },
+    _count: { _all: true },
+  });
+  const soFarOf = (d: string) => soFar.find((r) => r.day === d)?._count._all ?? 0;
+  const todayStats = {
+    today: perDay.get(today) ?? 0,
+    yesterday: perDay.get(addDays(today, -1)) ?? 0,
+    lastWeek: perDay.get(addDays(today, -7)) ?? 0,
+    yesterdaySoFar: soFarOf(addDays(today, -1)),
+    lastWeekSoFar: soFarOf(addDays(today, -7)),
+    hour: nowHour,
+  };
 
   // Gli ultimi 14 giorni (oggi compreso), per il piccolo grafico accanto alle aperture di oggi.
   const recent = Array.from({ length: 14 }, (_, i) => {

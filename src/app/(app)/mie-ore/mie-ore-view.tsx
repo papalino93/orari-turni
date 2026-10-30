@@ -99,7 +99,7 @@ export function MieOreView({
   return (
     <div className="mx-auto max-w-xl">
       {preview && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent-ink">
           <span>
             Stai visualizzando come <strong>{employee.name}</strong> — sola lettura.
           </span>

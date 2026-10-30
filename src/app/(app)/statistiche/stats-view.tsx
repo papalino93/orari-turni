@@ -129,12 +129,14 @@ function TodayCard({ stats, recent, today, counting, since }: { stats: StatsData
         {!counting && <p className="mt-2 text-xs text-foreground-muted">{since ? "Conteggio in pausa." : "Il conteggio non è ancora iniziato."}</p>}
       </div>
       <dl className="flex gap-6 text-sm">
+        {/* La variazione si calcola alla stessa ora (fino alle hh:59), il numero grande è la giornata intera. */}
         <div>
           <dt className="text-xs text-foreground-muted">Ieri</dt>
           <dd className="flex items-center gap-2 font-medium tabular-nums text-foreground">
             {n(stats.yesterday)}
-            <Delta value={vs(stats.yesterday)} />
+            <Delta value={vs(stats.yesterdaySoFar)} />
           </dd>
+          <dd className="text-[11px] tabular-nums text-foreground-muted">a quest&apos;ora {n(stats.yesterdaySoFar)}</dd>
         </div>
         <div>
           <dt className="text-xs text-foreground-muted">
@@ -142,8 +144,9 @@ function TodayCard({ stats, recent, today, counting, since }: { stats: StatsData
           </dt>
           <dd className="flex items-center gap-2 font-medium tabular-nums text-foreground">
             {n(stats.lastWeek)}
-            <Delta value={vs(stats.lastWeek)} />
+            <Delta value={vs(stats.lastWeekSoFar)} />
           </dd>
+          <dd className="text-[11px] tabular-nums text-foreground-muted">a quest&apos;ora {n(stats.lastWeekSoFar)}</dd>
         </div>
       </dl>
       <div className="ml-auto flex items-end gap-4">

@@ -171,7 +171,7 @@ const scrollTo = async (page, sel, offset = 48) => {
   await settle(page, 900);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `${OUT}/gesd-top.png` });
-  await scrollTo(page, 'nav[aria-label="Sezioni"]', 120);
+  await scrollTo(page, 'nav[aria-label="Categorie"]', 120);
   await settle(page, 400);
   await page.screenshot({ path: `${OUT}/gesd-lista.png` });
   await ctx.close();

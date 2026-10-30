@@ -263,7 +263,7 @@ export function MailForm({
           {notice?.kind === "error" && step === 0 && <p className="mt-2 text-sm text-danger" role="alert">{notice.text}</p>}
 
           <details className="mt-3 text-sm" open={!hasList}>
-            <summary className="cursor-pointer text-accent">Come deve essere fatto il file?</summary>
+            <summary className="cursor-pointer text-accent-ink">Come deve essere fatto il file?</summary>
             <div className="mt-2 rounded-xl bg-surface-2 p-3 text-xs text-foreground-muted">
               <p>Due colonne: la prima con l&apos;<b>email</b>, la seconda con l&apos;<b>intestazione</b>, cioè solo la parte di ognuno (nome o azienda). Esempio:</p>
               <table className="my-2 w-full text-left text-foreground">
@@ -288,7 +288,7 @@ export function MailForm({
               <a
                 href={`data:text/csv;charset=utf-8,${encodeURIComponent(SAMPLE_CSV)}`}
                 download="esempio-destinatari.csv"
-                className="mt-2 inline-block font-medium text-accent"
+                className="mt-2 inline-block font-medium text-accent-ink"
               >
                 Scarica un file di esempio
               </a>
@@ -296,7 +296,7 @@ export function MailForm({
           </details>
 
           <details className="mt-2 text-sm">
-            <summary className="cursor-pointer text-accent">Oppure incolla l&apos;elenco</summary>
+            <summary className="cursor-pointer text-accent-ink">Oppure incolla l&apos;elenco</summary>
             <label className="sr-only" htmlFor="mail-csv">
               Elenco destinatari
             </label>
@@ -397,12 +397,12 @@ export function MailForm({
                 </p>
               )}
               {recipients.length === 0 && sheet && onlyDocumented && cols?.basis && (
-                <p className="mt-1 text-xs text-accent">
+                <p className="mt-1 text-xs text-accent-ink">
                   Nessuno ha il permesso documentato. Compila la colonna nel file e ricaricalo, oppure togli la spunta sopra se sai di poter scrivere a questi indirizzi.
                 </p>
               )}
               {overLimit && (
-                <p className="mt-1 text-xs text-accent">
+                <p className="mt-1 text-xs text-accent-ink">
                   Sono più di {limit}, il massimo che il servizio gratuito permette in un giorno: l&apos;invio si fermerebbe a metà.
                   Riduci la lista (ad esempio solo la priorità A) e scrivi agli altri nei giorni dopo.
                 </p>
@@ -455,7 +455,7 @@ export function MailForm({
               + Inserisci l&apos;intestazione
             </button>
             {!/\{intestazione\}/i.test(body) && (
-              <span className="text-xs text-accent">Nel testo non c&apos;è {HEADER_TAG}: nessuno vedrà il proprio nome.</span>
+              <span className="text-xs text-accent-ink">Nel testo non c&apos;è {HEADER_TAG}: nessuno vedrà il proprio nome.</span>
             )}
           </div>
 

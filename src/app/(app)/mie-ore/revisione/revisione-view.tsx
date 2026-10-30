@@ -155,7 +155,7 @@ export function RevisioneView({
       </div>
 
       {readOnly && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent-ink">
           <span>
             Stai visualizzando come <strong>{employee.name}</strong> — sola lettura.
           </span>
@@ -283,7 +283,7 @@ function StatusBanner({
       : status === "SUBMITTED"
         ? "border-gold/40 bg-gold/10 text-gold"
         : status === "REOPENED"
-          ? "border-accent/30 bg-accent/10 text-accent"
+          ? "border-accent/30 bg-accent/10 text-accent-ink"
           : "border-border bg-surface-2/50 text-foreground-muted";
 
   return (

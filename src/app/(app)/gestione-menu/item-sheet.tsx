@@ -403,11 +403,13 @@ export function ItemSheet({
               </Field>
             )}
             <Field label="Uvaggio">
-              <input
+              {/* Su due righe: gli uvaggi lunghi («45% Sangiovese, 30% Merlot…») si leggono interi. */}
+              <textarea
                 value={grapes}
-                onChange={(e) => setGrapes(e.target.value)}
+                onChange={(e) => setGrapes(e.target.value.replace(/\s*\n\s*/g, " "))}
                 maxLength={200}
-                className={inputClass}
+                rows={2}
+                className={`${inputClass} resize-none`}
                 placeholder="es. 100% Friulano"
               />
             </Field>
@@ -754,7 +756,7 @@ export function ItemSheet({
                 <button
                   type="button"
                   onClick={() => setTracesOpen(true)}
-                  className="mt-2 flex min-h-11 items-center text-xs font-medium text-accent underline underline-offset-4"
+                  className="mt-2 flex min-h-11 items-center text-xs font-medium text-accent-ink underline underline-offset-4"
                 >
                   + Può contenere tracce di… (facoltativo)
                 </button>

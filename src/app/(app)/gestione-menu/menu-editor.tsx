@@ -404,13 +404,14 @@ export function MenuEditor({
         type="button"
         onClick={() => select(`promo:${p.id}`)}
         aria-current={active ? "true" : undefined}
-        className={`flex min-h-10 max-w-full items-center justify-between gap-2 rounded-full px-3.5 text-sm font-medium transition-colors lg:rounded-xl ${
+        className={`flex min-h-10 max-w-full items-center justify-between gap-2 rounded-full px-3.5 text-sm font-medium transition-colors lg:rounded-xl lg:py-1.5 ${
           active
             ? "bg-accent text-accent-foreground"
             : "border border-border text-foreground-muted hover:border-accent hover:text-foreground lg:border-transparent"
         }`}
       >
-        <span className="truncate">{p.title}</span>
+        {/* Nella colonna del computer il titolo va a capo: l'etichetta «In corso» non lo taglia. */}
+        <span className="truncate lg:line-clamp-2 lg:whitespace-normal">{p.title}</span>
         {!active && (status === "past" ? <span className="shrink-0 text-[10px] text-foreground-muted/80">{p.endDate.slice(0, 4)}</span> : <StatusChip status={status} />)}
       </button>
     );
@@ -597,7 +598,7 @@ export function MenuEditor({
         <ul aria-label="Strumenti del menù" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
             { label: "Tabella prezzi", hint: "Cambia tanti prezzi insieme, anche di categorie diverse, e salva una volta sola.", onClick: () => setSheet({ type: "prices" }) },
-            { label: "Riordina", hint: "L'ordine di categorie, gruppi, voci ed eventi sul menù.", onClick: () => setSheet({ type: "reorder" }) },
+            { label: "Riordina", hint: "L'ordine di categorie, gruppi, voci ed eventi sul menù.", onClick: () => setSheet({ type: "reorder", sections: true }) },
             { label: "Storico", hint: "Tutte le modifiche, con chi le ha fatte; si può tornare indietro.", onClick: () => setSheet({ type: "history" }) },
             { label: "Anteprima", hint: "Il menù come lo vede il cliente, anche in un giorno scelto.", onClick: () => setSheet({ type: "preview" }) },
             { label: "Menù da stampare", hint: "Foglio A4 sempre aggiornato, da stampare o salvare in PDF.", href: "/gestione-menu/stampa" },
@@ -1245,7 +1246,7 @@ function GroupCard({
                 aria-expanded={!closed}
                 aria-controls={`gruppo-${group.id}`}
                 title={closed ? "Apri il gruppo" : "Chiudi il gruppo"}
-                className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg text-left hover:text-accent"
+                className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg text-left hover:text-accent-ink"
               >
                 <svg
                   aria-hidden
@@ -1257,7 +1258,8 @@ function GroupCard({
                 >
                   <path d="M12 18l-7-9h14z" />
                 </svg>
-                <span className="truncate">
+                {/* Il nome va a capo invece di tagliarsi: sul telefono le icone accanto tolgono spazio. */}
+                <span className="line-clamp-2 min-w-0 break-words">
                   {group.title} <span className="font-normal text-foreground-muted">· {group.items.length}</span>
                 </span>
               </button>
@@ -1386,7 +1388,7 @@ function GroupCard({
                 <button type="button" onClick={() => onEdit(item)} className="min-h-12 min-w-0 flex-1 py-1 text-left" aria-label={`Modifica ${item.name}`}>
                   <span className={`block line-clamp-2 break-words text-sm font-medium ${sold ? "text-foreground-muted line-through" : "text-foreground"}`}>
                     {item.name}
-                    {item.enomatic && <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-accent">Enomatic</span>}
+                    {item.enomatic && <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-accent-ink">Enomatic</span>}
                     {item.recommended && <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-gold">Consigliato</span>}
                   </span>
                   {(item.availableFrom || item.availableTo) && (

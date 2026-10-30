@@ -204,7 +204,7 @@ if (run("p")) {
   await s.box("add-save", save);
   await s.closeSheet();
 
-  await s.page.locator('nav[aria-label="Sezioni"] button', { hasText: "Rossi" }).click();
+  await s.page.locator('nav[aria-label="Categorie"] button', { hasText: "Rossi" }).click();
   await s.settle(600);
   const esaurito = s.page.getByRole("button", { name: /^Esaurito$/ });
   // il titolo del gruppo «Italia» subito sotto la barra di ricerca
@@ -403,7 +403,7 @@ if (run("ms")) {
     await pill(g).first().click(); await s.settle(1300);
     await s.shot(`stats-g${i + 1}`);
     if (i === 0) for (const [j, g2] of ["Panoramica", "Quando", "Cosa cercano", "Cosa guardano", "Eventi e contatti"].entries()) await s.box(`stats-pillS-${j}`, pill(g2));
-    for (const t of [["Giorni e orari"], ["Cercate ma non trovate", "Le parole più cercate"], ["Sezioni più aperte"], ["Gli eventi funzionano?", "Contatti toccati", "Pagine degli eventi aperte"]][i]) {
+    for (const t of [["Giorni e orari"], ["Cercate ma non trovate", "Le parole più cercate"], ["Categorie più aperte"], ["Gli eventi funzionano?", "Contatti toccati", "Pagine degli eventi aperte"]][i]) {
       try { await s.box(`stats-card-${t.toLowerCase().replace(/[^a-z]+/g, "-")}`, card(t)); } catch {}
     }
   }

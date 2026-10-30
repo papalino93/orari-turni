@@ -9,7 +9,7 @@ const pagesPub = ["/menu", "/menu/allergeni", "/menu/p/oktoberfest", "/login"];
 const problems = [];
 async function tour(name, w, h, theme, user, list) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
-  await ctx.addInitScript((t) => { try { localStorage.setItem("theme", t); } catch {} }, theme);
+  await ctx.addInitScript((t) => { try { localStorage.setItem("theme", t); localStorage.setItem("install-banner-dismissed", "1"); sessionStorage.setItem("employee-install-prompt-dismissed", "1"); } catch {} }, theme);
   const p = await ctx.newPage();
   p.setDefaultTimeout(60000);
   p.on("pageerror", (e) => problems.push(`${name} JS: ${e.message}`));
@@ -29,7 +29,7 @@ async function tour(name, w, h, theme, user, list) {
 // Schede della gestione aperte (scheda vino, piatto, tabella prezzi, riordina), per vedere come si impaginano.
 async function sheets(name, w, h, theme) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
-  await ctx.addInitScript((t) => { try { localStorage.setItem("theme", t); } catch {} }, theme);
+  await ctx.addInitScript((t) => { try { localStorage.setItem("theme", t); localStorage.setItem("install-banner-dismissed", "1"); sessionStorage.setItem("employee-install-prompt-dismissed", "1"); } catch {} }, theme);
   const p = await ctx.newPage();
   p.setDefaultTimeout(60000);
   p.on("pageerror", (e) => problems.push(`${name} JS: ${e.message}`));
@@ -67,7 +67,7 @@ async function sheets(name, w, h, theme) {
 // Le quattro schede della gestione (e il «+ Aggiungi»), in ogni formato e tema.
 async function schede(name, w, h, theme) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
-  await ctx.addInitScript((t) => { try { localStorage.setItem("theme", t); localStorage.setItem("install-dismissed", String(Date.now())); } catch {} }, theme);
+  await ctx.addInitScript((t) => { try { localStorage.setItem("theme", t); localStorage.setItem("install-banner-dismissed", "1"); sessionStorage.setItem("employee-install-prompt-dismissed", "1"); } catch {} }, theme);
   const p = await ctx.newPage();
   p.setDefaultTimeout(60000);
   p.on("pageerror", (e) => problems.push(`${name} JS: ${e.message}`));
