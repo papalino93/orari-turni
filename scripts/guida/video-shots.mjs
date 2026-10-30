@@ -241,7 +241,8 @@ if (run("c")) {
   });
   data.boxes["c-row"] = row;
   await s.shot("before");
-  DB(`update "MenuItem" set "soldOutDay"='2026-10-04' where name='Avignonesi'`);
+  // Esaurito «oggi» per il server: la giornata del locale (cambia alle 5 del mattino), non la data finta del telefono.
+  DB(`update "MenuItem" set "soldOutDay"=to_char((now() at time zone 'Europe/Rome') - interval '5 hours','YYYY-MM-DD') where name='Avignonesi'`);
   await s.page.reload({ waitUntil: "networkidle" });
   await s.settle(1400);
   await s.page.evaluate((v) => window.scrollTo(0, v), y);
@@ -385,6 +386,14 @@ if (run("ms")) {
   const pill = (name) => nav("Tipi di statistiche").getByRole("link", { name: new RegExp(name) });
   const card = (t) => P.getByRole("heading", { name: t, exact: true }).first().locator("xpath=ancestor::section[1]");
   const open = async (url) => { await P.goto(`${BASE}${url}`, { waitUntil: "networkidle", timeout: 120000 }); await s.settle(2200); };
+  // «Aperture di oggi» confronta alla stessa ora: qualche apertura finta entro l'ora di adesso, così a
+  // qualunque ora si rifà il video il riquadro non mostra zero (si tolgono alla fine).
+  const ora = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Rome", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+  for (const [n, k] of [[0, 34], [1, 29], [7, 31]]) {
+    const day = `to_char((now() at time zone 'Europe/Rome') - interval '${n} days','YYYY-MM-DD')`;
+    const wd = `extract(isodow from (now() at time zone 'Europe/Rome') - interval '${n} days')::int`;
+    DB(`insert into "MenuEvent" (id, day, hour, weekday, kind) select 'vid_e_${n}_' || g, ${day}, g % ${ora + 1}, ${wd}, 'open' from generate_series(1, ${k}) g`);
+  }
   await open("/statistiche");
   await s.shot("stats");
   await s.box("stats-today", P.getByRole("region", { name: "Aperture di oggi" }));
@@ -431,6 +440,7 @@ if (run("ms")) {
   await s.shot("stats-day");
   await s.box("stats-note2", P.getByText(/^Giorno:/));
   await s.box("stats-kpi1d", P.getByText("Aperture del menù", { exact: true }).locator("xpath=.."));
+  DB(`delete from "MenuEvent" where id like 'vid_e_%'`);
   await P.context().close();
 }
 
