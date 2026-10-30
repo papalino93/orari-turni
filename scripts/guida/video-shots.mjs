@@ -392,8 +392,8 @@ if (run("ms")) {
   // un po' più giù: scorciatoie in vista
   await P.evaluate(() => window.scrollTo(0, 190)); await s.settle(700);
   await s.shot("stats-s");
-  await s.box("stats-shortcuts", nav("Scorciatoie"));
-  await s.box("stats-sc-week", nav("Scorciatoie").getByRole("link", { name: "Settimana scorsa" }));
+  await s.box("stats-shortcuts", nav("Periodo"));
+  await s.box("stats-sc-week", nav("Periodo").getByRole("link", { name: "Settimana scorsa" }));
   await s.box("stats-today-s", P.getByRole("region", { name: "Aperture di oggi" }));
   await P.evaluate(() => window.scrollTo(0, 0)); await s.settle(500);
   const kpi = P.getByText("Aperture del menù", { exact: true }).locator("xpath=..");
@@ -410,7 +410,7 @@ if (run("ms")) {
   }
   // una settimana scelta con la scorciatoia
   await open("/statistiche");
-  await nav("Scorciatoie").getByRole("link", { name: "Settimana scorsa" }).click();
+  await nav("Periodo").getByRole("link", { name: "Settimana scorsa" }).click();
   await P.waitForURL(/dal=/); await s.settle(2200);
   await P.evaluate(() => window.scrollTo(0, 480)); await s.settle(700);
   await s.shot("stats-week");
