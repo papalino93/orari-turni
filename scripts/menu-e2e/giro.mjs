@@ -4,7 +4,7 @@
 import { discardIfAsked, launch, login, BASE, ADMIN_PW, EMP_PW, tool, newPromo, goTab } from "./lib.mjs";
 const OUT = process.argv[2];
 const b = await launch();
-const pagesAdmin = ["/", "/orari", "/dipendenti", "/ferie", "/mie-ore", "/account", "/installa", "/gestione-menu", "/statistiche", "/gestione-menu/stampa"];
+const pagesAdmin = ["/", "/orari", "/dipendenti", "/ferie", "/mie-ore", "/account", "/installa", "/widget", "/gestione-menu", "/statistiche", "/gestione-menu/stampa"];
 const pagesPub = ["/menu", "/menu/allergeni", "/menu/p/oktoberfest", "/login"];
 const problems = [];
 async function tour(name, w, h, theme, user, list) {
@@ -105,7 +105,7 @@ await sheets("tel", 390, 844, "light");
 await sheets("mac", 1440, 900, "light");
 await tour("adm-tel-scuro", 390, 844, "dark", ["andrea", ADMIN_PW], pagesAdmin);
 await tour("adm-mac-chiaro", 1440, 900, "light", ["andrea", ADMIN_PW], pagesAdmin);
-await tour("dip-tel", 390, 844, "light", ["marta", EMP_PW], ["/", "/mie-ore", "/gestione-menu", "/orari", "/statistiche"]);
+await tour("dip-tel", 390, 844, "light", ["marta", EMP_PW], ["/", "/mie-ore", "/widget", "/gestione-menu", "/orari", "/statistiche"]);
 await tour("pub-tel", 390, 844, "light", null, pagesPub);
 await tour("pub-360", 360, 740, "light", null, ["/menu"]);
 await b.close();

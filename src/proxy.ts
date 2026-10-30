@@ -19,7 +19,8 @@ import { NextResponse } from "next/server";
 // di routing: il Proxy legge il token e non conosce il permesso "può
 // modificare il menù" (vive nel database). Chi non ce l'ha viene rimandato
 // altrove dalla pagina stessa, e ogni Server Action lo ricontrolla.
-const EMPLOYEE_ALLOWED_PREFIXES = ["/mie-ore", "/installa", "/gestione-menu"];
+// "/widget": la guida per mettere i widget sul telefono (la pagina mostra solo quelli permessi).
+const EMPLOYEE_ALLOWED_PREFIXES = ["/mie-ore", "/installa", "/gestione-menu", "/widget"];
 
 export default withAuth(
   function proxy(req) {
@@ -57,5 +58,7 @@ export const config = {
   // "login" qui sopra esclude anche "/login-qualcosa" — e una rotta come
   // "/menu-qualcosa" non deve diventare pubblica per sbaglio. L'area di
   // gestione sta infatti sotto un altro nome ("/gestione-menu").
-  matcher: ["/((?!api/auth|login|menu(?:/|$)|opengraph-image|twitter-image|_next/static|_next/image|.*\\..*).*)"],
+  // api/widget: i dati dei widget si leggono con la chiave del telefono, non con la
+  // sessione del sito (il controllo è in lib/widget-auth.ts).
+  matcher: ["/((?!api/auth|api/widget|login|menu(?:/|$)|opengraph-image|twitter-image|_next/static|_next/image|.*\\..*).*)"],
 };
