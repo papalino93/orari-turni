@@ -35,6 +35,8 @@ await noBanner();
 await goTab(page, "Menù");
 await page.locator('nav[aria-label="Categorie"] button', { hasText: "Rossi" }).click();
 await page.evaluate(() => window.scrollTo(0, 0));
+// Con «In vetrina» la pagina è lunga: rimpicciolita, la foto mostra anche categorie e voci (numeri 5 e 7).
+await page.evaluate(() => (document.documentElement.style.zoom = "0.72"));
 await settle(900);
 await shot("gestione");
 // Posizione delle parti della pagina, per i numeri della guida (in % dello schermo).
@@ -52,6 +54,7 @@ const parts = await page.evaluate(() => {
   };
 });
 writeFileSync(`${OUT}/mac-gestione.json`, JSON.stringify(parts, null, 1));
+await page.evaluate(() => (document.documentElement.style.zoom = ""));
 // Scheda del vino
 await page.getByRole("button", { name: /^Modifica Avignonesi/ }).first().click();
 await settle(800);

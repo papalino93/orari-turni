@@ -1,5 +1,5 @@
 // Genera pdf2.html: presentazione del menù digitale, impaginata con cura.
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 const noise = `url(jpg/grain.png)`;
 
@@ -147,7 +147,7 @@ const kn = () => String(++_kn).padStart(2, "0");
 // Numeri sulla schermata della gestione: posizioni misurate da shots-mac.mjs.
 const pos = JSON.parse((await import("node:fs")).readFileSync(`${WORK}/img/mac-gestione.json`, "utf8"));
 const gestionePins = [["top", 1], ["tabs", 2], ["search", 3], ["oggi", 4], ["sezioni", 5], ["addsec", 6], ["voci", 7]]
-  .filter(([k]) => pos[k])
+  .filter(([k]) => pos[k] && pos[k].y < 97)
   .map(([k, n]) => `<span class="pin" style="left:${Math.max(2.5, pos[k].x - (k === "top" || k === "addsec" ? 4.2 : 2.8)).toFixed(1)}%;top:${pos[k].y.toFixed(1)}%">${n}</span>`)
   .join("");
 // Versione e data prese dal progetto: non restano mai indietro.
@@ -193,7 +193,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "In breve")}
 pages.push(`<section class="page wine">${chrome(pg(), "Per i clienti")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Quello che vedono i clienti</div>
   <h2>Elegante, chiaro,<br><em>a misura di telefono</em></h2>
-  <p class="lead">Dalla copertina alle sezioni: azienda e nome del vino, denominazione, uvaggio, regione, prezzi al calice e alla bottiglia. Ogni voce si legge bene anche con poca luce.</p></div>
+  <p class="lead">Dalla copertina alle categorie: azienda e nome del vino, denominazione, uvaggio, regione, prezzi al calice e alla bottiglia. Ogni voce si legge bene anche con poca luce.</p></div>
   <div style="position:relative;height:150mm;margin-top:6mm">
     <div style="position:absolute;left:4mm;top:16mm;transform:rotate(-5deg)">${phone("pub-rossi", 54)}</div>
     <div style="position:absolute;right:4mm;top:16mm;transform:rotate(5deg)">${phone("pub-bollicine", 54)}</div>
@@ -210,7 +210,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Per i clienti")}
 pages.push(`<section class="page paper">${chrome(pg(), "Trovare e leggere")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Trovare subito</div>
   <h2>Ricerca, testo grande,<br><em>«Torna su»</em></h2>
-  <p class="lead">Tre strumenti discreti nella barra delle sezioni: non disturbano chi sfoglia, aiutano chi ha fretta o vede poco.</p></div>
+  <p class="lead">Tre strumenti discreti nella barra delle categorie: non disturbano chi sfoglia, aiutano chi ha fretta o vede poco.</p></div>
   <div style="display:flex;gap:7mm;justify-content:center;margin-top:9mm">
     <div style="width:56mm">${phone("pub-ricerca", 56)}<div class="cap"><span class="nb">1</span><b>Cerca</b> per nome, zona, vitigno o ingrediente; filtri «Al calice», «Enomatic», «Bio», «Vegano». Scrivendo un allergene («glutine») propone i piatti adatti.</div></div>
     <div style="width:56mm;margin-top:10mm">${phone("pub-testo-grande", 56)}<div class="cap"><span class="nb">2</span><b>Testo più grande</b> con un tocco su «Aa»: il telefono se lo ricorda.</div></div>
@@ -325,7 +325,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Tutto configurabile")}
   <p class="lead">Ogni informazione si cambia da un solo posto e compare dove serve: niente da aggiornare due volte.</p></div>
   <div style="display:flex;gap:6mm;justify-content:center;margin-top:8mm">
     <div style="width:50mm">${phone("ges-info", 50)}<div class="cap"><span class="nb">1</span><b>Un solo posto</b> per informazioni, orari, contatti e copertina.</div></div>
-    <div style="width:50mm;margin-top:9mm">${phone("pub-footer", 50)}<div class="cap"><span class="nb">2</span><b>Contatti a un tocco:</b> chiama, WhatsApp, indicazioni, recensione, Instagram.</div></div>
+    <div style="width:50mm;margin-top:9mm">${phone("pub-footer", 50)}<div class="cap"><span class="nb">2</span><b>Contatti a un tocco:</b> chiama, WhatsApp, come arrivare, recensione, Instagram.</div></div>
     <div style="width:50mm">${phone("ges-qr", 50)}<div class="cap"><span class="nb">3</span><b>Codice QR</b> pronto per la stampa (SVG e PNG).</div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:auto">
@@ -403,7 +403,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Strumenti")}
   <h2>Prezzi, ordine<br><em>e menù di carta</em></h2>
   <p class="lead">Tre strumenti per le modifiche grandi, pensati per il computer: tutti i prezzi in una tabella, l'ordine delle voci trascinando, il menù pronto da stampare.</p></div>
   <div style="display:flex;justify-content:center;margin-top:7mm">${mac("mac-prezzi", 138)}</div>
-  <div class="cap" style="text-align:center;margin-top:3.5mm"><span class="nb">1</span><b>Tabella prezzi</b>: si cambiano tanti prezzi, anche in sezioni diverse, e si salva tutto insieme.</div>
+  <div class="cap" style="text-align:center;margin-top:3.5mm"><span class="nb">1</span><b>Tabella prezzi</b>: si cambiano tanti prezzi, anche in categorie diverse, e si salva tutto insieme.</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:6mm">
     <div>${mac("mac-riordina", 76, "margin:0 auto")}<div class="cap" style="text-align:center;margin-top:3.5mm"><span class="nb">2</span><b>Riordina</b>: si trascina dalla maniglia ≡ o si usano le frecce.</div></div>
     <div>${mac("mac-stampa", 76, "margin:0 auto")}<div class="cap" style="text-align:center;margin-top:3.5mm"><span class="nb">3</span><b>Menù da stampare</b>: foglio A4, poi «Salva come PDF».</div></div>
@@ -428,14 +428,14 @@ pages.push(`<section class="page wine">${chrome(pg(), "Statistiche")}
 </section>`);
 
 // · Widget sul telefono
-const ante = (n) => `data:image/png;base64,${(await import("node:fs")).readFileSync(new URL(`../../public/widget/anteprime/crema/${n}.png`, import.meta.url)).toString("base64")}`;
-const wimg = async (n, w) => `<img src="${await ante(n)}" style="width:${w}mm;display:block;border-radius:4.2mm;box-shadow:0 2mm 6mm rgba(0,0,0,.35)">`;
+const ante = (n) => `data:image/png;base64,${readFileSync(new URL(`../../public/widget/anteprime/crema/${n}.png`, import.meta.url)).toString("base64")}`;
+const wimg = (n, w) => `<img src="${ante(n)}" style="width:${w}mm;display:block;border-radius:4.2mm;box-shadow:0 2mm 6mm rgba(0,0,0,.35)">`;
 pages.push(`<section class="page wine">${chrome(pg(), "Widget sul telefono")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Widget sul telefono</div>
   <h2>I numeri del locale<br><em>sulla Home dell'iPhone</em></h2>
   <p class="lead">Riquadri che si aggiornano da soli: aperture del menù di oggi, chi lavora, cosa c'è fuori menù, i turni di ognuno. Un tocco apre la pagina giusta. Funzionano con l'app gratuita Scriptable, su iPhone e iPad.</p></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:9mm;justify-items:center">
-    ${await wimg("aperture-medium", 80)}${await wimg("oggi-medium", 80)}${await wimg("menu-medium", 80)}${await wimg("turni-medium", 80)}
+    ${wimg("aperture-medium", 80)}${wimg("oggi-medium", 80)}${wimg("menu-medium", 80)}${wimg("turni-medium", 80)}
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:auto">
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Dove si mettono</h3><p>Account → <b>Widget sul telefono</b>: la guida passo passo, la parola di ogni widget e i <b>Colori dei widget</b> (crema, bordeaux, nero, notte).</p></div>
@@ -540,7 +540,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Quando compare un evento?</h4><p>La locandina dal giorno scelto (di solito una settimana prima), nella striscia «In evidenza»; nei giorni dell'evento è la prima, con «in corso» e il menù speciale. Finito, sparisce da solo.</p></div>
     <div><h4>Meglio dal computer o dal telefono?</h4><p>Per le modifiche (vini nuovi, prezzi, ordine, eventi) il computer è più comodo; in sala il telefono basta per «Esaurito» e il piatto del giorno.</p></div>
     <div><h4>Una cosa solo per un periodo (l'olio nuovo)?</h4><p>Nella voce, «Solo in un periodo»: Dal e Al. Compare il primo giorno e sparisce dopo l'ultimo; i clienti leggono «Fino al…».</p></div>
-    <div><h4>Devo cambiare tanti prezzi: c'è un modo veloce?</h4><p>Sì: in «Strumenti», «Tabella prezzi». Si cambiano tutti quelli che servono, anche in sezioni diverse, e si salva una volta sola.</p></div>
+    <div><h4>Devo cambiare tanti prezzi: c'è un modo veloce?</h4><p>Sì: in «Strumenti», «Tabella prezzi». Si cambiano tutti quelli che servono, anche in categorie diverse, e si salva una volta sola.</p></div>
     <div><h4>Le statistiche registrano i clienti?</h4><p>No: niente nomi, telefoni o cookie. Si conta solo cosa succede (un'apertura, una ricerca), il giorno e l'ora.</p></div>
     <div><h4>Posso vedere i numeri sul telefono senza aprire il sito?</h4><p>Sì, con i widget sulla Home dell'iPhone: Account → «Widget sul telefono». Lì scegli anche quali dare ai dipendenti.</p></div>
     <div><h4>Mi serve il menù su carta: come faccio?</h4><p>In «Strumenti», «Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
