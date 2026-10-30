@@ -1,0 +1,1092 @@
+// ANGOLO_WIDGET · L'Angolo del Vino · widget per Scriptable.
+// Questo file lo scarica lo script «Angolo del Vino» sul telefono (quello con la chiave),
+// così i miglioramenti arrivano senza reinstallare nulla. Riceve SITO e CHIAVE.
+// Disegno «Bordeaux notte»: margini 14, spazi multipli di 4, un solo numero protagonista.
+
+const VERSIONE = 1;
+
+// ---------- Colori e caratteri (uguali per tutti i widget)
+const C = {
+  fondo1: new Color("#2E0B15"),
+  fondo2: new Color("#1A060B"),
+  riquadro: new Color("#F4EEE3", 0.05),
+  crema: new Color("#F4EEE3"),
+  crema2: new Color("#F4EEE3", 0.64),
+  crema3: new Color("#F4EEE3", 0.42),
+  linea: new Color("#F4EEE3", 0.1),
+  oro: new Color("#D8B97A"),
+  oroFondo: new Color("#D8B97A", 0.16),
+  verde: new Color("#8FB59A"),
+  ambra: new Color("#E2B04A"),
+  rosso: new Color("#D46A55"),
+  rossoTesto: new Color("#EE9A86"),
+  rossoFondo: new Color("#D46A55", 0.18),
+  neutroFondo: new Color("#F4EEE3", 0.09),
+};
+const F = {
+  numero: (s) => Font.boldRoundedSystemFont(s),
+  titoletto: () => Font.semiboldSystemFont(10),
+  agg: () => Font.regularSystemFont(9),
+  testo: (s) => Font.regularSystemFont(s),
+  medio: (s) => Font.mediumSystemFont(s),
+  forte: (s) => Font.semiboldSystemFont(s),
+  // Nomi di vini e piatti: con le grazie, come sul menù.
+  serif: (s) => new Font("Baskerville", s),
+  serifCorsivo: (s) => new Font("Baskerville-Italic", s),
+  serifForte: (s) => new Font("Baskerville-SemiBold", s),
+};
+const PAD = 14;
+
+// Misure dei widget (punti) secondo la larghezza dello schermo: Apple le fissa per modello.
+function misure(fam) {
+  const sw = Device.screenSize().width;
+  const t =
+    Device.isPad() ? { small: [155, 155], medium: [342, 155], large: [342, 342], extraLarge: [715, 342] }
+    : sw >= 428 ? { small: [170, 170], medium: [364, 170], large: [364, 382] }
+    : sw >= 414 ? { small: [169, 169], medium: [360, 169], large: [360, 379] }
+    : sw >= 390 ? { small: [158, 158], medium: [338, 158], large: [338, 354] }
+    : sw >= 375 ? { small: [148, 148], medium: [321, 148], large: [321, 324] }
+    : { small: [141, 141], medium: [292, 141], large: [292, 311] };
+  const [W, H] = t[fam] || t.large || [338, 354];
+  const pad = fam === "large" || fam === "extraLarge" ? PAD + 2 : PAD;
+  return { W, H, pad, CW: W - pad * 2, CH: H - pad * 2 };
+}
+
+// ---------- Dati: dal sito, oppure l'ultima copia salvata se manca la rete
+async function caricaDati(nome) {
+  const fm = FileManager.local();
+  const file = fm.joinPath(fm.documentsDirectory(), `angolo-${nome}.json`);
+  try {
+    const r = new Request(`${SITO}/api/widget/${nome}`);
+    r.headers = { Authorization: `Bearer ${CHIAVE}`, "X-Device-Name": Device.name() };
+    r.timeoutInterval = 12;
+    const json = await r.loadJSON();
+    const stato = r.response ? r.response.statusCode : 200;
+    if (stato === 200 && json && !json.errore) {
+      fm.writeString(file, JSON.stringify(json));
+      return { dati: json, vecchi: false };
+    }
+    if (json && json.errore) return { errore: json.messaggio || "Errore", codice: json.errore };
+  } catch (e) {}
+  if (fm.fileExists(file)) return { dati: JSON.parse(fm.readString(file)), vecchi: true };
+  return { errore: "Nessuna connessione. Riprova tra poco.", codice: "rete" };
+}
+
+// Immagini del sito (QR): scaricate una volta e tenute sul telefono.
+async function caricaImmagine(nome) {
+  const fm = FileManager.local();
+  const file = fm.joinPath(fm.documentsDirectory(), `angolo-${nome}`);
+  if (fm.fileExists(file)) return fm.readImage(file);
+  const img = await new Request(`${SITO}/widget/${nome}`).loadImage();
+  fm.writeImage(file, img);
+  return img;
+}
+
+async function scegliAnteprima() {
+  const a = new Alert();
+  a.title = "Anteprima del widget";
+  a.message = `Widget «${param}»: scegli la grandezza da vedere.`;
+  const scelte = [["Piccolo", "small"], ["Medio", "medium"], ["Grande", "large"]];
+  for (const [t] of scelte) a.addAction(t);
+  a.addCancelAction("Chiudi");
+  const i = await a.presentSheet();
+  return i < 0 ? "medium" : scelte[i][1];
+}
+
+async function mostra(w, fam) {
+  if (fam === "small") await w.presentSmall();
+  else if (fam === "large") await w.presentLarge();
+  else await w.presentMedium();
+}
+
+// ---------- Mattoni comuni
+function nuovoWidget(fam) {
+  const w = new ListWidget();
+  const g = new LinearGradient();
+  g.colors = [C.fondo1, C.fondo2];
+  g.locations = [0, 1];
+  g.startPoint = new Point(0.15, 0);
+  g.endPoint = new Point(0.85, 1);
+  w.backgroundGradient = g;
+  const p = fam === "large" || fam === "extraLarge" ? PAD + 2 : PAD;
+  w.setPadding(p, p, p, p);
+  w.refreshAfterDate = new Date(Date.now() + 15 * 60_000);
+  return w;
+}
+
+function testo(stack, t, font, colore, righe = 1) {
+  const x = stack.addText(String(t));
+  x.font = font;
+  x.textColor = colore;
+  x.lineLimit = righe;
+  return x;
+}
+
+function riga(stack) {
+  const s = stack.addStack();
+  s.layoutHorizontally();
+  s.centerAlignContent();
+  return s;
+}
+
+function colonna(stack) {
+  const s = stack.addStack();
+  s.layoutVertically();
+  return s;
+}
+
+// Titoletto in oro a sinistra, ora dell'aggiornamento a destra.
+function intestazione(stack, titolo, d, vecchi) {
+  const r = riga(stack);
+  testo(r, titolo.toUpperCase(), F.titoletto(), C.oro);
+  r.addSpacer();
+  const agg = testo(r, vecchi ? `non aggiornato · ${d.aggiornato}` : d.aggiornato, F.agg(), vecchi ? C.rossoTesto : C.crema3);
+  agg.rightAlignText();
+  return r;
+}
+
+// Pillola con la variazione: oro se sale, mattone se scende, neutra se uguale.
+function pillola(stack, pct, suffisso = "") {
+  const s = stack.addStack();
+  s.setPadding(2, 5, 2, 5);
+  s.cornerRadius = 8;
+  let t;
+  let colore;
+  if (pct === null || pct === undefined) {
+    s.backgroundColor = C.neutroFondo;
+    t = "—";
+    colore = C.crema2;
+  } else if (pct > 0) {
+    s.backgroundColor = C.oroFondo;
+    t = `▲ ${pct}%`;
+    colore = C.oro;
+  } else if (pct < 0) {
+    s.backgroundColor = C.rossoFondo;
+    t = `▼ ${Math.abs(pct)}%`;
+    colore = C.rossoTesto;
+  } else {
+    s.backgroundColor = C.neutroFondo;
+    t = "=";
+    colore = C.crema2;
+  }
+  testo(s, t + suffisso, F.forte(9.5), colore);
+  return s;
+}
+
+// Pillola oro con un testo (es. «tra 26 ore»).
+function etichetta(stack, t) {
+  const s = stack.addStack();
+  s.setPadding(2, 7, 2, 7);
+  s.cornerRadius = 8;
+  s.backgroundColor = C.oroFondo;
+  testo(s, t, F.forte(10), C.oro);
+  return s;
+}
+
+function lineaOrizzontale(stack) {
+  const s = stack.addStack();
+  s.size = new Size(0, 1);
+  s.backgroundColor = C.linea;
+  s.addSpacer();
+  return s;
+}
+
+function lineaVerticale(stack, altezza) {
+  const s = stack.addStack();
+  s.size = new Size(1, altezza);
+  s.backgroundColor = C.linea;
+  return s;
+}
+
+function link(path) {
+  return `${SITO}${path}`;
+}
+
+// Mini grafico: linea oro con area sfumata; facoltativa la linea tratteggiata di confronto.
+function grafico(valori, w, h, opz = {}) {
+  const ctx = new DrawContext();
+  ctx.size = new Size(w, h);
+  ctx.opaque = false;
+  ctx.respectScreenScale = true;
+  const tutti = valori.concat(opz.confronto || []);
+  const max = Math.max(1, ...tutti) * 1.1;
+  const n = opz.punti || valori.length;
+  const x = (i) => 3 + (i * (w - 6)) / Math.max(1, n - 1);
+  const y = (v) => h - 3 - (v / max) * (h - 8);
+  if (opz.griglia) {
+    ctx.setFillColor(C.linea);
+    for (const f of [0.33, 0.66]) ctx.fillRect(new Rect(0, Math.round(h * f), w, 1));
+  }
+  if (opz.confronto) {
+    ctx.setFillColor(C.crema3);
+    for (let i = 0; i < opz.confronto.length - 1; i++) {
+      const x1 = x(i), y1 = y(opz.confronto[i]), x2 = x(i + 1), y2 = y(opz.confronto[i + 1]);
+      const len = Math.hypot(x2 - x1, y2 - y1);
+      for (let t = 0; t < len; t += 7) {
+        const a = t / len, b = Math.min(1, (t + 3.5) / len);
+        const p = new Path();
+        p.move(new Point(x1 + (x2 - x1) * a, y1 + (y2 - y1) * a));
+        p.addLine(new Point(x1 + (x2 - x1) * b, y1 + (y2 - y1) * b));
+        ctx.addPath(p);
+        ctx.setStrokeColor(C.crema3);
+        ctx.setLineWidth(1.5);
+        ctx.strokePath();
+      }
+    }
+  }
+  if (valori.length > 1) {
+    const area = new Path();
+    area.move(new Point(x(0), h));
+    valori.forEach((v, i) => area.addLine(new Point(x(i), y(v))));
+    area.addLine(new Point(x(valori.length - 1), h));
+    area.closeSubpath();
+    ctx.addPath(area);
+    ctx.setFillColor(new Color("#D8B97A", 0.18));
+    ctx.fillPath();
+    const linea = new Path();
+    valori.forEach((v, i) => (i ? linea.addLine(new Point(x(i), y(v))) : linea.move(new Point(x(i), y(v)))));
+    ctx.addPath(linea);
+    ctx.setStrokeColor(C.oro);
+    ctx.setLineWidth(opz.spessore || 2);
+    ctx.strokePath();
+  }
+  const ultimo = valori.length - 1;
+  if (ultimo >= 0) {
+    const r = opz.punto || 3.5;
+    ctx.setFillColor(C.oro);
+    ctx.fillEllipse(new Rect(x(ultimo) - r - 1.5, y(valori[ultimo]) - r - 1.5, (r + 1.5) * 2, (r + 1.5) * 2));
+    ctx.setFillColor(C.crema);
+    ctx.fillEllipse(new Rect(x(ultimo) - r + 0.5, y(valori[ultimo]) - r + 0.5, (r - 0.5) * 2, (r - 0.5) * 2));
+  }
+  return ctx.getImage();
+}
+
+function barra(frazione, w, h = 4) {
+  const ctx = new DrawContext();
+  ctx.size = new Size(w, h);
+  ctx.opaque = false;
+  ctx.respectScreenScale = true;
+  const tondo = (r, colore) => {
+    const p = new Path();
+    p.addRoundedRect(r, h / 2, h / 2);
+    ctx.addPath(p);
+    ctx.setFillColor(colore);
+    ctx.fillPath();
+  };
+  tondo(new Rect(0, 0, w, h), C.neutroFondo);
+  const f = Math.max(0, Math.min(1, frazione));
+  if (f > 0) tondo(new Rect(0, 0, Math.max(h, w * f), h), C.oro);
+  return ctx.getImage();
+}
+
+function anello(frazione, lato, spessore, colore, fondo) {
+  const ctx = new DrawContext();
+  ctx.size = new Size(lato, lato);
+  ctx.opaque = false;
+  ctx.respectScreenScale = true;
+  const c = lato / 2, r = c - spessore / 2 - 1;
+  const segmenti = 90;
+  const disegna = (da, a, col) => {
+    for (let i = Math.floor(da * segmenti); i < Math.ceil(a * segmenti); i++) {
+      const t = (i / segmenti) * Math.PI * 2 - Math.PI / 2;
+      ctx.setFillColor(col);
+      ctx.fillEllipse(new Rect(c + Math.cos(t) * r - spessore / 2, c + Math.sin(t) * r - spessore / 2, spessore, spessore));
+    }
+  };
+  disegna(0, 1, fondo);
+  disegna(0, Math.max(0, Math.min(1, frazione)), colore);
+  return ctx.getImage();
+}
+
+function avatar(stack, iniziali) {
+  const s = stack.addStack();
+  s.size = new Size(22, 22);
+  s.cornerRadius = 11;
+  s.backgroundColor = new Color("#E2C48C");
+  s.centerAlignContent();
+  testo(s, iniziali, Font.boldSystemFont(8.5), new Color("#2A0A12"));
+  return s;
+}
+
+// ---------- Messaggi (errori, formato sbagliato)
+function accessorio() {
+  const w = new ListWidget();
+  w.setPadding(0, 0, 0, 0);
+  return w;
+}
+
+function messaggio(fam, titolo, testoMsg, colore = C.oro) {
+  const w = nuovoWidget(fam);
+  if (fam && fam.startsWith("accessory")) {
+    const a = accessorio();
+    testo(a, testoMsg, F.forte(11), Color.white(), fam === "accessoryInline" ? 1 : 3);
+    return a;
+  }
+  w.addSpacer();
+  const t = testo(w, titolo.toUpperCase(), F.titoletto(), colore);
+  t.centerAlignText();
+  w.addSpacer(8);
+  const m = testo(w, testoMsg, F.testo(fam === "small" ? 12 : 13), C.crema2, 5);
+  m.centerAlignText();
+  w.addSpacer();
+  return w;
+}
+
+const NOMI_FORMATO = { small: "piccolo", medium: "medio", large: "grande", extraLarge: "extra grande" };
+const FORMATI = {
+  aperture: ["small", "medium", "accessoryRectangular", "accessoryCircular", "accessoryInline"],
+  riepilogo: ["medium", "large", "extraLarge"],
+  settimana: ["medium", "large", "extraLarge"],
+  oggi: ["small", "medium", "large", "extraLarge"],
+  dafare: ["small", "medium"],
+  menu: ["medium", "large", "extraLarge"],
+  fuorimenu: ["medium", "large", "extraLarge"],
+  qr: ["small", "large"],
+  turni: ["small", "medium", "accessoryRectangular", "accessoryCircular", "accessoryInline"],
+};
+
+function disegna(nome, fam, risposta) {
+  if (!FORMATI[nome]) return messaggio(fam, "Parametro", `Parola «${nome}» sconosciuta. Controlla il campo «Parametro» del widget.`);
+  if (risposta.errore) return messaggio(fam, risposta.codice === "rete" ? "Senza rete" : "Angolo del Vino", risposta.errore, risposta.codice === "tolto" ? C.rossoTesto : C.oro);
+  if (!FORMATI[nome].includes(fam)) {
+    const adatti = FORMATI[nome].filter((f) => NOMI_FORMATO[f]).map((f) => NOMI_FORMATO[f]);
+    return messaggio(fam, "Fuori formato", `Questo widget va in formato ${adatti.join(" o ")}.`);
+  }
+  const d = risposta.dati;
+  const v = risposta.vecchi;
+  const w =
+    nome === "aperture" ? wAperture(fam, d, v)
+    : nome === "riepilogo" ? wRiepilogo(fam, d, v)
+    : nome === "settimana" ? wSettimana(fam, d, v)
+    : nome === "oggi" ? wOggi(fam, d, v)
+    : nome === "dafare" ? wDaFare(fam, d, v)
+    : nome === "menu" ? wMenu(fam, d, v)
+    : nome === "fuorimenu" ? wFuoriMenu(fam, d, v)
+    : nome === "qr" ? wQr(fam, d)
+    : wTurni(fam, d, v);
+  if (!w.url && d.link) w.url = link(d.link);
+  return w;
+}
+
+// ---------- Aperture di oggi
+function wAperture(fam, d, v) {
+  const giornoBreve = d.giornoSettimana.slice(0, 3);
+  if (fam === "accessoryInline") {
+    const w = accessorio();
+    testo(w, `Menù oggi ${d.oggi}${d.deltaSettimanaScorsa !== null ? ` · ${d.deltaSettimanaScorsa >= 0 ? "▲" : "▼"}${Math.abs(d.deltaSettimanaScorsa)}%` : ""}`, F.forte(12), Color.white());
+    return w;
+  }
+  if (fam === "accessoryCircular") {
+    const w = accessorio();
+    const s = w.addStack();
+    s.size = new Size(60, 60);
+    s.backgroundImage = anello(d.media ? d.oggi / d.media : 0, 60, 5, Color.white(), new Color("#FFFFFF", 0.25));
+    s.layoutVertically();
+    s.centerAlignContent();
+    s.addSpacer();
+    const r1 = riga(s); r1.addSpacer(); testo(r1, d.oggi, F.numero(19), Color.white()); r1.addSpacer();
+    const r2 = riga(s); r2.addSpacer(); testo(r2, "MENÙ", F.forte(8), new Color("#FFFFFF", 0.75)); r2.addSpacer();
+    s.addSpacer();
+    return w;
+  }
+  if (fam === "accessoryRectangular") {
+    const w = accessorio();
+    testo(w, "MENÙ OGGI", F.forte(11), new Color("#FFFFFF", 0.75));
+    const r = riga(w);
+    testo(r, d.oggi, F.numero(24), Color.white());
+    r.addSpacer(6);
+    testo(r, "aperture", F.medio(12), new Color("#FFFFFF", 0.75));
+    if (d.deltaSettimanaScorsa !== null) testo(w, `${d.deltaSettimanaScorsa >= 0 ? "▲" : "▼"} ${Math.abs(d.deltaSettimanaScorsa)}% su ${giornoBreve} scorso`, F.medio(11), new Color("#FFFFFF", 0.75));
+    return w;
+  }
+  const w = nuovoWidget(fam);
+  if (fam === "small") {
+    intestazione(w, "Oggi", d, v);
+    w.addSpacer(4);
+    testo(w, d.oggi, F.numero(50), C.crema);
+    testo(w, "aperture del menù", F.testo(11), C.crema2);
+    w.addSpacer();
+    for (const [lab, val, pct] of [["ieri", d.ieri, d.deltaIeri], [`${giornoBreve} scorso`, d.settimanaScorsa, d.deltaSettimanaScorsa]]) {
+      const r = riga(w);
+      testo(r, lab, F.testo(10), C.crema2);
+      r.addSpacer(3);
+      testo(r, val, F.forte(10), C.crema);
+      r.addSpacer();
+      pillola(r, pct);
+      w.addSpacer(4);
+    }
+    return w;
+  }
+  // medio
+  intestazione(w, "Aperture di oggi", d, v);
+  w.addSpacer(misure(fam).H < 155 ? 4 : 8);
+  const corpo = riga(w);
+  corpo.topAlignContent();
+  const sx = colonna(corpo);
+  testo(sx, d.oggi, F.numero(misure(fam).H < 155 ? 46 : 54), C.crema);
+  testo(sx, `${d.giorno.split(" ").slice(0, 2).join(" ").toLowerCase()} · menù aperto`, F.testo(11), C.crema2);
+  corpo.addSpacer();
+  lineaVerticale(corpo, misure(fam).H < 155 ? 64 : 72);
+  corpo.addSpacer(12);
+  const dx = colonna(corpo);
+  dx.size = new Size(128, 0);
+  const basso = misure(fam).H < 155;
+  const voce = (lab, val, pct, url) => {
+    const b = colonna(dx);
+    b.url = link(url);
+    testo(b, lab, F.testo(10), C.crema2);
+    if (!basso) b.addSpacer(2);
+    const r = riga(b);
+    testo(r, val, F.numero(basso ? 17 : 20), C.crema);
+    r.addSpacer();
+    pillola(r, pct);
+  };
+  voce("Ieri", d.ieri, d.deltaIeri, d.linkIeri);
+  dx.addSpacer(basso ? 4 : 6);
+  lineaOrizzontale(dx);
+  dx.addSpacer(basso ? 4 : 6);
+  voce(`${d.giornoSettimana.charAt(0).toUpperCase()}${d.giornoSettimana.slice(1)} scorso`, d.settimanaScorsa, d.deltaSettimanaScorsa, d.linkSettimanaScorsa);
+  w.addSpacer();
+  if (d.media) {
+    const { CW } = misure(fam);
+    const img = w.addImage(barra(d.oggi / d.media, CW));
+    img.imageSize = new Size(CW, 4);
+    w.addSpacer(4);
+    const r = riga(w);
+    testo(r, `${Math.round((d.oggi / d.media) * 100)}% di un ${d.giornoSettimana} medio`, F.testo(9), C.crema3);
+    r.addSpacer();
+    testo(r, `media ${d.media}`, F.testo(9), C.crema3);
+  }
+  return w;
+}
+
+// ---------- Statistiche della settimana
+function wSettimana(fam, d, v) {
+  const w = nuovoWidget(fam);
+  const { CW } = misure(fam);
+  const grande = fam !== "medium";
+  intestazione(w, grande ? "Menù · questa settimana" : "Menù · settimana", d, v);
+  w.addSpacer(grande ? 8 : 6);
+  if (!grande) {
+    const corpo = riga(w);
+    corpo.bottomAlignContent();
+    const sx = colonna(corpo);
+    sx.size = new Size(92, 0);
+    testo(sx, d.totale, F.numero(40), C.crema);
+    testo(sx, "da lunedì", F.testo(11), C.crema2);
+    sx.addSpacer(6);
+    pillola(sx, d.delta);
+    corpo.addSpacer(8);
+    const dx = colonna(corpo);
+    const gw = CW - 100;
+    const img = dx.addImage(grafico(d.questa, gw, 80, { confronto: d.scorsa, punti: 7, griglia: true }));
+    img.imageSize = new Size(gw, 80);
+    dx.addSpacer(2);
+    giorniSotto(dx, d, gw);
+    return w;
+  }
+  const top = riga(w);
+  top.bottomAlignContent();
+  const sx = colonna(top);
+  testo(sx, d.totale, F.numero(48), C.crema);
+  testo(sx, "aperture da lunedì", F.testo(12), C.crema2);
+  top.addSpacer();
+  const dx = colonna(top);
+  pillola(dx, d.delta, " sulla scorsa");
+  dx.addSpacer(4);
+  testo(dx, `stesso punto: ${d.stessoPunto}`, F.testo(10), C.crema3);
+  w.addSpacer(12);
+  const leg = riga(w);
+  const tratto = (colore) => {
+    const t = leg.addStack();
+    t.size = new Size(12, 2);
+    t.backgroundColor = colore;
+    leg.addSpacer(5);
+  };
+  tratto(C.oro);
+  testo(leg, "questa", F.testo(10), C.crema2);
+  leg.addSpacer(12);
+  tratto(C.crema3);
+  testo(leg, "scorsa", F.testo(10), C.crema2);
+  leg.addSpacer();
+  if (d.piccoScorsa) testo(leg, `picco ${d.piccoScorsa}`, F.testo(10), C.crema3);
+  w.addSpacer(6);
+  const { CH } = misure(fam);
+  const h = Math.max(80, Math.min(150, CH - 196));
+  const img = w.addImage(grafico(d.questa, CW, h, { confronto: d.scorsa, punti: 7, griglia: true, spessore: 2.4, punto: 4 }));
+  img.imageSize = new Size(CW, h);
+  w.addSpacer(2);
+  giorniSotto(w, d, CW);
+  w.addSpacer();
+  lineaOrizzontale(w);
+  w.addSpacer(8);
+  const fondo = riga(w);
+  fondo.topAlignContent();
+  const cella = (lab, val, serif, url) => {
+    const c = colonna(fondo);
+    c.size = new Size(Math.floor((CW - 16) / 3), 0);
+    if (url) c.url = link(url);
+    testo(c, lab, F.testo(10), C.crema2);
+    c.addSpacer(2);
+    testo(c, val || "—", serif ? F.serifCorsivo(16) : F.numero(16), C.crema);
+  };
+  cella("Ora di punta", d.oraDiPunta, false, d.link);
+  fondo.addSpacer(8);
+  cella("Più cercato", d.piuCercato, true, d.linkCercati);
+  fondo.addSpacer(8);
+  cella("Più guardato", d.piuGuardato, true, d.linkGuardati);
+  return w;
+}
+
+function giorniSotto(stack, d, larghezza) {
+  // Una lettera sotto ogni punto del grafico (i punti vanno da 3 a larghezza − 3).
+  const r = riga(stack);
+  r.size = new Size(larghezza, 12);
+  const passo = (larghezza - 6) / 6;
+  d.giorni.forEach((g, i) => {
+    const c = r.addStack();
+    c.size = new Size(i === 0 || i === 6 ? passo / 2 + 3 : passo, 12);
+    if (i === 6) c.addSpacer();
+    else if (i > 0) c.addSpacer();
+    testo(c, g, i === d.oggiIndice ? F.forte(9) : F.testo(9), i === d.oggiIndice ? C.oro : C.crema3);
+    if (i < 6 && i > 0) c.addSpacer();
+    if (i === 0) c.addSpacer();
+  });
+}
+
+// ---------- Riepilogo
+function wRiepilogo(fam, d, v) {
+  const w = nuovoWidget(fam);
+  const { CW } = misure(fam);
+  const giornoBreve = d.giornoSettimana.slice(0, 3);
+  intestazione(w, fam === "medium" ? "Riepilogo" : `Riepilogo · ${d.giorno.toLowerCase()}`, d, v);
+  w.addSpacer(fam === "medium" ? 8 : 10);
+  const scheda = (stack, larghezza, lab, val, unita, sotto, url) => {
+    const c = colonna(stack);
+    c.size = new Size(larghezza, 0);
+    c.backgroundColor = C.riquadro;
+    c.cornerRadius = 14;
+    c.setPadding(10, 10, 10, 10);
+    if (url) c.url = link(url);
+    testo(c, lab, F.testo(10), C.crema2);
+    c.addSpacer(4);
+    const r = riga(c);
+    r.bottomAlignContent();
+    testo(r, val, F.numero(fam === "medium" ? 26 : 32), C.crema);
+    if (unita) {
+      r.addSpacer(3);
+      testo(r, unita, F.medio(12), C.crema2);
+    }
+    r.addSpacer();
+    c.addSpacer(6);
+    sotto(c);
+    return c;
+  };
+  if (fam === "medium") {
+    const lw = Math.floor((CW - 16) / 3);
+    const r = riga(w);
+    r.topAlignContent();
+    scheda(r, lw, "Menù oggi", d.oggi, null, (c) => pillola(c, d.deltaOggi, ` ${giornoBreve}`), d.link);
+    r.addSpacer(8);
+    scheda(r, lw, "Settimana", d.settimana, null, (c) => pillola(c, d.deltaSettimana), d.link);
+    r.addSpacer(8);
+    scheda(r, lw, "In turno", d.oreSettimana, "h", (c) => testo(c, "questa settimana", F.testo(9), C.crema3), d.linkOre);
+    w.addSpacer();
+    return w;
+  }
+  const lw = Math.floor((CW - 10) / 2);
+  const r1 = riga(w);
+  r1.topAlignContent();
+  scheda(r1, lw, "Menù aperto oggi", d.oggi, null, (c) => pillola(c, d.deltaOggi, ` vs ${giornoBreve}`), d.link);
+  r1.addSpacer(10);
+  scheda(r1, lw, "Questa settimana", d.settimana, null, (c) => pillola(c, d.deltaSettimana), d.link);
+  w.addSpacer(10);
+  const r2 = riga(w);
+  r2.topAlignContent();
+  scheda(r2, lw, "Ore in turno", d.oreSettimana, "h", (c) => testo(c, "questa settimana", F.testo(9), C.crema3), d.linkOre);
+  r2.addSpacer(10);
+  if (d.evento) {
+    scheda(r2, lw, "Prossimo evento", d.evento.oggi ? "Oggi" : d.evento.giorni, d.evento.oggi ? null : d.evento.giorni === 1 ? "giorno" : "giorni", (c) => testo(c, d.evento.titolo, F.serifCorsivo(14), C.crema), d.evento.link);
+  } else {
+    scheda(r2, lw, "Prossimo evento", "—", null, (c) => testo(c, "nessuno in programma", F.testo(9), C.crema3), "/gestione-menu");
+  }
+  w.addSpacer();
+  lineaOrizzontale(w);
+  w.addSpacer(8);
+  const leg = riga(w);
+  testo(leg, "Aperture · ultimi 14 giorni", F.testo(10), C.crema2);
+  leg.addSpacer();
+  testo(leg, `oggi ${d.oggi}`, F.forte(10), C.oro);
+  w.addSpacer(4);
+  const img = w.addImage(grafico(d.ultimi14, CW, 40));
+  img.imageSize = new Size(CW, 40);
+  return w;
+}
+
+// ---------- Oggi al locale
+function wOggi(fam, d, v) {
+  const w = nuovoWidget(fam);
+  const { CW } = misure(fam);
+  intestazione(w, "Oggi al locale", d, v);
+  w.addSpacer(fam === "small" ? 8 : 10);
+  const stato = (stack) => {
+    const r = riga(stack);
+    const pal = r.addStack();
+    pal.size = new Size(8, 8);
+    pal.cornerRadius = 4;
+    pal.backgroundColor = d.chiusoOggi || !d.aperto ? C.rosso : C.verde;
+    r.addSpacer(6);
+    testo(r, d.chiusoOggi ? "Chiuso oggi" : d.aperto ? "Aperto" : "Chiuso", F.forte(12), C.crema);
+  };
+  const orario = (d.stato.match(/(\d{2}:\d{2})/) || [])[1] || null;
+  const quando = d.aperto ? "chiude alle" : d.chiusoOggi ? d.chiusoOggi : (d.stato.split("riapre ")[1] || "").replace(/ alle \d{2}:\d{2}/, "");
+  const grandeOra = d.chiusoOggi ? "—" : orario || "—";
+  const persone = [...(d.mattina ? d.mattina.persone : []), ...(d.sera ? d.sera.persone : [])];
+  if (fam === "small") {
+    stato(w);
+    w.addSpacer(misure(fam).H < 155 ? 2 : 6);
+    testo(w, grandeOra, F.numero(misure(fam).H < 155 ? 30 : 36), C.crema);
+    testo(w, d.aperto ? "chiude alle" : d.chiusoOggi ? d.chiusoOggi : `riapre ${quando}`, F.testo(11), C.crema2);
+    w.addSpacer();
+    if (d.evento) testo(w, d.evento.titolo, F.serifCorsivo(13), C.oro, 2);
+    else testo(w, persone.length ? `${persone.length} al lavoro oggi` : "nessuno in turno", F.testo(11), C.crema2);
+    return w;
+  }
+  const corpo = riga(w);
+  corpo.topAlignContent();
+  const sx = colonna(corpo);
+  sx.size = new Size(fam === "medium" ? 108 : 118, 0);
+  stato(sx);
+  sx.addSpacer(8);
+  testo(sx, grandeOra, F.numero(32), C.crema);
+  sx.addSpacer(2);
+  testo(sx, d.aperto ? "chiude alle" : d.chiusoOggi ? d.chiusoOggi : `riapre ${quando}`, F.testo(11), C.crema2, 2);
+  corpo.addSpacer(10);
+  lineaVerticale(corpo, fam === "medium" ? 92 : 104);
+  corpo.addSpacer(12);
+  const dx = colonna(corpo);
+  dx.size = new Size(CW - (fam === "medium" ? 108 : 118) - 23, 0);
+  const fascia = (lab, f) => {
+    const t = riga(dx);
+    testo(t, lab.toUpperCase(), F.titoletto(), C.crema2);
+    t.addSpacer();
+    testo(t, f ? f.orario : "", F.testo(10), C.crema2);
+    dx.addSpacer(5);
+    if (!f) {
+      testo(dx, "nessuno", F.testo(11), C.crema3);
+      return;
+    }
+    const r = riga(dx);
+    f.persone.slice(0, 4).forEach((p, i) => {
+      if (i) r.addSpacer(3);
+      avatar(r, p.iniziali);
+    });
+    r.addSpacer(8);
+    const nomi = f.persone.map((p) => p.nome);
+    testo(r, nomi.length > 2 ? `${nomi.length} persone` : nomi.join(", "), F.testo(11), C.crema2, 1);
+  };
+  fascia("Mattina", d.mattina);
+  dx.addSpacer(8);
+  lineaOrizzontale(dx);
+  dx.addSpacer(8);
+  fascia("Sera", d.sera);
+  if (fam === "medium") {
+    w.addSpacer();
+    return w;
+  }
+  // Grande: chi lavora, per nome, e l'evento della sera in fondo.
+  w.addSpacer();
+  lineaOrizzontale(w);
+  w.addSpacer(10);
+  testo(w, "AL LAVORO OGGI", F.titoletto(), C.crema2);
+  w.addSpacer(6);
+  if (persone.length) {
+    const visti = new Set();
+    const elenco = persone.filter((p) => !visti.has(p.nome) && visti.add(p.nome));
+    for (let i = 0; i < Math.min(elenco.length, 6); i += 2) {
+      const r = riga(w);
+      elenco.slice(i, i + 2).forEach((p, j) => {
+        const c = riga(r);
+        c.size = new Size(Math.floor((CW - 8) / 2), 0);
+        avatar(c, p.iniziali);
+        c.addSpacer(8);
+        testo(c, p.nome, F.testo(12), C.crema);
+        c.addSpacer();
+        if (j === 0) r.addSpacer(8);
+      });
+      w.addSpacer(6);
+    }
+  } else testo(w, d.chiusoOggi ? "Locale chiuso" : "Nessuno in turno", F.testo(12), C.crema3);
+  w.addSpacer();
+  if (d.evento) {
+    lineaOrizzontale(w);
+    w.addSpacer(10);
+    const r = riga(w);
+    r.url = link(d.evento.link);
+    testo(r, "STASERA", F.titoletto(), C.crema2);
+    r.addSpacer(8);
+    testo(r, d.evento.titolo, F.serifCorsivo(16), C.crema);
+    r.addSpacer();
+    if (d.evento.ora) testo(r, `dalle ${d.evento.ora}`, F.testo(11), C.crema2);
+  }
+  return w;
+}
+
+// ---------- Da fare
+function wDaFare(fam, d, v) {
+  const w = nuovoWidget(fam);
+  const { CW } = misure(fam);
+  intestazione(w, "Da fare", d, v);
+  w.addSpacer(fam === "small" ? 10 : 12);
+  if (d.tuttoAPosto) {
+    w.addSpacer();
+    const r = riga(w);
+    r.addSpacer();
+    testo(r, "✓", F.numero(fam === "small" ? 26 : 30), C.oro);
+    r.addSpacer(8);
+    testo(r, "Tutto a posto", F.forte(fam === "small" ? 13 : 15), C.crema);
+    r.addSpacer();
+    w.addSpacer();
+    return w;
+  }
+  const colori = { rosso: C.rosso, ambra: C.ambra, verde: C.verde };
+  const voce = (stack, x, larghezza) => {
+    const r = riga(stack);
+    if (larghezza) r.size = new Size(larghezza, 0);
+    r.url = link(x.link);
+    const pal = r.addStack();
+    pal.size = new Size(8, 8);
+    pal.cornerRadius = 4;
+    pal.backgroundColor = colori[x.livello];
+    r.addSpacer(8);
+    testo(r, x.n, F.numero(fam === "small" ? 15 : 22), x.n ? C.crema : C.crema3);
+    r.addSpacer(fam === "small" ? 6 : 8);
+    testo(r, fam === "small" ? x.breve : x.testo, F.testo(fam === "small" ? 12 : 11), x.n ? C.crema2 : C.crema3, fam === "small" ? 1 : 2);
+    r.addSpacer();
+  };
+  if (fam === "small") {
+    d.righe.forEach((x, i) => {
+      voce(w, x);
+      if (i < d.righe.length - 1) w.addSpacer();
+    });
+    return w;
+  }
+  const lw = Math.floor((CW - 12) / 2);
+  for (let i = 0; i < 4; i += 2) {
+    const r = riga(w);
+    voce(r, d.righe[i], lw);
+    r.addSpacer(12);
+    voce(r, d.righe[i + 1], lw);
+    if (i === 0) w.addSpacer();
+  }
+  w.addSpacer();
+  return w;
+}
+
+// ---------- Anteprima menù e Oggi fuori menù
+// Una voce: nome con le grazie a sinistra, prezzo in oro allineato a destra.
+// «ampia» (formati grandi con poche voci): caratteri più grandi e dettaglio sotto.
+function voceMenu(stack, x, grande, ampia = false) {
+  const r = riga(stack);
+  r.url = link(x.link);
+  r.topAlignContent();
+  const c = colonna(r);
+  testo(c, x.nome, F.serifForte(ampia ? 20 : grande ? 17 : 15), C.crema);
+  if (grande && x.dettaglio) {
+    c.addSpacer(2);
+    testo(c, x.dettaglio, F.testo(ampia ? 12 : 10), C.crema3, ampia ? 2 : 1);
+  }
+  r.addSpacer();
+  if (x.prezzo) {
+    const p = colonna(r);
+    p.addSpacer(ampia ? 4 : 2);
+    testo(p, x.prezzo, F.numero(ampia ? 16 : grande ? 14 : 13), C.oro);
+  }
+}
+
+function wMenu(fam, d, v) {
+  const w = nuovoWidget(fam);
+  const grande = fam !== "medium";
+  intestazione(w, grande ? "Anteprima menù" : "Menù di oggi", d, v);
+  w.addSpacer(grande ? 10 : 8);
+  const oggi = [...d.piatti, ...d.vini];
+  if (grande) testo(w, "OGGI FUORI MENÙ", F.titoletto(), C.crema2);
+  if (grande) w.addSpacer(6);
+  if (oggi.length) {
+    oggi.slice(0, grande ? 3 : 2).forEach((x, i) => {
+      if (i) w.addSpacer(grande ? 6 : 4);
+      voceMenu(w, x, grande);
+    });
+  } else {
+    testo(w, "Oggi niente fuori menù", F.serifCorsivo(15), C.crema3);
+  }
+  if (!grande) {
+    w.addSpacer();
+    const r = riga(w);
+    if (d.evento) {
+      r.url = link(d.evento.link);
+      testo(r, d.evento.oggi ? "STASERA" : "PROSSIMO", F.titoletto(), C.crema2);
+      r.addSpacer(8);
+      testo(r, d.evento.titolo, F.serifCorsivo(14), C.crema);
+      r.addSpacer();
+      testo(r, d.evento.quando, F.testo(10), C.crema2);
+    } else if (d.consigli.length) {
+      testo(r, "CONSIGLI", F.titoletto(), C.crema2);
+      r.addSpacer(8);
+      testo(r, d.consigli.map((x) => x.nome).join(" · "), F.serifCorsivo(13), C.crema);
+    }
+    return w;
+  }
+  w.addSpacer(10);
+  lineaOrizzontale(w);
+  w.addSpacer(10);
+  testo(w, "I CONSIGLI DELLA CASA", F.titoletto(), C.oro);
+  w.addSpacer(6);
+  for (let i = 0; i < d.consigli.length; i += 2) {
+    const r = riga(w);
+    d.consigli.slice(i, i + 2).forEach((x, j) => {
+      const c = colonna(r);
+      c.url = link(x.link);
+      c.size = new Size(Math.floor((misure(fam).CW - 8) / 2), 0);
+      testo(c, x.nome, F.serifCorsivo(15), C.crema);
+      if (j === 0) r.addSpacer(8);
+    });
+    w.addSpacer(4);
+  }
+  if (!d.consigli.length) testo(w, "nessuno", F.testo(11), C.crema3);
+  w.addSpacer();
+  lineaOrizzontale(w);
+  w.addSpacer(10);
+  const r = riga(w);
+  r.topAlignContent();
+  const es = colonna(r);
+  testo(es, "ESAURITI OGGI", F.titoletto(), C.crema2);
+  es.addSpacer(4);
+  testo(es, d.esauriti.length ? d.esauriti.join(" · ") : "nessuno", F.testo(11), C.crema3, 2);
+  r.addSpacer(12);
+  if (d.vetrina.length) {
+    const vt = colonna(r);
+    const t = testo(vt, "IN VETRINA", F.titoletto(), C.oro);
+    t.rightAlignText();
+    vt.addSpacer(4);
+    const x = testo(vt, d.vetrina.join(" · "), F.serifCorsivo(13), C.crema, 2);
+    x.rightAlignText();
+  }
+  if (d.evento) {
+    w.addSpacer(12);
+    eventoGrande(w, d.evento);
+  }
+  return w;
+}
+
+function wFuoriMenu(fam, d, v) {
+  const w = nuovoWidget(fam);
+  const grande = fam !== "medium";
+  intestazione(w, "Oggi fuori menù", d, v);
+  w.addSpacer(grande ? 12 : 8);
+  const oggi = [...d.piatti, ...d.vini];
+  if (oggi.length) {
+    const ampia = grande && oggi.length <= 2;
+    oggi.slice(0, grande ? 5 : 2).forEach((x, i) => {
+      if (i) w.addSpacer(grande ? (ampia ? 14 : 10) : 4);
+      voceMenu(w, x, grande, ampia);
+    });
+  } else testo(w, "Oggi niente fuori menù", F.serifCorsivo(15), C.crema3);
+  w.addSpacer();
+  if (grande && d.evento) {
+    lineaOrizzontale(w);
+    w.addSpacer(12);
+    eventoGrande(w, d.evento);
+    w.addSpacer();
+  }
+  lineaOrizzontale(w);
+  w.addSpacer(8);
+  if (!grande && d.evento) {
+    const r = riga(w);
+    r.url = link(d.evento.link);
+    testo(r, d.evento.oggi ? "STASERA" : "PROSSIMO", F.titoletto(), C.crema2);
+    r.addSpacer(8);
+    testo(r, d.evento.titolo, F.serifCorsivo(14), C.crema);
+    r.addSpacer();
+    testo(r, d.evento.quando, F.testo(10), C.crema2);
+    w.addSpacer(4);
+  }
+  testo(w, d.esauriti.length ? `Esauriti: ${d.esauriti.join(", ")}` : "Nessun esaurito", F.testo(10), C.crema3, grande ? 2 : 1);
+  return w;
+}
+
+// Evento con la data in un riquadro oro (formati grandi).
+function eventoGrande(stack, e) {
+  const r = riga(stack);
+  r.url = link(e.link);
+  const data = r.addStack();
+  data.layoutVertically();
+  data.size = new Size(44, 44);
+  data.cornerRadius = 11;
+  data.backgroundColor = C.oroFondo;
+  data.centerAlignContent();
+  data.addSpacer();
+  const n = riga(data); n.addSpacer(); testo(n, e.giorno, F.numero(17), C.oro); n.addSpacer();
+  const m = riga(data); m.addSpacer(); testo(m, e.mese, F.forte(8), C.crema2); m.addSpacer();
+  data.addSpacer();
+  r.addSpacer(12);
+  const t = colonna(r);
+  testo(t, e.oggi ? "STASERA" : "PROSSIMO EVENTO", F.titoletto(), C.crema2);
+  t.addSpacer(3);
+  testo(t, e.titolo, F.serifCorsivo(17), C.crema);
+  if (e.ora || !e.oggi) {
+    t.addSpacer(2);
+    testo(t, e.oggi ? `dalle ${e.ora}` : e.quando, F.testo(10), C.crema2);
+  }
+}
+
+// ---------- QR del menù (immagine dal sito, salvata sul telefono)
+function wQr(fam, d) {
+  const w = nuovoWidget(fam);
+  const { CH } = misure(fam);
+  w.url = link(d.link);
+  // Il QR occupa tutto lo spazio che resta sotto la scritta.
+  const scritta = fam === "small" ? 17 : 26;
+  const lato = Math.floor(CH - scritta - 16 - (fam === "small" ? 8 : 14));
+  w.addSpacer();
+  const r = riga(w);
+  r.addSpacer();
+  const box = r.addStack();
+  box.backgroundColor = C.crema;
+  box.cornerRadius = fam === "small" ? 12 : 20;
+  box.setPadding(8, 8, 8, 8);
+  box.borderColor = new Color("#D8B97A", 0.6);
+  box.borderWidth = 1.5;
+  const img = box.addImage(QR);
+  img.imageSize = new Size(lato, lato);
+  r.addSpacer();
+  w.addSpacer(fam === "small" ? 6 : 14);
+  const t = riga(w);
+  t.addSpacer();
+  testo(t, "Inquadra per il menù", F.serifCorsivo(fam === "small" ? 13 : 20), C.crema);
+  t.addSpacer();
+  w.addSpacer();
+  return w;
+}
+
+// ---------- I miei prossimi orari
+function wTurni(fam, d, v) {
+  const p = d.prossimo;
+  if (fam === "accessoryInline") {
+    const w = accessorio();
+    testo(w, p ? `Turno · ${p.quando.slice(0, 3)} ${p.inizio}` : "Nessun turno in vista", F.forte(12), Color.white());
+    return w;
+  }
+  if (fam === "accessoryRectangular") {
+    const w = accessorio();
+    testo(w, p ? `TURNO ${p.quando.toUpperCase()}` : "TURNI", F.forte(11), new Color("#FFFFFF", 0.75));
+    testo(w, p ? `${p.inizio}–${p.fine}` : "nessuno in vista", F.numero(p ? 20 : 15), Color.white());
+    if (p) testo(w, p.tra, F.medio(11), new Color("#FFFFFF", 0.75));
+    return w;
+  }
+  if (fam === "accessoryCircular") {
+    const w = accessorio();
+    const s = w.addStack();
+    s.layoutVertically();
+    s.size = new Size(60, 60);
+    s.cornerRadius = 30;
+    s.backgroundColor = new Color("#FFFFFF", 0.16);
+    s.addSpacer();
+    const a = riga(s); a.addSpacer(); testo(a, p ? p.quando.slice(0, 3).toUpperCase() : "—", F.forte(9), new Color("#FFFFFF", 0.8)); a.addSpacer();
+    const b = riga(s); b.addSpacer(); testo(b, p ? p.inizio : "", F.numero(15), Color.white()); b.addSpacer();
+    s.addSpacer();
+    return w;
+  }
+  const w = nuovoWidget(fam);
+  intestazione(w, fam === "small" ? "Turno" : "I miei turni", d, v);
+  w.addSpacer(fam === "small" ? 8 : 10);
+  if (fam === "small") {
+    if (!p) {
+      w.addSpacer();
+      testo(w, "Nessun turno", F.forte(14), C.crema);
+      w.addSpacer(4);
+      testo(w, "confermato nei prossimi giorni", F.testo(11), C.crema2, 2);
+      w.addSpacer();
+      return w;
+    }
+    testo(w, `${p.quando} · ${p.giorno.split(" ").slice(1).join(" ")}`, F.testo(12), C.crema2);
+    w.addSpacer(2);
+    testo(w, p.inizio, F.numero(36), C.crema);
+    testo(w, `fino alle ${p.fine}`, F.medio(13), C.crema2);
+    w.addSpacer();
+    etichetta(w, p.tra);
+    return w;
+  }
+  const corpo = riga(w);
+  corpo.topAlignContent();
+  const sx = colonna(corpo);
+  sx.size = new Size(100, 0);
+  if (p) {
+    testo(sx, p.quando, F.testo(11), C.crema2);
+    sx.addSpacer(2);
+    testo(sx, p.inizio, F.numero(32), C.crema);
+    sx.addSpacer(2);
+    testo(sx, `→ ${p.fine} · ${String(p.ore).replace(".", ",")} h`, F.testo(11), C.crema2);
+    sx.addSpacer(6);
+    testo(sx, p.tra, F.forte(10), C.oro);
+  } else {
+    testo(sx, "Nessun turno confermato in vista", F.testo(12), C.crema2, 3);
+  }
+  corpo.addSpacer(10);
+  const dx = colonna(corpo);
+  const g = riga(dx);
+  const cella = Math.max(22, Math.floor((misure(fam).CW - 110 - 18) / 7));
+  d.settimana.forEach((x, i) => {
+    if (i) g.addSpacer(3);
+    const c = g.addStack();
+    c.layoutVertically();
+    c.size = new Size(cella, 64);
+    c.cornerRadius = 9;
+    c.backgroundColor = x.prossimo ? C.oroFondo : C.riquadro;
+    if (x.prossimo) {
+      c.borderColor = new Color("#D8B97A", 0.7);
+      c.borderWidth = 1;
+    }
+    c.setPadding(5, 0, 5, 0);
+    const centro = (t, f, col) => {
+      const r = riga(c);
+      r.addSpacer();
+      testo(r, t, f, col);
+      r.addSpacer();
+    };
+    centro(x.lettera, F.testo(9), C.crema3);
+    c.addSpacer(2);
+    centro(x.numero, F.numero(13), x.oggi ? C.oro : C.crema);
+    c.addSpacer(4);
+    const pal = riga(c);
+    pal.addSpacer();
+    const dot = pal.addStack();
+    dot.size = new Size(6, 6);
+    dot.cornerRadius = 3;
+    if (x.lavoro) dot.backgroundColor = C.oro;
+    else {
+      dot.borderColor = C.crema3;
+      dot.borderWidth = 1;
+    }
+    pal.addSpacer();
+    c.addSpacer(3);
+    centro(x.lavoro ? x.testo.split("–")[0] : "–", F.testo(8), x.lavoro ? C.crema2 : C.crema3);
+  });
+  dx.addSpacer(6);
+  const nota = riga(dx);
+  nota.addSpacer();
+  testo(nota, "solo orari confermati", F.testo(9), C.crema3);
+  return w;
+}
+
+// ---------- Avvio (in fondo: prima devono esistere tutte le costanti qui sopra)
+const param = ((args.widgetParameter || "").trim().toLowerCase() || "aperture").replace(/[^a-z]/g, "");
+let famiglia = config.widgetFamily;
+if (!config.runsInWidget) famiglia = await scegliAnteprima();
+
+const QR = param === "qr" ? await caricaImmagine("qr.png") : null;
+const risposta = await caricaDati(param);
+const widget = disegna(param, famiglia, risposta);
+if (config.runsInWidget) Script.setWidget(widget);
+else await mostra(widget, famiglia);
+Script.complete();

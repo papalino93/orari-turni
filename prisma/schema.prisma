@@ -73,6 +73,9 @@ model Employee {
   canEditMenu   Boolean   @default(false)
   // Come User.appInstalledAt: l'app è già installata sul suo telefono.
   appInstalledAt DateTime?
+  // Widget sulla Home del telefono (Scriptable) che il titolare gli permette: codici di
+  // lib/widgets.ts. Vuoto = non autorizzato. Letto a ogni richiesta del widget.
+  widgets        String[]  @default([])
 
   photo               EmployeePhoto?
   shiftBlocks         ShiftBlock[]
@@ -520,4 +523,25 @@ model MenuEvent {
 
   @@index([day])
   @@index([kind, day])
+}
+
+// Un telefono collegato ai widget (Scriptable). La chiave sta solo nello script sul
+// telefono: qui se ne tiene l'impronta (SHA-256), così una copia del database non basta
+// per leggere i widget. Di titolare/consulente (userId) o di un dipendente (employeeId).
+model WidgetDevice {
+  id          String    @id @default(cuid())
+  userId      String?
+  employeeId  String?
+  name        String
+  keyHash     String    @unique
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  // Nome che il telefono dà a sé stesso (es. «iPhone di Marta») la prima volta: se poi
+  // la stessa chiave arriva da un altro nome, otherDeviceAt avvisa che è stata copiata.
+  deviceName    String?
+  otherDeviceAt DateTime?
+  revokedAt   DateTime?
+
+  @@index([userId])
+  @@index([employeeId])
 }
