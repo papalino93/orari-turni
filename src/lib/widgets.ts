@@ -42,8 +42,17 @@ export const WIDGETS: WidgetDef[] = [
   { id: "fuorimenu", nome: "Oggi fuori menù ed eventi", descrizione: "", per: "admin", sizes: ["medium", "large"], vecchio: true },
 ];
 
-// Il nome dello script che l'installatore crea in Scriptable: è quello che si sceglie sul widget.
-export const scriptName = (w: WidgetDef) => `Angolo · ${w.nome}`;
+// Gli script che l'installatore crea in Scriptable, uno per grandezza: nel nome c'è la grandezza
+// («Angolo medio · In sala»), così dopo aver messo un widget medio si sceglie tra quelli «medio».
+export const SCRIPT_GROUPS = [
+  { id: "piccolo", sizes: ["small"] },
+  { id: "medio", sizes: ["medium"] },
+  { id: "grande", sizes: ["large"] },
+  { id: "blocco", sizes: ["accessoryRectangular", "accessoryCircular", "accessoryInline"] },
+] as const;
+export function scriptFiles(w: WidgetDef): { gruppo: string; file: string }[] {
+  return SCRIPT_GROUPS.filter((g) => g.sizes.some((s) => w.sizes.includes(s))).map((g) => ({ gruppo: g.id, file: `Angolo ${g.id} · ${w.nome}` }));
+}
 
 export const WIDGET_IDS = WIDGETS.map((w) => w.id);
 // Quelli che il titolare può dare a un dipendente.

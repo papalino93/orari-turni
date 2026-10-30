@@ -1,6 +1,6 @@
 import { authenticateWidget } from "@/lib/widget-auth";
 import { dataAndamento, dataAperture, dataClienti, dataDaFare, dataFuoriMenu, dataMattina, dataMenu, dataOggi, dataPannello, dataQr, dataRiepilogo, dataSala, dataSettimana, dataStasera, dataTurni } from "@/lib/widget-data";
-import { ADMIN_WIDGETS, WIDGETS, scriptName, widgetById } from "@/lib/widgets";
+import { ADMIN_WIDGETS, SCRIPT_GROUPS, WIDGETS, scriptFiles, widgetById } from "@/lib/widgets";
 
 // Dati di un widget per Scriptable: GET /api/widget/<nome> con «Authorization: Bearer <chiave>».
 // Mai in cache condivisa: ogni risposta dipende dalla chiave.
@@ -28,7 +28,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ nome: st
     const list = auth.owner.kind === "admin" ? ADMIN_WIDGETS : WIDGETS.filter((w) => !w.vecchio && w.per !== "admin" && auth.owner.kind === "employee" && auth.owner.widgets.includes(w.id));
     return json({
       chi: auth.owner.name,
-      widget: list.map((w) => ({ id: w.id, nome: w.nome, file: scriptName(w), grandezze: w.sizes, icona: w.icona ?? { colore: "deep-brown", disegno: "wine-glass" } })),
+      // Uno script per grandezza, in ordine: prima tutti i piccoli, poi i medi, i grandi e la schermata di blocco.
+      widget: SCRIPT_GROUPS.flatMap((g) =>
+        list.flatMap((w) =>
+          scriptFiles(w)
+            .filter((f) => f.gruppo === g.id)
+            .map((f) => ({ id: w.id, nome: w.nome, file: f.file, grandezza: f.gruppo, icona: w.icona ?? { colore: "deep-brown", disegno: "wine-glass" } })),
+        ),
+      ),
     });
   }
   if (!widgetById(nome)) return json({ errore: "sconosciuto", messaggio: MESSAGES.sconosciuto }, 404);

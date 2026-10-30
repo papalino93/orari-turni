@@ -1,8 +1,8 @@
 // ANGOLO_INSTALLA · L'Angolo del Vino · installatore dei widget per Scriptable.
 // Lo scarica e lo avvia lo script «Angolo del Vino – installa» (quello con la chiave del telefono).
 // Riceve SITO, CHIAVE e MODULO (il «module» di Scriptable, per sapere dove sono gli script).
-// Crea uno script per ogni widget della persona, «Angolo · Pannello», «Angolo · In sala»…:
-// sul widget si sceglie quello, senza scrivere niente. Se lo si riavvia, aggiorna l'elenco.
+// Crea uno script per ogni widget della persona e grandezza, «Angolo grande · Pannello», «Angolo medio · In sala»…:
+// sul widget si sceglie quello con la stessa grandezza, senza scrivere niente. Se lo si riavvia, aggiorna l'elenco.
 
 async function avviso(titolo, testo) {
   const a = new Alert();
@@ -16,7 +16,7 @@ async function avviso(titolo, testo) {
 if (config.runsInWidget) {
   const w = new ListWidget();
   w.backgroundColor = new Color("#FAF5EC");
-  const t = w.addText("Questo è l'installatore. Tieni premuto il widget, «Modifica widget» e alla voce «Script» scegli uno degli «Angolo · …».");
+  const t = w.addText("Questo è l'installatore. Tieni premuto il widget, «Modifica widget» e alla voce «Script» scegli uno degli «Angolo …» della stessa grandezza.");
   t.font = Font.mediumSystemFont(12);
   t.textColor = new Color("#4A0C18");
   Script.setWidget(w);
@@ -43,14 +43,21 @@ if (config.runsInWidget) {
     const nomi = new Set(elenco.widget.map((w) => `${w.file}.js`));
     // Via quelli che la persona non ha più (es. un widget tolto dal titolare).
     for (const f of fm.listContents(cartella)) {
-      if (f.startsWith("Angolo · ") && f.endsWith(".js") && !nomi.has(f)) fm.remove(fm.joinPath(cartella, f));
+      // Anche quelli col nome di prima («Angolo · Pannello», senza la grandezza).
+      if (/^Angolo( piccolo| medio| grande| blocco)? · .+\.js$/.test(f) && !nomi.has(f)) fm.remove(fm.joinPath(cartella, f));
     }
     for (const w of elenco.widget) fm.writeString(fm.joinPath(cartella, `${w.file}.js`), avviatore(w));
+    // Raggruppati per grandezza: chi ha messo un widget medio guarda solo i «medio».
+    const GRUPPI = [["piccolo", "Widget piccolo"], ["medio", "Widget medio"], ["grande", "Widget grande"], ["blocco", "Schermata di blocco"]];
+    const righe = GRUPPI.map(([g, titolo]) => {
+      const nomi = elenco.widget.filter((w) => w.grandezza === g).map((w) => `• ${w.nome}`);
+      return nomi.length ? `${titolo}:\n${nomi.join("\n")}` : null;
+    }).filter(Boolean);
     await avviso(
-      `Pronti ${elenco.widget.length} widget`,
-      `Nell'elenco di Scriptable ora trovi:\n${elenco.widget.map((w) => `• ${w.file}`).join("\n")}\n\n` +
+      "Pronti i tuoi widget",
+      `Nell'elenco di Scriptable ora trovi gli «Angolo …», con la grandezza nel nome.\n\n${righe.join("\n\n")}\n\n` +
         "Per metterne uno sulla Home: tieni premuto uno spazio vuoto, «Modifica» → «Aggiungi widget» → Scriptable → scegli la grandezza → «Aggiungi widget». " +
-        "Poi tocca il widget e alla voce «Script» scegli quello che vuoi.",
+        "Poi tocca il widget e alla voce «Script» scegli uno con la stessa grandezza (es. «Angolo medio · …» per un widget medio).",
     );
   }
   Script.complete();
