@@ -108,7 +108,8 @@ if (await send.count()) {
 // --- Dipendenti: nuova password e disattiva chiedono conferma
 const pwBefore = DB(`select password from "Employee" where id='${fra}'`);
 await adm.goto(`${BASE}/dipendenti`, { waitUntil: "networkidle" });
-for (const b of await adm.getByRole("button", { name: "Settimana, accesso e azioni" }).all()) await b.click();
+// Le schede dei dipendenti sono chiuse: si aprono tutte (il pulsante aperto diventa «Chiudi i dettagli»).
+while (await adm.getByRole("button", { name: "Settimana, accesso e azioni" }).count()) await adm.getByRole("button", { name: "Settimana, accesso e azioni" }).first().click();
 await adm.getByRole("button", { name: "Nuova password" }).first().click();
 check("dipendenti: «Nuova password» chiede conferma", (await adm.getByRole("alertdialog", { name: "Creare una nuova password?" }).count()) === 1);
 await adm.getByRole("alertdialog").getByRole("button", { name: "Annulla" }).click();

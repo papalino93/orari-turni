@@ -249,7 +249,8 @@ await marta.waitForTimeout(1500);
 check("marta: riattiva tutto", Number(DB(`select count(*) from \"MenuItem\" where \"soldOutDay\" is not null`)) === 0);
 
 await page.goto(`${BASE}/dipendenti`, { waitUntil: "networkidle", timeout: 120000 });
-for (const b of await page.getByRole("button", { name: "Settimana, accesso e azioni" }).all()) await b.click();
+// Le schede dei dipendenti sono chiuse: si aprono tutte (il pulsante aperto diventa «Chiudi i dettagli»).
+while (await page.getByRole("button", { name: "Settimana, accesso e azioni" }).count()) await page.getByRole("button", { name: "Settimana, accesso e azioni" }).first().click();
 const sw = page.locator(`button[role="switch"][aria-label="Può modificare il menù: ${DB(`select name from "Employee" where username='marta'`)}"]`);
 check("dipendenti: interruttore menù presente e acceso per Marta", (await sw.getAttribute("aria-checked")) === "true");
 await sw.click();
