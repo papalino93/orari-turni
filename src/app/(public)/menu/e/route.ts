@@ -24,7 +24,9 @@ function tooMany(ip: string): boolean {
   return entry.count > 40;
 }
 
-const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|lighthouse|pingdom|uptime|curl|wget|python-requests|vercel|headless|playwright|puppeteer|phantomjs|selenium/i;
+const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|lighthouse|pingdom|uptime|curl|wget|python-requests|vercel/i;
+// Browser automatici (i controlli fatti sul sito pubblicato): esclusi solo lì, le prove in locale li usano per contare.
+const AUTOMATION = /headless|playwright|puppeteer|phantomjs|selenium/i;
 
 const clean = (v: unknown, max: number) =>
   typeof v === "string" && v.trim() ? v.replace(/\s+/g, " ").trim().slice(0, max) : null;
@@ -34,7 +36,8 @@ export async function POST(request: NextRequest) {
   const staff = request.cookies.getAll().some((c) => c.name.includes("next-auth.session-token"));
   if (staff) return skip;
   if (process.env.VERCEL_ENV === "preview") return skip;
-  if (BOT.test(request.headers.get("user-agent") ?? "")) return skip;
+  const ua = request.headers.get("user-agent") ?? "";
+  if (BOT.test(ua) || (process.env.NODE_ENV === "production" && AUTOMATION.test(ua))) return skip;
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "?";
   if (tooMany(ip)) return skip;
 
