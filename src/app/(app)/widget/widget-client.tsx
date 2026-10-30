@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { runWithToast, useToast } from "@/components/toast";
-import { SIZE_LABELS, WIDGET_THEMES, scriptName, type WidgetDef, type WidgetSize } from "@/lib/widgets";
+import { WIDGET_THEMES, scriptFiles, type WidgetDef } from "@/lib/widgets";
 import { createWidgetDevice, revokeWidgetDevice, setEmployeeWidgets, setWidgetTheme } from "./actions";
 
 const APP_STORE = "https://apps.apple.com/it/app/scriptable/id1405459188";
-const HOME_SIZES: WidgetSize[] = ["small", "medium", "large"];
 
 // Dal computer: un QR per aprire questa pagina sul telefono (i passi si fanno lì).
 export function PhoneQr({ admin }: { admin: boolean }) {
@@ -148,28 +147,50 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
 // ---------- Colori dei widget: valgono per tutti i propri telefoni, subito (al primo aggiornamento)
 // example: il widget delle anteprime e dell'esempio, uno di quelli che la persona può usare.
 // preview: l'immagine di esempio (es. «sala-medium»), di un widget che la persona può usare.
-export function ThemePicker({ current, preview, word }: { current: string; preview: string; word: string }) {
+export function ThemePicker({ current, preview }: { current: string; preview: string; word?: string }) {
   const [pending, start] = useTransition();
+  const [choosing, setChoosing] = useState<string | null>(null);
   const router = useRouter();
   const toast = useToast();
+  const scelto = WIDGET_THEMES.find((t) => t.id === current) ?? WIDGET_THEMES[0];
+  // Chiuso all'inizio: si vede solo il colore in uso. Aperto, il colore scelto ha bordo pieno e «✓ Scelto».
   return (
-    <Section title="Colori dei widget" hint="Valgono per tutti i tuoi widget e telefoni: l'iPhone li prende al primo aggiornamento, senza toccare niente.">
+    <details className="group overflow-hidden rounded-2xl border border-border bg-surface">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element -- anteprima statica */}
+        <img src={`/widget/anteprime/${scelto.id}/apri-small.png`} alt="" className="h-11 w-11 shrink-0 rounded-[10px] shadow-sm" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-semibold text-foreground">Scegli il colore dei widget</span>
+          <span className="block text-sm text-foreground-muted">
+            Ora: <b className="font-medium text-foreground">{scelto.nome}</b>
+          </span>
+        </span>
+        <span aria-hidden className="text-foreground-muted transition-transform group-open:rotate-180">⌄</span>
+      </summary>
+      <p className="border-t border-border px-5 pt-3 text-sm text-foreground-muted">
+        Vale per tutti i tuoi widget e telefoni: l&apos;iPhone lo prende al primo aggiornamento, senza toccare niente.
+      </p>
       <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2">
         {WIDGET_THEMES.map((t) => {
           const on = t.id === current;
+          const saving = pending && choosing === t.id;
           return (
             <button
               key={t.id}
               type="button"
               aria-pressed={on}
+              aria-label={`${t.nome}${on ? ", scelto" : ""}`}
               disabled={pending || on}
-              onClick={() =>
+              onClick={() => {
+                setChoosing(t.id);
                 start(async () => {
-                  const r = await runWithToast(toast, () => setWidgetTheme(t.id), `Colori «${t.nome}» scelti`);
+                  const r = await runWithToast(toast, () => setWidgetTheme(t.id), `Colore «${t.nome}» scelto per i tuoi widget`);
                   if (r !== null) router.refresh();
-                })
-              }
-              className={`flex flex-col items-start gap-2 rounded-2xl border p-3 text-left transition-colors ${on ? "border-accent bg-accent/5 ring-2 ring-accent/40" : "border-border hover:border-accent"}`}
+                });
+              }}
+              className={`flex flex-col items-start gap-2 rounded-2xl border-2 p-3 text-left transition-colors ${
+                on ? "border-accent bg-accent/10" : "border-border hover:border-accent/60"
+              } ${pending && !saving && !on ? "opacity-60" : ""}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- anteprima statica */}
               <img src={`/widget/anteprime/${t.id}/${preview}.png`} alt="" className={`rounded-[14px] shadow-sm ${preview.endsWith("-small") ? "w-1/2" : preview.endsWith("-large") ? "w-2/3" : "w-full"}`} />
@@ -178,17 +199,21 @@ export function ThemePicker({ current, preview, word }: { current: string; previ
                   <span className="block text-sm font-semibold text-foreground">{t.nome}</span>
                   <span className="block text-xs text-foreground-muted">{t.descrizione}</span>
                 </span>
-                <span className={`shrink-0 text-xs font-medium ${on ? "text-accent-ink" : "text-foreground-muted"}`}>{on ? "✓ In uso" : "Usa questi"}</span>
+                {on ? (
+                  <span className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground">✓ Scelto</span>
+                ) : (
+                  <span className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground">{saving ? "Salvo…" : "Scegli"}</span>
+                )}
               </span>
             </button>
           );
         })}
       </div>
       <p className="px-5 pb-4 text-xs text-foreground-muted">
-        Vuoi un widget di un colore diverso dagli altri? Toccalo e nel campo «Parameter» scrivi il nome del colore, es.{" "}
-        <code className="rounded bg-surface-2 px-1 font-mono text-foreground">nero</code> per «{word}».
+        Un solo widget di un colore diverso? Tienilo premuto, «Modifica widget», e nel campo «Parameter» scrivi il nome del colore: crema, carta, oro, bordeaux,
+        notte, nero, oliva o blu.
       </p>
-    </Section>
+    </details>
   );
 }
 
@@ -199,7 +224,7 @@ export function WidgetGallery({
   theme,
   dipendente = false,
   title = "I tuoi widget",
-  hint = "Com'è ognuno e in che grandezza va. Sul telefono, alla voce «Script», scegli il nome scritto qui.",
+  hint = "Com'è ognuno. Sotto c'è il nome da scegliere sul telefono: dice anche la grandezza (piccolo, medio, grande, blocco), uguale a quella del riquadro che metti sulla Home.",
   note,
 }: {
   widgets: WidgetDef[];
@@ -216,7 +241,6 @@ export function WidgetGallery({
           const preview = w.sizes.includes("medium") ? "medium" : w.sizes.includes("small") ? "small" : "large";
           // Il pannello dei dipendenti è diverso (il loro turno, le loro ore): si mostra il loro.
           const src = `/widget/anteprime/${theme}/${dipendente && w.id === "pannello" ? "pannello-dip" : w.id}-${preview}.png`;
-          const home = w.sizes.filter((s) => HOME_SIZES.includes(s));
           return (
             <li key={w.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
               {/* eslint-disable-next-line @next/next/no-img-element -- anteprima statica disegnata dal simulatore */}
@@ -228,12 +252,13 @@ export function WidgetGallery({
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground">{w.nome}</p>
                 <p className="mt-0.5 text-sm text-foreground-muted">{w.descrizione}</p>
+                {/* Il nome dice la grandezza: è quello da scegliere alla voce «Script» del widget di quella grandezza. */}
                 <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-foreground-muted">
-                  <span className="rounded-md border border-border bg-surface-2 px-1.5 py-0.5 font-medium text-foreground">{scriptName(w)}</span>
-                  <span>
-                    {home.map((s) => SIZE_LABELS[s]).join(" o ")}
-                    {w.sizes.some((s) => s.startsWith("accessory")) ? ", anche sulla schermata di blocco" : ""}
-                  </span>
+                  {scriptFiles(w).map((f) => (
+                    <span key={f.file} className="rounded-md border border-border bg-surface-2 px-1.5 py-0.5 font-medium text-foreground">
+                      {f.file}
+                    </span>
+                  ))}
                 </p>
                 {note?.[w.id] && <p className="mt-1.5 text-xs font-medium text-accent-ink">{note[w.id]}</p>}
               </div>
@@ -247,13 +272,13 @@ export function WidgetGallery({
 
 // ---------- Installazione, passo passo
 // Lo script da incollare una volta: scarica dal sito l'installatore (installa.js) e lo avvia.
-// L'installatore crea gli script «Angolo · …», uno per widget, con la chiave di questo telefono.
+// L'installatore crea gli script «Angolo medio · In sala»…, uno per widget e grandezza, con la chiave di questo telefono.
 function scriptFor(origin: string, key: string, owner: string, phone: string) {
   return `// Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
 // icon-color: deep-brown; icon-glyph: magic;
 // L'Angolo del Vino · installatore dei widget di ${owner} (${phone})
-// Tocca ▶ in basso: crea gli script «Angolo · …», uno per widget. Riavvialo quando ti danno un widget nuovo.
+// Tocca ▶ in basso: crea gli script «Angolo piccolo · …», «Angolo medio · …», «Angolo grande · …». Riavvialo quando ti danno un widget nuovo.
 // Personale: non mandarlo ad altri, dentro c'è la chiave di questo telefono.
 const SITO = "${origin}";
 const CHIAVE = "${key}";
@@ -299,6 +324,13 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
   const [phone, setPhone] = useState("");
   const [script, setScript] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Al computer il collegamento non serve: lo script si incolla sul telefono.
+  const [computer, setComputer] = useState(false);
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- dipende dal browser, non noto al primo disegno
+    setComputer(!(/iPhone|iPad|iPod|Android/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)));
+  }, []);
   const [pending, start] = useTransition();
   const router = useRouter();
   const toast = useToast();
@@ -346,6 +378,11 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
         <Step n={2} title="Collega questo telefono">
           {!script ? (
             <>
+              {computer && (
+                <p className="rounded-lg bg-surface-2 px-3 py-2 text-foreground">
+                  Questo passo va fatto <b>dal telefono</b>: inquadra il codice qui in alto con la fotocamera dell&apos;iPhone e continua da lì.
+                </p>
+              )}
               <p>Dai un nome al telefono, così lo riconosci nell&apos;elenco (es. «iPhone di Andrea»).</p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
@@ -388,8 +425,9 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
             <span className="whitespace-nowrap"><Key>▶</Key> in basso a destra.</span>
           </p>
           <p>
-            Compare «Pronti N widget»: nell&apos;elenco di Scriptable ora ci sono gli script <b className="text-foreground">Angolo · Pannello</b>,{" "}
-            <b className="text-foreground">Angolo · In sala</b>… uno per ogni widget qui sotto. Tocca <Key>OK</Key> e <Key>Fine</Key>.
+            Compare «Pronti»: nell&apos;elenco di Scriptable ora ci sono gli script con la grandezza nel nome, ad esempio{" "}
+            <b className="text-foreground">Angolo medio · In sala</b> o <b className="text-foreground">Angolo grande · Pannello</b>. Tocca <Key>OK</Key> e{" "}
+            <Key>Fine</Key>.
           </p>
         </Step>
         <Step n={4} title="Metti un widget sulla Home">
@@ -405,14 +443,15 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
         <Step n={5} title="Scegli quale widget mostrare">
           <p>
             Tocca il widget appena messo (o tienilo premuto e scegli <Key>Modifica widget</Key>). Alla voce <b className="text-foreground">Script</b>{" "}
-            scegli dall&apos;elenco, ad esempio <b className="text-foreground">Angolo · {example}</b>. Non serve scrivere niente.
+            scegli uno con <b className="text-foreground">la stessa grandezza</b> del widget che hai messo: per un widget medio uno degli «Angolo medio · …», per
+            uno grande gli «Angolo grande · …». Ad esempio <b className="text-foreground">{example}</b>. Non serve scrivere niente.
           </p>
           <p>Tocca fuori dal riquadro: in qualche secondo compare. Per averne altri ripeti i punti 4 e 5.</p>
         </Step>
         <Step n={6} title="Schermata di blocco (facoltativo)">
           <p>
             Tieni premuto sulla schermata di blocco, tocca <Key>Personalizza</Key> → <span className="whitespace-nowrap"><Key>Schermata di blocco</Key>,</span> tocca lo spazio sotto
-            l&apos;ora, scegli Scriptable e poi, come al punto 5, lo script (es. «Angolo · Aperture di oggi» o «Angolo · I miei turni»). Si vede anche a
+            l&apos;ora, scegli Scriptable e poi, come al punto 5, uno degli «Angolo blocco · …» (es. «Angolo blocco · Aperture di oggi» o «Angolo blocco · I miei turni»). Si vede anche a
             telefono bloccato: mettici solo cose che possono vedere tutti.
           </p>
         </Step>

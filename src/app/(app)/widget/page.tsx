@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ADMIN_WIDGETS, DEFAULT_THEME, EMPLOYEE_WIDGETS, KEY_IDLE_DAYS, WIDGET_THEMES, WIDGETS, type WidgetDef } from "@/lib/widgets";
+import { ADMIN_WIDGETS, DEFAULT_THEME, EMPLOYEE_WIDGETS, KEY_IDLE_DAYS, WIDGET_THEMES, WIDGETS, scriptFiles, type WidgetDef } from "@/lib/widgets";
 import { AuthorizeList, DeviceList, Installer, PhoneQr, ThemePicker, WidgetGallery, type DeviceRow } from "./widget-client";
 
 const themeOf = (t: string | null | undefined) => (WIDGET_THEMES.some((x) => x.id === t) ? (t as string) : DEFAULT_THEME);
@@ -25,7 +25,7 @@ export default async function WidgetPage() {
           </div>
         ) : (
           <>
-            <Installer ownerName={emp!.name} example={allowed[0].nome} />
+            <Installer ownerName={emp!.name} example={scriptFiles(allowed[0])[0].file} />
             <WidgetGallery widgets={allowed} theme={themeOf(emp?.widgetTheme)} dipendente />
             <ThemePicker current={themeOf(emp?.widgetTheme)} {...themeExample(allowed)} />
             <DeviceList devices={devices.map((d) => toRow(d, emp!.name))} title="I tuoi telefoni collegati" />
@@ -45,10 +45,10 @@ export default async function WidgetPage() {
   const rows = devices.map((d) => toRow(d, names.get(d.userId ?? d.employeeId ?? "") ?? "—"));
   return (
     <Layout admin>
-      <Installer ownerName={user?.name ?? ""} example="Pannello" />
+      <Installer ownerName={user?.name ?? ""} example="Angolo grande · Pannello" />
       <WidgetGallery
         title="Per tutti"
-        hint="Li usi tu e puoi darli ai dipendenti, in «Chi può usare i widget» più sotto. Sul telefono, alla voce «Script», scegli il nome scritto qui."
+        hint="Li usi tu e puoi darli ai dipendenti, in «Chi può usare i widget» più sotto. Sotto ogni widget c'è il nome da scegliere sul telefono: dice anche la grandezza (piccolo, medio, grande, blocco), uguale a quella del riquadro che metti sulla Home."
         widgets={EMPLOYEE_WIDGETS}
         theme={themeOf(user?.widgetTheme)}
         note={{

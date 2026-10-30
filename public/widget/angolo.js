@@ -1,5 +1,5 @@
 // ANGOLO_WIDGET · L'Angolo del Vino · widget per Scriptable.
-// Questo file lo scaricano gli script «Angolo · …» sul telefono (quelli con la chiave, creati
+// Questo file lo scaricano gli script «Angolo medio · In sala»… sul telefono (quelli con la chiave, creati
 // dall'installatore), così i miglioramenti arrivano senza reinstallare nulla. Riceve SITO, CHIAVE e WIDGET.
 // Quattro temi (notte, bordeaux, crema, nero); margini 14, spazi multipli di 4, un solo numero protagonista.
 
@@ -391,7 +391,9 @@ function disegna(nome, fam, risposta) {
   if (risposta.errore) return messaggio(fam, risposta.codice === "rete" ? "Senza rete" : "Angolo del Vino", risposta.errore, risposta.codice === "tolto" ? C.rossoTesto : C.oro);
   if (!FORMATI[nome].includes(fam)) {
     const adatti = FORMATI[nome].filter((f) => NOMI_FORMATO[f]).map((f) => NOMI_FORMATO[f]);
-    return messaggio(fam, "Fuori formato", `Questo widget va in formato ${adatti.join(" o ")}.`);
+    // Dice cosa fare: scegliere uno script della grandezza giusta per questo riquadro.
+    const qui = fam && fam.startsWith("accessory") ? "blocco" : NOMI_FORMATO[fam] === "extra grande" ? "grande" : NOMI_FORMATO[fam];
+    return messaggio(fam, "Grandezza sbagliata", `Questo è per il widget ${adatti.join(" o ")}. Tienilo premuto, «Modifica widget», e alla voce «Script» scegli uno degli «Angolo ${qui} · …».`);
   }
   const d = risposta.dati;
   const v = risposta.vecchi;
@@ -1607,7 +1609,7 @@ function wClienti(fam, d, v) {
 }
 
 // ---------- Avvio (in fondo: prima devono esistere tutte le costanti qui sopra)
-// Quale widget: lo dice lo script «Angolo · …» creato dall'installatore (WIDGET); per quelli della
+// Quale widget: lo dice lo script «Angolo … · …» creato dall'installatore (WIDGET); per quelli della
 // prima versione, la prima parola del campo «Parameter» che non è un colore (es. «aperture»).
 const param = ((typeof WIDGET !== "undefined" && WIDGET) || PAROLE.find((p) => !TEMI[p]) || "aperture").replace(/[^a-z]/g, "");
 let famiglia = config.widgetFamily;
