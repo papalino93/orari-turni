@@ -306,10 +306,10 @@ const ROWS = [
       <div class="or"><div><small>VINO</small><b>Vermentino di Gallura</b><span>Calice 8 · Bottiglia 35</span></div><i class="btn sm">Togli</i></div></div></div>
     <div class="lst"><div class="chiudi">Chiudi tutti i gruppi</div><div class="grp"><div class="gh"><b>▾</b> Italia <span class="cnt">· 9</span><div class="gi"><i></i><i></i><i></i><i></i></div></div><div class="nwrap"></div>${ROWS.slice(0, 4).map(row).join("")}</div></div>
     <div class="dim"></div>
-    <div class="sheet" id="sh1"><div class="sht"><span class="tt"><b class="shn t1">Che cosa vuoi aggiungere?</b><b class="shn t2">Un vino: in quale sezione?</b><b class="shn t3">In quale gruppo di «Rossi»?</b></span><i>✕</i></div>
+    <div class="sheet" id="sh1"><div class="sht"><span class="tt"><b class="shn t1">Che cosa vuoi aggiungere?</b><b class="shn t2">Un vino: in quale categoria?</b><b class="shn t3">In quale gruppo di «Rossi»?</b></span><i>✕</i></div>
       <div class="sbody"><div class="v v1">
         <div class="opt o1"><b>Un vino</b><span>Nella carta dei vini, al posto della sua regione.</span></div>
-        <div class="opt"><b>Un piatto o una bevanda</b><span>Taglieri, tartare, bevande e le altre sezioni.</span></div>
+        <div class="opt"><b>Un piatto o una bevanda</b><span>Taglieri, tartare, bevande e le altre categorie.</span></div>
         <div class="opt"><b>Il piatto di oggi</b><span>In «Oggi fuori menù»: sparisce da solo alle 5.</span></div>
         <div class="opt"><b>Il vino di oggi</b><span>In «Oggi fuori menù»: sparisce da solo alle 5.</span></div>
         <div class="opt"><b>Un evento</b><span>Locandina, date, orario e, se serve, il suo menù.</span></div>
@@ -373,7 +373,7 @@ const ROWS = [
   M.fromTo(t2, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T + 3.7);
   M.fromTo(t3, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.001 }, T + 3.7);
   curMove(cur, pO1[0], pO1[1], T + 4.5, 0.6);
-  cap(s, T + 5.1, T + 8.4, "PASSO 2 DI 4", "Scegli *«Un vino»*, la sezione e il gruppo", 1560);
+  cap(s, T + 5.1, T + 8.4, "PASSO 2 DI 4", "Scegli *«Un vino»*, la categoria e il gruppo", 1560);
   tap(cur, T + 5.2); press(o1, T + 5.2);
   M.fromTo(o1, { backgroundColor: "#fff" }, { backgroundColor: "#f4dfe3", duration: 0.2 }, T + 5.2);
   M.fromTo(v1, { autoAlpha: 1, x: 0 }, { autoAlpha: 0, x: -40, duration: 0.25, ease: "power2.in" }, T + 5.55);
@@ -517,8 +517,8 @@ function dialog(s, w, h, title, x, y, scale) {
 {
   const i = idx("qr"), T = starts[i], s = chapter(i);
   const TOOLS = [
-    ["Tabella prezzi", "Cambia tanti prezzi insieme, anche di sezioni diverse, e salva una volta sola."],
-    ["Riordina", "L’ordine di sezioni, gruppi, voci ed eventi sul menù."],
+    ["Tabella prezzi", "Cambia tanti prezzi insieme, anche di categorie diverse, e salva una volta sola."],
+    ["Riordina", "L’ordine di categorie, gruppi, voci ed eventi sul menù."],
     ["Storico", "Tutte le modifiche, con chi le ha fatte: si può tornare indietro."],
     ["Anteprima", "Il menù come lo vede il cliente, anche in un giorno scelto."],
     ["Menù da stampare", "Foglio A4 sempre aggiornato, da stampare o salvare in PDF."],

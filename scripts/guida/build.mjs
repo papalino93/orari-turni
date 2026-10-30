@@ -212,9 +212,9 @@ pages.push(`<section class="page paper">${chrome(pg(), "Trovare e leggere")}
   <h2>Ricerca, testo grande,<br><em>«Torna su»</em></h2>
   <p class="lead">Tre strumenti discreti nella barra delle sezioni: non disturbano chi sfoglia, aiutano chi ha fretta o vede poco.</p></div>
   <div style="display:flex;gap:7mm;justify-content:center;margin-top:9mm">
-    <div style="width:56mm">${phone("pub-ricerca", 56)}<div class="cap"><span class="nb">1</span><b>Cerca</b> per nome, zona, vitigno o ingrediente; filtri «Al calice», «Enomatic», «Bio», «Vegano».</div></div>
+    <div style="width:56mm">${phone("pub-ricerca", 56)}<div class="cap"><span class="nb">1</span><b>Cerca</b> per nome, zona, vitigno o ingrediente; filtri «Al calice», «Enomatic», «Bio», «Vegano». Scrivendo un allergene («glutine») propone i piatti adatti.</div></div>
     <div style="width:56mm;margin-top:10mm">${phone("pub-testo-grande", 56)}<div class="cap"><span class="nb">2</span><b>Testo più grande</b> con un tocco su «Aa»: il telefono se lo ricorda.</div></div>
-    <div style="width:56mm">${phone("pub-taglieri", 56)}<div class="cap"><span class="nb">3</span><b>Cucina</b> con chiusura della cucina, coperto e allergeni numerati.</div></div>
+    <div style="width:56mm">${phone("pub-taglieri", 56)}<div class="cap"><span class="nb">3</span><b>Cucina</b> con chiusura della cucina, coperto e allergeni scritti per nome.</div></div>
   </div>
   <div style="margin-top:auto"><p class="quote">«Gewürz», «sangiovese», «burrata»: bastano poche lettere, anche senza accenti. Toccando un risultato il menù scorre alla voce e la illumina.</p></div>
 </section>`);
@@ -250,7 +250,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Eventi e annunci")}
   <h2>Ogni serata<br><em>ha la sua pagina</em></h2>
   <p class="lead">Una locandina, un testo, le date e, se serve, l'orario. Sulla pagina il cliente trova «Prenota», «Aggiungi al calendario» e «Condividi». Se la serata ha un menù suo (spunta «Ha un menù dedicato») si compone anche quello.</p></div>
   <div style="display:flex;gap:9mm;margin-top:8mm;justify-content:center;align-items:flex-start">
-    <div style="width:47mm">${phone("pub-evento", 47)}<div class="cap"><span class="nb">1</span><b>Nei giorni dell'evento</b> si apre subito dopo la copertina.</div></div>
+    <div style="width:47mm">${phone("pub-evento", 47)}<div class="cap"><span class="nb">1</span><b>Nei giorni dell'evento</b> è la prima locandina di «In evidenza», con «in corso».</div></div>
     <div style="width:47mm;margin-top:10mm">${phone("pub-evento-pagina", 47)}<div class="cap"><span class="nb">2</span><b>La pagina dell'evento</b>: data, orario e «Prenota» su WhatsApp.</div></div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;margin-top:auto;margin-bottom:9mm">
@@ -285,9 +285,9 @@ pages.push(`<section class="page paper">${chrome(pg(), "Allergeni")}
     <div style="width:84mm;padding-top:6mm">
       <div class="kicker"><span class="kn">${kn()}</span>Allergeni</div>
       <h2>In regola,<br><em>facile da consultare</em></h2>
-      <p class="lead" style="max-width:84mm">Accanto a ogni piatto i numeri degli allergeni, con la legenda in fondo al menù. Una pagina dedicata permette di scegliere cosa evitare.</p>
+      <p class="lead" style="max-width:84mm">Sotto ogni piatto gli allergeni scritti per nome e, se serve, «Può contenere tracce di…». Una pagina dedicata mostra solo i piatti adatti a chi deve evitare qualcosa.</p>
       <div style="margin-top:8mm;display:grid;grid-template-columns:1fr 1fr;gap:2.4mm 5mm;border-top:.3mm solid #D9CEBC;border-bottom:.3mm solid #D9CEBC;padding:5mm 1mm">
-        ${allergens.map((a, i) => `<div style="display:flex;align-items:baseline;gap:2.6mm"><span style="font:italic 500 13pt 'Cormorant Garamond';color:#9C7A45;width:6mm;text-align:right">${i + 1}</span><span style="font:500 7.6pt Jost;letter-spacing:.1em;text-transform:uppercase">${a}</span></div>`).join("")}
+        ${allergens.map((a) => `<div style="display:flex;align-items:center;gap:2.6mm"><span style="width:1.6mm;height:1.6mm;transform:rotate(45deg);background:#9C7A45;flex:none"></span><span style="font:500 7.6pt Jost;letter-spacing:.1em;text-transform:uppercase">${a}</span></div>`).join("")}
       </div>
       <p class="quote" style="margin-top:7mm;font-size:14pt">Se un piatto non è ancora compilato, i clienti leggono «da verificare con il personale»: nel dubbio, meglio in più che in meno.</p>
     </div>
@@ -297,8 +297,8 @@ pages.push(`<section class="page paper">${chrome(pg(), "Allergeni")}
     </div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-bottom:11mm">
-    <div class="card"><h3>Per chi ha un'allergia</h3><p>Sceglie cosa evitare e vede solo i piatti adatti. I vini sono segnalati una volta sola: contengono solfiti.</p></div>
-    <div class="card"><h3>Per il personale</h3><p>«Compila allergeni» guida piatto per piatto: un tocco per «Nessuno» o per spuntare i 14 allergeni.</p></div>
+    <div class="card"><h3>Per chi ha un'allergia</h3><p>Sceglie cosa evitare e vede solo i piatti adatti, contando anche le tracce. Dalla ricerca basta scrivere «glutine» o «lattosio». I vini contengono solfiti: lo dice una riga sola.</p></div>
+    <div class="card"><h3>Per il personale</h3><p>«Compila allergeni» guida piatto per piatto (non chiede gli eventi finiti o nascosti). Nella scheda di un piatto, «+ Può contenere tracce di…» per le tracce.</p></div>
   </div>
 </section>`);
 
@@ -354,15 +354,31 @@ pages.push(`<section class="page paper">${chrome(pg(), "Abbinamento consigliato"
 pages.push(`<section class="page paper">${chrome(pg(), "I consigli della casa")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>I consigli della casa</div>
   <h2>Consigliato<br><em>dalla casa</em></h2>
-  <p class="lead">Fino a quattro vini o piatti scelti da voi: sotto la copertina, in una riga, e con la scritta «Consigliato» sulla voce. Sotto ogni vino, «Sta bene con» mostra i piatti che lo consigliano.</p></div>
+  <p class="lead">Fino a quattro vini o piatti scelti da voi: sotto la copertina, in una riga, e con la scritta «Consigliato» sulla voce. Si scelgono in gestione da «In vetrina». Sotto ogni vino, «Sta bene con» mostra i piatti che lo consigliano.</p></div>
   <div style="display:flex;gap:6mm;justify-content:center;margin-top:8mm">
     <div style="width:50mm">${phone("pub-consigli", 50)}<div class="cap"><span class="nb">1</span><b>Sotto la copertina</b>: «I consigli della casa», fino a quattro.</div></div>
     <div style="width:50mm;margin-top:9mm">${phone("pub-stabenecon", 50)}<div class="cap"><span class="nb">2</span><b>Sotto il vino</b>: «Sta bene con»; un tocco porta al piatto.</div></div>
-    <div style="width:50mm">${phone("ges-consigli", 50)}<div class="cap"><span class="nb">3</span><b>In gestione</b>, nella scheda: «Consigliato dalla casa» e «Sta bene con».</div></div>
+    <div style="width:50mm">${phone("ges-consigli", 50)}<div class="cap"><span class="nb">3</span><b>In gestione</b>, nella scheda della voce: «Consigliato dalla casa» e «Sta bene con».</div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:auto">
-    <div class="card"><h3>Al massimo quattro</h3><p>Per consigliarne un'altra se ne toglie una (dalla sua scheda, togliendo la spunta). Un vino esaurito o un piatto finito sparisce dalla riga da solo.</p></div>
+    <div class="card"><h3>Al massimo quattro</h3><p>In «In vetrina» (scheda Menù): <b>Togli</b> e <b>+ Aggiungi consiglio</b>, che cerca il vino o il piatto. Un vino esaurito o un piatto finito sparisce dalla riga da solo.</p></div>
     <div class="card"><h3>«Sta bene con» è già pronto</h3><p>I piatti che consigliano un vino compaiono da soli. Dalla scheda del vino ne aggiungi altri o ne togli, e ogni modifica si annulla dallo storico.</p></div>
+  </div>
+</section>`);
+
+// · In vetrina e categorie
+pages.push(`<section class="page paper">${chrome(pg(), "In vetrina e categorie")}
+  <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>In vetrina e categorie</div>
+  <h2>Proposte speciali,<br><em>categorie su misura</em></h2>
+  <p class="lead">Sotto «Oggi fuori menù» c'è <b>In vetrina</b>: i consigli della casa e i riquadri bordeaux e oro per le proposte speciali (es. «Caviale &amp; Tartufo bianco, su prenotazione»). Le categorie del menù si creano, si rinominano e si ordinano da sole.</p></div>
+  <div style="position:relative;margin-top:7mm;height:116mm">
+    <div style="position:absolute;left:0;top:0">${mac("mac-vetrina", 146)}</div>
+    <div style="position:absolute;right:0;top:26mm">${phone("pub-vetrina", 44)}</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;margin-top:auto">
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Riquadri speciali</h3><p>Si spengono e riaccendono con <b>Sul menù</b>; con le date <b>Dal / Al</b> compaiono solo in una stagione. <b>+ Nuovo riquadro</b> per un'altra proposta.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Categorie</h3><p>Sotto CATEGORIE: <b>+ Nuova categoria</b> e <b>Ordina categorie</b>. Accanto al titolo <b>Modifica categoria</b> e <b>Vedi nel menù</b>. Una categoria vuota i clienti non la vedono.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Voci a tempo</h3><p>Nella voce, <b>Solo in un periodo</b>: Dal e Al. Compare il primo giorno, sparisce dopo l'ultimo; i clienti leggono «Fino al…».</p></div>
   </div>
 </section>`);
 
@@ -398,7 +414,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Strumenti")}
 pages.push(`<section class="page wine">${chrome(pg(), "Statistiche")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Statistiche</div>
   <h2>Quanti aprono il menù,<br><em>quando e per cosa</em></h2>
-  <p class="lead">Solo per il titolare. In cima c'è il numero di <b>oggi</b>; poi scegli un periodo e leggi il grafico: passa o tocca per vedere un giorno, le fasce dorate sono gli eventi. In <b>Eventi e contatti</b>, <b>Gli eventi funzionano?</b> confronta i giorni con un evento e gli altri. <b>Scarica per Excel</b> per tenere i numeri.</p></div>
+  <p class="lead">Solo per il titolare. In cima c'è il numero di <b>oggi</b>; poi scegli il periodo in una riga (Oggi, Ieri, Questa settimana… Ultimi 7 giorni, Date a scelta) e leggi il grafico: le fasce dorate sono gli eventi. <b>Gli eventi funzionano?</b> confronta i giorni con un evento e gli altri. Dal computer, il pulsante <b>Vista larga</b> accanto al tema usa tutto lo schermo.</p></div>
   <div style="position:relative;margin-top:8mm;height:126mm">
     <div style="position:absolute;left:0;top:0">${mac("mac-statistiche", 148)}</div>
     <div style="position:absolute;right:0;top:14mm">${phone("ges-stat-grafico", 38)}</div>
@@ -409,6 +425,24 @@ pages.push(`<section class="page wine">${chrome(pg(), "Statistiche")}
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Quando volete</h3><p>Si accende con «Inizia a contare»: meglio dal giorno del QR nuovo.</p></div>
   </div>
   <div style="text-align:center;margin:3mm 0 4mm;font:7.5pt Jost;color:rgba(233,220,196,.7);letter-spacing:.04em">I numeri delle schermate sono di esempio: in produzione si parte da zero.</div>
+</section>`);
+
+// · Widget sul telefono
+const ante = (n) => `data:image/png;base64,${(await import("node:fs")).readFileSync(new URL(`../../public/widget/anteprime/crema/${n}.png`, import.meta.url)).toString("base64")}`;
+const wimg = async (n, w) => `<img src="${await ante(n)}" style="width:${w}mm;display:block;border-radius:4.2mm;box-shadow:0 2mm 6mm rgba(0,0,0,.35)">`;
+pages.push(`<section class="page wine">${chrome(pg(), "Widget sul telefono")}
+  <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Widget sul telefono</div>
+  <h2>I numeri del locale<br><em>sulla Home dell'iPhone</em></h2>
+  <p class="lead">Riquadri che si aggiornano da soli: aperture del menù di oggi, chi lavora, cosa c'è fuori menù, i turni di ognuno. Un tocco apre la pagina giusta. Funzionano con l'app gratuita Scriptable, su iPhone e iPad.</p></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:9mm;justify-items:center">
+    ${await wimg("aperture-medium", 80)}${await wimg("oggi-medium", 80)}${await wimg("menu-medium", 80)}${await wimg("turni-medium", 80)}
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:auto">
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Dove si mettono</h3><p>Account → <b>Widget sul telefono</b>: la guida passo passo, la parola di ogni widget e i <b>Colori dei widget</b> (crema, bordeaux, nero, notte).</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Per i dipendenti</h3><p>In <b>Chi può usare i widget</b> scegli chi e quali: i propri turni, il fuori menù, il QR. Mai statistiche né dati dei colleghi.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Una chiave per telefono</h3><p>Lo script di ogni telefono ha la sua chiave: si legge e basta. <b>Scollega</b> la spegne subito; dopo 90 giorni senza uso si spegne da sola.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Grandezze</h3><p>Piccolo, medio, grande e la schermata di blocco: il widget si adatta da solo alla grandezza scelta.</p></div>
+  </div>
 </section>`);
 
 // 11 · Guida: entrare
@@ -437,9 +471,9 @@ pages.push(`<section class="page paper">${chrome(pg(), "Guida · la schermata")}
     <li><b>In alto</b>: <span class="ui">Vedi menù ↗</span> e <span class="ui">+ Aggiungi</span> (un vino, un piatto, il piatto di oggi, un evento, un annuncio).</li>
     <li><b>Le schede</b>: <span class="ui">Menù</span>, <span class="ui">Eventi e annunci</span>, <span class="ui">Orari e contatti</span> (copertina, orari, contatti, coperto e avvisi) e <span class="ui">Strumenti</span> (prezzi, ordine, storico, stampa, QR, guida in PDF e in video).</li>
     <li><b>La ricerca</b>: resta in alto mentre scorri; accanto a ogni risultato c'è <span class="ui">Esaurito</span>.</li>
-    <li><b>Oggi fuori menù</b>: piatti e vini solo di oggi, con <span class="ui">+ Piatto</span> e <span class="ui">+ Vino</span>.</li>
-    <li><b>Le sezioni</b> a sinistra.</li>
-    <li><b>+ Aggiungi</b> accanto al titolo: un vino o una voce proprio in quella sezione.</li>
+    <li><b>Oggi fuori menù</b>: piatti e vini solo di oggi, con <span class="ui">+ Piatto</span> e <span class="ui">+ Vino</span>. Sotto, <b>In vetrina</b>: i consigli della casa e i riquadri speciali.</li>
+    <li><b>Le categorie</b> a sinistra, con <span class="ui">+ Nuova categoria</span> e <span class="ui">Ordina categorie</span> in fondo.</li>
+    <li><b>Accanto al titolo</b>: <span class="ui">Modifica categoria</span> e <span class="ui">Vedi nel menù</span>; sotto, il pulsante per aggiungere un vino o una voce proprio lì.</li>
     <li><b>Le voci</b>: clic sul nome per modificarla. Un clic sul titolo del gruppo (▾ Champagne) lo chiude o lo apre.</li>
   </ol>
 </section>`);
@@ -452,8 +486,8 @@ pages.push(`<section class="page wine">${chrome(pg(), "Guida · ogni giorno")}
     <div class="card"><h3>Un vino o un piatto è finito</h3><ol class="steps"><li>In alto, in <span class="ui">Cerca una voce del menù…</span>, scrivi il nome.</li><li>Tocca <span class="ui">Esaurito</span>.</li></ol><p class="res">Il vino sparisce dal menù, il piatto resta sbiadito. Alle 5 del mattino torna da solo. Per rimettere tutto subito: <span class="ui">Riattiva tutto</span>.</p></div>
     <div class="card"><h3>Il piatto o il vino del giorno</h3><ol class="steps"><li>In «Oggi fuori menù» tocca <span class="ui">+ Piatto</span> o <span class="ui">+ Vino</span>.</li><li>Nome, prezzo e allergeni, poi <span class="ui">Aggiungi</span>.</li></ol><p class="res">Compare in cima al menù e sparisce alle 5. Per rimetterlo un altro giorno: <span class="ui">Riproponi</span>.</p></div>
     <div class="card"><h3>Cambiare un prezzo o un testo</h3><ol class="steps"><li>Cerca la voce e tocca il suo nome.</li><li>Cambia il campo e tocca <span class="ui">Salva</span>.</li></ol><p class="res">Tanti prezzi insieme: in <span class="ui">Strumenti</span>, <span class="ui">Tabella prezzi</span>, poi <span class="ui">Salva tutto</span>.</p></div>
-    <div class="card"><h3>Aggiungere un vino o un piatto</h3><ol class="steps"><li>Tocca la sezione (es. Rossi).</li><li>In fondo al gruppo tocca <span class="ui">+ Aggiungi vino</span> o <span class="ui">+ Aggiungi voce</span>.</li><li>Compila (per un vino italiano anche la <b>regione</b>) e tocca <span class="ui">Aggiungi</span>.</li></ol><p class="res">Il vino va da solo al posto della sua regione. Uno simile a un altro: aprilo e <span class="ui">Duplica</span>. Tante voci: <span class="ui">Incolla più voci</span>.</p></div>
-    <div class="card"><h3>Abbinare un vino a un piatto</h3><ol class="steps"><li>Apri il piatto.</li><li>In <span class="ui">Abbinamento consigliato</span> scrivi il nome del vino e toccalo.</li><li>Tocca <span class="ui">Salva</span>.</li></ol><p class="res">Per toglierlo: ✕ accanto al vino, poi Salva. Un vino o un piatto «della casa»: nella scheda spunta <span class="ui">Consigliato dalla casa</span> (al massimo 4).</p></div>
+    <div class="card"><h3>Aggiungere un vino o un piatto</h3><ol class="steps"><li>Tocca la categoria (es. Rossi).</li><li>In fondo al gruppo tocca <span class="ui">+ Aggiungi vino</span> o <span class="ui">+ Aggiungi voce</span>.</li><li>Compila (per un vino italiano anche la <b>regione</b>) e tocca <span class="ui">Aggiungi</span>.</li></ol><p class="res">Il vino va da solo al posto della sua regione. Uno simile a un altro: aprilo e <span class="ui">Duplica</span>. Tante voci: <span class="ui">Incolla più voci</span>.</p></div>
+    <div class="card"><h3>Abbinare un vino a un piatto</h3><ol class="steps"><li>Apri il piatto.</li><li>In <span class="ui">Abbinamento consigliato</span> scrivi il nome del vino e toccalo.</li><li>Tocca <span class="ui">Salva</span>.</li></ol><p class="res">Per toglierlo: ✕ accanto al vino, poi Salva. Un vino o un piatto «della casa»: in <span class="ui">In vetrina</span>, <span class="ui">+ Aggiungi consiglio</span> (al massimo 4).</p></div>
     <div class="card"><h3>Ho sbagliato qualcosa</h3><ol class="steps"><li>Subito: <span class="ui">Annulla</span> nel messaggio che compare in basso.</li><li>Più tardi: in <span class="ui">Strumenti</span>, <span class="ui">Storico</span>, poi <span class="ui">Ripristina</span> sulla riga giusta.</li></ol><p class="res">Funziona anche per una voce eliminata per errore.</p></div>
   </div>
 </section>`);
@@ -467,7 +501,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Guida · ogni tanto")}
     <div class="card"><h3>Allergeni dei piatti</h3><ol class="steps"><li>Tocca <span class="ui">Compila allergeni</span>.</li><li>Per ogni piatto: «Nessuno» oppure «Contiene…» e spunta.</li><li><span class="ui">Salva e passa al successivo</span>.</li></ol><p class="res">Finché un piatto non è compilato, il cliente legge «da verificare con il personale».</p></div>
     <div class="card"><h3>Orari, ferie e chiusure</h3><ol class="steps"><li>Scheda <span class="ui">Orari e contatti</span>, poi Orari <span class="ui">Modifica</span>.</li><li>Ferie o chiusura: <span class="ui">+ Aggiungi chiusura o apertura straordinaria</span>, date, «Chiuso», motivo.</li><li><span class="ui">Salva</span>.</li></ol><p class="res">«Aperto ora · chiude alle…» in copertina si calcola da solo.</p></div>
     <div class="card"><h3>Coperto, cucina, avvisi</h3><ol class="steps"><li><span class="ui">Orari e contatti</span>, in «Informazioni del menù» <span class="ui">+ Aggiungi</span>.</li><li>Scegli: testo, voce con prezzo o avviso; dove compare e, se serve, dal giorno al giorno.</li></ol><p class="res">Finita la data, l'avviso sparisce da solo.</p></div>
-    <div class="card"><h3>Cambiare l'ordine</h3><ol class="steps"><li>In <span class="ui">Strumenti</span>, <span class="ui">Riordina</span>; scegli sezioni, gruppi o le voci di un gruppo (<span class="ui">Apri ›</span>).</li><li>Trascina dalla maniglia ≡ o usa le frecce, poi <span class="ui">Salva ordine</span>.</li></ol><p class="res">Per i vini c'è anche <span class="ui">Ordina per regione</span>; per «In evidenza» la scheda <span class="ui">Eventi e annunci</span>.</p></div>
+    <div class="card"><h3>Cambiare l'ordine</h3><ol class="steps"><li>Le categorie: <span class="ui">Ordina categorie</span> sotto l'elenco. Gruppi e voci: <span class="ui">Strumenti</span>, <span class="ui">Riordina</span> (<span class="ui">Apri ›</span> per entrare).</li><li>Trascina dalla maniglia ≡ o usa le frecce, poi <span class="ui">Salva ordine</span>.</li></ol><p class="res">Per i vini c'è anche <span class="ui">Ordina per regione</span>; per «In evidenza» la scheda <span class="ui">Eventi e annunci</span>.</p></div>
     <div class="card"><h3>Menù di carta e statistiche</h3><ol class="steps"><li>In <span class="ui">Strumenti</span>, <span class="ui">Menù da stampare</span>, poi <span class="ui">Stampa o salva in PDF</span>.</li><li>Nella barra: <span class="ui">Statistiche</span>, poi <span class="ui">Inizia a contare</span> e il periodo.</li></ol><p class="res">Copertina e contatti: scheda «Orari e contatti»; il QR: «Strumenti», <span class="ui">Codice QR</span>.</p></div>
   </div>
 </section>`);
@@ -478,7 +512,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Per concludere")}
   <h2>Cosa serve per <em>partire</em></h2></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:7mm">
     <div class="card"><h3>Da fare insieme</h3><ul class="tick" style="margin-top:3mm">
-      <li>Ripuntare il QR stampato a <span style="white-space:nowrap">orari-turni.vercel.app/menu</span>, poi accendere «Inizia a contare».</li><li>Provare il messaggio WhatsApp per prenotare.</li><li>Allergeni dei due kombucha e testo della pagina allergeni.</li><li>Abbinamenti dei piatti e caratteristiche dei vini ancora da confermare.</li><li>Inserire l'Oktoberfest con la sua locandina.</li></ul></div>
+      <li>Mettere i widget sul proprio iPhone e scegliere i colori.</li><li>Decidere quali widget dare a ogni dipendente.</li><li>Controllare le tracce degli allergeni dei piatti («+ Può contenere tracce di…»).</li><li>Abbinamenti dei piatti e caratteristiche dei vini ancora da confermare.</li><li>Preparare i riquadri «In vetrina» delle prossime stagioni, con le date.</li></ul></div>
     <div class="card"><h3>Idee per il futuro</h3><ul class="tick" style="margin-top:3mm">
       <li>Versione in inglese per i turisti.</li><li>Foto dei piatti e dei vini.</li><li>Un QR dedicato a ogni evento.</li></ul></div>
   </div>
@@ -503,15 +537,15 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Un dipendente può segnare gli esauriti?</h4><p>Sì, se in «Dipendenti» gli accendi «Può modificare il menù». Potrà cambiare anche voci e prezzi; ogni modifica resta nello storico con il suo nome.</p></div>
     <div><h4>Se non compilo gli allergeni di un piatto?</h4><p>Il cliente legge «Allergeni da verificare con il personale»: mai un'informazione che sembri sicura quando non lo è.</p></div>
     <div><h4>Come metto le birre in più formati?</h4><p>Nella prima birra, in «Prezzo», scegli «Più formati» e tocca i formati (es. 0,2 l · 0,4 l · 1 l): diventano le colonne del gruppo e nelle altre birre scrivi solo i prezzi.</p></div>
-    <div><h4>Quando compare un evento?</h4><p>La locandina dal giorno scelto (di solito una settimana prima), nella striscia «In evidenza»; nei giorni dell'evento si apre a pagina piena con il menù speciale. Finito, sparisce da solo.</p></div>
+    <div><h4>Quando compare un evento?</h4><p>La locandina dal giorno scelto (di solito una settimana prima), nella striscia «In evidenza»; nei giorni dell'evento è la prima, con «in corso» e il menù speciale. Finito, sparisce da solo.</p></div>
     <div><h4>Meglio dal computer o dal telefono?</h4><p>Per le modifiche (vini nuovi, prezzi, ordine, eventi) il computer è più comodo; in sala il telefono basta per «Esaurito» e il piatto del giorno.</p></div>
-    <div><h4>Perché non mi salva un vino?</h4><p>Per un vino italiano serve la regione (es. Toscana). Per un vino estero scrivi la nazione e la regione diventa facoltativa.</p></div>
+    <div><h4>Una cosa solo per un periodo (l'olio nuovo)?</h4><p>Nella voce, «Solo in un periodo»: Dal e Al. Compare il primo giorno e sparisce dopo l'ultimo; i clienti leggono «Fino al…».</p></div>
     <div><h4>Devo cambiare tanti prezzi: c'è un modo veloce?</h4><p>Sì: in «Strumenti», «Tabella prezzi». Si cambiano tutti quelli che servono, anche in sezioni diverse, e si salva una volta sola.</p></div>
     <div><h4>Le statistiche registrano i clienti?</h4><p>No: niente nomi, telefoni o cookie. Si conta solo cosa succede (un'apertura, una ricerca), il giorno e l'ora.</p></div>
-    <div><h4>Chiudo una finestra senza salvare: perdo tutto?</h4><p>No: se hai scritto o cambiato qualcosa compare «Modifiche non salvate» (scegli «Salva», «Continua a modificare» o «Esci senza salvare»). Se non hai toccato niente, si chiude subito.</p></div>
+    <div><h4>Posso vedere i numeri sul telefono senza aprire il sito?</h4><p>Sì, con i widget sulla Home dell'iPhone: Account → «Widget sul telefono». Lì scegli anche quali dare ai dipendenti.</p></div>
     <div><h4>Mi serve il menù su carta: come faccio?</h4><p>In «Strumenti», «Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
 
-    <div><h4>Come consiglio un vino o un piatto?</h4><p>Apri la voce e spunta «Consigliato dalla casa»: compare sotto la copertina, in «I consigli della casa» (al massimo 4).</p></div>
+    <div><h4>Come consiglio un vino o un piatto?</h4><p>In «In vetrina», «+ Aggiungi consiglio» (o nella voce, «Consigliato dalla casa»): compare in «I consigli della casa», al massimo 4.</p></div>
     <div><h4>C'è una guida in video?</h4><p>Sì: in «Strumenti», «Guida (video)»: circa tre minuti, con le cose principali da telefono, tablet e computer (chiaro e scuro).</p></div>
     <div><h4>Dove trovo il numero di versione?</h4><p>In fondo a ogni pagina, ad esempio «v${VERSIONE}». Se segnali un problema, indicalo.</p></div>
   </div>
