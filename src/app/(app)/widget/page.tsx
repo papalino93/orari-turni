@@ -46,7 +46,22 @@ export default async function WidgetPage() {
   return (
     <Layout admin>
       <Installer ownerName={user?.name ?? ""} example="Pannello" />
-      <WidgetGallery widgets={ADMIN_WIDGETS} theme={themeOf(user?.widgetTheme)} />
+      <WidgetGallery
+        title="Per tutti"
+        hint="Li usi tu e puoi darli ai dipendenti, in «Chi può usare i widget» più sotto. Sul telefono, alla voce «Script», scegli il nome scritto qui."
+        widgets={EMPLOYEE_WIDGETS}
+        theme={themeOf(user?.widgetTheme)}
+        note={{
+          pannello: "Ai dipendenti mostra la loro versione: il loro turno, gli esauriti e le loro ore, niente numeri del locale.",
+          turni: "Solo per i dipendenti: mostra i turni di chi lo usa.",
+        }}
+      />
+      <WidgetGallery
+        title="Solo per te e il consulente"
+        hint="Numeri, statistiche e cose da fare: ai dipendenti non si possono dare."
+        widgets={ADMIN_WIDGETS.filter((w) => w.per === "admin")}
+        theme={themeOf(user?.widgetTheme)}
+      />
       <ThemePicker current={themeOf(user?.widgetTheme)} {...themeExample(ADMIN_WIDGETS)} />
       <AuthorizeList employees={employees} widgets={EMPLOYEE_WIDGETS} />
       <DeviceList devices={rows} title="Telefoni collegati" showOwner />
