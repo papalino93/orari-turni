@@ -35,14 +35,14 @@ check("titolare: «aperture» con i numeri", ap.status === 200 && typeof ap.body
 check("risposta mai in cache condivisa", ap.cache === "no-store");
 check("colori di partenza: crema", ap.body.tema === "crema");
 // I widget dei momenti della giornata, e quelli della prima versione (ancora validi per chi li ha).
-for (const n of ["pannello", "sala", "mattina", "stasera", "andamento", "clienti", "apri", "qr", "riepilogo", "settimana", "oggi", "dafare", "menu", "fuorimenu"]) {
+for (const n of ["pannello", "sala", "mattina", "stasera", "andamento", "clienti", "apri", "qr", "menuqr", "riepilogo", "settimana", "oggi", "dafare", "menu", "fuorimenu"]) {
   const r = await get(n, admin.k, { "X-Device-Name": "iPhone di Andrea" });
   check(`titolare: «${n}» risponde`, r.status === 200 && r.body.widget === n, `${r.status} ${JSON.stringify(r.body).slice(0, 80)}`);
 }
 check("titolare: «turni» non è suo (solo dipendenti)", (await get("turni", admin.k)).status === 403);
 check("titolare: il pannello è quello del titolare", (await get("pannello", admin.k)).body?.ruolo === "titolare");
 const el = await get("elenco", admin.k);
-check("installatore: il titolare riceve 11 script, con la grandezza nel nome, prima i piccoli", el.status === 200 && el.body.widget.length === 11 && el.body.widget[0].file === "Angolo piccolo · Apri il menù" && el.body.widget.some((w) => w.file === "Angolo medio · In sala") && el.body.widget.at(-1).file === "Angolo blocco · Aperture di oggi", JSON.stringify(el.body.widget.map((w) => w.file)));
+check("installatore: il titolare riceve 12 script, con la grandezza nel nome, prima i piccoli", el.status === 200 && el.body.widget.length === 12 && el.body.widget[0].file === "Angolo piccolo · Apri il menù" && el.body.widget.some((w) => w.file === "Angolo medio · In sala") && el.body.widget.at(-1).file === "Angolo blocco · Aperture di oggi", JSON.stringify(el.body.widget.map((w) => w.file)));
 check("installatore: niente widget della prima versione nell'elenco", !el.body.widget.some((w) => ["riepilogo", "menu", "fuorimenu"].includes(w.id)));
 check("installatore: senza chiave niente elenco", (await get("elenco")).status === 401);
 check("ultimo uso e nome del telefono salvati", DB(`select "deviceName" from "WidgetDevice" where id='${admin.dev}'`) === "iPhone di Andrea" && DB(`select "lastUsedAt" is not null from "WidgetDevice" where id='${admin.dev}'`) === "t");
@@ -132,7 +132,7 @@ await p.waitForURL(/\/widget$/);
 await p.waitForLoadState("networkidle");
 check("Account → «Widget sul telefono»", (await p.getByRole("heading", { name: "Widget sul telefono", level: 1 }).count()) === 1);
 check("titolare: «Chi può usare i widget», «Per tutti», «Solo per te e il consulente», guida, telefoni", (await p.getByRole("heading", { name: "Chi può usare i widget" }).count()) === 1 && (await p.getByRole("heading", { name: "Per tutti", exact: true }).count()) === 1 && (await p.getByRole("heading", { name: "Solo per te e il consulente", exact: true }).count()) === 1 && (await p.getByRole("heading", { name: "Mettere i widget sul telefono" }).count()) === 1 && (await p.getByRole("heading", { name: "Telefoni collegati" }).count()) === 1);
-check("titolare: 10 widget con anteprima (6 per tutti, 4 solo suoi) e il nome da scegliere sul telefono", (await p.locator('img[alt^="Anteprima del widget"]').count()) === 10 && (await p.locator('section:has(h2:text-is("Solo per te e il consulente")) img[alt^="Anteprima del widget"]').count()) === 4 && (await p.getByText("Angolo grande · Andamento", { exact: true }).count()) === 1, String(await p.locator('img[alt^="Anteprima del widget"]').count()));
+check("titolare: 11 widget con anteprima (7 per tutti, 4 solo suoi) e il nome da scegliere sul telefono", (await p.locator('img[alt^="Anteprima del widget"]').count()) === 11 && (await p.locator('section:has(h2:text-is("Solo per te e il consulente")) img[alt^="Anteprima del widget"]').count()) === 4 && (await p.getByText("Angolo grande · Andamento", { exact: true }).count()) === 1, String(await p.locator('img[alt^="Anteprima del widget"]').count()));
 check("niente più parole da scrivere nel campo «Parameter»", (await p.getByRole("button", { name: /Copia la parola/ }).count()) === 0);
 const srcs = await p.locator('img[alt^="Anteprima del widget"]').evaluateAll((els) => els.map((e) => e.getAttribute("src")));
 const imgsOk = (await Promise.all(srcs.map(async (u) => (await fetch(BASE + u)).headers.get("content-type") === "image/png"))).every(Boolean);
@@ -146,10 +146,10 @@ const sw = p.getByRole("switch", { name: "Può usare i widget: Marta Neri" });
 check("Marta: non autorizzata all'inizio", (await sw.getAttribute("aria-checked")) === "false");
 await sw.click();
 await p.waitForTimeout(1500);
-check("accendendo: Marta ha i 6 widget dei dipendenti", DB(`select widgets::text from "Employee" where id='${marta}'`) === "{pannello,stasera,clienti,apri,qr,turni}", DB(`select widgets::text from "Employee" where id='${marta}'`));
+check("accendendo: Marta ha i 7 widget dei dipendenti", DB(`select widgets::text from "Employee" where id='${marta}'`) === "{pannello,stasera,clienti,apri,menuqr,qr,turni}", DB(`select widgets::text from "Employee" where id='${marta}'`));
 await p.getByRole("button", { name: "✓ Stasera" }).click();
 await p.waitForTimeout(1500);
-check("togliendo un widget: solo quello sparisce", DB(`select widgets::text from "Employee" where id='${marta}'`) === "{pannello,clienti,apri,qr,turni}");
+check("togliendo un widget: solo quello sparisce", DB(`select widgets::text from "Employee" where id='${marta}'`) === "{pannello,clienti,apri,menuqr,qr,turni}");
 if (SHOTS) await p.screenshot({ path: `${SHOTS}/widget-titolare.png`, fullPage: true });
 
 // Colori dei widget
@@ -194,7 +194,7 @@ check("dipendente autorizzata: in «Le mie ore» c'è «Widget sul telefono»", 
 await e.goto(`${BASE}/widget`, { waitUntil: "networkidle" });
 check("dipendente: la pagina si apre (niente rimando)", new URL(e.url()).pathname === "/widget");
 check("dipendente: sceglie i suoi colori", (await e.getByText("Scegli il colore dei widget").count()) === 1);
-check("dipendente: vede solo i suoi 5 widget", (await e.locator('img[alt^="Anteprima del widget"]').count()) === 5);
+check("dipendente: vede solo i suoi 6 widget", (await e.locator('img[alt^="Anteprima del widget"]').count()) === 6);
 check("dipendente: l'anteprima del pannello è quella dei dipendenti", (await e.locator('img[alt="Anteprima del widget «Pannello»"]').getAttribute("src")).includes("pannello-dip"));
 check("dipendente: niente autorizzazioni né telefoni degli altri", (await e.getByRole("heading", { name: "Chi può usare i widget" }).count()) === 0 && (await e.getByRole("heading", { name: "I tuoi telefoni collegati" }).count()) === 1);
 if (SHOTS) await e.screenshot({ path: `${SHOTS}/widget-dipendente.png`, fullPage: true });

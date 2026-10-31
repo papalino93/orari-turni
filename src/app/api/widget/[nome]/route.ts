@@ -50,7 +50,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ nome: st
     : nome === "dafare" ? await dataDaFare()
     : nome === "menu" ? await dataMenu()
     : nome === "fuorimenu" ? await dataFuoriMenu()
-    : nome === "qr" || nome === "apri" ? dataQr()
+    : nome === "qr" || nome === "apri" || nome === "menuqr" ? dataQr()
     : nome === "pannello" ? await dataPannello(auth.owner.kind === "employee" ? { kind: "employee", employeeId: auth.owner.employeeId } : { kind: "admin" })
     : nome === "sala" ? await dataSala()
     : nome === "mattina" ? await dataMattina()
