@@ -1440,7 +1440,13 @@ function wPannello(fam, d, v) {
     const df = tessera(r3, tw, th, d.daFarePrimo ? d.daFarePrimo.link : "/gestione-menu");
     testo(df, "DA FARE", F.titoletto(), C.oro);
     df.addSpacer();
-    if (d.daFare) {
+    if (d.daFare > 1 && d.daFareVoci) {
+      // Più cose: il numero e sotto le prime due, una per riga (le altre si vedono toccando).
+      testo(df, d.daFare, F.numero(22), C.ambra);
+      const voci = d.daFareVoci.slice(0, 2);
+      // Il numero dice quante sono in tutto; le altre si vedono toccando il riquadro.
+      for (const t of voci) testo(df, `• ${t}`, F.testo(10), C.crema2);
+    } else if (d.daFare) {
       // Le cose lunghe («3 dipendenti devono mandarti le ore di ottobre») vanno su due righe: numero più piccolo.
       const lungo = d.daFarePrimo.testo.length > 24;
       testo(df, d.daFare, F.numero(lungo ? 24 : 30), C.ambra);

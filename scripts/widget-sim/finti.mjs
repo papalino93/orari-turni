@@ -27,6 +27,7 @@ export const FINTI = {
     },
     fuori: ["Risotto ai porcini", "Vermentino di Gallura"],
     daFare: 2,
+    daFareVoci: process.env.DAFARE ? undefined : ["Allergeni: 1 piatto", "Orari da confermare"],
     daFarePrimo: process.env.DAFARE ? { testo: process.env.DAFARE, link: "/dipendenti" } : { testo: "1 piatto senza allergeni", link: "/gestione-menu" },
     link: "/menu",
     linkStatistiche: "/statistiche",
