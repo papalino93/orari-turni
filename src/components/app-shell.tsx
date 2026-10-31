@@ -11,10 +11,8 @@ import { BrandMark } from "@/components/brand-mark";
 
 const ADMIN_NAV_ITEMS = [
   { href: "/orari", label: "Orari", icon: CalendarIcon },
-  // Ferie & Permessi nascosta temporaneamente su richiesta: la sezione non è
-  // ancora in uso e genera confusione. La pagina resta funzionante, va solo
-  // riaggiunta qui (con la sua PalmIcon, rimossa sotto) quando la riattiviamo.
-  // { href: "/ferie", label: "Ferie & Permessi", icon: PalmIcon },
+  // «Ferie» si accende da Impostazioni (non ancora in uso: spenta di partenza).
+  { href: "/ferie", label: "Ferie", icon: SunIcon },
   { href: "/dipendenti", label: "Dipendenti", icon: PeopleIcon },
   { href: "/gestione-menu", label: "Menù", icon: MenuIcon },
   { href: "/statistiche", label: "Statistiche", icon: ChartIcon },
@@ -36,6 +34,7 @@ export function AppShell({
   canEditMenu,
   appInstalled,
   showMail,
+  showFerie,
   children,
 }: {
   userName: string;
@@ -45,12 +44,14 @@ export function AppShell({
   appInstalled: boolean;
   // «Mail» si accende da Account (finché l'invio non è collegato resta nascosta).
   showMail: boolean;
+  // «Ferie» si accende da Impostazioni, come «Mail».
+  showFerie: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const isAdmin = role === "ADMIN";
   const navItems = isAdmin
-    ? ADMIN_NAV_ITEMS.filter((item) => showMail || item.href !== "/mail")
+    ? ADMIN_NAV_ITEMS.filter((item) => (showMail || item.href !== "/mail") && (showFerie || item.href !== "/ferie"))
     : canEditMenu
       ? [...EMPLOYEE_NAV_ITEMS, EMPLOYEE_MENU_NAV_ITEM]
       : EMPLOYEE_NAV_ITEMS;
@@ -92,8 +93,9 @@ export function AppShell({
                   }`}
                 >
                   <Icon active={!!active} />
-                  {/* Sul tablet verticale, con 5 voci («Mail» accesa) le parole non starebbero: solo icone. */}
-                  <span className={navItems.length > 4 ? "md:max-lg:hidden" : ""}>{item.label}</span>
+                  {/* Con 5 voci («Mail» o «Ferie» accese) sul tablet verticale le parole non starebbero, con 6
+                      neanche sul computer piccolo: lì solo icone (il nome compare passandoci sopra). */}
+                  <span className={navItems.length > 5 ? "md:max-xl:hidden" : navItems.length > 4 ? "md:max-lg:hidden" : ""}>{item.label}</span>
                 </Link>
               );
             })}
@@ -183,6 +185,15 @@ function ChartIcon({ active }: { active: boolean }) {
       <path d="M7 16v-5" />
       <path d="M12 16V6" />
       <path d="M17 16v-8" />
+    </svg>
+  );
+}
+
+function SunIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2} strokeLinecap="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
     </svg>
   );
 }

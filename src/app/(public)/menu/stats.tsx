@@ -69,8 +69,9 @@ export function MenuStats() {
       url.searchParams.delete("personale");
       window.history.replaceState(null, "", url.pathname + url.search + url.hash);
     }
-    // La pagina col QR la apre chi lo mostra (il personale), non un cliente: non conta.
-    if (isStaffDevice() || pathname === "/menu/qr") return;
+    // La pagina col QR la apre chi lo mostra (il personale), non un cliente: non conta. Neanche
+    // «/menu/personale», la pagina che segna il telefono del personale.
+    if (isStaffDevice() || pathname === "/menu/qr" || pathname === "/menu/personale") return;
     if (firstTimeToday("menu-stat-open")) track("open", pathname);
     const event = pathname.match(/^\/menu\/p\/([^/]+)/);
     if (event && firstTimeToday(`menu-stat-event-${event[1]}`)) track("event", document.title.split(" — ")[0] || event[1], event[1]);

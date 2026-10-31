@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PasswordForm } from "./password-form";
 import { ThemeSetting } from "./theme-setting";
-import { MailSetting } from "./mail-setting";
+import { FeatureSetting } from "./feature-setting";
 import { loadFeatures } from "@/lib/app-features";
 
 export const metadata = { title: "Impostazioni" };
@@ -27,8 +27,10 @@ export default async function AccountPage() {
         <ThemeSetting />
       </div>
 
-      <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-surface">
-        <MailSetting visible={features.mail} />
+      <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted">Sezioni da mostrare</h2>
+      <div className="mb-6 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+        <FeatureSetting feature="ferie" visible={features.ferie} title="«Ferie»" hint="Ferie e permessi dei dipendenti. Spenta, non compare tra le sezioni; quello che c'è dentro resta." />
+        <FeatureSetting feature="mail" visible={features.mail} title="«Mail»" hint="Invii di email ai clienti. Spenta, non compare tra le sezioni." />
       </div>
 
       {me?.appInstalledAt ? (

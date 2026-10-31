@@ -121,11 +121,11 @@ check("«Mail» non c'è nel menu", !/Mail/.test(await nav()));
 await adm.goto(`${BASE}/account`, { waitUntil: "networkidle" });
 const acc = await adm.locator("main").innerText();
 check("Account: niente testo tecnico (Claude, database)", !/Claude|database/.test(acc) && /Se dimentichi la password/.test(acc));
-await adm.getByRole("switch", { name: "Mostra «Mail» nel menù" }).click();
+await adm.getByRole("switch", { name: "Mostra «Mail»" }).click();
 await adm.waitForTimeout(1500);
 await adm.reload({ waitUntil: "networkidle" });
 check("Account: accesa «Mail» compare nel menu", /Mail/.test(await nav()));
-await adm.getByRole("switch", { name: "Mostra «Mail» nel menù" }).click();
+await adm.getByRole("switch", { name: "Mostra «Mail»" }).click();
 await adm.waitForTimeout(1500);
 
 // --- Installa: chi ha l'app installata non la vede più

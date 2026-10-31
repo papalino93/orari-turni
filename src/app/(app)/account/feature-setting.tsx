@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { setMailVisible } from "../app-actions";
+import { setFeatureVisible } from "../app-actions";
 
-// «Mail» nel menù in alto: spenta finché l'invio non è collegato, si riaccende da qui.
-export function MailSetting({ visible }: { visible: boolean }) {
+// Le sezioni che si accendono e spengono nel menù in alto: «Mail» (finché l'invio non è collegato)
+// e «Ferie» (non ancora in uso). Spente, le pagine restano dove sono: tornano con un tocco.
+export function FeatureSetting({ feature, visible, title, hint }: { feature: "mail" | "ferie"; visible: boolean; title: string; hint: string }) {
   const [on, setOn] = useState(visible);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -13,7 +14,7 @@ export function MailSetting({ visible }: { visible: boolean }) {
     const next = !on;
     setOn(next);
     start(async () => {
-      const res = await setMailVisible(next);
+      const res = await setFeatureVisible(feature, next);
       if (!res.ok) setOn(!next);
       router.refresh();
     });
@@ -21,14 +22,14 @@ export function MailSetting({ visible }: { visible: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4 px-5 py-4">
       <div>
-        <p className="text-sm font-medium text-foreground">«Mail» nel menù</p>
-        <p className="text-xs text-foreground-muted">Invii di email ai clienti. Nascosta finché non serve.</p>
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="text-xs text-foreground-muted">{hint}</p>
       </div>
       <button
         type="button"
         role="switch"
         aria-checked={on}
-        aria-label="Mostra «Mail» nel menù"
+        aria-label={`Mostra ${title}`}
         disabled={pending}
         onClick={toggle}
         className="flex h-11 w-14 shrink-0 items-center justify-center rounded-full disabled:opacity-60"

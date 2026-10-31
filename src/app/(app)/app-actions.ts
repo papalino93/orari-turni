@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/guard";
 import { loadFeatures } from "@/lib/app-features";
-import { runAction, type ActionResult } from "@/lib/validation";
+import { ValidationError, runAction, type ActionResult } from "@/lib/validation";
 
 // L'app è stata aperta dall'icona sulla Home: si ricorda per questa persona, così
 // l'invito a installarla sparisce anche quando apre il sito dal browser.
@@ -23,10 +23,12 @@ export async function markAppInstalled(): Promise<ActionResult> {
 }
 
 // Account → «Mostra Mail nel menu».
-export async function setMailVisible(visible: boolean): Promise<ActionResult> {
+// Una sezione nel menù in alto (Impostazioni): «Mail» o «Ferie».
+export async function setFeatureVisible(feature: "mail" | "ferie", visible: boolean): Promise<ActionResult> {
   return runAction(async () => {
     await requireUser();
-    const next = { ...(await loadFeatures()), mail: Boolean(visible) };
+    if (feature !== "mail" && feature !== "ferie") throw new ValidationError("Sezione sconosciuta.");
+    const next = { ...(await loadFeatures()), [feature]: Boolean(visible) };
     const value = JSON.stringify(next);
     await prisma.menuSetting.upsert({ where: { id: "features" }, create: { id: "features", value }, update: { value } });
     revalidatePath("/", "layout");
