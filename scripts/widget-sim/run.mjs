@@ -110,7 +110,8 @@ const problems = [];
 for (const [nome, families, chiaveDi, chi] of PLAN) {
   if (ONLY.length && !ONLY.includes(nome)) continue;
   const chiave = chiaveDi();
-  if (FINTI) finto = FINTI[chi ? `${nome}-${chi}` : nome] ?? null;
+  // VARIANTE=nuovo: prova un'altra serie di dati finti dello stesso widget (es. «andamento-nuovo»).
+  if (FINTI) finto = (process.env.VARIANTE && FINTI[`${nome}-${process.env.VARIANTE}`]) || FINTI[chi ? `${nome}-${chi}` : nome] || null;
   if (FINTI && !finto) continue;
   for (const fam of families) {
     for (const [phone, scale] of Object.entries(PHONES)) {

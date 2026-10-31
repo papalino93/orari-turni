@@ -51,7 +51,6 @@ function colori(nome) {
 const F = {
   numero: (s) => Font.boldRoundedSystemFont(s),
   titoletto: () => Font.semiboldSystemFont(10),
-  agg: () => Font.regularSystemFont(9),
   testo: (s) => Font.regularSystemFont(s),
   medio: (s) => Font.mediumSystemFont(s),
   forte: (s) => Font.semiboldSystemFont(s),
@@ -125,7 +124,10 @@ async function mostra(w, fam) {
 }
 
 // ---------- Mattoni comuni
+// La grandezza del widget che si sta disegnando: serve a intestazione() per sapere quanto spazio c'è.
+let FAMIGLIA = null;
 function nuovoWidget(fam) {
+  FAMIGLIA = fam;
   const w = new ListWidget();
   const g = new LinearGradient();
   g.colors = [C.fondo1, C.fondo2];
@@ -165,9 +167,19 @@ function intestazione(stack, titolo, d, vecchi) {
   const r = riga(stack);
   testo(r, titolo.toUpperCase(), F.titoletto(), C.oro);
   r.addSpacer();
-  const agg = testo(r, vecchi ? `non aggiornato · ${d.aggiornato}` : d.aggiornato, F.agg(), vecchi ? C.rossoTesto : C.crema3);
-  agg.rightAlignText();
+  r.addSpacer(6);
+  scrittaAggiornato(r, d, vecchi, FAMIGLIA === "medium" || FAMIGLIA === "large" || FAMIGLIA === "extraLarge");
   return r;
+}
+
+// Piccola, nella riga del titolo (mai sopra i riquadri): a che ora sono i dati e ogni quanto cambiano.
+// iPhone decide da solo quando aggiornare i widget: si chiede ogni 15 minuti, di solito arriva entro la mezz'ora.
+function scrittaAggiornato(stack, d, vecchi, largo) {
+  const t = vecchi ? `non aggiornato · ${d.aggiornato}` : largo ? `aggiornato ${d.aggiornato} · ogni 30 min circa` : d.aggiornato;
+  const x = testo(stack, t, Font.regularSystemFont(largo ? 8 : 9), vecchi ? C.rossoTesto : C.crema3);
+  x.minimumScaleFactor = 0.7;
+  x.rightAlignText();
+  return x;
 }
 
 // Pillola con la variazione: oro se sale, mattone se scende, neutra se uguale.
@@ -1146,26 +1158,6 @@ function freccina(stack, t, colore = C.oro) {
   return r;
 }
 
-// Barre (andamento delle settimane): l'ultima piena in oro, le altre tenui.
-function barre(valori, w, h) {
-  const ctx = new DrawContext();
-  ctx.size = new Size(w, h);
-  ctx.opaque = false;
-  ctx.respectScreenScale = true;
-  const max = Math.max(1, ...valori);
-  const gap = 6;
-  const bw = (w - gap * (valori.length - 1)) / valori.length;
-  valori.forEach((v, i) => {
-    const bh = Math.max(3, (v / max) * (h - 2));
-    const p = new Path();
-    p.addRoundedRect(new Rect(i * (bw + gap), h - bh, bw, bh), 3, 3);
-    ctx.addPath(p);
-    ctx.setFillColor(i === valori.length - 1 ? C.oro : C.oroArea);
-    ctx.fillPath();
-  });
-  return ctx.getImage();
-}
-
 // Mini grafico della giornata: oggi pieno fino a quest'ora, ieri tratteggiato.
 function graficoGiornata(oggi, ieri, w, h) {
   return grafico(oggi, w, h, { confronto: ieri, punti: ieri.length, spessore: 2, punto: 3 });
@@ -1262,7 +1254,7 @@ function wPannello(fam, d, v) {
     else {
       pillola(pr, d.delta);
       pr.addSpacer(5);
-      testo(pr, "su ieri", F.testo(10), C.crema2);
+      testo(pr, "su ieri a quest'ora", F.testo(10), C.crema2).minimumScaleFactor = 0.75;
     }
   }
   r2.addSpacer(gap);
@@ -1486,7 +1478,7 @@ function wStasera(fam, d, v) {
   const top = riga(t);
   testo(top, (e.oggi ? "Stasera" : "Prossimo evento").toUpperCase(), F.titoletto(), C.oro);
   top.addSpacer();
-  testo(top, d.aggiornato, F.agg(), v ? C.rossoTesto : C.crema3);
+  scrittaAggiornato(top, d, v, false);
   t.addSpacer(4);
   testo(t, e.titolo, F.serifForte(19), C.crema, 2);
   t.addSpacer(2);
@@ -1506,67 +1498,160 @@ function wStasera(fam, d, v) {
 function wAndamento(fam, d, v) {
   const w = nuovoWidget(fam);
   const { CW } = misure(fam);
-  w.url = link(d.link);
-  intestazione(w, "Andamento", d, v);
-  w.addSpacer(10);
-  const hero = riga(w);
-  hero.bottomAlignContent();
-  const hc = colonna(hero);
-  testo(hc, d.nomeMese.charAt(0).toUpperCase() + d.nomeMese.slice(1), F.serifCorsivo(14), C.crema2);
   const stretto = misure(fam).H < 340;
-  testo(hc, d.mese, F.numero(stretto ? 32 : 40), C.crema);
-  hero.addSpacer();
-  const hp = colonna(hero);
-  const pr = riga(hp);
-  pr.addSpacer();
-  pillola(pr, d.deltaMese);
-  hp.addSpacer(3);
-  const nt = riga(hp);
-  nt.addSpacer();
-  const ms = testo(nt, `a ${d.nomeMeseScorso} ${d.meseScorso}\nnegli stessi ${d.giorniMese} giorni`, F.testo(9), C.crema3, 2);
-  ms.rightAlignText();
-  w.addSpacer(10);
-  // Solo settimane intere (quella in corso, a metà, sembrerebbe sempre un calo): sotto, la settimana in corso.
-  const bh = misure(fam).H < 340 ? 40 : 54;
-  const img = w.addImage(barre(d.settimane, CW, bh));
-  img.imageSize = new Size(CW, bh);
-  w.addSpacer(4);
-  const et = riga(w);
-  testo(et, "ultime 8 settimane", F.testo(9), C.crema3);
-  et.addSpacer();
-  testo(et, `questa finora ${d.questaSettimana}`, F.forte(9), C.crema2);
-  et.addSpacer(4);
-  pillola(et, d.deltaSettimana);
+  w.url = link(d.link);
+  intestazione(w, "Andamento del menù", d, v);
   w.addSpacer(stretto ? 6 : 10);
+
+  // 1 · Due numeri grandi, ognuno con il suo confronto scritto per intero: niente percentuali senza un «su cosa».
   const gap = stretto ? 6 : 8;
   const cw = Math.floor((CW - gap) / 2);
-  const cella = (r, tit, val, sotto, url, coloreVal = C.crema) => {
+  const kpi = riga(w);
+  kpi.topAlignContent();
+  const blocco = (titolo, n, cosa, x, nomePrima, nonContato) => {
+    const c = colonna(kpi);
+    c.size = new Size(cw, 0);
+    testo(c, titolo.toUpperCase(), F.titoletto(), C.oro);
+    testo(c, n, F.numero(stretto ? 26 : 30), C.crema);
+    testo(c, cosa, F.testo(9), C.crema2).minimumScaleFactor = 0.8;
+    c.addSpacer(3);
+    const r = riga(c);
+    if (x.prima === null) testo(r, nonContato, F.testo(9), C.crema3).minimumScaleFactor = 0.8;
+    else {
+      if (x.delta !== null) {
+        pillola(r, x.delta);
+        r.addSpacer(5);
+      }
+      testo(r, `${nomePrima}: ${x.prima}`, F.testo(9), C.crema2).minimumScaleFactor = 0.8;
+    }
+    r.addSpacer();
+    return c;
+  };
+  blocco("Questa settimana", d.settimana.n, `aperture ${d.settimana.giorni}`, d.settimana, "sett. scorsa", "sett. scorsa non contata");
+  kpi.addSpacer(gap);
+  // Il mese: l'ultimo finito contro quello prima (mai un mese appena iniziato contro uno intero).
+  const m = d.mese;
+  blocco(`${m.nome} finora`, m.n, `aperture ${m.dal || m.giorni}`, m, m.giorniPrima, m.confrontoDa ? `confronto da ${m.confrontoDa}` : `${m.nomePrima} non contato`);
+  w.addSpacer(stretto ? 8 : 12);
+
+  // 2 · Settimana per settimana: il numero sopra ogni barra, la data sotto; quella in corso si chiama «questa».
+  const st = riga(w);
+  testo(st, "SETTIMANA PER SETTIMANA", F.titoletto(), C.crema2);
+  st.addSpacer();
+  testo(st, "aperture", F.testo(9), C.crema3);
+  w.addSpacer(4);
+  if (d.settimane.length < 2) {
+    testo(w, "Le settimane compariranno qui man mano che si contano.", F.testo(10), C.crema2, 2);
+  } else {
+    const n = d.settimane.length;
+    const sg = 5;
+    const bw = Math.floor((CW - sg * (n - 1)) / n);
+    const hMax = stretto ? 24 : 34;
+    const max = Math.max(1, ...d.settimane.map((x) => x.n));
+    const br = riga(w);
+    br.bottomAlignContent();
+    d.settimane.forEach((x, i) => {
+      if (i) br.addSpacer(sg);
+      const c = colonna(br);
+      c.size = new Size(bw, 0);
+      const centro = (t, f, col) => {
+        const r = riga(c);
+        r.addSpacer();
+        testo(r, t, f, col).minimumScaleFactor = 0.7;
+        r.addSpacer();
+      };
+      centro(x.n, F.forte(9), x.inCorso ? C.crema : C.crema2);
+      c.addSpacer(2);
+      const h = Math.max(3, Math.round((x.n / max) * hMax));
+      const img = c.addImage(barra(bw, h, x.inCorso ? C.oro : C.oroArea));
+      img.imageSize = new Size(bw, h);
+      c.addSpacer(3);
+      centro(x.inCorso ? "questa" : x.da, F.testo(8), x.inCorso ? C.oro : C.crema3);
+    });
+  }
+  w.addSpacer(stretto ? 8 : 12);
+
+  // 3 · Quattro risposte brevi, ognuna con il suo periodo.
+  const cella = (r, tit, val, sotto, url, coloreVal = C.crema, unita = "") => {
     const c = r.addStack();
     c.layoutVertically();
     c.size = new Size(cw, 0);
     c.cornerRadius = 12;
     c.backgroundColor = C.riquadro;
-    c.setPadding(stretto ? 6 : 8, 10, stretto ? 6 : 8, 10);
+    c.setPadding(stretto ? 5 : 7, 10, stretto ? 5 : 7, 10);
     if (url) c.url = link(url);
     testo(c, tit.toUpperCase(), F.titoletto(), C.oro);
-    c.addSpacer(stretto ? 1 : 3);
-    testo(c, val, F.numero(stretto ? 16 : 19), coloreVal);
-    testo(c, sotto, F.testo(9), C.crema2);
+    c.addSpacer(stretto ? 1 : 2);
+    const vr = riga(c);
+    vr.bottomAlignContent();
+    testo(vr, val, F.numero(stretto ? 15 : 18), coloreVal);
+    if (unita) {
+      vr.addSpacer(4);
+      testo(vr, unita, F.medio(10), coloreVal);
+    }
+    vr.addSpacer();
+    testo(c, sotto, F.testo(9), C.crema2).minimumScaleFactor = 0.8;
     return c;
   };
   const a = riga(w);
   a.topAlignContent();
-  if (d.eventi) cella(a, "Con un evento", `${d.eventi.delta > 0 ? "+" : ""}${d.eventi.delta ?? 0}%`, `${d.eventi.conEvento} al giorno contro ${d.eventi.senza}`, "/statistiche#eventi", d.eventi.delta > 0 ? C.verde : C.crema);
-  else cella(a, "Con un evento", "—", "ancora nessun evento", "/statistiche#eventi");
+  if (d.eventi) {
+    const piu = d.eventi.delta !== null && d.eventi.delta > 0;
+    cella(a, "Giorni con evento", d.eventi.delta === null ? "—" : `${piu ? "+" : ""}${d.eventi.delta}%`, `${d.eventi.conEvento} al giorno, gli altri ${d.eventi.senza}`, "/statistiche#eventi", piu ? C.verde : C.crema, d.eventi.delta === null ? "" : "di aperture");
+  } else cella(a, "Giorni con evento", "—", "ancora nessun evento", "/statistiche#eventi");
   a.addSpacer(gap);
-  cella(a, "Ore del personale", `${d.ore.questa} h`, `la settimana scorsa ${d.ore.scorsa} h`, d.linkOre);
+  cella(a, "Ore in turno", `${d.ore.questa} h`, `questa settimana · scorsa ${d.ore.scorsa} h`, d.linkOre);
   w.addSpacer(gap);
   const b = riga(w);
   b.topAlignContent();
-  cella(b, "Giorno più forte", d.giornoForte || "—", "ultime 8 settimane", "/statistiche#quando");
+  const forte = cella(b, "Momento più forte", d.giornoForte || "—", d.oraForte ? `ore ${d.oraForte} · ${d.periodo}` : d.periodo, "/statistiche#quando");
   b.addSpacer(gap);
-  cella(b, "Ora più forte", d.oraForte || "—", "ultime 8 settimane", "/statistiche#quando");
+  // I mesi finiti, a consuntivo: nome a sinistra, aperture a destra.
+  const mi = b.addStack();
+  mi.layoutVertically();
+  mi.cornerRadius = 12;
+  mi.backgroundColor = C.riquadro;
+  mi.setPadding(stretto ? 5 : 7, 10, stretto ? 5 : 7, 10);
+  mi.url = link("/statistiche");
+  const treMesi = misure(fam).H >= 370;
+  testo(mi, "MESI INTERI", F.titoletto(), C.oro);
+  mi.addSpacer(stretto ? 1 : 3);
+  if (d.mesi.length) {
+    d.mesi.slice(0, treMesi ? 3 : 2).forEach((x) => {
+      const r = riga(mi);
+      testo(r, x.nome.charAt(0).toUpperCase() + x.nome.slice(1), F.testo(9.5), C.crema2);
+      if (x.dal) {
+        r.addSpacer(3);
+        testo(r, `(${x.dal})`, F.testo(8), C.crema3);
+      }
+      r.addSpacer();
+      testo(r, x.n, F.forte(9.5), C.crema);
+    });
+  } else {
+    testo(mi, "—", F.numero(stretto ? 15 : 18), C.crema);
+    testo(mi, `il primo a fine ${d.mese.nome}`, F.testo(9), C.crema2).minimumScaleFactor = 0.8;
+  }
+  mi.addSpacer();
+  forte.addSpacer();
+  // Stessa altezza per i due riquadri della riga (quanto serve a tre mesi, o due sui telefoni piccoli).
+  const alto = treMesi ? 65 : stretto ? 52 : 58;
+  forte.size = new Size(cw, alto);
+  mi.size = new Size(cw, alto);
   return w;
+}
+
+// Una barra sola, con gli angoli in alto arrotondati.
+function barra(w, h, colore) {
+  const ctx = new DrawContext();
+  ctx.size = new Size(w, h);
+  ctx.opaque = false;
+  ctx.respectScreenScale = true;
+  const p = new Path();
+  p.addRoundedRect(new Rect(0, 0, w, h), Math.min(3, h / 2), Math.min(3, h / 2));
+  ctx.addPath(p);
+  ctx.setFillColor(colore);
+  ctx.fillPath();
+  return ctx.getImage();
 }
 
 // ---------- Cosa dire ai clienti (medio): per chi è in sala
