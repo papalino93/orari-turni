@@ -15,7 +15,7 @@ export const FINTI = {
     aperture: 47,
     delta: 18,
     ieriFinora: 40,
-    stasera: { chiuso: null, persone: ["GB", "MF", "SL"], orario: "17–24" },
+    stasera: { chiuso: null, persone: [{ nome: "Giulia", orario: "17–23:30" }, { nome: "Marco", orario: "18–24" }, { nome: "Sara", orario: "18–24" }], orario: "17–24" },
     fuori: ["Risotto ai porcini", "Vermentino di Gallura"],
     daFare: 2,
     daFarePrimo: { testo: "1 piatto senza allergeni", link: "/gestione-menu" },

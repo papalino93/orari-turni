@@ -329,17 +329,12 @@ function anello(frazione, lato, spessore, colore, fondo) {
   return ctx.getImage();
 }
 
-function avatar(stack, iniziali, lato = 22) {
-  const s = stack.addStack();
-  s.size = new Size(lato, lato);
-  s.cornerRadius = lato / 2;
-  s.backgroundColor = C.avatar;
-  s.centerAlignContent();
-  const r = riga(s);
-  r.addSpacer();
-  testo(r, iniziali, Font.boldSystemFont(lato > 22 ? 9.5 : 8.5), C.avatarTesto);
-  r.addSpacer();
-  return s;
+// «Giulia, Marco e Sara»; da quattro in su «Giulia, Marco e altri 2».
+function nomi(persone) {
+  const n = persone.map((p) => p.nome);
+  if (n.length <= 1) return n.join("");
+  if (n.length <= 3) return `${n.slice(0, -1).join(", ")} e ${n.at(-1)}`;
+  return `${n.slice(0, 2).join(", ")} e altri ${n.length - 2}`;
 }
 
 // ---------- Messaggi (errori, formato sbagliato)
@@ -728,13 +723,8 @@ function wOggi(fam, d, v) {
       return;
     }
     const r = riga(dx);
-    f.persone.slice(0, 4).forEach((p, i) => {
-      if (i) r.addSpacer(3);
-      avatar(r, p.iniziali);
-    });
-    r.addSpacer(8);
-    const nomi = f.persone.map((p) => p.nome);
-    testo(r, nomi.length > 2 ? `${nomi.length} persone` : nomi.join(", "), F.testo(11), C.crema2, 1);
+    testo(r, nomi(f.persone), F.medio(11), C.crema, 1);
+    r.addSpacer();
   };
   fascia("Mattina", d.mattina);
   dx.addSpacer(8);
@@ -759,9 +749,7 @@ function wOggi(fam, d, v) {
       elenco.slice(i, i + 2).forEach((p, j) => {
         const c = riga(r);
         c.size = new Size(Math.floor((CW - 8) / 2), 0);
-        avatar(c, p.iniziali);
-        c.addSpacer(8);
-        testo(c, p.nome, F.testo(12), C.crema);
+        testo(c, p.nome, F.medio(12), C.crema);
         c.addSpacer();
         if (j === 0) r.addSpacer(8);
       });
@@ -1311,13 +1299,15 @@ function wPannello(fam, d, v) {
     tu.addSpacer();
     if (d.stasera.chiuso) testo(tu, d.stasera.chiuso, F.serifForte(15), C.rossoTesto, 2);
     else if (d.stasera.persone.length) {
-      const av = riga(tu);
-      d.stasera.persone.slice(0, 4).forEach((p, i) => {
-        if (i) av.addSpacer(4);
-        avatar(av, p, 26);
+      // Il nome e l'orario di ognuno (i tondi con le iniziali sull'iPhone non si leggevano).
+      const tante = d.stasera.persone.length > 3;
+      d.stasera.persone.slice(0, tante ? 2 : 3).forEach((p) => {
+        const r = riga(tu);
+        testo(r, typeof p === "string" ? p : p.nome, F.medio(12), C.crema);
+        r.addSpacer();
+        if (typeof p !== "string") testo(r, p.orario, F.testo(11), C.crema2);
       });
-      tu.addSpacer(4);
-      testo(tu, d.stasera.orario, F.medio(11), C.crema2);
+      if (tante) testo(tu, `e altri ${d.stasera.persone.length - 2}`, F.testo(11), C.crema2);
     } else testo(tu, "Nessuno in turno", F.testo(12), C.crema2);
     r3.addSpacer(gap);
     // 6 · Da fare
@@ -1365,13 +1355,8 @@ function wSala(fam, d, v) {
   team.url = link(d.linkTurni);
   if (d.chiuso) testo(team, d.chiuso, F.medio(11), C.rossoTesto);
   else if (d.alLavoro.length) {
-    d.alLavoro.slice(0, 3).forEach((p, i) => {
-      if (i) team.addSpacer(3);
-      avatar(team, p.iniziali);
-    });
-    team.addSpacer(6);
     const ultimo = d.alLavoro.reduce((a, b) => (b.fine > a.fine ? b : a));
-    testo(team, `al lavoro, fino alle ${ultimo.alle}`, F.testo(10), C.crema2);
+    testo(team, `${nomi(d.alLavoro)} · fino alle ${ultimo.alle}`, F.medio(10.5), C.crema);
   } else testo(team, d.arrivano.length ? `${d.arrivano[0].nome} arriva alle ${d.arrivano[0].dalle}` : "Nessuno in turno adesso", F.testo(10), C.crema2);
   dx.addSpacer(6);
   const es = riga(dx);
@@ -1421,12 +1406,7 @@ function wMattina(fam, d, v) {
   oggi.url = link(d.linkTurni);
   if (d.oggi.chiuso) testo(oggi, d.oggi.chiuso, F.medio(11), C.rossoTesto);
   else {
-    d.oggi.persone.slice(0, 3).forEach((p, i) => {
-      if (i) oggi.addSpacer(3);
-      avatar(oggi, p.iniziali);
-    });
-    oggi.addSpacer(6);
-    testo(oggi, d.oggi.persone.length ? `dalle ${d.oggi.persone[0].dalle}` : "nessun turno", F.testo(11), C.crema2);
+    testo(oggi, d.oggi.persone.length ? `${nomi(d.oggi.persone)} · dalle ${d.oggi.persone[0].dalle}` : "Nessun turno oggi", F.medio(11), C.crema);
     oggi.addSpacer();
   }
   dx.addSpacer(8);
