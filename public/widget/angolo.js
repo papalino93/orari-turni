@@ -1568,7 +1568,7 @@ function wAndamento(fam, d, v) {
   // Il mese: l'ultimo finito contro quello prima (mai un mese appena iniziato contro uno intero).
   const m = d.mese;
   blocco(`${m.nome} finora`, m.n, `aperture ${m.dal || m.giorni}`, m, m.giorniPrima, m.confrontoDa ? `confronto da ${m.confrontoDa}` : `${m.nomePrima} non contato`);
-  w.addSpacer(stretto ? 8 : 12);
+  w.addSpacer(stretto ? 6 : 10);
 
   // 2 · Settimana per settimana: il numero sopra ogni barra, la data sotto; quella in corso si chiama «questa».
   const st = riga(w);
@@ -1582,7 +1582,7 @@ function wAndamento(fam, d, v) {
     const n = d.settimane.length;
     const sg = 5;
     const bw = Math.floor((CW - sg * (n - 1)) / n);
-    const hMax = stretto ? 24 : 34;
+    const hMax = stretto ? 20 : 28;
     const max = Math.max(1, ...d.settimane.map((x) => x.n));
     const br = riga(w);
     br.bottomAlignContent();
@@ -1605,7 +1605,7 @@ function wAndamento(fam, d, v) {
       centro(x.inCorso ? "questa" : x.da, F.testo(8), x.inCorso ? C.oro : C.crema3);
     });
   }
-  w.addSpacer(stretto ? 8 : 12);
+  w.addSpacer(stretto ? 6 : 10);
 
   // 3 · Quattro risposte brevi, ognuna con il suo periodo.
   const cella = (r, tit, val, sotto, url, coloreVal = C.crema, unita = "") => {
@@ -1640,7 +1640,10 @@ function wAndamento(fam, d, v) {
   w.addSpacer(gap);
   const b = riga(w);
   b.topAlignContent();
-  const forte = cella(b, "Momento più forte", d.giornoForte || "—", d.oraForte ? `ore ${d.oraForte} · ${d.periodo}` : d.periodo, "/statistiche#quando");
+  // Il giorno e l'ora più forti con la loro media di aperture; sotto, piccolo, il periodo.
+  const oraTesto = d.oraForte ? `ore ${d.oraForte}${d.oraMedia ? ` · ${d.oraMedia} in media` : ""}` : "";
+  const forte = cella(b, "Momento più forte", d.giornoForte || "—", oraTesto || d.periodo, "/statistiche#quando", C.crema, d.giornoMedia ? `${d.giornoMedia} in media` : "");
+  if (oraTesto) testo(forte, d.periodo, F.testo(8), C.crema3);
   b.addSpacer(gap);
   // I mesi finiti, a consuntivo: nome a sinistra, aperture a destra.
   const mi = b.addStack();
@@ -1670,7 +1673,7 @@ function wAndamento(fam, d, v) {
   mi.addSpacer();
   forte.addSpacer();
   // Stessa altezza per i due riquadri della riga (quanto serve a tre mesi, o due sui telefoni piccoli).
-  const alto = treMesi ? 65 : stretto ? 52 : 58;
+  const alto = treMesi ? 74 : stretto ? 62 : 68;
   forte.size = new Size(cw, alto);
   mi.size = new Size(cw, alto);
   return w;

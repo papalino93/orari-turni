@@ -655,8 +655,16 @@ export async function dataAndamento() {
   const avg = (list: string[]) => (list.length ? Math.round(list.reduce((s, d) => s + count(d), 0) / list.length) : null);
   const conEvento = avg(past.filter((d) => evDays.has(d)));
   const senza = avg(past.filter((d) => !evDays.has(d)));
-  const bestWd = byWd.reduce<{ w: number; n: number } | null>((b, r) => (!b || r._count._all > b.n ? { w: r.weekday, n: r._count._all } : b), null);
+  // Il giorno più forte per MEDIA (aperture diviso quante volte quel giorno c'è stato nel periodo):
+  // con il totale, in un periodo con 5 venerdì e 4 sabati vincerebbe il venerdì anche se rende meno.
+  // L'ora più forte: aperture in quell'ora diviso i giorni del periodo.
+  const quanti = (w: number) => past.filter((d) => weekday(d) === (w + 6) % 7).length;
+  const bestWd = byWd
+    .map((r) => ({ w: r.weekday, media: quanti(r.weekday) ? r._count._all / quanti(r.weekday) : 0 }))
+    .reduce<{ w: number; media: number } | null>((b, r) => (!b || r.media > b.media ? r : b), null);
   const bestHour = byHour.reduce<{ h: number; n: number } | null>((b, r) => (!b || r._count._all > b.n ? { h: r.hour, n: r._count._all } : b), null);
+  // «58», oppure «3,4» sotto le 10 (un'ora può avere poche aperture al giorno).
+  const media = (x: number) => (x >= 10 ? String(Math.round(x)) : x.toFixed(1).replace(".", ",").replace(",0", ""));
   const dalGiorno = since && since >= addDays(mon, -7 * 7) ? `${Number(since.slice(8))} ${MONTHS[Number(since.slice(5, 7)) - 1]}` : null;
   return {
     aggiornato: clockNow(),
@@ -672,8 +680,10 @@ export async function dataAndamento() {
     mesi,
     settimane,
     eventi: conEvento !== null && senza !== null ? { conEvento, senza, delta: delta(conEvento, senza) } : null,
-    giornoForte: bestWd ? DAYS[(bestWd.w + 6) % 7] : null,
+    giornoForte: bestWd && bestWd.media > 0 ? DAYS[(bestWd.w + 6) % 7] : null,
+    giornoMedia: bestWd && bestWd.media > 0 ? media(bestWd.media) : null,
     oraForte: bestHour ? `${bestHour.h}–${bestHour.h + 1}` : null,
+    oraMedia: bestHour && past.length ? media(bestHour.n / past.length) : null,
     ore: { questa: oreQuesta, scorsa: oreScorsa },
     link: "/statistiche",
     linkOre: `/orari?date=${mon}`,
