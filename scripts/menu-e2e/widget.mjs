@@ -72,7 +72,11 @@ const inst = await (await fetch(`${BASE}/widget/installa.js`)).text();
 check("installatore servito, con il marchio che lo script controlla", inst.startsWith("// ANGOLO_INSTALLA"));
 {
   const files = new Map();
-  const fmStub = { documentsDirectory: () => "/doc", joinPath: (a, b2) => `${a}/${b2}`, listContents: () => ["Angolo · Vecchio.js", "Altro.js"], remove: (f) => files.set(f, "TOLTO"), writeString: (f, t2) => files.set(f, t2) };
+  // Sul telefono ci sono già: uno script col nome di prima («Angolo · Pannello»), uno di un widget tolto, uno non nostro.
+  files.set("/doc/Angolo · Pannello.js", "vecchio");
+  files.set("/doc/Angolo · Vecchio.js", "vecchio");
+  let scritture = 0;
+  const fmStub = { documentsDirectory: () => "/doc", joinPath: (a, b2) => `${a}/${b2}`, listContents: () => [...files.keys()].map((f) => f.slice(5)).concat("Altro.js"), remove: (f) => files.set(f, "TOLTO"), fileExists: (f) => files.has(f), readString: (f) => files.get(f), writeString: (f, t2) => { scritture++; files.set(f, t2); } };
   let detto = "";
   const g = {
     config: { runsInWidget: false },
@@ -84,9 +88,13 @@ check("installatore servito, con il marchio che lo script controlla", inst.start
   };
   const AF = Object.getPrototypeOf(async function () {}).constructor;
   await new AF("SITO", "CHIAVE", "MODULO", ...Object.keys(g), inst)(BASE, dip.k, { filename: "/doc/Angolo del Vino – installa.js" }, ...Object.values(g));
-  const creati = [...files.keys()].filter((f) => files.get(f) !== "TOLTO").sort();
+  const creati = [...files.keys()].filter((f) => f.includes(" piccolo ") || f.includes(" medio ") || f.includes(" grande ") || f.includes(" blocco ")).sort();
   check("installatore: crea gli script con la grandezza nel nome", creati.join("|") === "/doc/Angolo blocco · I miei turni.js|/doc/Angolo grande · Pannello.js|/doc/Angolo grande · QR del menù.js|/doc/Angolo medio · I miei turni.js|/doc/Angolo piccolo · I miei turni.js|/doc/Angolo piccolo · QR del menù.js", creati.join("|"));
-  check("installatore: toglie gli «Angolo · …» che non servono più, non tocca gli altri script", files.get("/doc/Angolo · Vecchio.js") === "TOLTO" && !files.has("/doc/Altro.js"));
+  check("installatore: non cancella mai uno script (un widget già sulla Home resterebbe vuoto)", ![...files.values()].includes("TOLTO") && files.get("/doc/Angolo · Vecchio.js") === "vecchio" && !files.has("/doc/Altro.js"));
+  check("installatore: lo script col nome di prima («Angolo · Pannello») viene aggiornato e continua a funzionare", files.get("/doc/Angolo · Pannello.js").includes('const WIDGET = "pannello"'));
+  const primaVolta = scritture;
+  await new AF("SITO", "CHIAVE", "MODULO", ...Object.keys(g), inst)(BASE, dip.k, { filename: "/doc/Angolo del Vino – installa.js" }, ...Object.values(g));
+  check("riavviando l'installatore non riscrive gli script uguali", scritture === primaVolta, `${scritture} vs ${primaVolta}`);
   const pan = files.get("/doc/Angolo grande · Pannello.js");
   check("ogni script ha sito, chiave e widget, e si può avviare", pan.includes(`const CHIAVE = "${dip.k}"`) && pan.includes('const WIDGET = "pannello"') && pan.startsWith("// Variables used by Scriptable.") && (() => { try { new AF(pan); return true; } catch { return false; } })());
   check("installatore: alla fine dice quali sono pronti, divisi per grandezza", /Pronti i tuoi widget/.test(detto) && /Widget grande:\n• Pannello/.test(detto) && /Schermata di blocco:\n• I miei turni/.test(detto), detto);
