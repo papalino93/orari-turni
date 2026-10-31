@@ -13,6 +13,7 @@ export function ConfirmSheet({
   busyLabel,
   busy = false,
   danger = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: {
@@ -22,6 +23,7 @@ export function ConfirmSheet({
   busyLabel?: string;
   busy?: boolean;
   danger?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -50,7 +52,7 @@ export function ConfirmSheet({
             <button
               type="button"
               onClick={onConfirm}
-              disabled={busy}
+              disabled={busy || confirmDisabled}
               className={`min-h-11 rounded-lg px-4 text-sm font-medium disabled:opacity-50 ${
                 danger ? "bg-danger text-white hover:bg-danger/90" : "bg-accent text-accent-foreground hover:bg-accent-hover"
               }`}

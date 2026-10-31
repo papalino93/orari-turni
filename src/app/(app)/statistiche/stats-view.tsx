@@ -7,7 +7,8 @@ import { useToast } from "@/components/toast";
 import { MONTH_NAMES, WEEKDAY_LABELS, WEEKDAY_NAMES } from "@/lib/menu-stats";
 import { PERIODS, type Period, type StatsData } from "@/lib/stats-queries";
 import type { StatsSetting } from "@/lib/menu";
-import { setStatsEnabled } from "./actions";
+import { ConfirmSheet } from "@/components/confirm-sheet";
+import { listRecentOpens, removeOpens, setStatsEnabled, type RecentOpen } from "./actions";
 import QRCode from "qrcode";
 import { Bars, Delta, EffectBars, Funnel, Heatmap, RankedList, Ranking, Sparkline, TrendChart, dec, fmtDay, fmtDayLong, n, weekdayOf } from "./stats-charts";
 
@@ -150,6 +151,7 @@ function TodayCard({ stats, recent, today, counting, since }: { stats: StatsData
           <dd className="text-[11px] tabular-nums text-foreground-muted">in tutto il giorno {n(stats.lastWeek)}</dd>
         </div>
       </dl>
+      <RemoveTestOpens today={today} />
       <div className="ml-auto flex items-end gap-4">
         {recent.some((r) => r.count > 0) && (
           <div className="hidden sm:block">
@@ -167,6 +169,123 @@ function TodayCard({ stats, recent, today, counting, since }: { stats: StatsData
         </button>
       </div>
     </section>
+  );
+}
+
+// «Togli aperture di prova»: le aperture di oggi e di ieri con l'ora, si spuntano quelle fatte per prova
+// (dal personale, nei test) e si tolgono. Non conteranno più, né qui né nei widget.
+function RemoveTestOpens({ today }: { today: string }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [list, setList] = useState<RecentOpen[] | null>(null);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  async function start() {
+    setOpen(true);
+    setList(null);
+    setChosen(new Set());
+    const res = await listRecentOpens();
+    if (!res.ok) {
+      setOpen(false);
+      toast.showError(res.error);
+      return;
+    }
+    setList(res.data);
+  }
+  async function confirm() {
+    setBusy(true);
+    const res = await removeOpens([...chosen]);
+    setBusy(false);
+    if (!res.ok) {
+      toast.showError(res.error);
+      return;
+    }
+    setOpen(false);
+    toast.showSuccess(res.data === 1 ? "Tolta 1 apertura di prova" : `Tolte ${res.data} aperture di prova`);
+    router.refresh();
+  }
+  const toggle = (id: string) =>
+    setChosen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const groups = list ? [today, ...new Set(list.map((o) => o.day).filter((d) => d !== today))].map((d) => ({ day: d, rows: list.filter((o) => o.day === d) })) : [];
+
+  return (
+    <>
+      <button type="button" onClick={start} className="w-full text-left text-xs font-medium text-foreground-muted underline decoration-border underline-offset-4 hover:text-foreground sm:w-auto">
+        Togli aperture di prova
+      </button>
+      {open && (
+        <ConfirmSheet
+          title="Togli aperture di prova"
+          confirmLabel={chosen.size === 0 ? "Scegli quali togliere" : chosen.size === 1 ? "Togli 1 apertura" : `Togli ${chosen.size} aperture`}
+          busyLabel="Tolgo…"
+          busy={busy}
+          danger
+          confirmDisabled={chosen.size === 0}
+          onConfirm={confirm}
+          onCancel={() => setOpen(false)}
+        >
+          <p>Spunta le aperture fatte per prova, da te o dal personale: non conteranno più, né qui né nei widget. Non si possono rimettere.</p>
+          {!list ? (
+            <p className="py-4">Carico le aperture…</p>
+          ) : list.length === 0 ? (
+            <p className="py-4">Né oggi né ieri ci sono aperture del menù.</p>
+          ) : (
+            <div className="max-h-[45svh] space-y-4 overflow-y-auto pr-1">
+              {groups.map((g) => (
+                <div key={g.day}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                      {g.day === today ? "Oggi" : "Ieri"} · {g.rows.length}
+                    </p>
+                    {g.rows.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setChosen((prev) => {
+                            const next = new Set(prev);
+                            const all = g.rows.every((r) => next.has(r.id));
+                            for (const r of g.rows) {
+                              if (all) next.delete(r.id);
+                              else next.add(r.id);
+                            }
+                            return next;
+                          })
+                        }
+                        className="min-h-9 text-xs font-medium text-accent hover:underline"
+                      >
+                        {g.rows.every((r) => chosen.has(r.id)) ? "Nessuna" : "Tutte"}
+                      </button>
+                    )}
+                  </div>
+                  {g.rows.length === 0 ? (
+                    <p className="mt-1 text-xs">Nessuna apertura.</p>
+                  ) : (
+                    <ul className="mt-1 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                      {g.rows.map((o) => (
+                        <li key={o.id}>
+                          <label className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-sm tabular-nums ${chosen.has(o.id) ? "border-danger/60 bg-danger/10 text-foreground" : "border-border text-foreground-muted"}`}>
+                            <input type="checkbox" checked={chosen.has(o.id)} onChange={() => toggle(o.id)} className="h-4 w-4 accent-[var(--color-danger)]" />
+                            {o.time}
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs">Per non farle contare d&apos;ora in poi: «Il tuo telefono non deve contare», più in basso.</p>
+        </ConfirmSheet>
+      )}
+    </>
   );
 }
 

@@ -167,7 +167,18 @@ function intestazione(stack, titolo, d, vecchi) {
   const r = riga(stack);
   r.centerAlignContent();
   if (titolo === "L'Angolo del Vino" && LOGO) logo(r, 18);
-  else testo(r, titolo.toUpperCase(), F.titoletto(), C.oro);
+  else {
+    // Su tutti i widget il logo piccolo accanto al nome del widget, alto come la scritta.
+    // Nei piccoli il logo prende il posto del nome (che lì si capisce dal contenuto).
+    if (LOGO && FAMIGLIA === "small") logo(r, 13);
+    else {
+      if (LOGO) {
+        logo(r, 13);
+        r.addSpacer(7);
+      }
+      testo(r, titolo.toUpperCase(), F.titoletto(), C.oro).minimumScaleFactor = 0.8;
+    }
+  }
   r.addSpacer();
   r.addSpacer(6);
   scrittaAggiornato(r, d, vecchi, FAMIGLIA === "medium" || FAMIGLIA === "large" || FAMIGLIA === "extraLarge");
@@ -1008,7 +1019,7 @@ function wQr(fam, d) {
   const { CH } = misure(fam);
   w.url = link(d.link);
   // Il QR occupa tutto lo spazio che resta sotto la scritta.
-  const scritta = fam === "small" ? 17 : 26;
+  const scritta = (fam === "small" ? 17 : 26) + (LOGO ? (fam === "small" ? 17 : 32) : 0);
   const lato = Math.floor(CH - scritta - 16 - (fam === "small" ? 8 : 14));
   w.addSpacer();
   const r = riga(w);
@@ -1027,6 +1038,14 @@ function wQr(fam, d) {
   t.addSpacer();
   testo(t, "Inquadra per il menù", F.serifCorsivo(fam === "small" ? 13 : 20), C.crema);
   t.addSpacer();
+  // Sotto, il logo: chi guarda il telefono capisce subito di che menù si tratta.
+  if (LOGO) {
+    w.addSpacer(fam === "small" ? 3 : 6);
+    const l = riga(w);
+    l.addSpacer();
+    logo(l, fam === "small" ? 14 : 20);
+    l.addSpacer();
+  }
   w.addSpacer();
   return w;
 }
@@ -1489,7 +1508,11 @@ function wStasera(fam, d, v) {
   corpo.addSpacer(12);
   const t = colonna(corpo);
   const top = riga(t);
-  testo(top, (e.oggi ? "Stasera" : "Prossimo evento").toUpperCase(), F.titoletto(), C.oro);
+  if (LOGO) {
+    logo(top, 13);
+    top.addSpacer(7);
+  }
+  testo(top, (e.oggi ? "Stasera" : "Prossimo evento").toUpperCase(), F.titoletto(), C.oro).minimumScaleFactor = 0.8;
   top.addSpacer();
   scrittaAggiornato(top, d, v, false);
   t.addSpacer(4);
@@ -1731,7 +1754,7 @@ const TEMA = PAROLE.find((p) => TEMI[p]) || (risposta.dati && risposta.dati.tema
 C = colori(TEMA);
 // Il logo (scritta a mano dell'Angolo del Vino) nel colore del tema, al posto del nome scritto in maiuscolo.
 let LOGO = null;
-if (param === "pannello" || param === "apri") {
+if (!String(famiglia || "").startsWith("accessory")) {
   try {
     LOGO = await caricaImmagine(`logo/${TEMI[TEMA] ? TEMA : "crema"}.png`);
   } catch (e) {}
