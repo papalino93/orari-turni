@@ -31,10 +31,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const user = await prisma.user.findUnique({ where: { username: session.user.username }, select: { appInstalledAt: true } });
     appInstalled = Boolean(user?.appInstalledAt);
   }
-  const features = role === "ADMIN" ? await loadFeatures() : { mail: false };
+  const features = role === "ADMIN" ? await loadFeatures() : { mail: false, ferie: false };
 
   return (
-    <AppShell userName={session.user.name} role={role} canEditMenu={canEditMenu} appInstalled={appInstalled} showMail={features.mail}>
+    <AppShell userName={session.user.name} role={role} canEditMenu={canEditMenu} appInstalled={appInstalled} showMail={features.mail} showFerie={features.ferie}>
       <StaffDeviceMark />
       {children}
     </AppShell>

@@ -756,7 +756,7 @@ export function StatsView({
 function StaffPhoneCard() {
   const [qr, setQr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const link = () => `${window.location.origin}/menu?personale=1`;
+  const link = () => `${window.location.origin}/menu/personale`;
   useEffect(() => {
     QRCode.toDataURL(link(), { margin: 1, width: 240 }).then(setQr).catch(() => {});
   }, []);
