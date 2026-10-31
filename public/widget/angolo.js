@@ -406,6 +406,7 @@ const FORMATI = {
   turni: ["small", "medium", "accessoryRectangular", "accessoryCircular", "accessoryInline"],
   pannello: ["large"],
   apri: ["small"],
+  menuqr: ["medium"],
   sala: ["medium"],
   mattina: ["medium"],
   stasera: ["medium"],
@@ -437,6 +438,7 @@ function disegna(nome, fam, risposta) {
     : nome === "qr" ? wQr(fam, d)
     : nome === "pannello" ? wPannello(fam, d, v)
     : nome === "apri" ? wApri(fam, d)
+    : nome === "menuqr" ? wMenuQr(fam, d)
     : nome === "sala" ? wSala(fam, d, v)
     : nome === "mattina" ? wMattina(fam, d, v)
     : nome === "stasera" ? wStasera(fam, d, v)
@@ -823,6 +825,8 @@ function wDaFare(fam, d, v) {
     return w;
   }
   const colori = { rosso: C.rosso, ambra: C.ambra, verde: C.verde };
+  // Ci stanno quattro voci: prima quelle con qualcosa da fare.
+  const lista = [...d.righe.filter((x) => x.n > 0), ...d.righe.filter((x) => !x.n)].slice(0, 4);
   const voce = (stack, x, larghezza) => {
     const r = riga(stack);
     if (larghezza) r.size = new Size(larghezza, 0);
@@ -838,18 +842,18 @@ function wDaFare(fam, d, v) {
     r.addSpacer();
   };
   if (fam === "small") {
-    d.righe.forEach((x, i) => {
+    lista.forEach((x, i) => {
       voce(w, x);
-      if (i < d.righe.length - 1) w.addSpacer();
+      if (i < lista.length - 1) w.addSpacer();
     });
     return w;
   }
   const lw = Math.floor((CW - 12) / 2);
   for (let i = 0; i < 4; i += 2) {
     const r = riga(w);
-    voce(r, d.righe[i], lw);
+    voce(r, lista[i], lw);
     r.addSpacer(12);
-    voce(r, d.righe[i + 1], lw);
+    voce(r, lista[i + 1], lw);
     if (i === 0) w.addSpacer();
   }
   w.addSpacer();
@@ -1191,6 +1195,54 @@ function graficoGiornata(oggi, ieri, w, h) {
   return grafico(oggi, w, h, { confronto: ieri, punti: ieri.length, spessore: 2, punto: 3 });
 }
 
+// ---------- Menù e QR (medio): a sinistra si tocca e si apre il menù, a destra il QR si tocca
+// e si apre grande, da far inquadrare al cliente. Per chi è in sala.
+function wMenuQr(fam) {
+  const w = nuovoWidget(fam);
+  const { CW, CH } = misure(fam);
+  w.url = link("/menu");
+  const gap = 8;
+  const tw = Math.floor((CW - gap) / 2);
+  const r = riga(w);
+  r.topAlignContent();
+  // Sinistra: il menù
+  const sx = tessera(r, tw, CH, "/menu");
+  if (LOGO) logo(riga(sx), 14);
+  else testo(sx, "L'ANGOLO DEL VINO", F.titoletto(), C.oro);
+  sx.addSpacer();
+  testo(sx, "Il menù", F.serifForte(24), C.crema);
+  testo(sx, "tocca e mostralo", F.serifCorsivo(12), C.crema2);
+  sx.addSpacer(8);
+  const pr = riga(sx);
+  const pill = pr.addStack();
+  pill.setPadding(5, 12, 5, 12);
+  pill.cornerRadius = 12;
+  pill.backgroundColor = C.oro;
+  testo(pill, "Apri  →", F.forte(12), C.fondo1);
+  pr.addSpacer();
+  r.addSpacer(gap);
+  // Destra: il QR, grande quanto il riquadro permette
+  const dx = tessera(r, tw, CH, "/menu/qr");
+  const lato = Math.min(CH - 20 - 16, tw - 24);
+  dx.addSpacer();
+  const qr = riga(dx);
+  qr.addSpacer();
+  const box = qr.addStack();
+  box.backgroundColor = C.qr;
+  box.cornerRadius = 10;
+  box.setPadding(4, 4, 4, 4);
+  const img = box.addImage(QR);
+  img.imageSize = new Size(lato - 8, lato - 8);
+  qr.addSpacer();
+  dx.addSpacer(4);
+  const t = riga(dx);
+  t.addSpacer();
+  testo(t, "tocca: si apre grande", F.testo(9), C.crema2).minimumScaleFactor = 0.8;
+  t.addSpacer();
+  dx.addSpacer();
+  return w;
+}
+
 // ---------- Apri il menù (piccolo): un tocco e il menù è sullo schermo
 function wApri(fam, d) {
   const w = nuovoWidget(fam);
@@ -1228,32 +1280,58 @@ function wPannello(fam, d, v) {
   };
   const dipendente = d.ruolo === "dipendente";
 
-  // 1 · Menù (per tutti): da mostrare al cliente
+  // 1 · Menù: titolo in alto; in basso il testo a sinistra e il tondo con la freccia a destra.
+  const lato = Math.max(36, Math.min(48, th - 42));
+  const coppia = (tile, titolo, grande, piccolo) => {
+    testo(tile, titolo, F.titoletto(), C.oro);
+    tile.addSpacer();
+    const r = riga(tile);
+    r.centerAlignContent();
+    const c = colonna(r);
+    testo(c, grande, F.serifForte(18), C.crema).minimumScaleFactor = 0.8;
+    testo(c, piccolo, F.serifCorsivo(12), C.crema2);
+    r.addSpacer(6);
+    r.addSpacer();
+    return r;
+  };
   const r1 = fila();
   const menu = tessera(r1, tw, th, "/menu");
-  testo(menu, "MENÙ", F.titoletto(), C.oro);
-  menu.addSpacer();
-  testo(menu, "Apri il menù", F.serifForte(17), C.crema);
-  menu.addSpacer(2);
-  freccina(menu, "da mostrare  →");
+  const mr = coppia(menu, "MENÙ", "Il menù", "da mostrare");
+  // Il tondo un po' più piccolo del QR: pieno di colore, a parità di misura sembrerebbe più grosso.
+  const dTondo = lato - 8;
+  // Dentro uno spazio grande quanto il QR: così le due righe (menù e QR) restano alla stessa altezza.
+  const posto = mr.addStack();
+  posto.size = new Size(lato, lato);
+  posto.centerAlignContent();
+  posto.addSpacer();
+  const tondo = posto.addStack();
+  tondo.size = new Size(dTondo, dTondo);
+  tondo.cornerRadius = dTondo / 2;
+  tondo.backgroundColor = C.oro;
+  tondo.centerAlignContent();
+  tondo.addSpacer();
+  testo(tondo, "→", F.forte(Math.round(dTondo * 0.42)), C.fondo1);
+  tondo.addSpacer();
+  posto.addSpacer();
   r1.addSpacer(gap);
-  // 2 · QR da mostrare
+  // QR: una riga sola in alto, centrata, e sotto il codice più grande possibile, al centro.
   const qr = tessera(r1, tw, th, "/menu/qr");
+  const qt = riga(qr);
+  qt.addSpacer();
+  testo(qt, "QR DEL MENÙ", F.titoletto(), C.oro);
+  qt.addSpacer();
+  qr.addSpacer();
   const qrr = riga(qr);
-  qrr.centerAlignContent();
-  const qc = colonna(qrr);
-  testo(qc, "QR", F.titoletto(), C.oro);
-  qc.addSpacer();
-  testo(qc, "Mostra", F.serifForte(17), C.crema);
-  testo(qc, "il codice", F.serifCorsivo(12), C.crema2);
   qrr.addSpacer();
+  const latoQr = th - 20 - 14;
   const box = qrr.addStack();
   box.backgroundColor = C.qr;
   box.cornerRadius = 8;
   box.setPadding(4, 4, 4, 4);
-  const lato = Math.min(th - 28, 58);
   const img = box.addImage(QR);
-  img.imageSize = new Size(lato, lato);
+  img.imageSize = new Size(latoQr - 8, latoQr - 8);
+  qrr.addSpacer();
+  qr.addSpacer();
   w.addSpacer(gap);
 
   const r2 = fila();
@@ -1363,8 +1441,10 @@ function wPannello(fam, d, v) {
     testo(df, "DA FARE", F.titoletto(), C.oro);
     df.addSpacer();
     if (d.daFare) {
-      testo(df, d.daFare, F.numero(30), C.ambra);
-      testo(df, d.daFarePrimo.testo, F.testo(10), C.crema2);
+      // Le cose lunghe («3 dipendenti devono mandarti le ore di ottobre») vanno su due righe: numero più piccolo.
+      const lungo = d.daFarePrimo.testo.length > 24;
+      testo(df, d.daFare, F.numero(lungo ? 24 : 30), C.ambra);
+      testo(df, d.daFarePrimo.testo, F.testo(lungo ? 9.5 : 10), C.crema2, lungo ? 2 : 1);
     } else {
       testo(df, "Tutto a posto", F.serifForte(17), C.verde);
       testo(df, "niente in sospeso", F.testo(10), C.crema2);
@@ -1471,7 +1551,7 @@ function wMattina(fam, d, v) {
     r.url = link(c.link);
     testo(r, c.fatto ? "✓" : "●", F.forte(c.fatto ? 10 : 7), c.fatto ? C.verde : C.ambra);
     r.addSpacer(6);
-    testo(r, c.testo, F.testo(11), c.fatto ? C.crema2 : C.crema);
+    testo(r, c.testo, F.testo(11), c.fatto ? C.crema2 : C.crema).minimumScaleFactor = 0.8;
     r.addSpacer();
     dx.addSpacer(4);
   }
@@ -1599,7 +1679,7 @@ function wAndamento(fam, d, v) {
       centro(x.n, F.forte(9), x.inCorso ? C.crema : C.crema2);
       c.addSpacer(2);
       const h = Math.max(3, Math.round((x.n / max) * hMax));
-      const img = c.addImage(barra(bw, h, x.inCorso ? C.oro : C.oroArea));
+      const img = c.addImage(barraSettimana(bw, h, x.inCorso ? C.oro : C.oroArea));
       img.imageSize = new Size(bw, h);
       c.addSpacer(3);
       centro(x.inCorso ? "questa" : x.da, F.testo(8), x.inCorso ? C.oro : C.crema3);
@@ -1680,7 +1760,7 @@ function wAndamento(fam, d, v) {
 }
 
 // Una barra sola, con gli angoli in alto arrotondati.
-function barra(w, h, colore) {
+function barraSettimana(w, h, colore) {
   const ctx = new DrawContext();
   ctx.size = new Size(w, h);
   ctx.opaque = false;
@@ -1744,7 +1824,7 @@ let famiglia = config.widgetFamily;
 if (!config.runsInWidget) famiglia = await scegliAnteprima();
 
 // QR scuro su chiaro, sempre: è quello che le fotocamere leggono meglio.
-const QR = param === "qr" || param === "pannello" ? await caricaImmagine("qr.png") : null;
+const QR = param === "qr" || param === "pannello" || param === "menuqr" ? await caricaImmagine("qr.png") : null;
 const risposta = await caricaDati(param);
 // La locandina dell'evento (widget «stasera»): se non arriva, al suo posto la data.
 let LOCANDINA = null;

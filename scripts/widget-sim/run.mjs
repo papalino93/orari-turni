@@ -22,7 +22,7 @@ function key(owner) {
 DB(`delete from "WidgetDevice" where name = 'Simulatore'`);
 const userId = DB(`select id from "User" where username='andrea'`);
 const emp = DB(`select id from "Employee" where username='marta'`);
-DB(`update "Employee" set widgets='{menu,fuorimenu,qr,turni,pannello,apri,stasera,clienti}' where id='${emp}'`);
+DB(`update "Employee" set widgets='{menu,fuorimenu,qr,turni,pannello,apri,stasera,clienti,menuqr}' where id='${emp}'`);
 // Una chiave per widget: il freno contro le richieste a raffica vale per chiave.
 const ADMIN = () => key({ col: '"userId"', id: userId });
 const DIP = () => key({ col: '"employeeId"', id: emp });
@@ -76,12 +76,12 @@ const PLAN = [
   ["mattina", ["medium"], ADMIN],
   ["stasera", ["medium"], ADMIN],
   ["andamento", ["large"], ADMIN],
-  ["clienti", ["medium"], DIP],
+  ["clienti", ["medium"], DIP], ["menuqr", ["medium"], DIP],
 ];
 // Con FINTI=1 le anteprime della pagina «Widget sul telefono»: solo i widget proposti, nelle grandezze mostrate.
 if (process.env.FINTI) {
   PLAN.length = 0;
-  PLAN.push(["pannello", ["large"], ADMIN], ["pannello", ["large"], DIP, "dip"], ["sala", ["medium"], ADMIN], ["mattina", ["medium"], ADMIN], ["stasera", ["medium"], ADMIN], ["clienti", ["medium"], DIP], ["andamento", ["large"], ADMIN], ["apri", ["small"], ADMIN], ["qr", ["small"], DIP], ["aperture", ["small", "accessoryRectangular", "accessoryCircular"], ADMIN], ["turni", ["small", "medium", "accessoryRectangular"], DIP]);
+  PLAN.push(["pannello", ["large"], ADMIN], ["pannello", ["large"], DIP, "dip"], ["sala", ["medium"], ADMIN], ["mattina", ["medium"], ADMIN], ["stasera", ["medium"], ADMIN], ["clienti", ["medium"], DIP], ["menuqr", ["medium"], DIP], ["andamento", ["large"], ADMIN], ["apri", ["small"], ADMIN], ["qr", ["small"], DIP], ["aperture", ["small", "accessoryRectangular", "accessoryCircular"], ADMIN], ["turni", ["small", "medium", "accessoryRectangular"], DIP]);
 }
 // Tre telefoni: mini (più stretto), Pro, Pro Max (più largo).
 // Misure vere dei widget (punti) per tre larghezze di schermo, come in misure() di angolo.js.

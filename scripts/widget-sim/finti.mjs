@@ -27,7 +27,7 @@ export const FINTI = {
     },
     fuori: ["Risotto ai porcini", "Vermentino di Gallura"],
     daFare: 2,
-    daFarePrimo: { testo: "1 piatto senza allergeni", link: "/gestione-menu" },
+    daFarePrimo: process.env.DAFARE ? { testo: process.env.DAFARE, link: "/dipendenti" } : { testo: "1 piatto senza allergeni", link: "/gestione-menu" },
     link: "/menu",
     linkStatistiche: "/statistiche",
     linkTurni: "/orari",
@@ -77,9 +77,9 @@ export const FINTI = {
       evento: { titolo: "Crudité & Champagne", ora: "19:30" },
     },
     cose: [
-      { testo: "Fuori menù: Risotto ai porcini", fatto: true, link: "/gestione-menu" },
       { testo: "1 piatto senza allergeni", fatto: false, link: "/gestione-menu" },
-      { testo: "Settimana prossima da confermare", fatto: false, link: "/orari" },
+      { testo: "Ore di ottobre: ne mancano 3", fatto: false, link: "/dipendenti" },
+      { testo: "Fuori menù: Risotto ai porcini", fatto: true, link: "/gestione-menu" },
     ],
     link: "/statistiche",
     linkTurni: "/orari",
@@ -170,6 +170,7 @@ export const FINTI = {
     link: "/menu",
   },
   qr: { aggiornato: ora, url: "https://qrco.de/bes4Ad", link: "/menu" },
+  menuqr: { aggiornato: ora, url: "https://qrco.de/bes4Ad", link: "/menu" },
   aperture: {
     aggiornato: ora,
     giorno: "Venerdì 30 ottobre",

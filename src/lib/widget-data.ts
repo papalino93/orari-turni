@@ -8,7 +8,7 @@ import { businessDayKey, formatPrice, inPeriod, periodStatus } from "@/lib/menu-
 import { openStatus, romeNow } from "@/lib/menu-venue";
 import { blockHours, periodOf } from "@/lib/schedule";
 import { employeeVisibleDates } from "@/lib/week-visibility";
-import { parseDateKey } from "@/lib/week";
+import { endOfMonth, lastCompletedMonth, parseDateKey } from "@/lib/week";
 import { MENU_QR_URL } from "@/lib/widgets";
 
 const DAYS = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
@@ -238,23 +238,40 @@ async function allergensToDo(day: string) {
 }
 
 // ---------- Da fare
+// Le cose in sospeso, ognuna quando serve davvero:
+// - piatti senza allergeni (sempre);
+// - dal giovedì, gli orari della settimana prossima ancora da scrivere; scritti ma non confermati, da confermare;
+// - dal primo del mese, i dipendenti che non hanno ancora mandato le ore del mese finito;
+// - le ore mandate che aspettano l'approvazione.
 export async function dataDaFare() {
   const day = businessDayKey(new Date());
   const today = romeParts().day;
   const nextMon = addDays(monday(today), 7);
-  const [allergeni, esauriti, nextBlocks, nextPlan, mesi] = await Promise.all([
+  const mese = lastCompletedMonth(parseDateKey(today));
+  const fineMese = endOfMonth(new Date(Date.UTC(mese.year, mese.month - 1, 1)));
+  const [allergeni, esauriti, nextBlocks, nextPlan, inAttesa, dipendenti, inviati] = await Promise.all([
     allergensToDo(day),
     prisma.menuItem.count({ where: { deletedAt: null, soldOutDay: day } }),
     prisma.shiftBlock.count({ where: { date: { gte: parseDateKey(nextMon), lte: parseDateKey(addDays(nextMon, 6)) } } }),
     prisma.weekPlan.findUnique({ where: { weekStart: parseDateKey(nextMon) }, select: { publishedAt: true } }),
-    prisma.monthlySubmission.count({ where: { status: "SUBMITTED" } }),
+    prisma.monthlySubmission.findMany({ where: { status: "SUBMITTED" }, select: { employeeId: true } }),
+    // Come l'avviso in «Dipendenti»: chi ha l'accesso, è attivo ed era già assunto in quel mese.
+    prisma.employee.findMany({ where: { role: "EMPLOYEE", active: true, username: { not: null }, createdAt: { lte: fineMese } }, select: { id: true } }),
+    prisma.monthlySubmission.findMany({ where: { year: mese.year, month: mese.month, status: { in: ["SUBMITTED", "APPROVED"] } }, select: { employeeId: true } }),
   ]);
+  const daPreparare = weekday(today) >= 3 && nextBlocks === 0 ? 1 : 0;
   const daConfermare = nextBlocks > 0 && !nextPlan?.publishedAt ? 1 : 0;
+  const mandate = new Set(inviati.map((x) => x.employeeId));
+  const oreMancanti = dipendenti.filter((e) => !mandate.has(e.id)).length;
+  const daApprovare = new Set(inAttesa.map((x) => x.employeeId)).size;
+  const nomeMese = MONTHS[mese.month - 1];
   const righe = [
-    { n: allergeni, testo: allergeni === 1 ? "allergeni da compilare" : "allergeni da compilare", breve: "allergeni", livello: allergeni > 0 ? "rosso" : "verde", link: "/gestione-menu" },
+    { n: allergeni, testo: "allergeni da compilare", breve: "allergeni", livello: allergeni > 0 ? "rosso" : "verde", link: "/gestione-menu" },
+    { n: daPreparare, testo: "orari della settimana prossima da fare", breve: "da preparare", livello: daPreparare > 0 ? "ambra" : "verde", link: `/orari?date=${nextMon}` },
     { n: daConfermare, testo: "settimana da confermare", breve: "da confermare", livello: daConfermare > 0 ? "ambra" : "verde", link: `/orari?date=${nextMon}` },
+    { n: daApprovare, testo: "ore da approvare", breve: "da approvare", livello: daApprovare > 0 ? "ambra" : "verde", link: "/dipendenti" },
+    { n: oreMancanti, testo: `ore di ${nomeMese} da mandare`, breve: "ore da mandare", livello: oreMancanti > 0 ? "ambra" : "verde", link: "/dipendenti", mese: nomeMese },
     { n: esauriti, testo: esauriti === 1 ? "esaurito oggi" : "esauriti oggi", breve: "esauriti", livello: esauriti > 0 ? "ambra" : "verde", link: "/gestione-menu" },
-    { n: mesi, testo: mesi === 1 ? "mese da approvare" : "mesi da approvare", breve: "da approvare", livello: mesi > 0 ? "ambra" : "verde", link: "/dipendenti" },
   ];
   return { aggiornato: clockNow(), tuttoAPosto: righe.every((r) => r.n === 0), righe, link: "/gestione-menu" };
 }
@@ -495,27 +512,24 @@ export async function dataMattina() {
   const { day: today } = romeParts();
   const yesterday = addDays(today, -1);
   const business = businessDayKey(new Date());
-  const nextMon = addDays(monday(today), 7);
-  const [per, hours, pick, daily, allergeni, staff, ev, nextBlocks, nextPlan] = await Promise.all([
+    const [per, hours, pick, daily, staff, ev, todo] = await Promise.all([
     opensPerDay(addDays(today, -8)),
     prisma.menuEvent.groupBy({ by: ["hour"], where: { kind: "open", day: yesterday }, _count: { _all: true } }),
     prisma.menuEvent.groupBy({ by: ["label"], where: { kind: "pick", label: { not: null }, day: yesterday }, _count: { _all: true }, orderBy: { _count: { label: "desc" } }, take: 1 }),
     dailyLines(business),
-    allergensToDo(business),
     staffNow(),
     nextEvent(business),
-    prisma.shiftBlock.count({ where: { date: { gte: parseDateKey(nextMon), lte: parseDateKey(addDays(nextMon, 6)) } } }),
-    prisma.weekPlan.findUnique({ where: { weekStart: parseDateKey(nextMon) }, select: { publishedAt: true } }),
+    dataDaFare(),
   ]);
   const count = (d: string) => per.get(d) ?? 0;
   const peak = hours.reduce<{ hour: number; n: number } | null>((best, h) => (!best || h._count._all > best.n ? { hour: h.hour, n: h._count._all } : best), null);
   const fuori = daily.piatti.length + daily.vini.length;
   const persone = [...staff.adesso, ...staff.dopo];
   const cose = [
-    // Il fuori menù è facoltativo: se c'è lo si ricorda, se manca non è una cosa da fare.
+    // Prima le cose in sospeso del «Da fare» (allergeni, orari, ore dei dipendenti), che contano di più.
+    ...todo.righe.filter((r) => r.n > 0 && r.breve !== "esauriti").map((r) => ({ testo: todoShort(r), fatto: false, link: r.link })),
+    // Il fuori menù è facoltativo: se c'è lo si ricorda (spuntato), se manca non è una cosa da fare.
     fuori > 0 ? { testo: `Fuori menù: ${[...daily.piatti, ...daily.vini].map((x) => x.nome).slice(0, 2).join(", ")}`, fatto: true, link: "/gestione-menu" } : null,
-    allergeni > 0 ? { testo: `${allergeni} ${allergeni === 1 ? "piatto" : "piatti"} senza allergeni`, fatto: false, link: "/gestione-menu" } : null,
-    nextBlocks > 0 && !nextPlan?.publishedAt ? { testo: "Settimana prossima da confermare", fatto: false, link: `/orari?date=${nextMon}` } : null,
   ].filter(Boolean);
   return {
     aggiornato: clockNow(),
@@ -713,12 +727,23 @@ export async function dataClienti() {
   };
 }
 
-// La prima cosa da fare, detta per intero sotto il numero.
-const TODO_TEXT: Record<string, (n: number) => string> = {
+// Le cose da fare dette per intero (Pannello, sotto il numero; «Prima di aprire», nell'elenco).
+const TODO_TEXT: Record<string, (n: number, mese?: string) => string> = {
   allergeni: (n) => `${n} ${n === 1 ? "piatto" : "piatti"} senza allergeni`,
-  "da confermare": () => "orari da confermare",
-  "da approvare": (n) => `${n} ${n === 1 ? "mese" : "mesi"} da approvare`,
+  "da preparare": () => "Orari della settimana prossima da preparare",
+  "da confermare": () => "Orari della settimana prossima da confermare",
+  "da approvare": (n) => `${n} ${n === 1 ? "dipendente" : "dipendenti"}: ore da approvare`,
+  "ore da mandare": (n, mese) => `${n} ${n === 1 ? "dipendente deve" : "dipendenti devono"} mandarti le ore di ${mese ?? "questo mese"}`,
 };
+const todoText = (r: { n: number; breve: string; mese?: string }) => TODO_TEXT[r.breve]?.(r.n, r.mese) ?? `${r.n} ${r.breve}`;
+// Più corte, per l'elenco di «Prima di aprire» (una riga sola accanto al pallino).
+const TODO_SHORT: Record<string, (n: number, mese?: string) => string> = {
+  "da preparare": () => "Orari settimana prossima da fare",
+  "da confermare": () => "Orari settimana prossima da confermare",
+  "da approvare": (n) => `Ore da approvare: ${n}`,
+  "ore da mandare": (n, mese) => `Ore di ${mese ?? "questo mese"}: ne mancano ${n}`,
+};
+const todoShort = (r: { n: number; breve: string; mese?: string }) => TODO_SHORT[r.breve]?.(r.n, r.mese) ?? todoText(r);
 
 // ---------- Pannello: sei scorciatoie, ognuna con il suo dato
 export async function dataPannello(owner: { kind: "admin" } | { kind: "employee"; employeeId: string }) {
@@ -753,8 +778,9 @@ export async function dataPannello(owner: { kind: "admin" } | { kind: "employee"
       orario: staff.stasera.length ? `${staff.stasera[0].dalle}–${[...staff.stasera].sort((a, b) => b.fine - a.fine)[0].alle}` : null,
     },
     fuori: [...daily.piatti, ...daily.vini].map((x) => x.nome).slice(0, 2),
-    daFare: daFare.reduce((s, r) => s + r.n, 0),
-    daFarePrimo: daFare[0] ? { testo: TODO_TEXT[daFare[0].breve]?.(daFare[0].n) ?? `${daFare[0].n} ${daFare[0].breve}`, link: daFare[0].link } : null,
+    // Quante cose ci sono da fare (non la somma: piatti e dipendenti non si sommano); sotto, la prima.
+    daFare: daFare.length,
+    daFarePrimo: daFare[0] ? { testo: todoText(daFare[0]), link: daFare[0].link } : null,
     link: "/menu",
     linkStatistiche: `/statistiche?dal=${today}&al=${today}`,
     linkTurni: `/orari?date=${today}`,
