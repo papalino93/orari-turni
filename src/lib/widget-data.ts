@@ -566,55 +566,103 @@ export async function dataStasera() {
 
 // ---------- Andamento (per il consulente e il titolare)
 export async function dataAndamento() {
-  const { day: today } = romeParts();
+  const { day: today, hour } = romeParts();
   const mon = monday(today);
-  const from = addDays(mon, -7 * 8);
+  const wd = weekday(today);
   const { since } = await loadStatsSetting();
-  const [per, byWd, byHour, events, oreQuesta, oreScorsa] = await Promise.all([
-    opensPerDay(from),
-    prisma.menuEvent.groupBy({ by: ["weekday"], where: { kind: "open", day: { gte: addDays(today, -56) } }, _count: { _all: true } }),
-    prisma.menuEvent.groupBy({ by: ["hour"], where: { kind: "open", day: { gte: addDays(today, -56) } }, _count: { _all: true } }),
-    prisma.menuPromo.findMany({ where: { kind: "EVENT", deletedAt: null, hidden: false, startDate: { lte: today }, endDate: { gte: addDays(today, -56) } }, select: { startDate: true, endDate: true } }),
+  // Si guarda indietro al massimo 8 settimane, e mai prima del giorno da cui si conta.
+  const from = since && since > addDays(mon, -7 * 7) ? since : addDays(mon, -7 * 7);
+  const counted = (d: string) => !since || d >= since;
+  const monthStart = `${today.slice(0, 8)}01`;
+  const prevStart = (() => { const d = toDate(monthStart); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 10); })();
+  const dom = Number(today.slice(8));
+  const monthBefore = (start: string) => { const d = toDate(start); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 10); };
+  const monthAfter = (start: string) => { const d = toDate(start); d.setUTCMonth(d.getUTCMonth() + 1); return d.toISOString().slice(0, 10); };
+  const threeBack = monthBefore(monthBefore(prevStart));
+  const daysInPrev = Number(addDays(monthStart, -1).slice(8));
+  // Lo stesso giorno del mese scorso (il 31 marzo non c'è a febbraio: allora febbraio intero).
+  const prevSameDay = dom <= daysInPrev ? addDays(prevStart, dom - 1) : null;
+  const [per, soFar, byWd, byHour, events, oreQuesta, oreScorsa] = await Promise.all([
+    opensPerDay(from < threeBack ? from : threeBack),
+    // Oggi è a metà: i confronti prendono lo stesso giorno di prima solo fino a quest'ora.
+    opensSoFar([addDays(today, -7), ...(prevSameDay ? [prevSameDay] : [])], hour),
+    prisma.menuEvent.groupBy({ by: ["weekday"], where: { kind: "open", day: { gte: from, lt: today } }, _count: { _all: true } }),
+    prisma.menuEvent.groupBy({ by: ["hour"], where: { kind: "open", day: { gte: from, lt: today } }, _count: { _all: true } }),
+    prisma.menuPromo.findMany({ where: { kind: "EVENT", deletedAt: null, hidden: false, startDate: { lte: today }, endDate: { gte: from } }, select: { startDate: true, endDate: true } }),
     weekHours(mon),
     weekHours(addDays(mon, -7)),
   ]);
-  const count = (d: string) => per.get(d) ?? 0;
-  const counted = (d: string) => !since || d >= since;
-  const settimane = Array.from({ length: 8 }, (_, i) => {
-    const start = addDays(from, i * 7);
-    return Array.from({ length: 7 }, (_, j) => count(addDays(start, j))).reduce((a, b) => a + b, 0);
-  });
-  // La settimana in corso contro la scorsa allo stesso punto (stesso giorno, giornate intere).
-  const wd = weekday(today);
-  const questaSettimana = Array.from({ length: wd + 1 }, (_, j) => count(addDays(mon, j))).reduce((a, b) => a + b, 0);
-  const scorsaStessoPunto = Array.from({ length: wd + 1 }, (_, j) => count(addDays(mon, j - 7))).reduce((a, b) => a + b, 0);
-  // Questo mese fino a oggi contro lo stesso numero di giorni del mese scorso.
-  const dom = Number(today.slice(8));
-  const monthStart = `${today.slice(0, 8)}01`;
-  const prevStart = (() => { const d = toDate(monthStart); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 10); })();
-  const mese = Array.from({ length: dom }, (_, i) => count(addDays(monthStart, i))).reduce((a, b) => a + b, 0);
-  const prevPer = await opensPerDay(prevStart);
-  const meseScorso = Array.from({ length: dom }, (_, i) => addDays(prevStart, i)).filter((d) => d < monthStart).reduce((s, d) => s + (prevPer.get(d) ?? 0), 0);
-  // Giorni con un evento contro gli altri, nelle ultime 8 settimane (solo giorni già contati e già finiti).
+  const count = (d: string) => (counted(d) ? (per.get(d) ?? 0) : 0);
+  const sum = (days: string[]) => days.reduce((s, d) => s + count(d), 0);
+  const range = (start: string, n: number) => Array.from({ length: n }, (_, i) => addDays(start, i));
+  const shortDay = (d: string) => `${Number(d.slice(8))} ${MONTHS[Number(d.slice(5, 7)) - 1].slice(0, 3)}`;
+
+  // Settimana in corso (da lunedì a oggi) contro la scorsa fino allo stesso giorno e alla stessa ora.
+  const questa = sum(range(mon, wd + 1));
+  const scorsaGiorni = range(addDays(mon, -7), wd);
+  const scorsaConfrontabile = counted(addDays(mon, -7));
+  const scorsa = sum(scorsaGiorni) + (soFar.get(addDays(today, -7)) ?? 0);
+  const GIORNI3 = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"];
+
+  // Il mese in corso contro gli stessi giorni del mese prima, fino alla stessa ora (il 5 novembre:
+  // 1–5 novembre contro 1–5 ottobre). Il confronto c'è solo se quei giorni del mese prima sono stati contati tutti.
+  const monthName = (start: string) => MONTHS[Number(start.slice(5, 7)) - 1];
+  const dalNel = (start: string) => (since && since > start ? `dal ${Number(since.slice(8))} ${monthName(start)}` : null);
+  const n = sum(range(monthStart, dom));
+  const primaGiorni = prevSameDay ? range(prevStart, dom - 1) : range(prevStart, daysInPrev);
+  const primaContati = counted(prevStart);
+  const prima = primaContati ? sum(primaGiorni) + (prevSameDay ? (soFar.get(prevSameDay) ?? 0) : 0) : null;
+  // Da quando il confronto sarà possibile: il mese dopo il primo mese contato tutto.
+  const primoIntero = !since ? null : since.slice(8) === "01" ? `${since.slice(0, 8)}01` : monthAfter(`${since.slice(0, 8)}01`);
+  const mese = {
+    nome: monthName(monthStart),
+    n,
+    giorni: dom === 1 ? `1 ${monthName(monthStart).slice(0, 3)}` : `1–${dom} ${monthName(monthStart).slice(0, 3)}`,
+    dal: dalNel(monthStart),
+    nomePrima: monthName(prevStart),
+    giorniPrima: prevSameDay ? (dom === 1 ? `1 ${monthName(prevStart).slice(0, 3)}` : `1–${dom} ${monthName(prevStart).slice(0, 3)}`) : monthName(prevStart),
+    prima,
+    delta: prima === null ? null : delta(n, prima),
+    confrontoDa: prima === null && primoIntero ? monthName(monthAfter(primoIntero)) : null,
+  };
+  const monthDays = (start: string, end: string) => range(start, Math.round((toDate(end).getTime() - toDate(start).getTime()) / 86400000));
+  // I mesi finiti, a consuntivo: gli ultimi tre contati, dal più recente.
+  const mesi = [prevStart, monthBefore(prevStart), threeBack]
+    .filter((start) => counted(addDays(monthAfter(start), -1)))
+    .map((start) => ({ nome: monthName(start), n: sum(monthDays(start, monthAfter(start))), dal: since && since > start ? `dal ${Number(since.slice(8))}` : null }));
+
+  // Le settimane da quando si conta (al massimo 8, compresa quella in corso).
+  const settimane = Array.from({ length: 8 }, (_, i) => addDays(mon, -7 * (7 - i)))
+    .filter((start) => counted(addDays(start, 6)))
+    .map((start) => {
+      // La prima settimana può essere contata solo da metà: lo dice l'etichetta, «dal 3 ott».
+      const parziale = Boolean(since && start < since);
+      return { da: parziale ? `dal ${shortDay(since as string)}` : shortDay(start), n: sum(range(start, 7).filter((d) => d <= today)), inCorso: start === mon, parziale };
+    });
+
+  // Giorni con un evento contro gli altri (solo giornate già finite e contate).
   const evDays = new Set<string>();
   for (const e of events) for (let d = e.startDate; d <= e.endDate; d = addDays(d, 1)) evDays.add(d);
-  const past = Array.from({ length: 56 }, (_, i) => addDays(today, -56 + i)).filter(counted);
+  const past = range(from, Math.round((toDate(today).getTime() - toDate(from).getTime()) / 86400000)).filter(counted);
   const avg = (list: string[]) => (list.length ? Math.round(list.reduce((s, d) => s + count(d), 0) / list.length) : null);
   const conEvento = avg(past.filter((d) => evDays.has(d)));
   const senza = avg(past.filter((d) => !evDays.has(d)));
   const bestWd = byWd.reduce<{ w: number; n: number } | null>((b, r) => (!b || r._count._all > b.n ? { w: r.weekday, n: r._count._all } : b), null);
   const bestHour = byHour.reduce<{ h: number; n: number } | null>((b, r) => (!b || r._count._all > b.n ? { h: r.hour, n: r._count._all } : b), null);
+  const dalGiorno = since && since >= addDays(mon, -7 * 7) ? `${Number(since.slice(8))} ${MONTHS[Number(since.slice(5, 7)) - 1]}` : null;
   return {
     aggiornato: clockNow(),
-    settimane,
-    questaSettimana,
-    deltaSettimana: delta(questaSettimana, scorsaStessoPunto),
+    // «dal 3 ottobre» se si conta da poco: le medie e i «più forte» valgono da lì, non da 8 settimane.
+    periodo: dalGiorno ? `dal ${dalGiorno}` : "ultime 8 settimane",
+    settimana: {
+      n: questa,
+      giorni: wd === 0 ? "oggi, lunedì" : `lun–${GIORNI3[wd]}`,
+      prima: scorsaConfrontabile ? scorsa : null,
+      delta: scorsaConfrontabile ? delta(questa, scorsa) : null,
+    },
     mese,
-    meseScorso,
-    deltaMese: delta(mese, meseScorso),
-    nomeMese: MONTHS[Number(today.slice(5, 7)) - 1],
-    nomeMeseScorso: MONTHS[(Number(today.slice(5, 7)) + 10) % 12],
-    giorniMese: dom,
+    mesi,
+    settimane,
     eventi: conEvento !== null && senza !== null ? { conEvento, senza, delta: delta(conEvento, senza) } : null,
     giornoForte: bestWd ? DAYS[(bestWd.w + 6) % 7] : null,
     oraForte: bestHour ? `${bestHour.h}–${bestHour.h + 1}` : null,
