@@ -262,6 +262,8 @@
         d.style.webkitBoxOrient = "vertical";
         d.style.overflow = "hidden";
       }
+      // Come su iPhone: un testo con minimumScaleFactor si rimpicciolisce fino a starci (vedi adatta()).
+      if (el.minimumScaleFactor < 1) d.dataset.min = String(el.minimumScaleFactor);
       if (el.align !== "left" && parentDir === "column") d.style.alignSelf = "stretch";
       // In una colonna un testo non va mai oltre la larghezza disponibile (come su iPhone).
       if (parentDir === "column") d.style.maxWidth = "100%";
@@ -325,7 +327,19 @@
 
   // ---------- Ambiente di Scriptable
   const files = new Map();
-  window.__sim = { files, SIZES, render };
+  // Dopo l'impaginazione: i testi con minimumScaleFactor che non ci stanno si rimpiccioliscono a passi.
+  function adatta(root) {
+    for (const d of root.querySelectorAll(".tx[data-min]")) {
+      const base = parseFloat(getComputedStyle(d).fontSize);
+      const min = base * parseFloat(d.dataset.min);
+      const troppo = () => d.scrollWidth > d.clientWidth || d.scrollHeight > d.clientHeight + 2;
+      let f = base;
+      while (f > min && troppo()) d.style.fontSize = (f -= 0.25) + "px";
+      // un passo in più: i decimali di pixel bastano per i puntini di sospensione
+      if (f < base && f > min) d.style.fontSize = f - 0.25 + "px";
+    }
+  }
+  window.__sim = { files, SIZES, render, adatta };
   window.Color = Color;
   window.Point = Point;
   window.Size = Size;

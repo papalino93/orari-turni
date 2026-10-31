@@ -388,7 +388,9 @@ function disegna(nome, fam, risposta) {
     const adatti = FORMATI[nome].filter((f) => NOMI_FORMATO[f]).map((f) => NOMI_FORMATO[f]);
     // Dice cosa fare: scegliere uno script della grandezza giusta per questo riquadro.
     const qui = fam && fam.startsWith("accessory") ? "blocco" : NOMI_FORMATO[fam] === "extra grande" ? "grande" : NOMI_FORMATO[fam];
-    return messaggio(fam, "Grandezza sbagliata", `Questo è per il widget ${adatti.join(" o ")}. Tienilo premuto, «Modifica widget», e alla voce «Script» scegli uno degli «Angolo ${qui} · …».`);
+    // Nel piccolo il testo deve stare in poche righe: solo cosa scegliere.
+    const testoPiccolo = `Tienilo premuto, «Modifica widget» e in «Script» scegli un «Angolo\u00A0${qui}…».`;
+    return messaggio(fam, fam === "small" ? "Non va qui" : "Grandezza sbagliata", fam === "small" ? testoPiccolo : `Questo è per il widget ${(Device.isPad() ? adatti : adatti.filter((a) => a !== "extra grande")).join(" o ")}. ${testoPiccolo}`);
   }
   const d = risposta.dati;
   const v = risposta.vecchi;
@@ -1299,15 +1301,37 @@ function wPannello(fam, d, v) {
     tu.addSpacer();
     if (d.stasera.chiuso) testo(tu, d.stasera.chiuso, F.serifForte(15), C.rossoTesto, 2);
     else if (d.stasera.persone.length) {
-      // Il nome e l'orario di ognuno (i tondi con le iniziali sull'iPhone non si leggevano).
-      const tante = d.stasera.persone.length > 3;
-      d.stasera.persone.slice(0, tante ? 2 : 3).forEach((p) => {
-        const r = riga(tu);
-        testo(r, typeof p === "string" ? p : p.nome, F.medio(12), C.crema);
-        r.addSpacer();
-        if (typeof p !== "string") testo(r, p.orario, F.testo(11), C.crema2);
-      });
-      if (tante) testo(tu, `e altri ${d.stasera.persone.length - 2}`, F.testo(11), C.crema2);
+      // Tutti quelli in turno, mai «e altri»: fino a 4 nome e orario (più piccoli se sono 4),
+      // da 5 in su solo i nomi su due colonne; i nomi lunghi si stringono da soli.
+      const ps = d.stasera.persone.map((p) => (typeof p === "string" ? { nome: p, orario: "" } : p));
+      if (ps.length <= 4) {
+        const f = ps.length <= 3 ? 12 : 10;
+        ps.forEach((p) => {
+          const r = riga(tu);
+          testo(r, p.nome, F.medio(f), C.crema).minimumScaleFactor = 0.7;
+          r.addSpacer(4);
+          r.addSpacer();
+          if (p.orario) testo(r, p.orario, F.testo(f - 1), C.crema2);
+        });
+      } else if (ps.length <= 8) {
+        // A coppie, riga per riga, così le due colonne restano allineate; tutti con la stessa grandezza.
+        const cella = Math.floor((tw - 24 - 6) / 2);
+        const f = ps.some((p) => p.nome.length > 10) ? 9 : 10;
+        for (let i = 0; i < ps.length; i += 2) {
+          const r = riga(tu);
+          ps.slice(i, i + 2).forEach((p, j) => {
+            if (j) r.addSpacer(6);
+            const c = riga(r);
+            c.size = new Size(cella, 0);
+            testo(c, p.nome, F.medio(f), C.crema).minimumScaleFactor = 0.6;
+            c.addSpacer();
+          });
+        }
+      } else {
+        // Un nome non va mai a capo a metà («Andrea R.» resta intero).
+        const t = testo(tu, ps.map((p) => p.nome.replace(/ /g, " ")).join(" · "), F.medio(9), C.crema, 6);
+        t.minimumScaleFactor = 0.5;
+      }
     } else testo(tu, "Nessuno in turno", F.testo(12), C.crema2);
     r3.addSpacer(gap);
     // 6 · Da fare

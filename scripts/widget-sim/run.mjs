@@ -144,6 +144,7 @@ for (const [nome, families, chiaveDi, chi] of PLAN) {
           if (fam.startsWith("accessory")) root.style.background = "transparent";
           box.appendChild(root);
           await new Promise((r) => setTimeout(r, 50));
+          window.__sim.adatta(root);
           await Promise.all([...document.images].map((i) => i.decode().catch(() => {})));
           // Controlli: testi tagliati, cose fuori dal riquadro utile, contenuto più alto del widget.
           const out = [];

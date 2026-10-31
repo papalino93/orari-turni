@@ -15,7 +15,16 @@ export const FINTI = {
     aperture: 47,
     delta: 18,
     ieriFinora: 40,
-    stasera: { chiuso: null, persone: [{ nome: "Giulia", orario: "17–23:30" }, { nome: "Marco", orario: "18–24" }, { nome: "Sara", orario: "18–24" }], orario: "17–24" },
+    // Con PERSONE=<numero> si prova «Stasera al lavoro» con più persone in turno.
+    stasera: {
+      chiuso: null,
+      persone: process.env.PERSONE
+        ? ["Giulia", "Francesco", "Andrea R.", "Andrea B.", "Massimiliano", "Sara", "Marco", "Elisabetta", "Luca", "Chiara"]
+            .slice(0, Number(process.env.PERSONE))
+            .map((nome, i) => ({ nome, orario: ["16:30–22", "17–22", "18–24", "18–23:30", "19–24"][i % 5] }))
+        : [{ nome: "Giulia", orario: "17–23:30" }, { nome: "Marco", orario: "18–24" }, { nome: "Sara", orario: "18–24" }],
+      orario: "17–24",
+    },
     fuori: ["Risotto ai porcini", "Vermentino di Gallura"],
     daFare: 2,
     daFarePrimo: { testo: "1 piatto senza allergeni", link: "/gestione-menu" },

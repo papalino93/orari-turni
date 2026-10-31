@@ -380,6 +380,27 @@ const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
 // Un turno che finisce a mezzanotte (o dopo) è scritto «00:00»: vale 24:00.
 const endMin = (start: string, end: string) => (toMin(end) <= toMin(start) ? toMin(end) + 24 * 60 : toMin(end));
 
+// I nomi brevi sul widget: basta il nome; se due persone della giornata hanno lo stesso nome si aggiunge
+// l'iniziale del cognome («Andrea R.» e «Andrea B.»), e più lettere se anche quella è uguale.
+export function shortNames(people: { id: string; name: string }[]) {
+  const unici = [...new Map(people.map((p) => [p.id, p.name.trim().split(/\s+/)])).entries()];
+  const out = new Map<string, string>();
+  for (const [id, parti] of unici) {
+    const nome = parti[0] ?? "";
+    const cognome = parti.slice(1).join(" ");
+    const omonimi = unici.filter(([altro, p]) => altro !== id && (p[0] ?? "").toLowerCase() === nome.toLowerCase());
+    if (!omonimi.length || !cognome) {
+      out.set(id, nome);
+      continue;
+    }
+    let n = 1;
+    const pezzo = (p: string[], k: number) => p.slice(1).join(" ").slice(0, k).toLowerCase();
+    while (n < cognome.length && omonimi.some(([, p]) => pezzo(p, n) === cognome.slice(0, n).toLowerCase())) n++;
+    out.set(id, `${nome} ${cognome.slice(0, n)}.`);
+  }
+  return out;
+}
+
 // Chi è al lavoro adesso (e fino a quando), e chi arriva più tardi oggi.
 async function staffNow() {
   const now = new Date();
@@ -387,14 +408,15 @@ async function staffNow() {
   const [blocks, closure] = await Promise.all([
     prisma.shiftBlock.findMany({
       where: { date: parseDateKey(dateKey), employee: { active: true } },
-      select: { startTime: true, endTime: true, employee: { select: { name: true, sortOrder: true } } },
+      select: { startTime: true, endTime: true, employee: { select: { id: true, name: true, sortOrder: true } } },
       orderBy: [{ startTime: "asc" }],
     }),
     prisma.closureDay.findUnique({ where: { date: parseDateKey(dateKey) }, select: { reason: true } }),
   ]);
   if (closure) return { chiuso: closure.reason || "Locale chiuso", adesso: [], dopo: [], stasera: [] };
+  const corti = shortNames(blocks.map((b) => b.employee));
   const person = (b: (typeof blocks)[number]) => ({
-    nome: firstName(b.employee.name),
+    nome: corti.get(b.employee.id) ?? firstName(b.employee.name),
     iniziali: initials(b.employee.name),
     dalle: hhmm(b.startTime),
     alle: b.endTime === "00:00" ? "24" : hhmm(b.endTime),
@@ -402,7 +424,15 @@ async function staffNow() {
   });
   const adesso = blocks.filter((b) => toMin(b.startTime) <= minutes && minutes < endMin(b.startTime, b.endTime)).map(person);
   const dopo = blocks.filter((b) => toMin(b.startTime) > minutes).map(person);
-  const stasera = blocks.filter((b) => periodOf(b) === "pomeriggio").map(person);
+  // Una persona sola volta anche se la sera ha due pezzi di turno: dal primo inizio all'ultima fine.
+  const perPersona = new Map<string, ReturnType<typeof person>>();
+  for (const b of blocks.filter((x) => periodOf(x) === "pomeriggio")) {
+    const p = person(b);
+    const prima = perPersona.get(b.employee.id);
+    if (!prima) perPersona.set(b.employee.id, p);
+    else if (p.fine > prima.fine) perPersona.set(b.employee.id, { ...prima, alle: p.alle, fine: p.fine });
+  }
+  const stasera = [...perPersona.values()];
   return { chiuso: null, adesso, dopo, stasera };
 }
 
