@@ -176,7 +176,9 @@ export function ThemePicker({ current, preview }: { current: string; preview: st
         <span aria-hidden className="text-foreground-muted transition-transform group-open:rotate-180">⌄</span>
       </summary>
       <p className="border-t border-border px-5 pt-3 text-sm text-foreground-muted">
-        Vale per tutti i tuoi widget e telefoni: l&apos;iPhone lo prende al primo aggiornamento, senza toccare niente.
+        Vale per tutti i widget dei telefoni collegati con il tuo accesso. L&apos;iPhone aggiorna i widget quando decide lui (di solito entro 15–30
+        minuti): per vederlo subito apri Scriptable e tocca ▶ su uno degli «Angolo …». Se un widget ha un colore scritto nel campo «Parameter», resta
+        quello.
       </p>
       <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2">
         {WIDGET_THEMES.map((t) => {
@@ -192,7 +194,7 @@ export function ThemePicker({ current, preview }: { current: string; preview: st
               onClick={() => {
                 setChoosing(t.id);
                 start(async () => {
-                  const r = await runWithToast(toast, () => setWidgetTheme(t.id), `Colore «${t.nome}» scelto per i tuoi widget`);
+                  const r = await runWithToast(toast, () => setWidgetTheme(t.id), `Colore «${t.nome}» scelto: sul telefono arriva al prossimo aggiornamento del widget`);
                   if (r !== null) router.refresh();
                 });
               }}
@@ -475,6 +477,8 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
             ["Il widget non si aggiorna", "Lo decide l'iPhone: di solito ogni 15–30 minuti. In alto a destra c'è l'ora dell'ultimo aggiornamento; toccandolo si apre la pagina con i dati di adesso."],
             ["Compare «Accesso tolto»", "Il telefono è stato scollegato o il widget non ti è più permesso. Chiedi al titolare."],
             ["Compare «non aggiornato» in rosso", "Il telefono non era in rete: si vedono gli ultimi dati salvati, con la loro ora."],
+            ["Il colore scelto non arriva sul telefono", "Il colore vale per i telefoni collegati con lo stesso accesso con cui l'hai scelto: guarda in «Telefoni collegati» a chi è intestato il tuo. Poi controlla che nel campo «Parameter» del widget non ci sia scritto un colore. Infine l'iPhone aggiorna i widget ogni 15–30 minuti: per vederlo subito apri Scriptable e tocca ▶ su un «Angolo …»."],
+            ["Più widget nello stesso spazio, da scorrere", "Si fa con le «pile» dell'iPhone: tieni premuta la Home, tocca «Modifica» e trascina un widget sopra un altro della stessa grandezza. Diventano una pila: scorri in su o in giù col dito per passare dall'uno all'altro (es. Pannello, Andamento e QR, tutti grandi). Tienila premuta e scegli «Modifica pila» per l'ordine; spegni «Rotazione intelligente» se non vuoi che cambi da sola."],
             ["Mi hanno dato un widget nuovo", "Apri Scriptable e tocca ▶ su «Angolo del Vino – installa»: il nuovo compare nell'elenco. Quelli tolti spariscono."],
             ["Voglio un widget di un altro colore", "I colori si scelgono qui sotto, per tutti i tuoi widget. Per uno solo diverso: tocca il widget e alla voce «Parameter» scrivi il nome del colore (es. «nero» o «oliva»)."],
             ["Avevo già i widget della prima versione", "Continuano a funzionare. Per avere i nuovi collega di nuovo il telefono (punto 2) e segui i passi; poi scollega il collegamento vecchio in «Telefoni collegati»."],

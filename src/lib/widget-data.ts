@@ -650,7 +650,11 @@ export async function dataPannello(owner: { kind: "admin" } | { kind: "employee"
     delta: ap.deltaIeri,
     ieriFinora: ap.ieri,
     ultimi14: ap.ultimi14,
-    stasera: { chiuso: staff.chiuso, persone: staff.stasera.map((p) => p.iniziali), orario: staff.stasera.length ? `${staff.stasera[0].dalle}–${[...staff.stasera].sort((a, b) => b.fine - a.fine)[0].alle}` : null },
+    stasera: {
+      chiuso: staff.chiuso,
+      persone: staff.stasera.map((p) => ({ nome: p.nome, orario: `${p.dalle}–${p.alle}` })),
+      orario: staff.stasera.length ? `${staff.stasera[0].dalle}–${[...staff.stasera].sort((a, b) => b.fine - a.fine)[0].alle}` : null,
+    },
     fuori: [...daily.piatti, ...daily.vini].map((x) => x.nome).slice(0, 2),
     daFare: daFare.reduce((s, r) => s + r.n, 0),
     daFarePrimo: daFare[0] ? { testo: TODO_TEXT[daFare[0].breve]?.(daFare[0].n) ?? `${daFare[0].n} ${daFare[0].breve}`, link: daFare[0].link } : null,
