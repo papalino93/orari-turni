@@ -2,7 +2,8 @@
 // Lo scarica e lo avvia lo script «Angolo del Vino – installa» (quello con la chiave del telefono).
 // Riceve SITO, CHIAVE e MODULO (il «module» di Scriptable, per sapere dove sono gli script).
 // Crea uno script per ogni widget della persona e grandezza, «Angolo grande · Pannello», «Angolo medio · In sala»…:
-// sul widget si sceglie quello con la stessa grandezza, senza scrivere niente. Se lo si riavvia, aggiorna l'elenco.
+// sul widget si sceglie quello con la stessa grandezza, senza scrivere niente. Se lo si riavvia aggiunge i
+// widget nuovi; non cancella mai uno script (un widget già sulla Home resterebbe vuoto).
 
 async function avviso(titolo, testo) {
   const a = new Alert();
@@ -37,16 +38,37 @@ if (config.runsInWidget) {
     await avviso("Nessun widget", "Non hai ancora nessun widget: chiedi al titolare di dartene qualcuno, poi tocca di nuovo ▶.");
   } else {
     // Gli script vanno accanto a questo: nella cartella di Scriptable (su iCloud o sul telefono).
-    const fm = FileManager.local();
-    const qui = MODULO && MODULO.filename ? MODULO.filename : fm.joinPath(fm.documentsDirectory(), "installa.js");
+    const qui = MODULO && MODULO.filename ? MODULO.filename : FileManager.local().joinPath(FileManager.local().documentsDirectory(), "installa.js");
+    const suIcloud = qui.includes("/Mobile Documents/");
+    const fm = suIcloud ? FileManager.iCloud() : FileManager.local();
     const cartella = qui.slice(0, qui.lastIndexOf("/"));
-    const nomi = new Set(elenco.widget.map((w) => `${w.file}.js`));
-    // Via quelli che la persona non ha più (es. un widget tolto dal titolare).
-    for (const f of fm.listContents(cartella)) {
-      // Anche quelli col nome di prima («Angolo · Pannello», senza la grandezza).
-      if (/^Angolo( piccolo| medio| grande| blocco)? · .+\.js$/.test(f) && !nomi.has(f)) fm.remove(fm.joinPath(cartella, f));
+    // Non si cancella niente: un widget già sulla Home resta collegato al suo script anche se il nome
+    // è quello di prima. Un widget tolto dal titolare mostra da solo «non è tra i tuoi».
+    // Si scrive solo se cambia: riscrivere un file identico (soprattutto su iCloud) può staccare il widget.
+    for (const w of elenco.widget) {
+      const file = fm.joinPath(cartella, `${w.file}.js`);
+      const testo = avviatore(w);
+      try {
+        if (fm.fileExists(file)) {
+          if (suIcloud && !fm.isFileDownloaded(file)) await fm.downloadFileFromiCloud(file);
+          if (fm.readString(file) === testo) continue;
+        }
+      } catch (e) {}
+      fm.writeString(file, testo);
     }
-    for (const w of elenco.widget) fm.writeString(fm.joinPath(cartella, `${w.file}.js`), avviatore(w));
+    // Gli script col nome di prima («Angolo · Pannello», senza la grandezza): si aggiornano anch'essi,
+    // così i widget che li usano continuano a funzionare.
+    for (const f of fm.listContents(cartella)) {
+      const m = f.match(/^Angolo · (.+)\.js$/);
+      const w = m && elenco.widget.find((x) => x.nome === m[1]);
+      if (w) {
+        const file = fm.joinPath(cartella, f);
+        try {
+          if (suIcloud && !fm.isFileDownloaded(file)) await fm.downloadFileFromiCloud(file);
+          if (fm.readString(file) !== avviatore(w)) fm.writeString(file, avviatore(w));
+        } catch (e) {}
+      }
+    }
     // Raggruppati per grandezza: chi ha messo un widget medio guarda solo i «medio».
     const GRUPPI = [["piccolo", "Widget piccolo"], ["medio", "Widget medio"], ["grande", "Widget grande"], ["blocco", "Schermata di blocco"]];
     const righe = GRUPPI.map(([g, titolo]) => {
