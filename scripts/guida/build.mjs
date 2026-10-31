@@ -539,7 +539,6 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Se non compilo gli allergeni di un piatto?</h4><p>Il cliente legge «Allergeni da verificare con il personale»: mai un'informazione che sembri sicura quando non lo è.</p></div>
     <div><h4>Come metto le birre in più formati?</h4><p>Nella prima birra, in «Prezzo», scegli «Più formati» e tocca i formati (es. 0,2 l · 0,4 l · 1 l): diventano le colonne del gruppo e nelle altre birre scrivi solo i prezzi.</p></div>
     <div><h4>Quando compare un evento?</h4><p>La locandina dal giorno scelto (di solito una settimana prima), nella striscia «In evidenza»; nei giorni dell'evento è la prima, con «in corso» e il menù speciale. Finito, sparisce da solo.</p></div>
-    <div><h4>Meglio dal computer o dal telefono?</h4><p>Per le modifiche (vini nuovi, prezzi, ordine, eventi) il computer è più comodo; in sala il telefono basta per «Esaurito» e il piatto del giorno.</p></div>
     <div><h4>Una cosa solo per un periodo (l'olio nuovo)?</h4><p>Nella voce, «Solo in un periodo»: Dal e Al. Compare il primo giorno e sparisce dopo l'ultimo; i clienti leggono «Fino al…».</p></div>
     <div><h4>Devo cambiare tanti prezzi: c'è un modo veloce?</h4><p>Sì: in «Strumenti», «Tabella prezzi». Si cambiano tutti quelli che servono, anche in categorie diverse, e si salva una volta sola.</p></div>
     <div><h4>Le statistiche registrano i clienti?</h4><p>No: niente nomi, telefoni o cookie. Si conta solo cosa succede (un'apertura, una ricerca), il giorno e l'ora.</p></div>

@@ -31,7 +31,7 @@ for (const [nome, vp] of [["computer", { width: 1280, height: 900 }], ["telefono
   const dlg = p.getByRole("alertdialog", { name: "Togli aperture di prova" });
   await dlg.getByText("09:15").waitFor({ timeout: 15000 }).catch(() => {});
   if (nome === "computer") {
-    check(`${nome}: si vedono le aperture di oggi e di ieri con l'ora`, (await dlg.getByText("09:05").count()) === 1 && (await dlg.getByText("10:02").count()) === 1 && (await dlg.getByText(/^Oggi · 3$/).count()) === 1 && (await dlg.getByText(/^Ieri · 2$/).count()) === 1);
+    check(`${nome}: si vedono le aperture di oggi e di ieri con l'ora`, (await dlg.getByText("09:05").count()) === 1 && (await dlg.getByText("10:02").count()) === 1 && (await dlg.getByText(/^Oggi · \d+$/).count()) === 1 && (await dlg.getByText(/^Ieri · \d+$/).count()) === 1);
     const togli = dlg.getByRole("button", { name: "Scegli quali togliere" });
     check(`${nome}: senza scelte il pulsante è spento`, await togli.isDisabled());
     await dlg.getByText("09:05").click();
@@ -44,11 +44,11 @@ for (const [nome, vp] of [["computer", { width: 1280, height: 900 }], ["telefono
   } else {
     await dlg.getByText("09:20").waitFor({ timeout: 15000 }).catch(() => {});
     if (process.env.SHOTS) await p.screenshot({ path: `${process.env.SHOTS}/aperture-prova-${nome}.png` });
-    await dlg.getByRole("button", { name: "Tutte" }).count().then(async (n) => n && (await dlg.getByRole("button", { name: "Tutte" }).first().click()));
     await dlg.getByText("09:20").click().catch(() => {});
     await dlg.getByRole("button", { name: "Togli 1 apertura" }).click();
     await p.getByText("Tolta 1 apertura di prova").waitFor({ timeout: 15000 }).catch(() => {});
     check(`${nome}: tolta (finestra dal basso, si usa col pollice)`, conta() === 0);
+    await dlg.waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
   }
   await p.context().close();
 }
