@@ -744,6 +744,14 @@ const TODO_SHORT: Record<string, (n: number, mese?: string) => string> = {
   "ore da mandare": (n, mese) => `Ore di ${mese ?? "questo mese"}: ne mancano ${n}`,
 };
 const todoShort = (r: { n: number; breve: string; mese?: string }) => TODO_SHORT[r.breve]?.(r.n, r.mese) ?? todoText(r);
+// Cortissime, per il riquadro «Da fare» del Pannello (metà larghezza, due righe).
+const TODO_TILE: Record<string, (n: number) => string> = {
+  allergeni: (n) => `Allergeni: ${n} ${n === 1 ? "piatto" : "piatti"}`,
+  "da preparare": () => "Orari da preparare",
+  "da confermare": () => "Orari da confermare",
+  "da approvare": (n) => `Ore da approvare: ${n}`,
+  "ore da mandare": (n) => `Ore da mandare: ${n}`,
+};
 
 // ---------- Pannello: sei scorciatoie, ognuna con il suo dato
 export async function dataPannello(owner: { kind: "admin" } | { kind: "employee"; employeeId: string }) {
@@ -781,6 +789,8 @@ export async function dataPannello(owner: { kind: "admin" } | { kind: "employee"
     // Quante cose ci sono da fare (non la somma: piatti e dipendenti non si sommano); sotto, la prima.
     daFare: daFare.length,
     daFarePrimo: daFare[0] ? { testo: todoText(daFare[0]), link: daFare[0].link } : null,
+    // Con più cose da fare il riquadro le elenca (corte), così nessuna resta nascosta dietro la prima.
+    daFareVoci: daFare.map((r) => TODO_TILE[r.breve]?.(r.n) ?? todoShort(r)),
     link: "/menu",
     linkStatistiche: `/statistiche?dal=${today}&al=${today}`,
     linkTurni: `/orari?date=${today}`,
