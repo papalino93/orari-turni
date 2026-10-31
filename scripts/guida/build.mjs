@@ -421,7 +421,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Statistiche")}
   </div>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;margin-top:auto">
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Anonime</h3><p>Niente nomi, niente cookie: solo cosa, che giorno e che ora.</p></div>
-    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Solo i clienti</h3><p>Ogni telefono conta una volta al giorno. Personale e Anteprima non contano.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Solo i clienti</h3><p>Ogni telefono conta una volta al giorno. Personale e Anteprima non contano; una prova si toglie con «Togli aperture di prova».</p></div>
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Quando volete</h3><p>Si accende con «Inizia a contare»: meglio dal giorno del QR nuovo.</p></div>
   </div>
   <div style="text-align:center;margin:3mm 0 4mm;font:7.5pt Jost;color:rgba(233,220,196,.7);letter-spacing:.04em">I numeri delle schermate sono di esempio: in produzione si parte da zero.</div>
@@ -539,10 +539,10 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Se non compilo gli allergeni di un piatto?</h4><p>Il cliente legge «Allergeni da verificare con il personale»: mai un'informazione che sembri sicura quando non lo è.</p></div>
     <div><h4>Come metto le birre in più formati?</h4><p>Nella prima birra, in «Prezzo», scegli «Più formati» e tocca i formati (es. 0,2 l · 0,4 l · 1 l): diventano le colonne del gruppo e nelle altre birre scrivi solo i prezzi.</p></div>
     <div><h4>Quando compare un evento?</h4><p>La locandina dal giorno scelto (di solito una settimana prima), nella striscia «In evidenza»; nei giorni dell'evento è la prima, con «in corso» e il menù speciale. Finito, sparisce da solo.</p></div>
-    <div><h4>Meglio dal computer o dal telefono?</h4><p>Per le modifiche (vini nuovi, prezzi, ordine, eventi) il computer è più comodo; in sala il telefono basta per «Esaurito» e il piatto del giorno.</p></div>
     <div><h4>Una cosa solo per un periodo (l'olio nuovo)?</h4><p>Nella voce, «Solo in un periodo»: Dal e Al. Compare il primo giorno e sparisce dopo l'ultimo; i clienti leggono «Fino al…».</p></div>
     <div><h4>Devo cambiare tanti prezzi: c'è un modo veloce?</h4><p>Sì: in «Strumenti», «Tabella prezzi». Si cambiano tutti quelli che servono, anche in categorie diverse, e si salva una volta sola.</p></div>
     <div><h4>Le statistiche registrano i clienti?</h4><p>No: niente nomi, telefoni o cookie. Si conta solo cosa succede (un'apertura, una ricerca), il giorno e l'ora.</p></div>
+    <div><h4>Ho aperto il menù per prova: conta?</h4><p>Si toglie: in «Statistiche», sotto le aperture di oggi, «Togli aperture di prova», spunta l'ora e conferma. Perché il tuo telefono non conti più: «Il tuo telefono non deve contare».</p></div>
     <div><h4>Posso vedere i numeri sul telefono senza aprire il sito?</h4><p>Sì, con i widget sulla Home dell'iPhone: Impostazioni (l'ingranaggio in alto) → «Widget sul telefono». Lì scegli anche quali dare ai dipendenti.</p></div>
     <div><h4>Mi serve il menù su carta: come faccio?</h4><p>In «Strumenti», «Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
 

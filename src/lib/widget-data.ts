@@ -187,12 +187,13 @@ export async function dataOggi() {
   const [blocks, closure, ev] = await Promise.all([
     prisma.shiftBlock.findMany({
       where: { date: parseDateKey(dateKey), employee: { active: true } },
-      select: { startTime: true, endTime: true, employee: { select: { name: true, sortOrder: true } } },
+      select: { startTime: true, endTime: true, employee: { select: { id: true, name: true, sortOrder: true } } },
       orderBy: [{ startTime: "asc" }],
     }),
     prisma.closureDay.findUnique({ where: { date: parseDateKey(dateKey) }, select: { reason: true } }),
     nextEvent(businessDayKey(now)),
   ]);
+  const corti = await staffShortNames();
   const fascia = (p: "mattina" | "pomeriggio") => {
     const list = closure ? [] : blocks.filter((b) => periodOf(b) === p).sort((a, b) => a.employee.sortOrder - b.employee.sortOrder);
     if (list.length === 0) return null;
@@ -200,7 +201,7 @@ export async function dataOggi() {
     const end = list.map((b) => b.endTime).sort().at(-1)!;
     return {
       orario: `${hhmm(start)}–${hhmm(end)}`,
-      persone: list.map((b) => ({ nome: firstName(b.employee.name), iniziali: initials(b.employee.name) })),
+      persone: list.map((b) => ({ nome: corti.get(b.employee.id) ?? firstName(b.employee.name), iniziali: initials(b.employee.name) })),
     };
   };
   return {
@@ -401,6 +402,13 @@ export function shortNames(people: { id: string; name: string }[]) {
   return out;
 }
 
+// I nomi brevi di tutto il personale attivo: «Andrea» diventa «Andrea T.» anche quando l'altro Andrea
+// quel giorno non lavora, così sul widget si capisce sempre chi è.
+async function staffShortNames() {
+  const people = await prisma.employee.findMany({ where: { active: true }, select: { id: true, name: true } });
+  return shortNames(people);
+}
+
 // Chi è al lavoro adesso (e fino a quando), e chi arriva più tardi oggi.
 async function staffNow() {
   const now = new Date();
@@ -414,7 +422,7 @@ async function staffNow() {
     prisma.closureDay.findUnique({ where: { date: parseDateKey(dateKey) }, select: { reason: true } }),
   ]);
   if (closure) return { chiuso: closure.reason || "Locale chiuso", adesso: [], dopo: [], stasera: [] };
-  const corti = shortNames(blocks.map((b) => b.employee));
+  const corti = await staffShortNames();
   const person = (b: (typeof blocks)[number]) => ({
     nome: corti.get(b.employee.id) ?? firstName(b.employee.name),
     iniziali: initials(b.employee.name),
@@ -730,7 +738,8 @@ export async function dataPannello(owner: { kind: "admin" } | { kind: "employee"
     ultimi14: ap.ultimi14,
     stasera: {
       chiuso: staff.chiuso,
-      persone: staff.stasera.map((p) => ({ nome: p.nome, orario: `${p.dalle}–${p.alle}` })),
+      // In ordine alfabetico: si trova subito un nome.
+      persone: [...staff.stasera].sort((x, y) => x.nome.localeCompare(y.nome, "it")).map((p) => ({ nome: p.nome, orario: `${p.dalle}–${p.alle}` })),
       orario: staff.stasera.length ? `${staff.stasera[0].dalle}–${[...staff.stasera].sort((a, b) => b.fine - a.fine)[0].alle}` : null,
     },
     fuori: [...daily.piatti, ...daily.vini].map((x) => x.nome).slice(0, 2),

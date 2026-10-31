@@ -99,7 +99,7 @@ async function caricaDati(nome) {
 // Immagini del sito (QR): scaricate una volta e tenute sul telefono.
 async function caricaImmagine(nome) {
   const fm = FileManager.local();
-  const file = fm.joinPath(fm.documentsDirectory(), `angolo-${nome}`);
+  const file = fm.joinPath(fm.documentsDirectory(), `angolo-${nome.replace(/\//g, "-")}`);
   if (fm.fileExists(file)) return fm.readImage(file);
   const img = await new Request(`${SITO}/widget/${nome}`).loadImage();
   fm.writeImage(file, img);
@@ -165,11 +165,31 @@ function colonna(stack) {
 // Titoletto in oro a sinistra, ora dell'aggiornamento a destra.
 function intestazione(stack, titolo, d, vecchi) {
   const r = riga(stack);
-  testo(r, titolo.toUpperCase(), F.titoletto(), C.oro);
+  r.centerAlignContent();
+  if (titolo === "L'Angolo del Vino" && LOGO) logo(r, 18);
+  else {
+    // Su tutti i widget il logo piccolo accanto al nome del widget, alto come la scritta.
+    // Nei piccoli il logo prende il posto del nome (che lì si capisce dal contenuto).
+    if (LOGO && FAMIGLIA === "small") logo(r, 13);
+    else {
+      if (LOGO) {
+        logo(r, 13);
+        r.addSpacer(7);
+      }
+      testo(r, titolo.toUpperCase(), F.titoletto(), C.oro).minimumScaleFactor = 0.8;
+    }
+  }
   r.addSpacer();
   r.addSpacer(6);
   scrittaAggiornato(r, d, vecchi, FAMIGLIA === "medium" || FAMIGLIA === "large" || FAMIGLIA === "extraLarge");
   return r;
+}
+
+// Il logo alto `h` punti (largo in proporzione), allineato a sinistra.
+function logo(stack, h) {
+  const img = stack.addImage(LOGO);
+  img.imageSize = new Size(Math.round((h * LOGO.size.width) / LOGO.size.height), h);
+  return img;
 }
 
 // Piccola, nella riga del titolo (mai sopra i riquadri): a che ora sono i dati e ogni quanto cambiano.
@@ -999,7 +1019,7 @@ function wQr(fam, d) {
   const { CH } = misure(fam);
   w.url = link(d.link);
   // Il QR occupa tutto lo spazio che resta sotto la scritta.
-  const scritta = fam === "small" ? 17 : 26;
+  const scritta = (fam === "small" ? 17 : 26) + (LOGO ? (fam === "small" ? 17 : 32) : 0);
   const lato = Math.floor(CH - scritta - 16 - (fam === "small" ? 8 : 14));
   w.addSpacer();
   const r = riga(w);
@@ -1018,6 +1038,14 @@ function wQr(fam, d) {
   t.addSpacer();
   testo(t, "Inquadra per il menù", F.serifCorsivo(fam === "small" ? 13 : 20), C.crema);
   t.addSpacer();
+  // Sotto, il logo: chi guarda il telefono capisce subito di che menù si tratta.
+  if (LOGO) {
+    w.addSpacer(fam === "small" ? 3 : 6);
+    const l = riga(w);
+    l.addSpacer();
+    logo(l, fam === "small" ? 14 : 20);
+    l.addSpacer();
+  }
   w.addSpacer();
   return w;
 }
@@ -1167,7 +1195,8 @@ function graficoGiornata(oggi, ieri, w, h) {
 function wApri(fam, d) {
   const w = nuovoWidget(fam);
   w.url = link("/menu");
-  testo(w, "L'ANGOLO DEL VINO", F.titoletto(), C.oro);
+  if (LOGO) logo(riga(w), 17);
+  else testo(w, "L'ANGOLO DEL VINO", F.titoletto(), C.oro);
   w.addSpacer();
   testo(w, "Il menù", F.serifForte(30), C.crema);
   w.addSpacer(2);
@@ -1188,7 +1217,7 @@ function wPannello(fam, d, v) {
   const w = nuovoWidget(fam);
   const { CW, CH } = misure(fam);
   intestazione(w, "L'Angolo del Vino", d, v);
-  w.addSpacer(10);
+  w.addSpacer(LOGO ? 4 : 10);
   const gap = 8;
   const tw = Math.floor((CW - gap) / 2);
   const th = Math.floor((CH - 22 - gap * 2) / 3);
@@ -1296,8 +1325,11 @@ function wPannello(fam, d, v) {
       // Tutti quelli in turno, mai «e altri»: fino a 4 nome e orario (più piccoli se sono 4),
       // da 5 in su solo i nomi su due colonne; i nomi lunghi si stringono da soli.
       const ps = d.stasera.persone.map((p) => (typeof p === "string" ? { nome: p, orario: "" } : p));
-      if (ps.length <= 4) {
-        const f = ps.length <= 3 ? 12 : 10;
+      // Fino a 5 persone nome e orario, con la scritta più grande che ci sta nel riquadro
+      // (altezza meno margini 20 e titolo 13, diviso per le righe); da 6 in su i nomi su due colonne.
+      const perRiga = (th - 20 - 13) / ps.length;
+      if (ps.length <= 5) {
+        const f = Math.max(8, Math.min(12, Math.floor((perRiga / 1.25) * 2) / 2));
         ps.forEach((p) => {
           const r = riga(tu);
           testo(r, p.nome, F.medio(f), C.crema).minimumScaleFactor = 0.7;
@@ -1305,7 +1337,7 @@ function wPannello(fam, d, v) {
           r.addSpacer();
           if (p.orario) testo(r, p.orario, F.testo(f - 1), C.crema2);
         });
-      } else if (ps.length <= 8) {
+      } else if (ps.length <= 10) {
         // A coppie, riga per riga, così le due colonne restano allineate; tutti con la stessa grandezza.
         const cella = Math.floor((tw - 24 - 6) / 2);
         const f = ps.some((p) => p.nome.length > 10) ? 9 : 10;
@@ -1476,7 +1508,11 @@ function wStasera(fam, d, v) {
   corpo.addSpacer(12);
   const t = colonna(corpo);
   const top = riga(t);
-  testo(top, (e.oggi ? "Stasera" : "Prossimo evento").toUpperCase(), F.titoletto(), C.oro);
+  if (LOGO) {
+    logo(top, 13);
+    top.addSpacer(7);
+  }
+  testo(top, (e.oggi ? "Stasera" : "Prossimo evento").toUpperCase(), F.titoletto(), C.oro).minimumScaleFactor = 0.8;
   top.addSpacer();
   scrittaAggiornato(top, d, v, false);
   t.addSpacer(4);
@@ -1714,7 +1750,15 @@ if (param === "stasera" && risposta.dati && risposta.dati.evento && risposta.dat
     LOCANDINA = await new Request(`${SITO}${risposta.dati.evento.locandina}`).loadImage();
   } catch (e) {}
 }
-C = colori(PAROLE.find((p) => TEMI[p]) || (risposta.dati && risposta.dati.tema) || "crema");
+const TEMA = PAROLE.find((p) => TEMI[p]) || (risposta.dati && risposta.dati.tema) || "crema";
+C = colori(TEMA);
+// Il logo (scritta a mano dell'Angolo del Vino) nel colore del tema, al posto del nome scritto in maiuscolo.
+let LOGO = null;
+if (!String(famiglia || "").startsWith("accessory")) {
+  try {
+    LOGO = await caricaImmagine(`logo/${TEMI[TEMA] ? TEMA : "crema"}.png`);
+  } catch (e) {}
+}
 const widget = disegna(param, famiglia, risposta);
 if (config.runsInWidget) Script.setWidget(widget);
 else await mostra(widget, famiglia);
