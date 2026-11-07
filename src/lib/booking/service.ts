@@ -151,7 +151,7 @@ export type NewRequestInput = {
 export type NewRequestContext = { ip: string; isAdmin: boolean; origin: string | null };
 
 export type NewRequestResult =
-  | { ok: true; id: string; code: string; statusPath: string; isTest: boolean }
+  | { ok: true; id: string; code: string; statusPath: string; isTest: boolean; reused?: boolean }
   | { ok: false; error: string; field?: string };
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
@@ -211,21 +211,27 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
     if (byIp >= 5) return { ok: false, error: "Hai mandato tante richieste in poco tempo: aspetta un po' oppure chiamaci." };
     if (pendingByPhone >= 3) return { ok: false, error: "Con questo numero ci sono già 3 richieste in attesa: aspetta la nostra risposta oppure chiamaci." };
   }
-  // Stesso telefono, stesso giorno e ora, ancora in attesa: è un doppio invio, si riusa quella.
-  const same = await prisma.bookingRequest.findFirst({
-    where: { phone, day, time, status: { in: ["PENDING", "PROPOSED", "CONFIRMED"] } },
-    select: { id: true, code: true, isTest: true },
-  });
-  if (same) return { ok: true, id: same.id, code: same.code, statusPath: statusPath(same.id), isTest: same.isTest };
-
   const slug = str(input.event, 120);
   const promo = slug ? await prisma.menuPromo.findFirst({ where: { slug, deletedAt: null }, select: { id: true } }) : null;
   const source = promo ? "evento" : normalizeSource(input.source);
 
   let created: BookingRow | null = null;
-  for (let attempt = 0; attempt < 5 && !created; attempt++) {
+  let reused: { id: string; code: string; isTest: boolean } | null = null;
+  for (let attempt = 0; attempt < 5 && !created && !reused; attempt++) {
     try {
       created = await prisma.$transaction(async (tx) => {
+        // Stesso telefono, giorno e ora già chiesti (doppio tocco, rete che ripete l'invio): si riusa
+        // quella richiesta. Il lucchetto sulla combinazione evita che due invii nello stesso istante
+        // passino entrambi il controllo.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking:${phone}:${day}:${time}`}))`;
+        const same = await tx.bookingRequest.findFirst({
+          where: { phone, day, time, status: { in: ["PENDING", "PROPOSED", "CONFIRMED"] } },
+          select: { id: true, code: true, isTest: true },
+        });
+        if (same) {
+          reused = same;
+          return null;
+        }
         const row = await tx.bookingRequest.create({
           data: {
             code: newCode(),
@@ -254,6 +260,10 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
       // Codice già usato (rarissimo): se ne prova un altro.
       if (!(e instanceof Error && /Unique constraint/i.test(e.message))) throw e;
     }
+  }
+  if (reused) {
+    const r = reused as { id: string; code: string; isTest: boolean };
+    return { ok: true, id: r.id, code: r.code, statusPath: statusPath(r.id), isTest: r.isTest, reused: true };
   }
   if (!created) return { ok: false, error: "Non sono riuscito a salvare la richiesta: riprova tra poco." };
   return { ok: true, id: created.id, code: created.code, statusPath: statusPath(created.id), isTest };

@@ -158,6 +158,8 @@ export function availability(
   const first = toMin(settings.firstTime);
   const minStart = now.getTime() + settings.leadMinutes * 60000;
   const seen = new Set<number>();
+  // La notte del passaggio all'ora legale due orari («02:00» e «03:00») cadono nello stesso istante: uno solo.
+  const seenInstants = new Set<number>();
   const slots: Slot[] = [];
   for (const r of ranges) {
     const open = toMin(r.open);
@@ -170,8 +172,9 @@ export function availability(
     for (let m = start; m <= last; m += settings.step) {
       if (seen.has(m)) continue;
       const startsAt = romeInstant(dayKey, m);
-      if (startsAt.getTime() < minStart) continue;
+      if (startsAt.getTime() < minStart || seenInstants.has(startsAt.getTime())) continue;
       seen.add(m);
+      seenInstants.add(startsAt.getTime());
       slots.push({ time: fmtMin(m), minutes: m, startsAt });
     }
   }

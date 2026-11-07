@@ -1,5 +1,4 @@
 import { after, type NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { afterCreate, createBookingRequest } from "@/lib/booking/service";
 import { clientIp, formAge, isOwner, json, MIN_FILL_MS, readJson, requestOrigin, sameOrigin } from "../server-utils";
 
@@ -20,7 +19,6 @@ export async function POST(request: NextRequest) {
 
   const origin = requestOrigin(request);
   const isAdmin = await isOwner();
-  const started = Date.now();
   const res = await createBookingRequest(
     {
       day: body.day,
@@ -41,9 +39,6 @@ export async function POST(request: NextRequest) {
   if (!res.ok) return json({ ok: false, error: res.error, field: res.field ?? null });
   // Avvisi al personale e ricevuta per email dopo aver risposto: il cliente non aspetta.
   // Un doppio invio (stesso telefono, giorno e ora) riusa la richiesta di prima: niente secondo avviso.
-  after(async () => {
-    const row = await prisma.bookingRequest.findUnique({ where: { id: res.id }, select: { createdAt: true } });
-    if (row && row.createdAt.getTime() >= started - 1000) await afterCreate(res.id, origin);
-  });
+  if (!res.reused) after(() => afterCreate(res.id, origin));
   return json({ ok: true, statusPath: res.statusPath, isTest: res.isTest });
 }
