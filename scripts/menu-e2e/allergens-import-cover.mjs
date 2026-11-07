@@ -1,4 +1,4 @@
-import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, tool, goTab } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, tool, goTab, undoFromHistory } from "./lib.mjs";
 
 // stato pulito (i dati della migrazione restano com'erano)
 DB(`delete from "MenuPromo"`);
@@ -156,7 +156,7 @@ if (await undoToast.count()) {
 } else {
   await tool(page, "Storico");
   await dialog().waitFor();
-  await dialog().locator("li", { hasText: /Modificato: Acqua/ }).first().locator("button", { hasText: "Ripristina" }).click();
+  await undoFromHistory(dialog().locator("li", { hasText: /Modificato: Acqua/ }).first(), "Torna com'era");
   await settle(1000);
   await dialog().getByRole("button", { name: "Chiudi" }).click();
   await goTab(page, "Menù");
@@ -222,7 +222,7 @@ check("annulla in blocco: entrambe le voci tolte con un solo Annulla (o toast sc
 if (alive === "2") {
   await tool(page, "Storico");
   await dialog().waitFor();
-  await dialog().locator("li", { hasText: /Aggiunto: 2 voci/ }).locator("button", { hasText: "Ripristina" }).click();
+  await undoFromHistory(dialog().locator("li", { hasText: /Aggiunto: 2 voci/ }).first(), "Annulla aggiunta");
   await settle(1500);
   await dialog().getByRole("button", { name: "Chiudi" }).click();
   await goTab(page, "Menù");

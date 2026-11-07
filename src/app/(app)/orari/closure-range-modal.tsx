@@ -34,12 +34,13 @@ export function ClosureRangeModal({ defaultKey, onClose }: { defaultKey: string;
       return;
     }
     startTransition(async () => {
-      const result = await runWithToast(
-        toast,
-        () => closeDateRange(fromKey, toKey, { removeShifts, reason }),
-        "Periodo chiuso",
-      );
+      const result = await runWithToast(toast, () => closeDateRange(fromKey, toKey, { removeShifts, reason }), undefined);
       if (result !== null) {
+        toast.showSuccess(
+          result.absences > 0
+            ? `Periodo chiuso. ${result.absences === 1 ? "Un giorno di ferie, permesso o malattia" : `${result.absences} giorni di ferie, permesso o malattia`} in questo periodo non ${result.absences === 1 ? "conta" : "contano"} più finché il locale resta chiuso.`
+            : "Periodo chiuso",
+        );
         router.refresh();
         onClose();
       }

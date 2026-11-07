@@ -85,6 +85,7 @@ model Employee {
   leaveEntries        LeaveEntry[]
   leaveBalances       LeaveBalance[]
   monthlySubmissions  MonthlySubmission[]
+  shiftRemovals       ShiftRemoval[]
 
   @@index([role])
 }
@@ -125,6 +126,23 @@ model ShiftBlock {
   editedByEmployeeAt DateTime?
 
   @@index([date])
+  @@index([employeeId, date])
+}
+
+// Turno pianificato dal titolare e tolto dal dipendente nella revisione del
+// mese («Riposo» o «Svuota giornata»). Il turno non esiste più in ShiftBlock:
+// qui resta l'orario che c'era, per mostrarlo a chi approva il mese («Tolto
+// da Luca: era 10:00–13:00»). Si cancella se il dipendente rimette un turno
+// in quella fascia (diventa una correzione) o se il titolare riscrive il giorno.
+model ShiftRemoval {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  startTime  String // "HH:MM", l'orario pianificato dal titolare
+  endTime    String
+  removedAt  DateTime @default(now())
+
   @@index([employeeId, date])
 }
 

@@ -21,7 +21,7 @@ import {
 import { PdfExportModal } from "./pdf-export-modal";
 import { PhotoEditor } from "./photo-editor";
 import { EmployeeCredentials } from "./employee-credentials";
-import { PendingMonths } from "./pending-months";
+import { ApprovedMonths, PendingMonths, type ApprovedMonth, type PendingMonth, type ReopenedMonth } from "./pending-months";
 import { DayCellContent } from "../orari/shared";
 
 type EmployeeRow = {
@@ -35,7 +35,9 @@ type EmployeeRow = {
   username: string | null;
   password: string | null;
   canEditMenu: boolean;
-  pendingSubmissions: { year: number; month: number; submittedAt: string | null }[];
+  pendingSubmissions: PendingMonth[];
+  reopenedSubmissions: ReopenedMonth[];
+  approvedSubmissions: ApprovedMonth[];
 };
 
 export function EmployeeList({
@@ -214,7 +216,7 @@ function EmployeeCard({
     });
   }
 
-  // Disattivare toglie l'accesso: prima si chiede conferma (riattivare no).
+  // Disattivare lo toglie dagli orari: prima si chiede conferma (riattivare no).
   const [askDeactivate, setAskDeactivate] = useState(false);
   function toggleActive() {
     setAskDeactivate(false);
@@ -231,17 +233,15 @@ function EmployeeCard({
   return (
     <div className={`overflow-hidden rounded-2xl border bg-surface ${employee.active ? "border-border" : "border-border opacity-70"}`}>
       <div className="flex items-start gap-3 border-b border-border px-4 py-3.5">
-        {/* Prima 16×20px l'uno, appiccicati: quasi impossibile da toccare
-            con precisione su un telefono. Ora un'area di tocco reale
-            (28×28px, avvicinandosi alle linee guida di 44px senza sforare
-            il layout della card), con un piccolo distacco tra i due. */}
-        <div className="flex shrink-0 flex-col gap-0.5 pt-1">
+        {/* Area di tocco di 40×40px sul telefono (dal tablet in su, col
+            mouse, bastano 32px), con un piccolo distacco tra i due. */}
+        <div className="-ml-2 flex shrink-0 flex-col gap-0.5">
           <button
             type="button"
             disabled={isFirst || pending}
             onClick={() => move("up")}
             aria-label="Sposta su"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-foreground-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-20"
+            className="flex h-10 w-10 items-center justify-center rounded-md text-foreground-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-20 sm:h-8 sm:w-8"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 6l7 9H5z" />
@@ -252,7 +252,7 @@ function EmployeeCard({
             disabled={isLast || pending}
             onClick={() => move("down")}
             aria-label="Sposta giù"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-foreground-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-20"
+            className="flex h-10 w-10 items-center justify-center rounded-md text-foreground-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-20 sm:h-8 sm:w-8"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 18l-7-9h14z" />
@@ -294,16 +294,19 @@ function EmployeeCard({
               type="button"
               onClick={() => setShowRoleChange(true)}
               title={employee.role === "OWNER" ? "Cambia in Dipendente" : "Cambia in Titolare"}
-              // py-1, non più py-0.5: era un badge puramente decorativo,
-              // ora è un'azione con conseguenze reali (revoca/crea
-              // credenziali) — merita qualche px in più di area di tocco.
-              className={
-                employee.role === "OWNER"
-                  ? "shrink-0 rounded-full bg-gold/15 px-2 py-1 text-[11px] font-medium text-gold hover:bg-gold/25"
-                  : "shrink-0 rounded-full border border-dashed border-border px-2 py-1 text-[11px] font-medium text-foreground-muted hover:border-accent hover:text-foreground"
-              }
+              // L'area di tocco è alta 40px (margini negativi per non
+              // allargare la riga), l'etichetta visibile resta piccola.
+              className="group -my-2 flex min-h-10 shrink-0 items-center"
             >
-              {employee.role === "OWNER" ? "Titolare" : "Rendi titolare"}
+              <span
+                className={
+                  employee.role === "OWNER"
+                    ? "rounded-full bg-gold/15 px-2 py-1 text-[11px] font-medium text-gold group-hover:bg-gold/25"
+                    : "rounded-full border border-dashed border-border px-2 py-1 text-[11px] font-medium text-foreground-muted group-hover:border-accent group-hover:text-foreground"
+                }
+              >
+                {employee.role === "OWNER" ? "Titolare" : "Rendi titolare"}
+              </span>
             </button>
             {!employee.active && (
               <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-foreground-muted">Disattivato</span>
@@ -323,7 +326,7 @@ function EmployeeCard({
             />
           ) : (
             <button type="button" onClick={() => setEditingTitle(true)} className="mt-0.5 block truncate text-left text-xs text-foreground-muted hover:underline" title="Imposta una mansione">
-              {employee.jobTitle || "+ aggiungi ruolo"}
+              {employee.jobTitle || "+ aggiungi mansione"}
             </button>
           )}
         </div>
@@ -331,13 +334,18 @@ function EmployeeCard({
         {employee.active && employee.role !== "OWNER" && (
           <div className="shrink-0 text-right">
             <p className="text-lg font-semibold leading-none text-foreground">{formatHours(schedule.employeeHours(employee.id)).replace(" h", "")}</p>
-            <p className="text-[10px] uppercase tracking-wide text-foreground-muted">ore/sett.</p>
+            <p className="text-[10px] text-foreground-muted">ore questa settimana</p>
           </div>
         )}
       </div>
 
-      {employee.role === "EMPLOYEE" && employee.pendingSubmissions.length > 0 && (
-        <PendingMonths employeeId={employee.id} submissions={employee.pendingSubmissions} />
+      {employee.role === "EMPLOYEE" && (employee.pendingSubmissions.length > 0 || employee.reopenedSubmissions.length > 0) && (
+        <PendingMonths
+          employeeId={employee.id}
+          employeeName={employee.name}
+          submissions={employee.pendingSubmissions}
+          reopened={employee.reopenedSubmissions}
+        />
       )}
 
       <button
@@ -361,14 +369,18 @@ function EmployeeCard({
             return (
               <div key={dateKey} className={`flex items-center justify-between gap-3 px-4 py-1.5 ${isToday(d) ? "bg-accent/[0.04]" : ""}`}>
                 <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-foreground-muted">
-                  {dayLabel(d)} <span className="font-normal normal-case text-foreground-muted/70">{formatDayMonth(d)}</span>
+                  {dayLabel(d)} <span className="font-normal normal-case text-foreground-muted">{formatDayMonth(d)}</span>
                   {isToday(d) && <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-label="Oggi" />}
                 </span>
-                <DayCellContent entry={entry} align="right" />
+                <DayCellContent entry={entry} align="right" readOnly />
               </div>
             );
           })}
         </div>
+      )}
+
+      {employee.role === "EMPLOYEE" && employee.approvedSubmissions.length > 0 && (
+        <ApprovedMonths employeeId={employee.id} months={employee.approvedSubmissions} />
       )}
 
       {employee.role === "EMPLOYEE" && (
@@ -452,14 +464,14 @@ function EmployeeCard({
                   onConfirm={toggleActive}
                   onCancel={() => setAskDeactivate(false)}
                 >
-                  <p>Non potrà più entrare nell&apos;app e non comparirà nei nuovi orari. I suoi dati restano: puoi riattivarlo quando vuoi.</p>
+                  <p>Potrà solo vedere le sue ore passate; non comparirà più negli orari. I suoi dati restano: puoi riattivarlo quando vuoi.</p>
                 </ConfirmSheet>
               )}
             </div>
             <button
               type="button"
               onClick={openDeleteConfirm}
-              className="min-h-11 text-xs font-medium text-foreground-muted/70 hover:text-danger"
+              className="min-h-11 text-xs font-medium text-foreground-muted hover:text-danger"
               title="Elimina definitivamente"
             >
               Elimina definitivamente
@@ -532,7 +544,7 @@ function RoleChangeModal({
               type="button"
               onClick={onClose}
               disabled={pending}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground-muted hover:text-foreground disabled:opacity-50"
+              className="min-h-11 rounded-lg border border-border px-4 text-sm font-medium text-foreground-muted hover:text-foreground disabled:opacity-50"
             >
               Annulla
             </button>
@@ -540,7 +552,7 @@ function RoleChangeModal({
               type="button"
               onClick={onConfirm}
               disabled={pending}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
+              className="min-h-11 rounded-lg bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
             >
               {pending ? "Confermo…" : "Sì, cambia ruolo"}
             </button>

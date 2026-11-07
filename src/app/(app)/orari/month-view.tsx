@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDayMonth, toDateKey, weekRangesInMonth } from "@/lib/week";
+import { formatDaySpan, toDateKey, weekRangesInMonth } from "@/lib/week";
 import { formatHours, type buildSchedule } from "@/lib/schedule";
 import { EmployeeAvatar } from "@/components/avatar";
 import { orderEmployees } from "./shared";
@@ -38,7 +38,7 @@ export function MonthView({
                 <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-foreground-muted">Dipendente</th>
                 {weeks.map((week, i) => (
                   <th key={i} className="border-b border-border px-3 py-3 text-center text-xs font-medium text-foreground-muted">
-                    {formatDayMonth(week.start)}–{formatDayMonth(week.end)}
+                    {formatDaySpan(week.start, week.end)}
                   </th>
                 ))}
                 <th className="border-b border-border px-4 py-3 text-center text-xs font-medium text-foreground-muted">Totale mese</th>
@@ -88,7 +88,7 @@ export function MonthView({
             <div className="flex flex-wrap gap-1.5">
               {weeks.map((week, i) => (
                 <span key={i} className="rounded-full bg-surface-2 px-2 py-1 text-[11px] text-foreground-muted">
-                  {formatDayMonth(week.start)}–{formatDayMonth(week.end)}:{" "}
+                  {formatDaySpan(week.start, week.end)}:{" "}
                   <span className="font-medium text-foreground">
                     {formatHours(schedule.hoursInRange(emp.id, toDateKey(week.start), toDateKey(week.end)))}
                   </span>

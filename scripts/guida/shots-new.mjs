@@ -4,7 +4,7 @@ const OUT = `${WORK}/img`;
 import { execFileSync } from "node:child_process";
 import { WORK } from "./work.mjs";
 // Le visite fatte per le altre schermate contano come aperture: si tolgono, restano solo i dati di esempio.
-execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", `delete from "MenuEvent" where hour between 5 and 15`], { env: { ...process.env, PGPASSWORD: "orari" } });
+execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-Atc", `delete from "MenuEvent" where hour between 5 and 15`], { env: { ...process.env, PGPASSWORD: "orari" } });
 const browser = await launch();
 const mk = async (w, h, dsf = 2) => {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: dsf, locale: "it-IT", timezoneId: "Europe/Rome" });
@@ -82,7 +82,7 @@ const toEl = async (page, loc, offset = 70) => {
 }
 // Oktoberfest sul telefono, come nei giorni dell'evento (date spostate solo per la foto)
 {
-  const sql = (q) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", q], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
+  const sql = (q) => execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-Atc", q], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
   const old = sql(`select "startDate"||'|'||"endDate" from "MenuPromo" where id='demo_degust'`).split("|");
   sql(`update "MenuPromo" set "startDate"=to_char(now() - interval '5 hours','YYYY-MM-DD') where id='demo_degust'`);
   const { ctx, page } = await mk(390, 797);

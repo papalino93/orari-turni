@@ -2,7 +2,7 @@
 import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, tool } from "./lib.mjs";
 import { execFileSync } from "node:child_process";
 
-const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
+const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
 DB(`update "MenuItem" set "soldOutDay"=null, "deletedAt"=null`);
 DB(`delete from "MenuChange"`);
 DB(`delete from "MenuPromo"`);

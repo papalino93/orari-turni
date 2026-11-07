@@ -1,13 +1,15 @@
 import { loadVenue } from "@/lib/menu";
 import { promoIcs } from "@/lib/menu-ics";
 import { prisma } from "@/lib/prisma";
+import { businessDayKey } from "@/lib/menu-format";
 
 // «Aggiungi al calendario» di un evento: file .ics che il telefono apre nel suo
-// calendario. Come la pagina dell'evento: solo se non è eliminato né nascosto.
+// calendario. Come la pagina dell'evento: solo se non è eliminato, né nascosto, né ancora da
+// pubblicare (prima di «Mostra dal»).
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const promo = await prisma.menuPromo.findUnique({ where: { slug } });
-  if (!promo || promo.deletedAt || promo.hidden || promo.kind !== "EVENT") {
+  if (!promo || promo.deletedAt || promo.hidden || promo.kind !== "EVENT" || businessDayKey() < promo.showFrom) {
     return new Response("Non trovato", { status: 404 });
   }
   const venue = await loadVenue();

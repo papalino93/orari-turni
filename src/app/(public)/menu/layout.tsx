@@ -3,6 +3,7 @@ import "./menu.css";
 import { body, sans, serif } from "./fonts";
 import { MenuStats } from "./stats";
 import { SmoothAnchors } from "./smooth-anchors";
+import { MenuPathTracker } from "./back-to-menu";
 
 export const metadata: Metadata = {
   title: "Menù — L'Angolo del Vino",
@@ -29,6 +30,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className={`${serif.variable} ${body.variable} ${sans.variable} menu-root min-h-screen`}>
       <MenuStats />
+      <MenuPathTracker />
       {children}
       {/* Dopo i figli: i gestori di click dei figli (abbinamenti) hanno la precedenza. */}
       <SmoothAnchors />

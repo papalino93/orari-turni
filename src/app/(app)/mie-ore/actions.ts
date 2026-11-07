@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireEmployee } from "@/lib/guard";
 import { assert, runAction, type ActionResult } from "@/lib/validation";
 import { todayKey, toDateKey } from "@/lib/week";
+import { employeeCanEditMonth } from "./editable-month";
 
 // Bozza → Inviato: il dipendente segnala "ho finito, controlla tu". Da qui
 // in poi saveDayEntry (orari/actions.ts) rifiuta ulteriori modifiche finché
@@ -30,6 +31,20 @@ export async function submitMonth(year: number, month: number): Promise<ActionRe
     // approvazione un mese fatto di sole voci inventate.
     const hireMonthKey = toDateKey(employee.createdAt).slice(0, 7);
     assert(monthKey >= hireMonthKey, "Non puoi inviare un mese precedente alla tua data di assunzione.");
+
+    // Si inviano solo l'ultimo mese concluso e i mesi che il titolare ha
+    // rimandato indietro: un mese più vecchio mai inviato lo gestisce ormai
+    // il titolare (stessa regola della pagina di revisione, editable-month.ts).
+    // Controllato prima dell'upsert, per non creare righe di bozza inutili.
+    const existing = await prisma.monthlySubmission.findUnique({
+      where: { employeeId_year_month: { employeeId: employee.id, year, month } },
+    });
+    assert(
+      existing?.status === "SUBMITTED" ||
+        existing?.status === "APPROVED" ||
+        employeeCanEditMonth({ year, month, status: existing?.status ?? null, hireMonthKey }),
+      "Questo mese non si può più inviare: se serve, chiedi al titolare.",
+    );
 
     const submission = await prisma.monthlySubmission.upsert({
       where: { employeeId_year_month: { employeeId: employee.id, year, month } },

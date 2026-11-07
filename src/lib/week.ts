@@ -73,6 +73,31 @@ export function formatWeekRange(weekStart: Date): string {
   return `${startStr} – ${endStr}`;
 }
 
+// Intervallo libero scritto per esteso: «2 – 8 novembre», «28 ottobre – 3
+// novembre», «2 novembre» se è un giorno solo; l'anno compare solo se cambia.
+export function formatDateRange(from: Date, to: Date): string {
+  const opts = (withMonth: boolean, withYear: boolean): Intl.DateTimeFormatOptions => ({
+    day: "numeric",
+    month: withMonth ? "long" : undefined,
+    year: withYear ? "numeric" : undefined,
+    timeZone: "UTC",
+  });
+  const sameYear = from.getUTCFullYear() === to.getUTCFullYear();
+  const sameMonth = sameYear && from.getUTCMonth() === to.getUTCMonth();
+  const endStr = to.toLocaleDateString("it-IT", opts(true, !sameYear));
+  if (sameMonth && from.getUTCDate() === to.getUTCDate()) return endStr;
+  const startStr = from.toLocaleDateString("it-IT", opts(!sameMonth, !sameYear));
+  return `${startStr} – ${endStr}`;
+}
+
+// Una fascia di giorni in breve: «02/11–08/11», o «01/11» se è un giorno solo
+// (la prima o l'ultima settimana di un mese può essere di un giorno).
+export function formatDaySpan(start: Date, end: Date): string {
+  const a = formatDayMonth(start);
+  const b = formatDayMonth(end);
+  return a === b ? a : `${a}–${b}`;
+}
+
 // Fuso del locale. Le date sono salvate come giorno "puro" (@db.Date) e
 // confrontate come stringhe YYYY-MM-DD: "oggi" va quindi calcolato nel fuso
 // del negozio, non in UTC. Con toISOString() dopo la mezzanotte italiana

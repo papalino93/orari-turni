@@ -9,11 +9,18 @@ export default async function FeriePage() {
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year, 11, 31));
 
-  const [employees, balances, entries] = await Promise.all([
+  const [employees, balances, allEntries, closures] = await Promise.all([
     prisma.employee.findMany({ where: { role: "EMPLOYEE" }, orderBy: [{ active: "desc" }, { sortOrder: "asc" }] }),
     prisma.leaveBalance.findMany({ where: { year } }),
     prisma.leaveEntry.findMany({ where: { date: { gte: yearStart, lte: yearEnd }, type: { in: ["FERIE", "PERMESSO"] } } }),
+    prisma.closureDay.findMany({ where: { date: { gte: yearStart, lte: yearEnd } }, select: { date: true } }),
   ]);
+  // Ferie o permesso su un giorno poi chiuso: il locale non apre, quindi quel
+  // giorno non si consumano ferie (come per i turni, la chiusura vince su
+  // tutto: vedi buildSchedule). L'assenza resta salvata e torna a contare se
+  // la giornata viene riaperta.
+  const closedKeys = new Set(closures.map((c) => toDateKey(c.date)));
+  const entries = allEntries.filter((e) => !closedKeys.has(toDateKey(e.date)));
 
   function buildCard(emp: (typeof employees)[number]) {
     const balanceFor = (type: "FERIE" | "PERMESSO") => balances.find((b) => b.employeeId === emp.id && b.leaveType === type) ?? null;
@@ -52,6 +59,7 @@ export default async function FeriePage() {
     <div className="mx-auto max-w-3xl">
       <h1 className="mb-1 text-xl font-semibold tracking-tight">Ferie & Permessi {year}</h1>
       <p className="mb-6 text-sm text-foreground-muted">
+        I giorni di ferie, permesso e malattia si segnano in «Orari», toccando il giorno del dipendente; qui vedi i saldi.
         Se non hai ancora caricato i saldi di partenza di un dipendente, la sua scheda risulta vuota: imposta il saldo
         dalla scheda stessa con «Imposta saldo».
       </p>

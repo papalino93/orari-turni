@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MenuSearch, type SearchItem } from "./menu-search";
+import { scrollBehavior } from "./motion";
 
 type Chip = { id: string; label: string };
 
@@ -17,6 +18,11 @@ export function MenuNav({ chips, items }: { chips: Chip[]; items: SearchItem[] }
   const [showTop, setShowTop] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const activeRef = useRef(active);
+  const searchButton = useRef<HTMLButtonElement>(null);
+  // Cosa fare dopo la chiusura della ricerca (portare alla voce scelta), quando il «indietro» è stato preso.
+  const afterClose = useRef<(() => void) | null>(null);
+  // Sfumature ai lati della barra delle sezioni: solo se c'è altro da scorrere da quella parte.
+  const [fade, setFade] = useState({ left: false, right: false });
 
   const lastY = useRef(0);
 
@@ -43,12 +49,61 @@ export function MenuNav({ chips, items }: { chips: Chip[]; items: SearchItem[] }
       setActive(current);
       const nav = navRef.current;
       const el = nav?.querySelector<HTMLElement>(`[data-chip="${current}"]`);
-      if (nav && el) nav.scrollTo({ left: el.offsetLeft - 16, behavior: "smooth" });
+      if (nav && el) nav.scrollTo({ left: el.offsetLeft - 16, behavior: scrollBehavior() });
     }
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [chips]);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const update = () => {
+      const left = nav.scrollLeft > 4;
+      const right = nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 4;
+      setFade((prev) => (prev.left === left && prev.right === right ? prev : { left, right }));
+    };
+    update();
+    nav.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      nav.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [chips]);
+
+  // Ricerca aperta = un passo nella cronologia: il tasto «indietro» del telefono (Android) chiude la
+  // ricerca invece di uscire dal menù. «Chiudi», Esc e la scelta di un risultato tornano indietro di
+  // quel passo; la chiusura vera avviene qui, all'evento «popstate».
+  useEffect(() => {
+    if (!searching) return;
+    function onPop() {
+      setSearching(false);
+      const then = afterClose.current;
+      afterClose.current = null;
+      if (then) requestAnimationFrame(then);
+      else searchButton.current?.focus({ preventScroll: true });
+    }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [searching]);
+
+  function openSearch() {
+    history.pushState({ ...(history.state ?? {}), menuSearch: true }, "");
+    setSearching(true);
+  }
+
+  function closeSearch(then?: () => void) {
+    if ((history.state as { menuSearch?: boolean } | null)?.menuSearch) {
+      afterClose.current = then ?? null;
+      history.back();
+      return;
+    }
+    setSearching(false);
+    if (then) requestAnimationFrame(then);
+    else searchButton.current?.focus({ preventScroll: true });
+  }
 
   // Testo grande: scelta ricordata su questo telefono.
   useEffect(() => {
@@ -104,26 +159,27 @@ export function MenuNav({ chips, items }: { chips: Chip[]; items: SearchItem[] }
             );
           })}
         </nav>
-        {/* Sfumatura a destra: fa capire che la barra delle sezioni scorre. */}
-        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#F4EEE3] to-transparent" />
+        {/* Sfumature: fanno capire che la barra delle sezioni scorre, solo dalla parte dove c'è altro. */}
+        {fade.left && <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-[#F4EEE3] to-transparent" />}
+        {fade.right && <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#F4EEE3] to-transparent" />}
         </div>
-        <button type="button" onClick={toggleLarge} aria-pressed={large} aria-label="Testo più grande" title="Testo più grande" className={`${tool} text-[15px] font-medium`}>
+        <button type="button" onClick={toggleLarge} aria-pressed={large} aria-label="Testo più grande" title="Testo più grande" className={`${tool} text-[16px] font-semibold ${large ? "!text-[#6B1020]" : ""}`}>
           <span aria-hidden>
-            A<span className="text-[11px]">A</span>
+            A<span className="text-[13px] align-[3px]">+</span>
           </span>
         </button>
-        <button type="button" onClick={() => setSearching(true)} aria-label="Cerca nel menù" title="Cerca" className={`${tool} pr-4`}>
+        <button ref={searchButton} type="button" onClick={openSearch} aria-label="Cerca nel menù" title="Cerca" className={`${tool} pr-4`}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
             <circle cx="11" cy="11" r="6.5" />
             <path d="M16 16l4.5 4.5" />
           </svg>
         </button>
       </div>
-      {searching && <MenuSearch items={items} onClose={() => setSearching(false)} />}
+      {searching && <MenuSearch items={items} onClose={closeSearch} />}
       {showTop && !searching && (
         <button
           type="button"
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          onClick={() => window.scrollTo({ top: 0, behavior: scrollBehavior() })}
           aria-label="Torna su"
           className="fixed bottom-[max(20px,env(safe-area-inset-bottom))] right-5 z-20 flex h-12 w-12 items-center justify-center rounded-full border border-[#C9A96E]/70 bg-[#6B1020] shadow-lg"
         >

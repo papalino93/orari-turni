@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { originLabel } from "@/lib/menu-format";
 import { track } from "./stats";
 import { WINE_TRAITS, traitLabel } from "@/lib/wine-traits";
 import { allergenLabel } from "@/lib/allergens";
+import { scrollBehavior } from "./motion";
 
 export type SearchItem = {
   id: string;
@@ -15,6 +17,8 @@ export type SearchItem = {
   country: string | null;
   description: string | null;
   section: string;
+  // Sopratitolo della sezione («Vini», «Cucina», «Analcolici & caffetteria»): si cerca anche quello.
+  kicker: string | null;
   group: string;
   kind: "WINE" | "FOOD";
   price: string;
@@ -29,8 +33,54 @@ function norm(text: string): string {
   return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
-function haystack(i: SearchItem): string {
-  return norm([i.name, i.sub, i.grapes, i.region, i.country, i.description, i.group, i.section, ...i.traits.map(traitLabel)].filter(Boolean).join(" "));
+// Testo in cui si cerca. «own»: ciò che è scritto sulla voce (nome, zona, uvaggio, ingredienti,
+// gruppo come «Dolci» o «Pinse»). «context»: sezione, sopratitolo («Vini», «Cucina») e le parole
+// dei filtri rapidi («calice», «enomatic»), che il cliente scrive ma che valgono per tante voci.
+function ownText(i: SearchItem): string {
+  return norm([i.name, i.sub, i.grapes, i.region, i.country, i.description, i.group, ...i.traits.map(traitLabel)].filter(Boolean).join(" "));
+}
+function contextText(i: SearchItem): string {
+  return norm([i.section, i.kicker, i.kind === "WINE" ? "vino" : null, i.glass ? "calice" : null, i.enomatic ? "enomatic" : null].filter(Boolean).join(" "));
+}
+
+// Radice di una parola: senza l'ultima vocale («rosso» → «ross», «pinsa» → «pins») e senza
+// la «h» di «-chi/-ghi» («bianchi» → «bianc»), così singolare e plurale si trovano a vicenda.
+function stem(word: string): string {
+  return word.replace(/[aeiou]$/, "").replace(/([cg])h$/, "$1");
+}
+
+// Al massimo una lettera diversa, in più o in meno («sangioveze» ↔ «sangiovese»).
+function oneEditApart(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1);
+  return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+}
+
+type Haystack = { text: string; words: string[] };
+type Indexed = { item: SearchItem; own: Haystack; context: Haystack };
+
+function toHaystack(text: string): Haystack {
+  return { text, words: [...new Set(text.split(/[^a-z0-9]+/).filter((w) => w.length >= 2))] };
+}
+
+// Una parola cercata trova la voce se: compare nel testo così com'è; oppure la sua radice
+// (di almeno 4 lettere) apre una parola della voce, o le radici coincidono («vino» ↔ «vini»);
+// oppure, dalle 6 lettere in su, c'è una sola lettera sbagliata. «rosso» non trova «rosé».
+function tokenMatches(token: string, { text, words }: Haystack): boolean {
+  if (text.includes(token)) return true;
+  const s = stem(token);
+  if (s.length >= 3 && words.some((w) => (s.length >= 4 && w.startsWith(s)) || stem(w) === s)) return true;
+  if (token.length >= 6) {
+    return words.some(
+      (w) =>
+        w.length >= token.length - 1 &&
+        (oneEditApart(token, w) || (w.length > token.length && [token.length - 1, token.length, token.length + 1].some((n) => oneEditApart(token, w.slice(0, n))))),
+    );
+  }
+  return false;
 }
 
 const MAX_RESULTS = 40;
@@ -40,7 +90,7 @@ const ALLERGEN_WORDS: [string, string][] = [
   ["glutine", "GLUTINE"], ["celiac", "GLUTINE"], ["gluten", "GLUTINE"],
   ["crostace", "CROSTACEI"], ["uov", "UOVA"], ["pesce", "PESCE"], ["arachid", "ARACHIDI"], ["soia", "SOIA"],
   ["latte", "LATTE"], ["lattosio", "LATTE"], ["latticin", "LATTE"],
-  ["frutta a guscio", "FRUTTA_A_GUSCIO"], ["noci", "FRUTTA_A_GUSCIO"], ["nocciol", "FRUTTA_A_GUSCIO"], ["mandorl", "FRUTTA_A_GUSCIO"], ["pistacch", "FRUTTA_A_GUSCIO"],
+  ["frutta a guscio", "FRUTTA_A_GUSCIO"], ["noci", "FRUTTA_A_GUSCIO"], ["noce", "FRUTTA_A_GUSCIO"], ["nocciol", "FRUTTA_A_GUSCIO"], ["mandorl", "FRUTTA_A_GUSCIO"], ["pistacch", "FRUTTA_A_GUSCIO"],
   ["sedano", "SEDANO"], ["senape", "SENAPE"], ["sesamo", "SESAMO"], ["lupin", "LUPINI"], ["mollusc", "MOLLUSCHI"],
   ["allergen", ""], ["intolleran", ""],
 ];
@@ -54,7 +104,8 @@ function allergensIn(query: string): string[] | null {
 
 // Ricerca nel menù: per nome, zona, uvaggio e ingredienti, con due filtri rapidi.
 // Scegliere un risultato chiude la ricerca e porta alla voce, evidenziandola.
-export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: () => void }) {
+// onClose(then): chiude la ricerca e, dopo la chiusura, esegue «then» (es. portare alla voce scelta).
+export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (then?: () => void) => void }) {
   const [query, setQuery] = useState("");
   const [glass, setGlass] = useState(false);
   const [enomatic, setEnomatic] = useState(false);
@@ -62,7 +113,9 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
   const [trait, setTrait] = useState<Set<string>>(() => new Set());
   const availableTraits = useMemo(() => WINE_TRAITS.filter((t) => items.some((i) => i.traits.includes(t.code))), [items]);
   const input = useRef<HTMLInputElement>(null);
-  const index = useMemo(() => items.map((item) => ({ item, text: haystack(item) })), [items]);
+  const dialog = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const index = useMemo<Indexed[]>(() => items.map((item) => ({ item, own: toHaystack(ownText(item)), context: toHaystack(contextText(item)) })), [items]);
 
   useEffect(() => {
     input.current?.focus();
@@ -77,9 +130,20 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
   const tokens = norm(query).split(/\s+/).filter(Boolean);
   const active = tokens.length > 0 || glass || enomatic || trait.size > 0;
   const allergens = allergensIn(query);
+  // Prima le voci che hanno la parola scritta addosso («Caffè espresso»), poi quelle trovate solo per
+  // la sezione («Analcolici & caffetteria»); a parità, l'ordine del menù.
   const results = active
     ? index
-        .filter(({ item, text }) => (!glass || item.glass) && (!enomatic || item.enomatic) && [...trait].every((c) => item.traits.includes(c)) && tokens.every((t) => text.includes(t)))
+        .flatMap(({ item, own, context }) => {
+          if ((glass && !item.glass) || (enomatic && !item.enomatic) || ![...trait].every((c) => item.traits.includes(c))) return [];
+          let score = 0;
+          for (const t of tokens) {
+            if (tokenMatches(t, own)) score++;
+            else if (!tokenMatches(t, context)) return [];
+          }
+          return [{ item, score }];
+        })
+        .sort((a, b) => b.score - a.score)
         .map(({ item }) => item)
     : [];
 
@@ -89,16 +153,31 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
     const q = query.trim();
     if (sentQuery.current || q.length < 2) return;
     sentQuery.current = true;
-    track(results.length > 0 ? "search" : "search_empty", q);
+    // Con il riquadro degli allergeni la ricerca ha dato una risposta: non è «senza risultato».
+    track(results.length > 0 || allergens ? "search" : "search_empty", q);
   }
   const close = () => {
     sendQuery();
     onClose();
   };
-  // Esc chiude (inviando anche la parola cercata): si riaggancia a ogni modifica.
+  // Esc chiude (inviando anche la parola cercata): si riaggancia a ogni modifica. Tab resta dentro
+  // la ricerca: dall'ultimo elemento si torna al primo e viceversa.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
+      if (e.key !== "Tab" || !dialog.current) return;
+      const focusable = [...dialog.current.querySelectorAll<HTMLElement>("input, button, a[href]")].filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const inside = dialog.current.contains(document.activeElement);
+      if (e.shiftKey && (document.activeElement === first || !inside)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (document.activeElement === last || !inside)) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -107,12 +186,11 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
   function go(item: SearchItem) {
     sendQuery();
     track("pick", item.name, item.id);
-    onClose();
-    // Dopo la chiusura il menù torna a scorrere: si attende il frame successivo.
-    requestAnimationFrame(() => {
+    // Dopo la chiusura il menù torna a scorrere: si porta alla voce solo allora.
+    onClose(() => {
       const el = document.getElementById(`v-${item.id}`);
       if (!el) return;
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
       el.classList.remove("menu-found");
       void el.offsetWidth;
       el.classList.add("menu-found");
@@ -125,7 +203,7 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
     }`;
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Cerca nel menù" className="fixed inset-0 z-50 flex flex-col bg-[#F4EEE3]">
+    <div ref={dialog} role="dialog" aria-modal="true" aria-label="Cerca nel menù" className="fixed inset-0 z-50 flex flex-col bg-[#F4EEE3]">
       <div className="mx-auto flex w-full max-w-[720px] items-center gap-3 px-5 pb-3 pt-[max(16px,env(safe-area-inset-top))]">
         <input
           ref={input}
@@ -140,7 +218,7 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
         />
         <button
           type="button"
-          onClick={close}
+          onClick={() => close()}
           className="menu-sans flex min-h-12 items-center px-1 text-[11px] font-medium uppercase tracking-[0.2em] !text-[#6B1020]"
         >
           Chiudi
@@ -182,6 +260,15 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
         {allergens && (
           <a
             href={allergens.length ? `/menu/allergeni?evita=${allergens.join(",")}` : "/menu/allergeni"}
+            onClick={(e) => {
+              // Prima si chiude la ricerca (il suo passo nella cronologia), poi si va agli allergeni senza
+              // ricaricare: così «Torna al menù» e «indietro» riportano al punto del menù.
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              const href = e.currentTarget.getAttribute("href")!;
+              sendQuery();
+              onClose(() => router.push(href));
+            }}
             className="menu-rule-soft mt-4 flex min-h-14 items-center justify-between gap-3 rounded-2xl border bg-[#FBF7EF] px-4 py-3 !no-underline"
           >
             <span>
@@ -194,7 +281,13 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
           </a>
         )}
         {active && results.length === 0 && !allergens && (
-          <p className="mt-10 text-center text-[17px] italic leading-normal text-[#5B605A]">Nessun risultato. Prova con meno parole.</p>
+          <p className="mt-10 text-balance text-center text-[17px] italic leading-normal text-[#5B605A]">
+            {tokens.length === 0
+              ? "Nessun vino con questi filtri. Togline uno o chiedi al personale."
+              : tokens.length === 1
+                ? `Nessun risultato per «${query.trim()}». Prova un'altra parola o chiedi al personale.`
+                : `Nessun risultato per «${query.trim()}». Prova con meno parole o chiedi al personale.`}
+          </p>
         )}
         {active && results.length > 0 && (
           <>
@@ -215,9 +308,14 @@ export function MenuSearch({ items, onClose }: { items: SearchItem[]; onClose: (
                       {item.traits.length > 0 && (
                         <span className="menu-sans block text-[12px] text-[#4A504B]">{item.traits.map(traitLabel).join(" · ")}</span>
                       )}
-                      <span className="menu-sans block text-[11px] uppercase tracking-[0.16em] text-[#8A8F88]">
+                      <span className="menu-sans block text-[11px] uppercase tracking-[0.16em] text-[#5B605A]">
                         {item.section}
-                        {item.soldOut ? " · esaurito" : ""}
+                        {item.soldOut && (
+                          <>
+                            {" · "}
+                            <span className="font-medium text-[#6B1020]">Esaurito</span>
+                          </>
+                        )}
                       </span>
                     </span>
                     <span className="menu-sans shrink-0 text-right text-[14px] font-medium text-[#6B1020]">{item.price}</span>

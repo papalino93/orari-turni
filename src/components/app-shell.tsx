@@ -1,7 +1,8 @@
 "use client";
 
+import { Suspense, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { WideToggle } from "@/components/wide-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -55,6 +56,33 @@ export function AppShell({
     : canEditMenu
       ? [...EMPLOYEE_NAV_ITEMS, EMPLOYEE_MENU_NAV_ITEM]
       : EMPLOYEE_NAV_ITEMS;
+  // Il logo riporta alla prima sezione: per chi ha una sola sezione (dipendente senza il
+  // menù) non c'è la barra di navigazione, e da /mie-ore/revisione, /installa o /widget
+  // era l'unico modo di tornare indietro.
+  const home = navItems[0] ?? EMPLOYEE_NAV_ITEMS[0];
+
+  // Dopo «Esci», il tasto Indietro del browser può ripescare la pagina dalla memoria
+  // (dalla cache, o intera com'era) senza chiedere niente al server, e mostrare ancora
+  // i dati: se intanto l'accesso non c'è più, si va alla pagina di accesso. Con
+  // l'accesso ancora valido non si ricarica niente, così una scheda lasciata a metà
+  // resta com'era.
+  useEffect(() => {
+    const checkSession = () => {
+      fetch("/api/auth/session", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((s: { user?: unknown } | null) => {
+          if (!s?.user) window.location.replace("/login");
+        })
+        .catch(() => {});
+    };
+    const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    if (nav?.type === "back_forward") checkSession();
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) checkSession();
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -72,9 +100,14 @@ export function AppShell({
           voluto); solo il contenuto vero scende sotto di essa. */}
       <header className="sticky top-0 z-30 bg-brand-band pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(0,0,0,0.18)] backdrop-blur">
         <div className="app-wide mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex shrink-0 items-center gap-2.5">
+          <Link
+            href={home.href}
+            aria-label={`L'Angolo del Vino: torna a ${home.label}`}
+            title={`Torna a ${home.label}`}
+            className="-mx-1 flex shrink-0 items-center gap-2.5 rounded-lg px-1"
+          >
             <BrandMark className="h-11" />
-          </div>
+          </Link>
 
           <nav className={`hidden items-center gap-0.5 lg:gap-1 ${navItems.length > 1 ? "md:flex" : ""}`}>
             {navItems.map((item) => {
@@ -132,10 +165,14 @@ export function AppShell({
       </header>
 
       <main className={`app-wide mx-auto w-full max-w-6xl flex-1 px-4 pt-6 sm:px-6 md:pb-10 ${navItems.length > 1 ? "pb-28" : "pb-10"}`}>
+        <Suspense fallback={null}>
+          <BlockedNotice />
+        </Suspense>
         <InstalledMark installed={appInstalled} />
         {appInstalled ? null : isAdmin ? <InstallBanner /> : <EmployeeInstallPrompt />}
         {children}
-        <p className="mt-10 text-center text-[11px] text-foreground-muted/70" aria-label="Versione dell'app">
+        {/* Colore pieno, non attenuato: «/70» scendeva a un contrasto di 3 su 1 nel tema chiaro. */}
+        <p className="mt-10 text-center text-[11px] text-foreground-muted" aria-label="Versione dell'app">
           {VERSION_LABEL}
         </p>
       </main>
@@ -165,6 +202,37 @@ export function AppShell({
           })}
         </nav>
       )}
+    </div>
+  );
+}
+
+// Un dipendente che apre a mano una pagina del titolare viene rimandato alla sua area
+// con ?bloccato=1 (vedi proxy.ts): qui gli si dice perché, invece di cambiare pagina in
+// silenzio. «Ho capito» toglie il segno dall'indirizzo, così non ricompare ricaricando.
+function BlockedNotice() {
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  if (searchParams.get("bloccato") !== "1") return null;
+
+  function dismiss() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("bloccato");
+    const rest = params.toString();
+    window.history.replaceState(null, "", rest ? `${pathname}?${rest}` : pathname);
+  }
+
+  return (
+    // Larga come la pagina «Le mie ore» (max-w-xl), dove compare.
+    <div role="status" className="mx-auto mb-4 flex max-w-xl items-center gap-3 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-foreground">
+      <span aria-hidden className="text-base">🔒</span>
+      <p className="flex-1">Questa pagina è solo per il titolare: ecco la tua area.</p>
+      <button
+        type="button"
+        onClick={dismiss}
+        className="-my-1 min-h-10 shrink-0 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground"
+      >
+        Ho capito
+      </button>
     </div>
   );
 }

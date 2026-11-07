@@ -22,7 +22,9 @@ await dialog().waitFor();
 check("da Strumenti «Riordina» parte dalle categorie", (await dialog().getByRole("heading", { name: "Ordina categorie" }).count()) === 1);
 await dialog().getByRole("navigation", { name: "Livello" }).getByRole("button", { name: "Categorie" }).click();
 check("a livello delle categorie il titolo è «Ordina categorie»", (await dialog().getByRole("heading", { name: "Ordina categorie" }).count()) === 1);
-check("livello sezioni: tutte le sezioni fisse", (await dialog().locator("li[data-id]").count()) === startSections.split(" | ").length);
+// Le categorie eliminate (recuperabili dallo Storico, es. lasciate da un'altra prova) non si riordinano.
+const liveSections = Number(DB(`select count(*) from "MenuSection" where "promoId" is null and "dailyOnly"=false and "deletedAt" is null`));
+check("livello sezioni: tutte le sezioni fisse", (await dialog().locator("li[data-id]").count()) === liveSections, `${await dialog().locator("li[data-id]").count()} / ${liveSections}`);
 check("«Salva ordine» spento finché non si cambia", await dialog().getByRole("button", { name: "Salva ordine" }).isDisabled());
 
 // Rosé & Orange prima dei Rossi, con la freccia

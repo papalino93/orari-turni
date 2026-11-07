@@ -6,11 +6,11 @@ import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { chromium } from "playwright-core";
 
-const BASE = "http://localhost:3100";
+const BASE = process.env.E2E_BASE || "http://localhost:3100";
 const OUT = process.argv[2] || "/tmp/widget-sim";
 const ONLY = process.argv.slice(3);
 mkdirSync(OUT, { recursive: true });
-const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
+const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
 
 // Una chiave per il titolare e una per un dipendente (con tutti i widget permessi).
 function key(owner) {
@@ -22,6 +22,8 @@ function key(owner) {
 DB(`delete from "WidgetDevice" where name = 'Simulatore'`);
 const userId = DB(`select id from "User" where username='andrea'`);
 const emp = DB(`select id from "Employee" where username='marta'`);
+// I widget di Marta si cambiano per la prova e si rimettono com'erano alla fine.
+const widgetsPrima = DB(`select widgets::text from "Employee" where id='${emp}'`);
 DB(`update "Employee" set widgets='{menu,fuorimenu,qr,turni,pannello,apri,stasera,clienti,menuqr}' where id='${emp}'`);
 // Una chiave per widget: il freno contro le richieste a raffica vale per chiave.
 const ADMIN = () => key({ col: '"userId"', id: userId });
@@ -187,6 +189,7 @@ for (const [nome, families, chiaveDi, chi] of PLAN) {
   }
 }
 await browser.close();
+DB(`update "Employee" set widgets='${widgetsPrima}' where id='${emp}'`);
 DB(`delete from "WidgetDevice" where name = 'Simulatore'`);
 DB(`delete from "ShiftBlock" where id like 'simw_%'`);
 DB(`delete from "MenuEvent" where id like 'simw_e_%'`);

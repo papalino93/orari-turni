@@ -170,7 +170,7 @@ await p.getByRole("button", { name: "Crea il collegamento" }).click();
 const area = p.getByLabel("Script da incollare in Scriptable");
 await area.waitFor();
 const script = await area.inputValue();
-check("script pronto, con sito e chiave, che scarica l'installatore", /const SITO = "http:\/\/localhost:3100";/.test(script) && /const CHIAVE = "adv_[A-Za-z0-9_-]{43}";/.test(script) && script.includes("/widget/installa.js"));
+check("script pronto, con sito e chiave, che scarica l'installatore", script.includes(`const SITO = "${BASE}";`) && /const CHIAVE = "adv_[A-Za-z0-9_-]{43}";/.test(script) && script.includes("/widget/installa.js"));
 const key = script.match(/const CHIAVE = "(adv_[^"]+)"/)[1];
 check("la chiave dello script funziona", (await get("elenco", key)).status === 200);
 await p.getByRole("button", { name: "Copia lo script" }).click();

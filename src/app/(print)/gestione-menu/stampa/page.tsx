@@ -110,7 +110,7 @@ export default async function StampaMenuPage({ searchParams }: { searchParams: P
                             <p className="m-0 text-[14.5px] font-semibold leading-snug">
                               {item.name}
                               {state === "some" && (
-                                <sup className="print-sans ml-1 text-[9px] font-medium tracking-[0.06em] text-[#6B1020]">{allergenNumbers(item.allergens).join(" · ")}</sup>
+                                <sup className="print-sans ml-1 whitespace-nowrap text-[9px] font-medium tracking-[0.06em] text-[#6B1020]">{allergenNumbers(item.allergens).join(" · ")}</sup>
                               )}
                               {state === "unknown" && <sup className="print-sans ml-1 text-[10px] text-[#8A6A2E]">*</sup>}
                               {sold && <span className="print-sans ml-2 text-[9px] font-normal uppercase tracking-[0.15em] text-[#8A6A2E]">esaurito oggi</span>}
@@ -138,7 +138,8 @@ export default async function StampaMenuPage({ searchParams }: { searchParams: P
           );
         })}
 
-        <footer className="print-avoid mt-6 border-t border-[#6B1020]/30 pt-3">
+        {/* La legenda non resta mai da sola su un foglio: compatta, e attaccata a quel che la precede. */}
+        <footer className="print-avoid print-with-previous mt-4 border-t border-[#6B1020]/30 pt-2.5">
           {bottom.length > 0 && <Blocks list={bottom} className="mb-3" />}
           {hasFood && (
             <>
@@ -147,9 +148,10 @@ export default async function StampaMenuPage({ searchParams }: { searchParams: P
                 I numeri accanto ai piatti indicano gli allergeni presenti. I vini contengono solfiti.
                 {hasUnknown && " * Allergeni da verificare con il personale."}
               </p>
-              <ol className="print-sans m-0 grid list-none grid-cols-4 gap-x-3 gap-y-0.5 p-0 text-[10px] text-[#3F4540]">
+              <ol className="print-sans m-0 grid list-none grid-cols-5 gap-x-3 gap-y-0.5 p-0 text-[10px] text-[#3F4540]">
                 {ALLERGENS.map((a, i) => (
-                  <li key={a.code}>
+                  // Numero e nome sempre insieme («2 Crostacei»), mai su due righe.
+                  <li key={a.code} className="whitespace-nowrap">
                     <span className="font-semibold text-[#6B1020]">{i + 1}</span> {a.label}
                   </li>
                 ))}

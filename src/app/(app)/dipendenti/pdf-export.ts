@@ -8,7 +8,7 @@
 // di spazio vuoto.
 
 import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
-import { formatHours, leaveLabelFor, leaveTypeToKind, type LeaveType } from "@/lib/schedule";
+import { blockTimeLabel, buildEmployeeSchedule, formatHours, leaveLabelFor, leaveTypeToKind, type LeaveType } from "@/lib/schedule";
 import {
   DANGER,
   GOLD,
@@ -33,7 +33,6 @@ import {
   newLandscapeDoc,
   truncate,
 } from "@/lib/pdf";
-import { blockHours } from "@/lib/week";
 
 type RangeBlock = { dateKey: string; startTime: string; endTime: string };
 type RangeLeave = { dateKey: string; type: LeaveType; quantity: number };
@@ -129,8 +128,10 @@ export async function exportEmployeeRangePdf({
   y += headerH;
 
   const pagesBeforeRows = doc.getNumberOfPages();
-  const closedSet = new Set(closures.map((c) => c.dateKey));
-  let totalHours = 0;
+  // Stesso calcolo della vista Orari: un'assenza di giorno intero o una
+  // chiusura annullano i turni rimasti sotto, e il totale coincide col Mese/Anno.
+  const schedule = buildEmployeeSchedule({ employeeId, dateKeys, blocks, leaveEntries, closures });
+  const totalHours = schedule.employeeHours(employeeId);
 
   dateKeys.forEach((dateKey, i) => {
     y = ensureSpace(doc, y, rowH);
@@ -144,20 +145,19 @@ export async function exportEmployeeRangePdf({
     doc.setTextColor(...TEXT);
     doc.text(`${dayLabel(date)} ${formatDayMonth(date)}`, CARD_X + 5, y + rowH / 2 + 1, { baseline: "middle" });
 
-    const closed = closedSet.has(dateKey);
-    const dayBlocks = blocks.filter((b) => b.dateKey === dateKey).sort((a, b) => a.startTime.localeCompare(b.startTime));
-    const leave = leaveEntries.find((l) => l.dateKey === dateKey);
-    const hours = closed ? 0 : dayBlocks.reduce((sum, b) => sum + blockHours(b), 0);
-    totalHours += hours;
+    const entry = schedule.entry(employeeId, dateKey);
+    const dayBlocks = entry.blocks;
+    const leave = entry.leave;
+    const hours = entry.hours;
 
     const orarioX = CARD_X + dataColW + 5;
-    if (closed) {
+    if (entry.kind === "CHIUSO") {
       drawLockIcon(doc, orarioX + 1.7, y + rowH / 2, 3.6, WINE);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8.5);
       doc.setTextColor(...WINE);
       doc.text("LOCALE CHIUSO", orarioX + 5.5, y + rowH / 2 + 1, { baseline: "middle" });
-    } else if (leave && !(leave.type === "PERMESSO" && dayBlocks.length > 0)) {
+    } else if (leave && entry.kind !== "TURNO") {
       const kind = leaveTypeToKind(leave.type);
       const color = col(kind === "FERIE" ? WINE : kind === "PERMESSO" ? GOLD : kind === "MALATTIA" ? DANGER : MUTED);
       const label = leaveLabelFor(leave.type, leave.quantity);
@@ -169,7 +169,7 @@ export async function exportEmployeeRangePdf({
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8.5);
       doc.setTextColor(...TEXT);
-      const text = dayBlocks.map((b) => `${b.startTime}–${b.endTime}`).join("   ");
+      const text = dayBlocks.map(blockTimeLabel).join("   ");
       doc.text(truncate(doc, text, orarioColW - 10), orarioX, y + rowH / 2 + 1, { baseline: "middle" });
       // Permesso a ore nello stesso giorno (orario ridotto), accanto ai turni.
       if (leave) {

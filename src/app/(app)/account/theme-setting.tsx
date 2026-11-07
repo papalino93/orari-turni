@@ -22,7 +22,8 @@ export function ThemeSetting() {
           <button
             type="button"
             onClick={() => setTheme("dark")}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+            aria-pressed={theme === "dark"}
+            className={`min-h-10 rounded-full px-4 text-sm font-medium transition-colors ${
               theme === "dark" ? "bg-surface text-foreground" : "text-foreground-muted"
             }`}
           >
@@ -31,7 +32,8 @@ export function ThemeSetting() {
           <button
             type="button"
             onClick={() => setTheme("light")}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+            aria-pressed={theme === "light"}
+            className={`min-h-10 rounded-full px-4 text-sm font-medium transition-colors ${
               theme === "light" ? "bg-surface text-foreground" : "text-foreground-muted"
             }`}
           >

@@ -19,7 +19,10 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
     items: document.querySelectorAll("main section > div .border-b").length,
   }));
   if (label === "390") {
-    check("7 sezioni nel menù", info.sections.length === 7, info.sections.join(","));
+    // Le 7 sezioni fisse della carta, nell'ordine; «Oggi fuori menù» (#oggi) c'è solo nei giorni
+    // in cui ha voci (i dati di prova della guida ne mettono), e se c'è sta in cima.
+    const fixed = info.sections.filter((id) => id !== "oggi");
+    check("7 sezioni nel menù", fixed.join(",") === "bollicine,bianchi,rossi,rose,taglieri,tartare,bevande" && info.sections.indexOf("oggi") <= 0, info.sections.join(","));
     check("nessun form/campo nella pagina pubblica", info.forms === 0, String(info.forms));
     // Interni ammessi: ancore, pagine pubbliche del menù. Esterni ammessi: i contatti (tel:, https:).
     const ok = (h) => h?.startsWith("#") || h === "/menu/allergeni" || h?.startsWith("/menu/p/") || h?.startsWith("tel:") || h?.startsWith("https://");

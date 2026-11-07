@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { scrollBehavior } from "./motion";
 
 // «Abbinamento consigliato»: il tocco sul riquadro sotto un piatto porta al vino e lo
 // illumina; in basso resta «Torna a …» per tornare al piatto. Senza JavaScript
@@ -12,7 +13,7 @@ function reveal(id: string): number | null {
   if (!el) return null;
   const box = el.getBoundingClientRect();
   const landing = scrollY + box.top + box.height / 2 - innerHeight / 2;
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
   el.classList.remove("menu-found");
   void el.offsetWidth;
   el.classList.add("menu-found");

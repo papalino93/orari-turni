@@ -1,11 +1,14 @@
 "use client";
 
+import { actionErrorMessage } from "@/components/toast";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBackdropClose } from "@/lib/use-backdrop-close";
 import {
   addDays,
   addMonths,
   daysInMonth,
+  formatDateRange,
   formatMonthYear,
   formatWeekRange,
   parseDateKey,
@@ -27,21 +30,24 @@ export function PdfExportModal({
   employeeName,
   jobTitle,
   photoVersion,
+  initialDateKey,
   onClose,
 }: {
   employeeId: string;
   employeeName: string;
   jobTitle: string | null;
   photoVersion: string | null;
+  /** Giorno da cui partire (es. la settimana che si sta guardando); senza, oggi. */
+  initialDateKey?: string;
   onClose: () => void;
 }) {
   const [rangeType, setRangeType] = useState<RangeType>("week");
   // todayKey() e non toDateKey(new Date()): quest'ultima legge il giorno in
   // UTC anche nel browser, sbagliando data/settimana di default nella
   // finestra tra mezzanotte UTC e quella italiana.
-  const [anchor, setAnchor] = useState(() => todayKey());
-  const [customFrom, setCustomFrom] = useState(() => toDateKey(startOfWeek(parseDateKey(todayKey()))));
-  const [customTo, setCustomTo] = useState(() => toDateKey(addDays(startOfWeek(parseDateKey(todayKey())), 6)));
+  const [anchor, setAnchor] = useState(() => initialDateKey ?? todayKey());
+  const [customFrom, setCustomFrom] = useState(() => toDateKey(startOfWeek(parseDateKey(initialDateKey ?? todayKey()))));
+  const [customTo, setCustomTo] = useState(() => toDateKey(addDays(startOfWeek(parseDateKey(initialDateKey ?? todayKey())), 6)));
   type ScheduleData = {
     blocks: { dateKey: string; startTime: string; endTime: string }[];
     leaveEntries: { dateKey: string; type: string; quantity: number }[];
@@ -54,6 +60,20 @@ export function PdfExportModal({
   const cardRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
   useEscapeToClose(onClose);
+
+  // L'anteprima è larga 700px: su un telefono si rimpicciolisce per starci
+  // tutta (zoom sul contenitore esterno, non su cardRef, così l'immagine
+  // scaricata resta a grandezza piena).
+  const scrollBoxRef = useRef<HTMLDivElement>(null);
+  const [boxWidth, setBoxWidth] = useState(700);
+  useEffect(() => {
+    const el = scrollBoxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setBoxWidth(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const previewZoom = Math.min(1, boxWidth / 700);
 
   const { fromKey, toKey, dateKeys, rangeLabel } = useMemo(() => {
     const anchorDate = new Date(`${anchor}T00:00:00.000Z`);
@@ -73,7 +93,12 @@ export function PdfExportModal({
       days.push(toDateKey(cursor));
       cursor = addDays(cursor, 1);
     }
-    return { fromKey: customFrom, toKey: customTo, dateKeys: days, rangeLabel: `${customFrom} – ${customTo}` };
+    return {
+      fromKey: customFrom,
+      toKey: customTo,
+      dateKeys: days,
+      rangeLabel: formatDateRange(parseDateKey(customFrom), parseDateKey(customTo)),
+    };
   }, [rangeType, anchor, customFrom, customTo]);
 
   useEffect(() => {
@@ -81,12 +106,19 @@ export function PdfExportModal({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- avvia lo spinner quando cambiano i parametri di fetch, pattern standard data-fetching
     setLoading(true);
     setError(null);
-    getEmployeeScheduleRange(employeeId, fromKey, toKey).then((res) => {
-      if (cancelled) return;
-      setLoading(false);
-      if (res.ok) setData(res.data);
-      else setError(res.error);
-    });
+    getEmployeeScheduleRange(employeeId, fromKey, toKey)
+      .then((res) => {
+        if (cancelled) return;
+        setLoading(false);
+        if (res.ok) setData(res.data);
+        else setError(res.error);
+      })
+      .catch((e) => {
+        // Senza rete o con il sito aggiornato: un messaggio, non la pagina d'errore.
+        if (cancelled) return;
+        setLoading(false);
+        setError(actionErrorMessage(e));
+      });
     return () => {
       cancelled = true;
     };
@@ -236,12 +268,13 @@ export function PdfExportModal({
         </div>
 
         <div className="relative max-w-full rounded-xl">
-          <div className="max-w-full overflow-auto rounded-xl" style={{ maxHeight: "55vh" }}>
+          <div ref={scrollBoxRef} className="max-w-full overflow-auto rounded-xl" style={{ maxHeight: "55vh" }}>
             {loading || !data ? (
               <div className="flex h-40 w-full items-center justify-center text-sm text-foreground-muted">
                 {error ? <span className="text-danger">{error}</span> : "Caricamento…"}
               </div>
             ) : (
+              <div style={{ zoom: previewZoom }}>
               <div ref={cardRef}>
                 <RangeCard
                   employeeId={employeeId}
@@ -255,6 +288,7 @@ export function PdfExportModal({
                   closures={data.closures}
                 />
               </div>
+              </div>
             )}
           </div>
           {/* L'anteprima (formato A4, ~700px) è quasi sempre più larga del
@@ -262,7 +296,7 @@ export function PdfExportModal({
               scorre, senza bisogno di altro — è un'anteprima statica prima
               del download, non un controllo interattivo da poter tagliare
               per errore come nella toolbar. */}
-          {data && !loading && (
+          {data && !loading && previewZoom === 1 && (
             <div
               aria-hidden
               className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-xl bg-gradient-to-l from-surface to-transparent"

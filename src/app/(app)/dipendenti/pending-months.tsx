@@ -7,42 +7,78 @@ import { monthLabel } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
 import { approveMonth, reopenMonth } from "./actions";
 
-// Solo gli invii "in attesa" arrivano qui (vedi dipendenti/page.tsx) — bozze
-// e mesi già approvati non richiedono nessuna azione dal titolare.
+export type PendingMonth = {
+  year: number;
+  month: number;
+  submittedAt: string | null;
+  /** Cosa ha cambiato il dipendente rispetto agli orari del titolare (turni corretti, aggiunti, tolti; permessi). */
+  changes: string[];
+};
+export type ReopenedMonth = { year: number; month: number; reopenedAt: string | null; note: string | null };
+export type ApprovedMonth = { year: number; month: number; approvedAt: string | null };
+
+// Date nel fuso del locale: senza, un invio fatto dopo mezzanotte (ora
+// italiana) poteva risultare del giorno prima.
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+// Riquadro «Ore inviate» nella scheda del dipendente: i mesi inviati da
+// controllare (con quello che il dipendente ha cambiato) e quelli rimandati
+// indietro, in attesa che il dipendente li corregga e li invii di nuovo.
 export function PendingMonths({
   employeeId,
+  employeeName,
   submissions,
+  reopened = [],
 }: {
   employeeId: string;
-  submissions: { year: number; month: number; submittedAt: string | null }[];
+  employeeName: string;
+  submissions: PendingMonth[];
+  reopened?: ReopenedMonth[];
 }) {
   return (
     <div className="border-t border-gold/30 bg-gold/[0.06] px-4 py-3">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-gold">
-        📥 Ore inviate, da controllare
-      </p>
-      <div className="space-y-2">
-        {submissions.map((s) => (
-          <PendingMonthRow key={`${s.year}-${s.month}`} employeeId={employeeId} year={s.year} month={s.month} submittedAt={s.submittedAt} />
-        ))}
-      </div>
+      {submissions.length > 0 && (
+        <>
+          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-gold">
+            📥 Ore inviate, da controllare
+          </p>
+          <div className="space-y-2">
+            {submissions.map((s) => (
+              <PendingMonthRow key={`${s.year}-${s.month}`} employeeId={employeeId} employeeName={employeeName} {...s} />
+            ))}
+          </div>
+        </>
+      )}
+      {reopened.length > 0 && (
+        <div className={`space-y-1.5 ${submissions.length > 0 ? "mt-3" : ""}`}>
+          {reopened.map((r) => (
+            <p key={`${r.year}-${r.month}`} className="rounded-lg bg-surface px-3 py-2 text-xs text-foreground-muted">
+              <span className="font-medium text-foreground">
+                {monthLabel(r.month - 1)} {r.year}
+              </span>
+              : rimandato{r.reopenedAt ? ` il ${formatDate(r.reopenedAt)}` : ""}, in attesa di correzione
+              {r.note && <span className="mt-0.5 block italic">«{r.note}»</span>}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 function PendingMonthRow({
   employeeId,
+  employeeName,
   year,
   month,
   submittedAt,
-}: {
-  employeeId: string;
-  year: number;
-  month: number;
-  submittedAt: string | null;
-}) {
+  changes,
+}: PendingMonth & { employeeId: string; employeeName: string }) {
   const [reopening, setReopening] = useState(false);
   const [note, setNote] = useState("");
+  const [showAllChanges, setShowAllChanges] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const toast = useToast();
@@ -68,16 +104,13 @@ function PendingMonthRow({
     });
   }
 
+  const visibleChanges = showAllChanges ? changes : changes.slice(0, 6);
   return (
     <div className="rounded-lg bg-surface px-3 py-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-medium text-foreground">
           {monthLabel(month - 1)} {year}
-          {submittedAt && (
-            <span className="ml-1.5 font-normal text-foreground-muted">
-              — inviato il {new Date(submittedAt).toLocaleDateString("it-IT")}
-            </span>
-          )}
+          {submittedAt && <span className="ml-1.5 font-normal text-foreground-muted">— inviato il {formatDate(submittedAt)}</span>}
         </p>
         {!reopening && (
           <div className="flex items-center gap-2">
@@ -108,8 +141,37 @@ function PendingMonthRow({
             onConfirm={approve}
             onCancel={() => setAskApprove(false)}
           >
-            <p>Il mese si chiude: il dipendente non potrà più modificarlo. Se serve, potrai riaprirlo.</p>
+            <p>Il mese si chiude: il dipendente non potrà più modificarlo. Se serve, potrai riaprirlo dalla sua scheda.</p>
           </ConfirmSheet>
+        )}
+      </div>
+
+      {/* Quello che il dipendente ha cambiato rispetto agli orari pianificati:
+          prima i turni tolti («Riposo», «Svuota giornata») sparivano senza
+          traccia e chi approvava non sapeva che c'era un turno. */}
+      <div className="mt-1.5 text-[11px] text-foreground-muted">
+        {changes.length === 0 ? (
+          <p>Nessuna modifica agli orari pianificati.</p>
+        ) : (
+          <>
+            <p className="font-medium text-foreground">
+              {changes.length === 1 ? "1 modifica" : `${changes.length} modifiche`} di {employeeName.split(" ")[0]}:
+            </p>
+            <ul className="mt-0.5 space-y-0.5">
+              {visibleChanges.map((c, i) => (
+                <li key={i}>· {c}</li>
+              ))}
+            </ul>
+            {changes.length > 6 && (
+              <button
+                type="button"
+                onClick={() => setShowAllChanges((v) => !v)}
+                className="-my-2 min-h-10 font-medium text-accent-ink hover:underline"
+              >
+                {showAllChanges ? "Mostra meno" : `Mostra tutte (${changes.length})`}
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -130,7 +192,7 @@ function PendingMonthRow({
                 setReopening(false);
                 setNote("");
               }}
-              className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground-muted"
+              className="min-h-11 rounded-full border border-border px-4 text-xs font-medium text-foreground-muted"
             >
               Annulla
             </button>
@@ -138,12 +200,90 @@ function PendingMonthRow({
               type="button"
               disabled={pending}
               onClick={confirmReopen}
-              className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+              className="min-h-11 rounded-full bg-accent px-4 text-xs font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
             >
               {pending ? "…" : "Rimanda al dipendente"}
             </button>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// Ultimi mesi già approvati, nella scheda del dipendente: «Approva» promette
+// «se serve, potrai riaprirlo», e da qui si può davvero (con conferma e una
+// nota per il dipendente).
+export function ApprovedMonths({ employeeId, months }: { employeeId: string; months: ApprovedMonth[] }) {
+  return (
+    <div className="border-t border-border px-4 py-3">
+      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Mesi approvati</p>
+      <div className="divide-y divide-border">
+        {months.map((m) => (
+          <ApprovedMonthRow key={`${m.year}-${m.month}`} employeeId={employeeId} {...m} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ApprovedMonthRow({ employeeId, year, month, approvedAt }: ApprovedMonth & { employeeId: string }) {
+  const [ask, setAsk] = useState(false);
+  const [note, setNote] = useState("");
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const toast = useToast();
+
+  function reopen() {
+    startTransition(async () => {
+      const result = await runWithToast(
+        toast,
+        () => reopenMonth(employeeId, year, month, note),
+        `${monthLabel(month - 1)} riaperto: il dipendente può correggerlo`,
+      );
+      if (result !== null) {
+        setAsk(false);
+        setNote("");
+        router.refresh();
+      }
+    });
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2 py-0.5">
+      <p className="text-xs text-foreground">
+        {monthLabel(month - 1)} {year}
+        {approvedAt && <span className="ml-1.5 text-foreground-muted">— approvato il {formatDate(approvedAt)}</span>}
+      </p>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => setAsk(true)}
+        className="min-h-11 shrink-0 rounded-full border border-border px-4 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
+      >
+        Riapri
+      </button>
+      {ask && (
+        <ConfirmSheet
+          title={`Riaprire ${monthLabel(month - 1).toLowerCase()} ${year}?`}
+          confirmLabel="Sì, riapri"
+          busyLabel="Riapro…"
+          busy={pending}
+          onConfirm={reopen}
+          onCancel={() => {
+            setAsk(false);
+            setNote("");
+          }}
+        >
+          <p>Il mese non è più approvato: il dipendente potrà correggere le ore e dovrà inviarlo di nuovo.</p>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Cosa va corretto? (facoltativo, il dipendente lo vedrà)"
+            rows={2}
+            className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+          />
+        </ConfirmSheet>
       )}
     </div>
   );

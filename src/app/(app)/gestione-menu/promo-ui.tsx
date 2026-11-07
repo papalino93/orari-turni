@@ -8,6 +8,7 @@ import { blockSummary, formatPromoDates, promoStatus, type MenuBlockView, type P
 import { resizeToJpeg } from "@/lib/image-resize";
 import { pdfFirstPage } from "@/lib/pdf-pages";
 import { createPromo, deletePromo, duplicatePromo, removePromoImage, savePromoImage, setPromoHidden, updatePromo } from "./promo-actions";
+import { safeAction } from "./network";
 import { Field, Sheet, dateInputClass, inputClass } from "./sheet";
 import type { EditorPromo, RunFn } from "./menu-editor";
 
@@ -67,15 +68,17 @@ export function PromoCard({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const status = effectiveStatus(promo, today);
 
+  const noun = promo.kind === "EVENT" ? "Evento" : "Annuncio";
+
   async function toggleHidden() {
     setBusy(true);
-    await run(() => setPromoHidden(promo.id, !promo.hidden), promo.hidden ? "Pagina di nuovo visibile" : "Pagina nascosta");
+    await run(() => safeAction(() => setPromoHidden(promo.id, !promo.hidden)), promo.hidden ? `${noun} di nuovo visibile` : `${noun} nascosto`);
     setBusy(false);
   }
 
   async function remove() {
     setBusy(true);
-    const result = await run(() => deletePromo(promo.id), `«${promo.title}» eliminata`);
+    const result = await run(() => safeAction(() => deletePromo(promo.id)), `${noun} «${promo.title}» eliminato`);
     setBusy(false);
     if (result) setConfirmingDelete(false);
   }
@@ -105,13 +108,17 @@ export function PromoCard({
             </span>
           </div>
           <h2 className="mt-1 break-words text-base font-semibold text-foreground">{promo.title}</h2>
-          <p className="text-sm text-foreground-muted">{formatPromoDates(promo.startDate, promo.endDate)}</p>
+          <p className="text-sm text-foreground-muted">
+            {promo.kind === "EVENT"
+              ? `${formatPromoDates(promo.startDate, promo.endDate)}${promo.startTime ? ` · ${promo.endTime ? `${promo.startTime}–${promo.endTime}` : `dalle ${promo.startTime}`}` : ""}`
+              : `Sul menù: ${formatPromoDates(promo.showFrom, promo.endDate)}`}
+          </p>
           <p className="mt-1 text-[11px] text-foreground-muted">
             {promo.kind === "EVENT"
               ? promo.hasMenu
                 ? "Locandina in «In evidenza» dal giorno scelto; il menù speciale solo durante l'evento."
                 : "Locandina in «In evidenza» dal giorno scelto; nei giorni dell'evento è la prima, con «in corso»."
-              : "Compare in una riga sotto la copertina dal giorno di inizio fino alla fine."}{" "}
+              : "Compare in una riga sotto la copertina da «Mostra dal» a «fino al»; i clienti non vedono queste date."}{" "}
             Dopo la fine sparisce da sola.
           </p>
         </div>
@@ -188,6 +195,7 @@ export function PromoSheet({
   const [label, setLabel] = useState(promo?.label ?? "");
   const [body, setBody] = useState(promo?.body ?? "");
   // Nuovo evento: di solito tra una settimana; la locandina compare da 7 giorni prima.
+  // Nuovo annuncio: «Mostra dal» oggi e «fino al» tra una settimana.
   const defaultStart = addDaysKey(today, 7);
   const [showFrom, setShowFrom] = useState(promo?.showFrom ?? today);
   const [startDate, setStartDate] = useState(promo?.startDate ?? defaultStart);
@@ -206,6 +214,9 @@ export function PromoSheet({
   const [file, setFile] = useState<File | null>(null);
   const [removeImage, setRemoveImage] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Creato ma con la foto non caricata: la scheda resta aperta e «Salva» aggiorna quello
+  // appena creato (non ne crea un secondo).
+  const [savedId, setSavedId] = useState<string | null>(promo?.id ?? null);
   // Locandina in PDF: si trasforma subito in immagine (prima pagina), così si vede l'anteprima.
   const [pdfNote, setPdfNote] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
@@ -237,28 +248,40 @@ export function PromoSheet({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    // Annuncio: i giorni scelti sono quelli in cui resta sul menù (da «Mostra dal» a
+    // «fino al»); la data d'inizio salvata resta la sua (es. il primo giorno di una
+    // chiusura), purché tra le due.
+    const noticeStart = !promo ? showFrom : promo.startDate < showFrom ? showFrom : promo.startDate > endDate ? endDate : promo.startDate;
     const input = {
       kind,
       title,
       label,
       body,
-      showFrom: isEvent ? showFrom : startDate,
-      startDate,
+      showFrom,
+      startDate: isEvent ? startDate : noticeStart,
       endDate,
       startTime: isEvent ? startTime : "",
       endTime: isEvent && startTime ? endTime : "",
       blockIds: isEvent ? blockIds : undefined,
       hasMenu: isEvent ? hasMenu : true,
     };
-    const result = promo
-      ? await run(() => updatePromo(promo.id, input), "Pagina aggiornata")
-      : await run(() => createPromo(input), isEvent ? "Evento creato" : "Annuncio creato");
+    const noun = isEvent ? "Evento" : "Annuncio";
+    const editId = savedId;
+    const result = editId
+      ? await run(() => safeAction(() => updatePromo(editId, input)), `${noun} aggiornato`)
+      : await run(() => safeAction(() => createPromo(input)), `${noun} creato`);
     if (result === null) {
       setBusy(false);
       return;
     }
-    const id = promo?.id ?? (result as unknown as { id: string }).id;
+    const id = editId ?? (result as unknown as { id: string }).id;
+    if (!editId) {
+      setSavedId(id);
+      onSaved(id);
+    }
 
+    // Foto non caricata (o non tolta): errore e scheda aperta, così si può riprovare.
+    let error: string | null = null;
     try {
       if (file) {
         const resized = await resizeToJpeg(file);
@@ -267,25 +290,32 @@ export function PromoSheet({
         formData.set("file", resized.blob, "locandina.jpg");
         formData.set("width", String(resized.width));
         formData.set("height", String(resized.height));
-        const res = await savePromoImage(formData);
-        if (!res.ok) toast.showError(res.error);
+        const res = await safeAction(() => savePromoImage(formData));
+        if (res.ok) setFile(null);
+        else error = res.error;
       } else if (removeImage && promo?.imageVersion) {
-        await removePromoImage(promo.id);
+        const res = await safeAction(() => removePromoImage(promo.id));
+        if (!res.ok) error = res.error;
       }
-    } catch (error) {
-      toast.showError(error instanceof Error ? error.message : "Impossibile caricare la foto.");
+    } catch {
+      error = "Non riesco a leggere questa foto: prova con un'altra (JPG o PNG).";
     }
     router.refresh();
     setBusy(false);
-    onSaved(id);
+    if (error) {
+      toast.showError(`${isEvent ? "Evento salvato" : "Annuncio salvato"}, ma la foto no: ${error} Tocca «Salva» per riprovare.`);
+      return;
+    }
+    if (editId) onSaved(id);
     onClose();
   }
 
   return (
-    <Sheet title={promo ? "Modifica pagina" : "Nuovo evento o annuncio"} onClose={onClose}>
+    <Sheet title={savedId ? (isEvent ? "Modifica evento" : "Modifica annuncio") : "Nuovo evento o annuncio"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3.5">
-        {!promo && (
-          <div role="radiogroup" aria-label="Che cosa vuoi creare" className="grid grid-cols-2 gap-2">
+        {!savedId && (
+          // Scegliere solo il tipo di una pagina nuova non è una modifica da salvare.
+          <div role="radiogroup" aria-label="Che cosa vuoi creare" data-unsaved-ignore className="grid grid-cols-2 gap-2">
             {(
               [
                 ["EVENT", "Evento"],
@@ -391,15 +421,16 @@ export function PromoSheet({
             </div>
           </div>
           {pdfNote && <p className="mt-1 text-[11px] text-foreground">{pdfNote}</p>}
-          <p className="mt-1 text-[11px] text-foreground-muted/80">Meglio verticale (4:5). Va bene anche un PDF: si usa la prima pagina. Si ridimensiona da sola.</p>
+          <p className="mt-1 text-[11px] text-foreground-muted">Meglio verticale (4:5). Va bene anche un PDF: si usa la prima pagina. Si ridimensiona da sola.</p>
         </div>
 
-        <div className="space-y-3">
-          {isEvent && (
+        {isEvent ? (
+          <div className="space-y-3">
             <Field label="Mostra la locandina dal" hint="Per annunciarlo in anticipo.">
               <input
                 type="date"
                 value={showFrom}
+                max={startDate}
                 onChange={(e) => {
                   setShowFrom(e.target.value);
                   setShowFromTouched(true);
@@ -408,28 +439,30 @@ export function PromoSheet({
                 className={dateInputClass}
               />
             </Field>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={isEvent ? "Inizio evento" : "Dal"}>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setStartDate(value);
-                  if (endDate < value) setEndDate(value);
-                  // Finché non si sceglie a mano, la locandina compare 7 giorni prima.
-                  if (!showFromTouched && value) setShowFrom(addDaysKey(value, -7));
-                }}
-                required
-                className={dateInputClass}
-              />
-            </Field>
-            <Field label={isEvent ? "Fine evento" : "Al"}>
-              <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} required className={dateInputClass} />
-            </Field>
-          </div>
-          {isEvent && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Inizio evento">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setStartDate(value);
+                    if (endDate < value) setEndDate(value);
+                    // Finché non si sceglie a mano, la locandina compare 7 giorni prima,
+                    // ma non da un giorno già passato.
+                    if (!showFromTouched && value) {
+                      const week = addDaysKey(value, -7);
+                      setShowFrom(value < today ? value : week < today ? today : week);
+                    }
+                  }}
+                  required
+                  className={dateInputClass}
+                />
+              </Field>
+              <Field label="Fine evento">
+                <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} required className={dateInputClass} />
+              </Field>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Dalle (facoltativo)" hint="Es. 19:00">
                 <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className={dateInputClass} />
@@ -438,8 +471,33 @@ export function PromoSheet({
                 <input type="time" value={endTime} disabled={!startTime} onChange={(e) => setEndTime(e.target.value)} className={`${dateInputClass} disabled:opacity-50`} />
               </Field>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Mostra dal">
+                <input
+                  type="date"
+                  value={showFrom}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setShowFrom(value);
+                    if (value && endDate < value) setEndDate(value);
+                  }}
+                  required
+                  className={dateInputClass}
+                />
+              </Field>
+              <Field label="Fino al">
+                <input type="date" value={endDate} min={showFrom} onChange={(e) => setEndDate(e.target.value)} required className={dateInputClass} />
+              </Field>
+            </div>
+            <p className="text-[11px] text-foreground-muted">
+              Sono i giorni in cui l&apos;annuncio resta sul menù: i clienti non vedono queste date. Scrivi il giorno nel titolo (es. «Chiusi il 25
+              dicembre») e lascialo fino a quel giorno.
+            </p>
+          </div>
+        )}
 
         {isEvent && (
           <p className="-mt-1 text-[11px] text-foreground-muted">
@@ -476,7 +534,7 @@ export function PromoSheet({
           </fieldset>
         )}
 
-        {isEvent && hasMenu && !promo && (
+        {isEvent && hasMenu && !savedId && (
           <p className="rounded-xl border border-accent/30 bg-accent/5 px-3.5 py-3 text-xs leading-relaxed text-foreground">
             <span className="font-semibold">E il menù speciale?</span> Si compone subito dopo: tocca «Crea evento e componi il menù», si apre la
             pagina dell&apos;evento e lì aggiungi i gruppi (es. Da bere, Da mangiare) con le voci e i prezzi.
@@ -484,14 +542,18 @@ export function PromoSheet({
         )}
 
         {/* Come nella scheda di una voce: il pulsante resta in vista in fondo, senza scorrere tutta la scheda. */}
-        <div className="sticky bottom-0 z-10 -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-mx-6 sm:px-6 sm:pb-3">
+        <div className="sticky bottom-0 z-10 -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-6">
           <button
             type="submit"
             disabled={busy || converting || !title.trim()}
             className="min-h-11 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
           >
-            {busy ? "Salvo…" : promo ? "Salva" : isEvent ? (hasMenu ? "Crea evento e componi il menù" : "Crea evento") : "Crea annuncio"}
+            {busy ? "Salvo…" : savedId ? "Salva" : isEvent ? (hasMenu ? "Crea evento e componi il menù" : "Crea evento") : "Crea annuncio"}
           </button>
+          {/* Il pulsante spento da solo non dice che cosa manca. */}
+          {!title.trim() && (
+            <p className="mt-1.5 text-center text-xs text-foreground-muted">Scrivi il titolo per continuare.</p>
+          )}
         </div>
       </form>
     </Sheet>
@@ -514,7 +576,8 @@ export function DuplicatePromoSheet({
 }) {
   const length = Math.max(0, diffDays(promo.startDate, promo.endDate));
   const [title, setTitle] = useState(promo.title);
-  const nextStart = addDaysKey(today, 7);
+  // Annuncio: resta sul menù da oggi; evento: di solito tra una settimana.
+  const nextStart = promo.kind === "EVENT" ? addDaysKey(today, 7) : today;
   // Evento: locandina da subito; annuncio: compare dal giorno di inizio.
   const [showFrom, setShowFrom] = useState(promo.kind === "EVENT" ? today : nextStart);
   const [startDate, setStartDate] = useState(nextStart);
@@ -524,7 +587,10 @@ export function DuplicatePromoSheet({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const result = await run(() => duplicatePromo(promo.id, { title, showFrom, startDate, endDate }), "Pagina duplicata");
+    const result = await run(
+      () => safeAction(() => duplicatePromo(promo.id, { title, showFrom, startDate, endDate })),
+      promo.kind === "EVENT" ? "Evento duplicato" : "Annuncio duplicato",
+    );
     setBusy(false);
     if (result) {
       onSaved(result.id);
@@ -548,7 +614,7 @@ export function DuplicatePromoSheet({
             </Field>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <Field label={promo.kind === "EVENT" ? "Inizio evento" : "Dal"}>
+            <Field label={promo.kind === "EVENT" ? "Inizio evento" : "Mostra dal"}>
               <input
                 type="date"
                 value={startDate}
@@ -562,7 +628,7 @@ export function DuplicatePromoSheet({
                 className={dateInputClass}
               />
             </Field>
-            <Field label={promo.kind === "EVENT" ? "Fine evento" : "Al"}>
+            <Field label={promo.kind === "EVENT" ? "Fine evento" : "Fino al"}>
               <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} required className={dateInputClass} />
             </Field>
           </div>

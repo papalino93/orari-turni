@@ -3,7 +3,7 @@
 import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW } from "./lib.mjs";
 import { execFileSync } from "node:child_process";
 
-const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
+const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
 const clean = () => {
   DB(`delete from "MenuItem" where "groupId" in ('menu_grp_oggi_piatti','menu_grp_oggi_vini')`);
   DB(`delete from "MenuChange"`);
@@ -86,6 +86,9 @@ check("allergeni: il piatto del giorno è nella pagina", /Risotto ai porcini/.te
 // Togli + annulla
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await panel().getByRole("button", { name: "Togli Risotto ai porcini da oggi" }).click();
+// «Togli» chiede conferma prima di togliere la voce dal menù dei clienti.
+check("togli: chiede conferma e intanto la voce resta", /Togliere «Risotto ai porcini» da oggi\?/.test(await panel().innerText()) && /Risotto ai porcini/.test(await menu()));
+await panel().getByRole("button", { name: "Sì, togli" }).click();
 await settle();
 check("togli: sparisce dal pannello e dal menù", !/Risotto ai porcini/.test(await panel().innerText()) && !/Risotto ai porcini/.test(await menu()));
 await page.locator('[role="status"] button:has-text("Annulla")').last().click();

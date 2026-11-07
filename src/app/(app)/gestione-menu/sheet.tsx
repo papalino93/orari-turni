@@ -10,7 +10,10 @@ import { UnsavedBar, useUnsavedGuard } from "@/components/unsaved-guard";
 // pagina dietro è velata e non serve tenerla in vista, e i moduli lunghi si
 // leggono meglio al centro. Scorre sul contenitore esterno e centra su quello interno — lo
 // stesso schema degli altri modali dell'app, così un contenuto più alto dello
-// schermo resta sempre raggiungibile (incluso "Chiudi").
+// schermo resta sempre raggiungibile (incluso "Chiudi"). Da tablet e computer una scheda
+// lunga (voce, evento, «Tabella prezzi») scorre dentro la finestra, alta al massimo quanto
+// lo schermo meno i margini: resta una finestra con angoli arrotondati e margine in basso,
+// come quelle corte («Ordina categorie»), e «Salva» in fondo non tocca il bordo dello schermo.
 export function Sheet({
   title,
   onClose,
@@ -51,7 +54,7 @@ export function Sheet({
           aria-label={title}
           onClick={(e) => e.stopPropagation()}
           {...guard.trackProps}
-          className={`w-full rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6 ${wide ? "max-w-lg lg:max-w-3xl" : "max-w-lg lg:max-w-xl"}`}
+          className={`w-full rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:overflow-y-auto sm:overscroll-contain sm:rounded-2xl sm:p-6 ${wide ? "max-w-lg lg:max-w-3xl" : "max-w-lg lg:max-w-xl"}`}
         >
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="min-w-0 truncate text-base font-semibold text-foreground">{title}</h2>
@@ -93,7 +96,7 @@ export function Sheet({
 }
 
 export const inputClass =
-  "w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-base text-foreground outline-none placeholder:text-foreground-muted/60 focus:border-accent sm:text-sm";
+  "w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-base text-foreground outline-none placeholder:text-foreground-muted focus:border-accent sm:text-sm";
 
 // Campi data: stesso aspetto degli altri, ma senza che il testo si tagli o si
 // sposti (su iOS/Android l'input date ha misure sue) quando la colonna è stretta.
@@ -104,7 +107,7 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
     <label className="block">
       <span className="mb-1 block text-xs font-medium text-foreground-muted">{label}</span>
       {children}
-      {hint && <span className="mt-1 block text-[11px] text-foreground-muted/80">{hint}</span>}
+      {hint && <span className="mt-1 block text-[11px] text-foreground-muted">{hint}</span>}
     </label>
   );
 }

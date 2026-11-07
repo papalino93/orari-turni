@@ -15,7 +15,8 @@ await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 18000
 await goTab(p, "Menù");
 await p.locator('nav[aria-label="Categorie"] button', { hasText: "Bevande" }).click();
 const card = p.locator("section", { has: p.locator("h3", { hasText: groupTitle }) }).first();
-await card.getByRole("button", { name: /^Formati/ }).click();
+// Senza formati il pulsante del gruppo si chiama «Prezzi per formato».
+await card.getByRole("button", { name: "Prezzi per formato", exact: true }).click();
 await card.getByLabel("Formato 1", { exact: true }).fill("0,2 l");
 check("un solo formato: «Salva formati» spento", await card.getByRole("button", { name: "Salva formati" }).isDisabled());
 await card.getByLabel("Formato 2").fill("0,4 l");
@@ -44,7 +45,9 @@ const pub = await (await b.newContext({ viewport: { width: 390, height: 844 } })
 await pub.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
 const sec = (await pub.locator("#bevande").innerText()).replace(/\s+/g, " ");
 check("menù: intestazione con i formati", /0,2 l 0,4 l 1 l/.test(sec), sec.slice(0, 200));
-check("menù: prezzi in colonna e «—» per il formato mancante", /Birra Prova Helles[\s\S]*?3,50\s*6\s*—/.test(sec), sec.slice(sec.indexOf("Birra Prova"), sec.indexOf("Birra Prova") + 120));
+// Ogni prezzo ha anche il formato e «€» per il lettore dello schermo; la casella vuota
+// è «—» a vista e «1 l non disponibile» per il lettore.
+check("menù: prezzi in colonna e «—» per il formato mancante", /Birra Prova Helles[\s\S]*?0,2 l € 3,50 0,4 l € 6 — 1 l non disponibile/.test(sec), sec.slice(sec.indexOf("Birra Prova"), sec.indexOf("Birra Prova") + 120));
 const ov = await pub.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 check("menù: niente scorrimento orizzontale a 390 px", ov <= 0, String(ov));
 const firstSingle = DB(`select name||'|'||"priceCents" from "MenuItem" where "groupId"='${GROUP}' and "deletedAt" is null and "textOnly"=false and variants is null and "priceCents" is not null order by "sortOrder" limit 1`);

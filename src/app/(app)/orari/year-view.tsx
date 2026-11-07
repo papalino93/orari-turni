@@ -1,7 +1,7 @@
 "use client";
 
 import { monthLabel } from "@/lib/week";
-import { formatHours, type buildSchedule } from "@/lib/schedule";
+import { formatHours, formatHoursNumber, type buildSchedule } from "@/lib/schedule";
 import { EmployeeAvatar } from "@/components/avatar";
 import { orderEmployees } from "./shared";
 
@@ -60,7 +60,7 @@ export function YearView({
                   </td>
                   {months.map((m) => (
                     <td key={m} className="border-b border-border px-2 py-3 text-center text-sm text-foreground-muted">
-                      {hoursForMonth(emp.id, m) || "–"}
+                      {hoursForMonth(emp.id, m) ? formatHoursNumber(hoursForMonth(emp.id, m)) : "–"}
                     </td>
                   ))}
                   <td className="border-b border-border px-4 py-3 text-center text-sm font-semibold text-foreground">
@@ -95,7 +95,7 @@ export function YearView({
                 <span key={m} className="rounded-lg bg-surface-2 px-2 py-1.5 text-center text-[11px] text-foreground-muted">
                   {monthLabel(m, true)}
                   <br />
-                  <span className="font-medium text-foreground">{hoursForMonth(emp.id, m) || "–"}</span>
+                  <span className="font-medium text-foreground">{hoursForMonth(emp.id, m) ? formatHoursNumber(hoursForMonth(emp.id, m)) : "–"}</span>
                 </span>
               ))}
             </div>

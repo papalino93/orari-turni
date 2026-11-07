@@ -7,7 +7,7 @@ const need = (name) => {
 };
 export const ADMIN_PW = need("E2E_ADMIN_PASSWORD");
 export const EMP_PW = need("E2E_EMPLOYEE_PASSWORD");
-export const BASE = "http://localhost:3100";
+export const BASE = process.env.E2E_BASE || "http://localhost:3100";
 export const SHOTS = process.env.SHOTS;
 export async function launch({ benvenuto = false } = {}) {
   // Lingua italiana anche per i campi data (altrimenti il browser senza testa li scrive 07/27/2026).
@@ -44,7 +44,7 @@ export function check(name, ok, extra = "") {
 
 // Accesso diretto al database di prova (psql, utente orari/orari).
 export const DB = (sql) =>
-  execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } })
+  execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } })
     .toString()
     .trim();
 
@@ -71,6 +71,13 @@ export async function goTab(page, label) {
 export async function tool(page, label) {
   await goTab(page, "Strumenti");
   await page.getByRole("list", { name: "Strumenti del menù" }).getByRole(/^(Menù da stampare|Guida|Statistiche)/.test(label) ? "link" : "button", { name: new RegExp(`^${label}`) }).click();
+}
+
+// Storico: il pulsante della riga dice che cosa fa («Rimetti nel menù», «Torna com'era»,
+// «Annulla aggiunta»…) e chiede conferma nella riga stessa, con un pulsante con lo stesso nome.
+export async function undoFromHistory(entry, label) {
+  await entry.getByRole("button", { name: label, exact: true }).click();
+  await entry.getByRole("alertdialog", { name: label }).getByRole("button", { name: label, exact: true }).click();
 }
 
 // Nuovo evento o annuncio, dalla scheda «Eventi e annunci».

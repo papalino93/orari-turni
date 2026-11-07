@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { launch, login, check, BASE, SHOTS, results, ADMIN_PW } from "./lib.mjs";
 
-const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
+const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
 DB(`delete from "MenuPromo"`);
 DB(`delete from "MenuChange"`);
 // Stato di partenza noto: tutto il cibo compilato tranne i due kombucha.

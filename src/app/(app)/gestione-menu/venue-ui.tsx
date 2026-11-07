@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
 import { ZoomableImage } from "@/components/zoomable-image";
 import { resizeToJpeg } from "@/lib/image-resize";
-import { formatPromoDates } from "@/lib/menu-format";
+import { formatPromoDates, nbAddress, nbPhone } from "@/lib/menu-format";
 import {
   DAY_NAMES,
+  exceptionNotice,
   openStatus,
+  romeNow,
   weeklyRows,
   type Contacts,
   type Hero,
@@ -17,8 +19,8 @@ import {
   type HoursException,
   type Range,
 } from "@/lib/menu-venue";
-import { createPromo } from "./promo-actions";
-import { removeHeroImage, saveContacts, saveHero, saveHeroImage, saveHours } from "./venue-actions";
+import { safeAction } from "./network";
+import { removeHeroImage, saveContacts, saveHero, saveHeroImage, saveHours, type HoursInput } from "./venue-actions";
 import { Field, Sheet, dateInputClass, inputClass } from "./sheet";
 import type { RunFn } from "./menu-editor";
 
@@ -57,7 +59,8 @@ export function VenuePanel({ venue, onOpen, defaultOpen = false }: { venue: Edit
     {
       kind: "contacts",
       title: "Contatti",
-      summary: [venue.contacts.phone, venue.contacts.address].filter(Boolean).join(" · ") || "Nessun contatto",
+      // Numero e «CAP città provincia» mai spezzati: sul telefono «FI» restava da solo a capo.
+      summary: [nbPhone(venue.contacts.phone), nbAddress(venue.contacts.address)].filter(Boolean).join(" · ") || "Nessun contatto",
       label: "Modifica i contatti",
     },
   ];
@@ -129,26 +132,34 @@ export function HeroSheet({ venue, run, onClose }: { venue: EditorVenue; run: Ru
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const result = await run(() => saveHero({ title }), "Copertina salvata");
+    const result = await run(() => safeAction(() => saveHero({ title })), "Copertina salvata");
     if (result === null) {
       setBusy(false);
       return;
     }
+    // Se la foto non si carica (o non si toglie) la scheda resta aperta, con l'errore:
+    // il titolo è già salvato e basta riprovare con «Salva».
+    let error: string | null = null;
     try {
       if (file) {
         const resized = await resizeToJpeg(file, 1600, 1600);
         const formData = new FormData();
         formData.set("file", resized.blob, "copertina.jpg");
-        const res = await saveHeroImage(formData);
-        if (!res.ok) toast.showError(res.error);
+        const res = await safeAction(() => saveHeroImage(formData));
+        if (!res.ok) error = res.error;
       } else if (removeImage && venue.heroImageVersion) {
-        await removeHeroImage();
+        const res = await safeAction(() => removeHeroImage());
+        if (!res.ok) error = res.error;
       }
-    } catch (error) {
-      toast.showError(error instanceof Error ? error.message : "Impossibile caricare la foto.");
+    } catch {
+      error = "Non riesco a leggere questa foto: prova con un'altra (JPG o PNG).";
     }
     router.refresh();
     setBusy(false);
+    if (error) {
+      toast.showError(error);
+      return;
+    }
     onClose();
   }
 
@@ -201,7 +212,7 @@ export function HeroSheet({ venue, run, onClose }: { venue: EditorVenue; run: Ru
               )}
             </div>
           </div>
-          <p className="mt-1 text-[11px] text-foreground-muted/80">Meglio orizzontale o quadrata, con la parte scura in basso. Si ridimensiona da sola.</p>
+          <p className="mt-1 text-[11px] text-foreground-muted">Meglio orizzontale o quadrata, con la parte scura in basso. Si ridimensiona da sola.</p>
         </div>
         <button
           type="submit"
@@ -262,12 +273,15 @@ function RangesEditor({ ranges, onChange, label }: { ranges: Range[]; onChange: 
 type DraftException = HoursException & { announce: boolean };
 
 export function HoursSheet({ hours, today, run, onClose }: { hours: Hours; today: string; run: RunFn; onClose: () => void }) {
+  const toast = useToast();
   const [showStatus, setShowStatus] = useState(hours.showStatus);
   const [weekly, setWeekly] = useState<Range[][]>(hours.weekly);
   // Le eccezioni già passate non servono più: non si mostrano e non si salvano.
   const [exceptions, setExceptions] = useState<DraftException[]>(
     hours.exceptions.filter((e) => e.endDate >= today).map((e) => ({ ...e, announce: false })),
   );
+  // Solo le chiusure aggiunte adesso possono pubblicare l'annuncio (una volta sola).
+  const [savedIds] = useState(() => new Set(hours.exceptions.map((e) => e.id)));
   const [busy, setBusy] = useState(false);
 
   const setDay = (i: number, ranges: Range[]) => setWeekly((w) => w.map((r, j) => (j === i ? ranges : r)));
@@ -277,29 +291,23 @@ export function HoursSheet({ hours, today, run, onClose }: { hours: Hours; today
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const payload: Hours = {
+    const payload: HoursInput = {
       showStatus,
       weekly,
-      exceptions: exceptions.map(({ announce: _announce, ...rest }) => {
-        void _announce;
+      // Il collegamento con l'annuncio lo tiene il server: qui non si manda.
+      exceptions: exceptions.map(({ promoId: _promoId, ...rest }) => {
+        void _promoId;
         return rest;
       }),
     };
-    const result = await run(() => saveHours(payload), "Orari salvati");
-    if (result === null) {
-      setBusy(false);
-      return;
-    }
-    // Chiusura o apertura straordinaria appena aggiunta: se richiesto, anche l'annuncio.
-    for (const ex of exceptions.filter((x) => x.announce)) {
-      const title = ex.note.trim() || (ex.closed ? "Chiusura straordinaria" : "Apertura straordinaria");
-      const body = ex.closed ? "Il locale resterà chiuso." : `Orario: ${ex.ranges.map((r) => `${r.open}–${r.close}`).join(" · ")}.`;
-      await run(
-        () => createPromo({ kind: "NOTICE", title: title.slice(0, 80), label: "Orari", body, showFrom: today, startDate: ex.startDate, endDate: ex.endDate }),
-        "Annuncio creato",
-      );
-    }
+    const result = await run(() => safeAction(() => saveHours(payload)), "Orari salvati");
     setBusy(false);
+    if (result === null) return;
+    const { created, removed, updated, toCheck } = result.notices;
+    if (created) toast.showSuccess(created === 1 ? "Annuncio pubblicato sul menù" : `${created} annunci pubblicati sul menù`);
+    if (removed) toast.showSuccess(removed === 1 ? "Annuncio della chiusura tolto dal menù" : `${removed} annunci delle chiusure tolti dal menù`);
+    if (updated) toast.showSuccess(updated === 1 ? "Annuncio della chiusura aggiornato" : `${updated} annunci delle chiusure aggiornati`);
+    for (const title of toCheck) toast.showError(`Le date sono cambiate: controlla il testo dell'annuncio «${title}» (Eventi e annunci).`);
     onClose();
   }
 
@@ -335,7 +343,7 @@ export function HoursSheet({ hours, today, run, onClose }: { hours: Hours; today
                   <button
                     type="button"
                     onClick={() => setDay(i, weekly[i - 1].map((r) => ({ ...r })))}
-                    className="min-h-9 text-[11px] font-medium text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground"
+                    className="min-h-11 px-1 text-[11px] font-medium text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground"
                   >
                     Come {DAY_NAMES[i - 1].toLowerCase()}
                   </button>
@@ -398,7 +406,10 @@ export function HoursSheet({ hours, today, run, onClose }: { hours: Hours; today
                 ))}
               </div>
               {!ex.closed && <RangesEditor ranges={ex.ranges} onChange={(next) => setException(ex.id, { ranges: next })} label={`Eccezione ${n + 1}`} />}
-              <Field label="Motivo (facoltativo)" hint="Compare accanto a «Chiuso oggi».">
+              <Field
+                label="Motivo (facoltativo)"
+                hint={ex.closed ? "Compare accanto a «Chiuso oggi» e nell'annuncio, se lo pubblichi." : "Compare nel testo dell'annuncio, se lo pubblichi."}
+              >
                 <input
                   value={ex.note}
                   onChange={(e) => setException(ex.id, { note: e.target.value })}
@@ -408,18 +419,32 @@ export function HoursSheet({ hours, today, run, onClose }: { hours: Hours; today
                   className={inputClass}
                 />
               </Field>
-              {ex.id.startsWith("new-") && (
-                <label className="flex min-h-11 items-center gap-3 text-sm text-foreground">
-                  <input type="checkbox" checked={ex.announce} onChange={(e) => setException(ex.id, { announce: e.target.checked })} className="h-5 w-5 accent-[var(--accent)]" />
-                  Pubblica anche un annuncio sul menù
-                </label>
+              {!savedIds.has(ex.id) && (
+                <div>
+                  <label className="flex min-h-11 items-center gap-3 text-sm text-foreground">
+                    <input type="checkbox" checked={ex.announce} onChange={(e) => setException(ex.id, { announce: e.target.checked })} className="h-5 w-5 accent-[var(--accent)]" />
+                    Pubblica anche un annuncio sul menù
+                  </label>
+                  {ex.announce && ex.startDate && ex.endDate && (ex.closed || ex.ranges.length > 0) && (
+                    <div className="mt-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-foreground">
+                      <p className="text-[11px] text-foreground-muted">I clienti vedranno, sotto la copertina, da oggi fino alla fine:</p>
+                      <p className="mt-0.5 font-semibold">{exceptionNotice(ex).title}</p>
+                      <p>{exceptionNotice(ex).body}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {ex.promoId && (
+                <p className="text-[11px] text-foreground-muted">
+                  Con annuncio sul menù: si aggiorna da solo se cambi le date e si toglie se elimini questa eccezione.
+                </p>
               )}
               <button
                 type="button"
                 onClick={() => setExceptions((list) => list.filter((x) => x.id !== ex.id))}
-                className="min-h-10 rounded-full border border-danger/40 px-3.5 text-xs font-medium text-danger hover:bg-danger/10"
+                className="min-h-11 rounded-full border border-danger/40 px-3.5 text-xs font-medium text-danger hover:bg-danger/10"
               >
-                Elimina eccezione
+                {ex.promoId ? "Elimina eccezione e annuncio" : "Elimina eccezione"}
               </button>
               <p className="text-[11px] text-foreground-muted">{formatPromoDates(ex.startDate || today, ex.endDate || today)}</p>
             </div>
@@ -427,10 +452,12 @@ export function HoursSheet({ hours, today, run, onClose }: { hours: Hours; today
           <button
             type="button"
             onClick={() =>
-              setExceptions((list) => [
-                ...list,
-                { id: `new-${Date.now().toString(36)}-${list.length}`, startDate: today, endDate: today, closed: true, ranges: [], note: "", announce: false },
-              ])
+              setExceptions((list) => {
+                // Giorno del calendario (non quello del locale, che cambia alle 5): a mezzanotte
+                // e mezza una nuova chiusura parte da oggi, non da ieri.
+                const day = romeNow(new Date()).dateKey;
+                return [...list, { id: `new-${Date.now().toString(36)}-${list.length}`, startDate: day, endDate: day, closed: true, ranges: [], note: "", announce: false }];
+              })
             }
             className="min-h-11 w-full rounded-xl border border-dashed border-border px-4 text-sm font-medium text-foreground-muted hover:border-accent hover:text-foreground"
           >
@@ -466,7 +493,7 @@ export function ContactsSheet({ contacts, run, onClose }: { contacts: Contacts; 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const result = await run(() => saveContacts({ phone, whatsappMessage, address, instagram, review }), "Contatti salvati");
+    const result = await run(() => safeAction(() => saveContacts({ phone, whatsappMessage, address, instagram, review })), "Contatti salvati");
     setBusy(false);
     if (result) onClose();
   }

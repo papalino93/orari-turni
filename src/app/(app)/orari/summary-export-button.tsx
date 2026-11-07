@@ -3,17 +3,19 @@
 import { useState } from "react";
 import { formatMonthYear } from "@/lib/week";
 import { useToast } from "@/components/toast";
-import type { Block, Closure, Employee } from "@/lib/schedule";
+import type { Block, Closure, Employee, Leave } from "@/lib/schedule";
 
 export function SummaryExportButton({
   monthDateKey,
   employees,
   blocks,
+  leaveEntries,
   closures,
 }: {
   monthDateKey: string;
   employees: Employee[];
   blocks: Block[];
+  leaveEntries: Leave[];
   closures: Closure[];
 }) {
   const [downloading, setDownloading] = useState(false);
@@ -29,6 +31,7 @@ export function SummaryExportButton({
         monthLabel: formatMonthYear(monthDate),
         employees,
         blocks,
+        leaveEntries,
         closures,
       });
     } catch {

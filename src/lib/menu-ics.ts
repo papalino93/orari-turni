@@ -76,17 +76,19 @@ export function promoIcs(promo: IcsPromo, { address, url, now = new Date() }: { 
     `DTSTAMP:${now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")}`,
   );
   if (promo.startTime) {
+    // L'orario vale per ogni giorno: si descrive la prima sera e la si ripete per i giorni
+    // dell'evento (8–9 novembre dalle 18:00 alle 23:30 = due sere, non un blocco di 29 ore).
     let end: { date: string; time: string };
     if (promo.endTime) {
-      // «Dalle 21:00 alle 01:00»: la fine è il giorno dopo.
-      end = { date: promo.endDate, time: promo.endTime };
-      if (promo.endDate === promo.startDate && promo.endTime <= promo.startTime) end = shift(promo.endDate, promo.endTime, 24 * 60);
-    } else if (promo.endDate === promo.startDate) {
-      end = shift(promo.startDate, promo.startTime, 3 * 60); // senza fine: tre ore
+      // «Dalle 21:00 alle 02:00»: la fine è il giorno dopo.
+      end = { date: promo.startDate, time: promo.endTime };
+      if (promo.endTime <= promo.startTime) end = shift(promo.startDate, promo.endTime, 24 * 60);
     } else {
-      end = { date: promo.endDate, time: "23:59" };
+      end = shift(promo.startDate, promo.startTime, 3 * 60); // senza fine: tre ore
     }
     lines.push(`DTSTART;TZID=Europe/Rome:${stamp(promo.startDate, promo.startTime)}`, `DTEND;TZID=Europe/Rome:${stamp(end.date, end.time)}`);
+    const days = Math.round((Date.parse(`${promo.endDate}T00:00:00Z`) - Date.parse(`${promo.startDate}T00:00:00Z`)) / 86_400_000) + 1;
+    if (days > 1) lines.push(`RRULE:FREQ=DAILY;COUNT=${days}`);
   } else {
     // Tutto il giorno: la fine è il giorno dopo l'ultimo (esclusa).
     lines.push(`DTSTART;VALUE=DATE:${day(promo.startDate)}`, `DTEND;VALUE=DATE:${day(shift(promo.endDate, "00:00", 24 * 60).date)}`);

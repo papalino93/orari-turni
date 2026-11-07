@@ -2,8 +2,8 @@ import { execFileSync } from "node:child_process";
 import sharp from "sharp";
 import { writeFileSync } from "node:fs";
 import { WORK } from "./work.mjs";
-const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" }, maxBuffer: 1 << 28 }).toString().trim();
-const DBF = (file) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-f", file], { env: { ...process.env, PGPASSWORD: "orari" }, maxBuffer: 1 << 28 });
+const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" }, maxBuffer: 1 << 28 }).toString().trim();
+const DBF = (file) => execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-f", file], { env: { ...process.env, PGPASSWORD: "orari" }, maxBuffer: 1 << 28 });
 const today = DB(`select to_char((now() at time zone 'Europe/Rome') - interval '5 hours','YYYY-MM-DD')`);
 const plus = (n) => DB(`select to_char(('${today}'::date + ${n}),'YYYY-MM-DD')`);
 

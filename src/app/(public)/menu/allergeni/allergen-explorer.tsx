@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ALLERGENS, ALLERGEN_CODES, allergenLabel, type AllergenState } from "@/lib/allergens";
 
@@ -22,6 +22,15 @@ export type ExplorerSection = {
 // qualcuno. Un piatto "da compilare" non risulta mai sicuro: resta segnalato.
 export function AllergenExplorer({ sections, initialAvoid = [] }: { sections: ExplorerSection[]; initialAvoid?: string[] }) {
   const [avoid, setAvoid] = useState<string[]>(initialAvoid);
+  const filterRef = useRef<HTMLDivElement>(null);
+  // Arrivando dalla ricerca del menù (?evita=…) si va subito al filtro, già impostato: sopra ci sono
+  // logo e introduzione, e il cliente non vedeva cosa era successo.
+  const arrivedFiltered = initialAvoid.length > 0;
+  useEffect(() => {
+    if (!arrivedFiltered) return;
+    const frame = requestAnimationFrame(() => filterRef.current?.scrollIntoView({ block: "start" }));
+    return () => cancelAnimationFrame(frame);
+  }, [arrivedFiltered]);
   // «Solo quelli adatti»: spariscono i piatti con un allergene scelto e quelli ancora da verificare.
   const [onlySafe, setOnlySafe] = useState(true);
   const toggle = (code: string) => setAvoid((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
@@ -37,8 +46,8 @@ export function AllergenExplorer({ sections, initialAvoid = [] }: { sections: Ex
 
   return (
     <div>
-      <div className="mt-10">
-        <div className="menu-sans text-xs font-medium uppercase tracking-[0.2em] text-[#1F2621]">Devi evitare qualcosa?</div>
+      <div ref={filterRef} className="mt-10 scroll-mt-4">
+        <h2 className="menu-sans m-0 text-xs font-medium uppercase tracking-[0.2em] text-[#1F2621]">Devi evitare qualcosa?</h2>
         <p className="mt-1 text-[15.5px] italic leading-normal text-[#5B605A]">
           Tocca gli allergeni da evitare: restano i piatti adatti.
         </p>
@@ -89,7 +98,8 @@ export function AllergenExplorer({ sections, initialAvoid = [] }: { sections: Ex
                 <div className="menu-sans flex-initial text-xs font-medium uppercase leading-normal tracking-[0.2em] text-[#1F2621]">
                   {group.title}
                 </div>
-                <div className="mb-2 h-px min-w-3 flex-1 bg-[#D9CEBC]" />
+                {/* Solo lo spazio che avanza: con un titolo che va a capo sparisce (come nel menù). */}
+                <div className="mb-2 h-px min-w-0 flex-1 bg-[#D9CEBC]" />
               </div>
               {group.items.map((item) => {
                 const hits = conflictOf(item);

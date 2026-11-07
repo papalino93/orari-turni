@@ -17,8 +17,17 @@ import {
   ValidationError,
   type ActionResult,
 } from "@/lib/validation";
-import { addDays, parseDateKey as toDate, shiftEndMinutes, startOfWeek, timeToMinutes, toDateKey, todayKey } from "@/lib/week";
+import {
+  addDays,
+  parseDateKey as toDate,
+  shiftEndMinutes,
+  startOfWeek,
+  timeToMinutes,
+  toDateKey,
+  todayKey,
+} from "@/lib/week";
 import type { LeaveType } from "@/lib/schedule";
+import { employeeCanEditMonth } from "../mie-ore/editable-month";
 
 export type DayBlockInput = { startTime: string; endTime: string };
 export type DayLeaveInput = { type: LeaveType; quantity: number } | null;
@@ -76,11 +85,12 @@ export async function saveDayEntry(
     const dateKey = parseDateKey(dateKeyInput);
     const date = dateKeyToDate(dateKey);
 
-    const [employee, closure, existingBlocks, existingLeave] = await Promise.all([
+    const [employee, closure, existingBlocks, existingLeave, existingRemovals] = await Promise.all([
       prisma.employee.findUnique({ where: { id: employeeId } }),
       prisma.closureDay.findUnique({ where: { date } }),
       prisma.shiftBlock.findMany({ where: { employeeId, date } }),
       prisma.leaveEntry.findUnique({ where: { employeeId_date: { employeeId, date } } }),
+      prisma.shiftRemoval.findMany({ where: { employeeId, date } }),
     ]);
     assert(employee, "Dipendente non trovato.");
     assert(employee.active, "Il dipendente è disattivato: riattivalo per modificarne gli orari.");
@@ -99,11 +109,32 @@ export async function saveDayEntry(
       // periodo in cui non lavorava ancora qui.
       assert(dateKey >= toDateKey(employee.createdAt), "Non puoi registrare ore precedenti alla tua data di assunzione.");
       const [year, month] = dateKey.split("-").map(Number);
-      const submission = await prisma.monthlySubmission.upsert({
+      // Stessa regola di «Le mie ore» (employeeCanEditMonth): il mese in
+      // corso, l'ultimo concluso finché non è inviato, i mesi rimandati
+      // indietro; prima i mesi vecchi restavano modificabili per sempre. Il
+      // controllo viene prima dell'upsert, che altrimenti creerebbe una bozza
+      // anche per un mese ormai chiuso.
+      const existingSubmission = await prisma.monthlySubmission.findUnique({
         where: { employeeId_year_month: { employeeId, year, month } },
-        update: {},
-        create: { employeeId, year, month },
       });
+      const sent = existingSubmission?.status === "SUBMITTED" || existingSubmission?.status === "APPROVED";
+      assert(!sent, "Questo mese è già stato inviato al titolare: non è più modificabile.");
+      assert(
+        employeeCanEditMonth({
+          year,
+          month,
+          status: existingSubmission?.status ?? null,
+          hireMonthKey: toDateKey(employee.createdAt).slice(0, 7),
+        }),
+        "Questo mese è chiuso: puoi correggere solo il mese in corso e quello appena finito. Se serve, chiedi al titolare di riaprirlo.",
+      );
+      const submission =
+        existingSubmission ??
+        (await prisma.monthlySubmission.upsert({
+          where: { employeeId_year_month: { employeeId, year, month } },
+          update: {},
+          create: { employeeId, year, month },
+        }));
       assert(
         submission.status === "DRAFT" || submission.status === "REOPENED",
         "Questo mese è già stato inviato al titolare: non è più modificabile.",
@@ -195,13 +226,26 @@ export async function saveDayEntry(
     // dall'editor (vedi MATTINA_MAX/POMERIGGIO_MIN in orari/shared.tsx): è
     // il modo in cui il dipendente vede e corregge i due turni, quindi è
     // anche il modo giusto per confrontare "cosa c'era prima".
-    const oldMorning = existingBlocks.find((b) => b.startTime < "13:00");
-    const oldAfternoon = existingBlocks.find((b) => b.startTime >= "13:00");
+    const isMorning = (t: string) => t < "13:00";
+    const oldMorning = existingBlocks.find((b) => isMorning(b.startTime));
+    const oldAfternoon = existingBlocks.find((b) => !isMorning(b.startTime));
+    // Turni del titolare che il dipendente aveva già tolto in un salvataggio
+    // precedente (vedi ShiftRemoval): se ora rimette un turno in quella fascia,
+    // è una correzione di quel turno, non un turno aggiunto da zero.
+    const removedMorning = existingRemovals.find((r) => isMorning(r.startTime));
+    const removedAfternoon = existingRemovals.find((r) => !isMorning(r.startTime));
+    const consumedRemovalIds: string[] = [];
 
     const ops: Prisma.PrismaPromise<unknown>[] = [
       prisma.shiftBlock.deleteMany({ where: { employeeId, date } }),
       prisma.leaveEntry.deleteMany({ where: { employeeId, date } }),
     ];
+    // Il titolare che riscrive la giornata decide lui: la traccia dei turni
+    // tolti dal dipendente non serve più (come per i turni corretti, che
+    // vengono ricreati senza «era …»).
+    if (auth.role !== "EMPLOYEE" && existingRemovals.length > 0) {
+      ops.push(prisma.shiftRemoval.deleteMany({ where: { employeeId, date } }));
+    }
     if (leave) {
       ops.push(prisma.leaveEntry.create({ data: { employeeId, date, type: leave.type, quantity: leave.quantity, addedByEmployee: leave.addedByEmployee } }));
     }
@@ -209,8 +253,15 @@ export async function saveDayEntry(
       for (const b of blocks) {
         let audit: { addedByEmployee?: boolean; originalStartTime?: string; originalEndTime?: string; editedByEmployeeAt?: Date } = {};
         if (auth.role === "EMPLOYEE") {
-          const old = b.startTime < "13:00" ? oldMorning : oldAfternoon;
-          if (!old || old.addedByEmployee) {
+          const old = isMorning(b.startTime) ? oldMorning : oldAfternoon;
+          const removed = isMorning(b.startTime) ? removedMorning : removedAfternoon;
+          if (!old && removed && !consumedRemovalIds.includes(removed.id)) {
+            consumedRemovalIds.push(removed.id);
+            audit =
+              removed.startTime !== b.startTime || removed.endTime !== b.endTime
+                ? { originalStartTime: removed.startTime, originalEndTime: removed.endTime, editedByEmployeeAt: new Date() }
+                : {};
+          } else if (!old || old.addedByEmployee) {
             // Nessun turno pianificato dal titolare in questa fascia — o non
             // c'era, o è già un blocco aggiunto dal dipendente in una
             // revisione precedente: in entrambi i casi non c'è nessun
@@ -234,6 +285,28 @@ export async function saveDayEntry(
         ops.push(
           prisma.shiftBlock.create({
             data: { employeeId, date, startTime: b.startTime, endTime: b.endTime, ...audit },
+          }),
+        );
+      }
+    }
+    if (auth.role === "EMPLOYEE") {
+      if (consumedRemovalIds.length > 0) ops.push(prisma.shiftRemoval.deleteMany({ where: { id: { in: consumedRemovalIds } } }));
+      // Turni pianificati dal titolare in una fascia che ora resta vuota
+      // («Riposo», «Svuota giornata» o la sola mattina tolta): prima
+      // sparivano senza traccia e chi approvava il mese non sapeva che
+      // c'erano. Si salva l'orario pianificato vero (quello del titolare,
+      // anche se il dipendente l'aveva già corretto prima di toglierlo).
+      for (const old of existingBlocks) {
+        if (old.addedByEmployee) continue;
+        if (blocks.some((b) => isMorning(b.startTime) === isMorning(old.startTime))) continue;
+        ops.push(
+          prisma.shiftRemoval.create({
+            data: {
+              employeeId,
+              date,
+              startTime: old.originalStartTime ?? old.startTime,
+              endTime: old.originalEndTime ?? old.endTime,
+            },
           }),
         );
       }
@@ -314,6 +387,8 @@ export async function clearWeekData(weekStartKeyInput: string): Promise<ActionRe
   return runAction(async () => {
     await requireUser();
     const weekStartKey = parseDateKey(weekStartKeyInput, "settimana");
+    // Da un giorno qualsiasi si svuoterebbero sette giorni a cavallo di due settimane.
+    assert(toDateKey(startOfWeek(toDate(weekStartKey))) === weekStartKey, "La settimana deve iniziare di lunedì.");
     const start = dateKeyToDate(weekStartKey);
     const end = dateKeyToDate(toDateKey(addDays(toDate(weekStartKey), 6)));
 
@@ -332,6 +407,7 @@ export async function clearWeekData(weekStartKeyInput: string): Promise<ActionRe
     await prisma.$transaction([
       prisma.shiftBlock.deleteMany({ where: { date: dateFilter } }),
       prisma.leaveEntry.deleteMany({ where: { date: dateFilter } }),
+      prisma.shiftRemoval.deleteMany({ where: { date: dateFilter } }),
     ]);
     // Svuotare una settimana pubblicata la riporta in bozza: quello che è
     // stato comunicato al personale non esiste più.
@@ -371,6 +447,9 @@ export async function copyPreviousWeek(
     // undoCopyPreviousWeek più sotto).
     createdBlockIds: string[];
     createdLeaveIds: string[];
+    // La settimana era confermata prima della copia (la copia toglie la
+    // conferma): «Annulla» la rimette.
+    wasConfirmed: boolean;
   }>
 > {
   return runAction(async () => {
@@ -492,6 +571,8 @@ export async function copyPreviousWeek(
 
     const createdBlockIds: string[] = [];
     const createdLeaveIds: string[] = [];
+    const plan = await prisma.weekPlan.findUnique({ where: { weekStart: dateKeyToDate(targetWeekStartKey) } });
+    const wasConfirmed = !!plan?.publishedAt;
     if (ops.length > 0) {
       const results = await prisma.$transaction(ops);
       results.forEach((r, i) => (opKinds[i] === "block" ? createdBlockIds : createdLeaveIds).push(r.id));
@@ -509,6 +590,7 @@ export async function copyPreviousWeek(
       sourceEmpty: sourceBlocks.length === 0 && sourceRest.length === 0,
       createdBlockIds,
       createdLeaveIds,
+      wasConfirmed,
     };
   });
 }
@@ -523,9 +605,12 @@ export async function copyPreviousWeek(
 export async function undoCopyPreviousWeek(
   blockIdsInput: string[],
   leaveIdsInput: string[],
-): Promise<ActionResult<{ removed: number }>> {
+  // Lunedì della settimana da confermare di nuovo: la copia aveva tolto la
+  // conferma, l'annullamento la rimette (vedi wasConfirmed in copyPreviousWeek).
+  reconfirmWeekStartKeyInput?: string,
+): Promise<ActionResult<{ removed: number; reconfirmed: boolean }>> {
   return runAction(async () => {
-    await requireUser();
+    const user = await requireUser();
     assert(
       Array.isArray(blockIdsInput) && Array.isArray(leaveIdsInput) && blockIdsInput.length + leaveIdsInput.length <= 500,
       "Elenco da annullare non valido.",
@@ -538,9 +623,22 @@ export async function undoCopyPreviousWeek(
       prisma.leaveEntry.deleteMany({ where: { id: { in: leaveIds } } }),
     ]);
 
+    // Solo se è stato tolto tutto quello che la copia aveva aggiunto: se nel
+    // frattempo una di quelle giornate è stata cambiata a mano, la settimana
+    // non è più quella confermata e la conferma va rifatta a mano.
+    let reconfirmed = false;
+    if (reconfirmWeekStartKeyInput && removedBlocks + removedLeave === blockIds.length + leaveIds.length) {
+      const weekStartKey = parseDateKey(reconfirmWeekStartKeyInput, "settimana");
+      const { count } = await prisma.weekPlan.updateMany({
+        where: { weekStart: dateKeyToDate(weekStartKey), publishedAt: null, changedAfterConfirmAt: { not: null } },
+        data: { publishedAt: new Date(), publishedBy: user.username, changedAfterConfirmAt: null },
+      });
+      reconfirmed = count > 0;
+    }
+
     revalidateSchedule();
     revalidatePath("/mie-ore");
-    return { removed: removedBlocks + removedLeave };
+    return { removed: removedBlocks + removedLeave, reconfirmed };
   });
 }
 
@@ -620,6 +718,8 @@ export async function applyDayEntryToDays(
     const ops: Prisma.PrismaPromise<unknown>[] = [
       prisma.shiftBlock.deleteMany({ where: { employeeId, date: { in: applicableDates } } }),
       prisma.leaveEntry.deleteMany({ where: { employeeId, date: { in: applicableDates } } }),
+      // Come in saveDayEntry: il titolare riscrive i giorni, la traccia dei turni tolti dal dipendente non serve più.
+      prisma.shiftRemoval.deleteMany({ where: { employeeId, date: { in: applicableDates } } }),
     ];
     for (const date of applicableDates) {
       if (leave) {
@@ -680,7 +780,7 @@ export async function closeDateRange(
   fromKeyInput: string,
   toKeyInput: string,
   options: { removeShifts?: boolean; reason?: string } = {},
-): Promise<ActionResult<{ days: number; removedShifts: number; suspendedShifts: number }>> {
+): Promise<ActionResult<{ days: number; removedShifts: number; suspendedShifts: number; absences: number }>> {
   return runAction(async () => {
     const user = await requireUser();
     const fromKey = parseDateKey(fromKeyInput, "data di inizio");
@@ -695,7 +795,11 @@ export async function closeDateRange(
     assert(dateKeys.length <= 60, "Puoi chiudere al massimo 60 giorni per volta.");
     const dates = dateKeys.map(dateKeyToDate);
 
-    const existingShifts = await prisma.shiftBlock.count({ where: { date: { in: dates } } });
+    const [existingShifts, absences] = await Promise.all([
+      prisma.shiftBlock.count({ where: { date: { in: dates } } }),
+      // Ferie, permessi e malattie nel periodo: con il locale chiuso non contano più (vedi ferie/page.tsx).
+      prisma.leaveEntry.count({ where: { date: { in: dates }, type: { not: "LIBERO" } } }),
+    ]);
 
     await prisma.$transaction([
       ...dates.map((date) =>
@@ -714,6 +818,7 @@ export async function closeDateRange(
       days: dateKeys.length,
       removedShifts: options.removeShifts ? existingShifts : 0,
       suspendedShifts: options.removeShifts ? 0 : existingShifts,
+      absences,
     };
   });
 }

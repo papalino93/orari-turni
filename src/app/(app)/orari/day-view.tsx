@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatHours, type buildSchedule, type CoverageRange } from "@/lib/schedule";
 import { DayCellContent, DayEditorModal, orderEmployees } from "./shared";
-import { DayStatusModal } from "./day-status-modal";
+import { absencesOn, DayStatusModal } from "./day-status-modal";
 import { EmployeeAvatar } from "@/components/avatar";
 
 // Un grafico a barre senza numeri né legenda visibile a colpo d'occhio non
@@ -130,7 +130,13 @@ export function DayView({
       )}
 
       {managingDay && (
-        <DayStatusModal dateKey={dateKey} isClosed={closed} shiftCount={shiftCount} onClose={() => setManagingDay(false)} />
+        <DayStatusModal
+          dateKey={dateKey}
+          isClosed={closed}
+          shiftCount={shiftCount}
+          absences={absencesOn(schedule, dateKey)}
+          onClose={() => setManagingDay(false)}
+        />
       )}
     </div>
   );

@@ -1,6 +1,5 @@
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { authOptions, findEmployeeById, findUserByUsername } from "@/lib/auth";
 
 // Ogni Server Action è di fatto un endpoint HTTP pubblico: l'id dell'azione
 // è globale e può essere invocato da qualsiasi route, comprese quelle non
@@ -46,7 +45,7 @@ export async function requireUser(): Promise<CurrentUser> {
   if (!session?.user || session.user.role === "EMPLOYEE") throw new AuthError();
   const username = session.user.username;
 
-  const user = await prisma.user.findUnique({ where: { username } });
+  const user = await findUserByUsername(username);
   if (!user) throw new AuthError();
 
   return { id: user.id, name: user.name, username: user.username };
@@ -71,7 +70,7 @@ export async function requireSelfOrAdmin(employeeId: string): Promise<{ role: "A
   // cookie (sessione firmata prima dell'Area Dipendenti) è per forza admin.
   if (session?.user && session.user.role !== "EMPLOYEE") return { role: "ADMIN" };
   if (session?.user?.role === "EMPLOYEE" && session.user.employeeId === employeeId) return { role: "EMPLOYEE" };
-  throw new AuthError();
+  throw new AuthError(session?.user ? undefined : EMPLOYEE_SESSION_LOST);
 }
 
 export type MenuEditor = { name: string; role: "ADMIN" | "EMPLOYEE" };
@@ -86,12 +85,12 @@ export async function getMenuEditor(): Promise<MenuEditor | null> {
   if (!session?.user) return null;
 
   if (session.user.role !== "EMPLOYEE") {
-    const user = await prisma.user.findUnique({ where: { username: session.user.username } });
+    const user = await findUserByUsername(session.user.username);
     return user ? { name: user.name, role: "ADMIN" } : null;
   }
 
   if (!session.user.employeeId) return null;
-  const employee = await prisma.employee.findUnique({ where: { id: session.user.employeeId } });
+  const employee = await findEmployeeById(session.user.employeeId);
   if (!employee || !employee.username || !employee.active || !employee.canEditMenu) return null;
   return { name: employee.name, role: "EMPLOYEE" };
 }
@@ -110,15 +109,20 @@ export async function requireMenuEditor(): Promise<MenuEditor> {
 export const SESSION_LOST =
   "Il sito non ti riconosce più (la password è stata cambiata o l'accesso è stato chiuso). Apri il sito in un'altra scheda, accedi, poi torna qui e premi di nuovo: quello che hai scritto non si perde.";
 
+// Per i dipendenti, che usano soprattutto l'app sul telefono (dove non ci sono schede):
+// di solito succede perché il titolare ha cambiato la loro password.
+export const EMPLOYEE_SESSION_LOST =
+  "Il tuo accesso è cambiato (per esempio la password è nuova): tocca «Esci» in alto e rientra.";
+
 // Analoga a requireUser() ma per un login da dipendente (role "EMPLOYEE"):
 // usata dalle action dell'Area Dipendenti, dove ognuno può leggere e
 // modificare solo i propri dati (mai passare l'id di un altro dipendente).
 export async function requireEmployee(): Promise<CurrentEmployee> {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "EMPLOYEE" || !session.user.employeeId) throw new AuthError();
+  if (session?.user?.role !== "EMPLOYEE" || !session.user.employeeId) throw new AuthError(session?.user ? undefined : EMPLOYEE_SESSION_LOST);
 
-  const employee = await prisma.employee.findUnique({ where: { id: session.user.employeeId } });
-  if (!employee || !employee.username) throw new AuthError();
+  const employee = await findEmployeeById(session.user.employeeId);
+  if (!employee || !employee.username) throw new AuthError(EMPLOYEE_SESSION_LOST);
 
   return {
     id: employee.id,

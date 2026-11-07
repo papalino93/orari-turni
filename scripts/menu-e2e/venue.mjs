@@ -7,7 +7,7 @@ import { mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
+const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
 const HOURS = `{"showStatus":true,"weekly":[[{"open":"17:00","close":"21:30"}],[{"open":"17:00","close":"21:30"}],[{"open":"10:00","close":"13:00"},{"open":"16:30","close":"22:00"}],[{"open":"10:00","close":"13:00"},{"open":"16:30","close":"22:30"}],[{"open":"10:00","close":"13:00"},{"open":"16:30","close":"22:00"}],[{"open":"10:00","close":"13:00"},{"open":"16:30","close":"22:00"}],[{"open":"16:30","close":"21:00"}]],"exceptions":[]}`;
 const CONTACTS = `{"phone":"338 327 7053","whatsappMessage":"Ciao! Vorrei prenotare un tavolo per","address":"Via dei Rossi 53/C, 50018 Scandicci FI","instagram":"https://www.instagram.com/langolo.del.vino_enoteca/","review":"https://g.page/r/CQtef5OLe4RQEBM/review"}`;
 function reset() {
@@ -45,7 +45,8 @@ check("aperto ora: «Aperto ora · chiude alle 21:30»", /aperto ora · chiude a
 const heroH = (await pub.locator("header").first().boundingBox()).height;
 check("copertina: più bassa dello schermo (≤ 560 px)", heroH <= 561 && heroH < 844, String(heroH));
 let f = await footer();
-check("orari in fondo: «Lun – Mar 17:00–21:30»", /Lun – Mar\s+17:00–21:30/i.test(f));
+// Il telefono segna lunedì: la riga di oggi ha la scritta «oggi».
+check("orari in fondo: «Lun – Mar (oggi) 17:00–21:30»", /Lun – Mar\s+oggi\s+17:00–21:30/i.test(f), f.replace(/\n/g, " | "));
 check("orari in fondo: «Dom 16:30–21:00»", /Dom\s+16:30–21:00/i.test(f));
 const hrefs = await pub.locator('section[aria-label="Orari e contatti"] a').evaluateAll((as) => as.map((a) => [a.textContent.trim(), a.getAttribute("href")]));
 const href = (name) => hrefs.find(([t]) => t === name)?.[1];
@@ -64,7 +65,8 @@ check("contatti: si aprono nella stessa scheda", (await pub.locator('section[ari
   await link.click();
   await pub.waitForURL(/g\.page/);
   await pub.goBack({ waitUntil: "networkidle" });
-  await pub.waitForTimeout(600);
+  // Il browser rimette il punto quando la pagina è di nuovo lunga abbastanza: si aspetta fino a 5 secondi.
+  await pub.waitForFunction((y0) => Math.abs(scrollY - y0) < 60, y, { timeout: 5000 }).catch(() => {});
   const back = await pub.evaluate(() => [location.pathname, scrollY]);
   check("recensione → indietro: di nuovo sul menù, nello stesso punto", back[0] === "/menu" && Math.abs(back[1] - y) < 60, JSON.stringify([y, back]));
   await pub.unroute(/g\.page/);
@@ -121,7 +123,7 @@ await settle();
 await open();
 check("orari: lunedì chiuso → «Chiuso · riapre domani alle 17:00»", /chiuso · riapre domani alle 17:00/i.test(await pillText()), await pillText());
 f = await footer();
-check("orari in fondo: «Lun Chiuso» e «Mar 17:00–21:30»", /Lun\s+Chiuso/i.test(f) && /Mar\s+17:00–21:30/i.test(f));
+check("orari in fondo: «Lun (oggi) Chiuso» e «Mar 17:00–21:30»", /Lun\s+oggi\s+Chiuso/i.test(f) && /Mar\s+17:00–21:30/i.test(f), f.replace(/\n/g, " | "));
 
 // Eccezione: oggi (5/10) aperto con orario 20:00–23:00, con motivo, e annuncio
 await page.getByRole("button", { name: "Modifica gli orari" }).click();

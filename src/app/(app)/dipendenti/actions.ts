@@ -264,9 +264,11 @@ export async function approveMonth(idInput: string, year: number, month: number)
   });
 }
 
-// Inviato → Riaperto: il titolare ha trovato qualcosa che non torna e
-// rimanda il mese al dipendente per un altro giro (con una nota, se serve).
-// Torna modificabile esattamente come una bozza.
+// Inviato (o già approvato) → Riaperto: il titolare ha trovato qualcosa che
+// non torna e rimanda il mese al dipendente per un altro giro (con una nota,
+// se serve). Torna modificabile esattamente come una bozza, anche se è un
+// mese vecchio (vedi employeeCanEditMonth in saveDayEntry). Prima un mese
+// approvato non si poteva più riaprire, anche se «Approva» diceva di sì.
 export async function reopenMonth(idInput: string, year: number, month: number, note: string): Promise<ActionResult> {
   return runAction(async () => {
     await requireUser();
@@ -277,7 +279,10 @@ export async function reopenMonth(idInput: string, year: number, month: number, 
       where: { employeeId_year_month: { employeeId, year, month } },
     });
     assert(submission, "Nessun invio trovato per questo mese.");
-    assert(submission.status === "SUBMITTED", "Questo mese non è in attesa di approvazione.");
+    assert(
+      submission.status === "SUBMITTED" || submission.status === "APPROVED",
+      submission.status === "REOPENED" ? "Questo mese è già stato riaperto." : "Questo mese non è stato ancora inviato.",
+    );
 
     await prisma.monthlySubmission.update({
       where: { id: submission.id },

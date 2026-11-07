@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { discardIfAsked, launch, login, BASE, ADMIN_PW, tool, goTab } from "../menu-e2e/lib.mjs";
 import { WORK } from "./work.mjs";
 const OUT = `${WORK}/img`;
-execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", `delete from "MenuEvent" where hour between 5 and 15`], { env: { ...process.env, PGPASSWORD: "orari" } });
+execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-Atc", `delete from "MenuEvent" where hour between 5 and 15`], { env: { ...process.env, PGPASSWORD: "orari" } });
 const browser = await launch();
 const ctx = await browser.newContext({ viewport: { width: 1680, height: 1050 }, deviceScaleFactor: 2, locale: "it-IT", timezoneId: "Europe/Rome" });
 await ctx.addInitScript(() => {

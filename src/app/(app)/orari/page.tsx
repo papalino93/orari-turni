@@ -4,6 +4,7 @@ import {
   endOfMonth,
   endOfYear,
   isValidDateKey,
+  monthLabel,
   parseDateKey,
   startOfMonth,
   startOfWeek,
@@ -76,6 +77,32 @@ export default async function OrariPage({
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
 
+  // «Svuota settimana» su una settimana già passata, o con ore che i
+  // dipendenti hanno già inviato o che sono state approvate: la conferma lo
+  // dice chiaro, invece di un generico «Azione irreversibile».
+  const clearWeekWarnings: string[] = [];
+  if (weekStart) {
+    const today = todayKey();
+    const weekStartKey = toDateKey(weekStart);
+    const weekEndKey = toDateKey(addDays(weekStart, 6));
+    if (weekEndKey < today) clearWeekWarnings.push("Questa settimana è già passata: si cancellano ore già lavorate.");
+    else if (weekStartKey < today) clearWeekWarnings.push("Questa settimana è in corso: si cancellano anche i giorni già passati.");
+    const months = Array.from(new Set([weekStartKey.slice(0, 7), weekEndKey.slice(0, 7)])).map((k) => ({
+      year: Number(k.slice(0, 4)),
+      month: Number(k.slice(5, 7)),
+    }));
+    const sent = await prisma.monthlySubmission.findMany({
+      where: { status: { in: ["SUBMITTED", "APPROVED"] }, OR: months },
+      include: { employee: { select: { name: true } } },
+    });
+    if (sent.length > 0) {
+      const list = sent
+        .map((s) => `${s.employee.name} (${monthLabel(s.month - 1).toLowerCase()}, ${s.status === "APPROVED" ? "approvate" : "inviate"})`)
+        .join(", ");
+      clearWeekWarnings.push(`Contiene ore già inviate o approvate: ${list}. Svuotandola cambiano anche quelle.`);
+    }
+  }
+
   return (
     <OrariView
       view={view}
@@ -118,6 +145,7 @@ export default async function OrariPage({
           ? { publishedAt: weekPlan.publishedAt ? weekPlan.publishedAt.toISOString() : null, changedAfterConfirm: Boolean(weekPlan.changedAfterConfirmAt) }
           : { publishedAt: null, changedAfterConfirm: false }
       }
+      clearWeekWarnings={clearWeekWarnings}
     />
   );
 }

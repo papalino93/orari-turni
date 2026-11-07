@@ -6,16 +6,6 @@ import { updateSectionTexts } from "./actions";
 import { Field, Sheet, inputClass } from "./sheet";
 import type { EditorSection, HistoryEntry, RunFn } from "./menu-editor";
 
-const ACTION_LABELS: Record<string, string> = {
-  CREATE: "Aggiunto",
-  UPDATE: "Modificato",
-  DELETE: "Eliminato",
-  RESTORE: "Ripristinato",
-  SOLD_OUT: "Segnato esaurito",
-  AVAILABLE: "Di nuovo disponibile",
-  RESET_SOLD_OUT: "Riattivate le voci esaurite",
-};
-
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString("it-IT", {
     timeZone: "Europe/Rome",
@@ -26,21 +16,36 @@ function formatWhen(iso: string): string {
   });
 }
 
+// Filtri dello Storico, con i nomi delle schede della gestione.
+const HISTORY_FILTERS: { id: "tutto" | HistoryEntry["group"]; label: string }[] = [
+  { id: "tutto", label: "Tutto" },
+  { id: "voci", label: "Voci" },
+  { id: "esauriti", label: "Esauriti" },
+  { id: "eventi", label: "Eventi e annunci" },
+  { id: "locale", label: "Orari e contatti" },
+];
+
 export function HistorySheet({
   history,
   onUndo,
   onClose,
 }: {
   history: HistoryEntry[];
-  onUndo: (id: string) => Promise<void>;
+  onUndo: (id: string) => Promise<boolean>;
   onClose: () => void;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Riga di cui si sta chiedendo conferma («Annulla aggiunta», «Rimetti nel menù»…).
+  const [askId, setAskId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<(typeof HISTORY_FILTERS)[number]["id"]>("tutto");
+  const filters = HISTORY_FILTERS.filter((f) => f.id === "tutto" || history.some((h) => h.group === f.id));
+  const shown = filter === "tutto" ? history : history.filter((h) => h.group === filter);
 
   async function undo(id: string) {
     setBusyId(id);
-    await onUndo(id);
+    const done = await onUndo(id);
     setBusyId(null);
+    if (done) setAskId(null);
   }
 
   return (
@@ -48,34 +53,80 @@ export function HistorySheet({
       {history.length === 0 ? (
         <p className="py-6 text-center text-sm text-foreground-muted">Nessuna modifica ancora.</p>
       ) : (
-        <ul className="-mx-1 divide-y divide-border">
-          {history.map((h) => (
-            <li key={h.id} className="flex items-center gap-3 px-1 py-2.5">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-foreground">
-                  <span className="text-foreground-muted">{ACTION_LABELS[h.action] ?? h.action}:</span> {h.label}
-                </p>
-                <p className="text-[11px] text-foreground-muted">
-                  {h.actorName} · {formatWhen(h.at)}
-                </p>
-              </div>
-              {h.undone && h.action === "RESTORE" ? null : h.undone ? (
-                <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-foreground-muted">
-                  Annullata
-                </span>
-              ) : (
+        <>
+          <p className="-mt-2 mb-3 text-xs text-foreground-muted">Le ultime {history.length} modifiche, dalla più recente. Da qui puoi tornare indietro.</p>
+          {filters.length > 2 && (
+            <div role="radiogroup" aria-label="Mostra" className="mb-2 flex flex-wrap gap-1.5">
+              {filters.map((f) => (
                 <button
+                  key={f.id}
                   type="button"
-                  disabled={busyId !== null}
-                  onClick={() => undo(h.id)}
-                  className="min-h-10 shrink-0 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
+                  role="radio"
+                  aria-checked={filter === f.id}
+                  onClick={() => setFilter(f.id)}
+                  className={`min-h-9 rounded-full px-3 text-xs font-medium ${
+                    filter === f.id ? "bg-accent text-accent-foreground" : "border border-border text-foreground-muted hover:border-accent hover:text-foreground"
+                  }`}
                 >
-                  {busyId === h.id ? "…" : "Ripristina"}
+                  {f.label}
                 </button>
-              )}
-            </li>
-          ))}
-        </ul>
+              ))}
+            </div>
+          )}
+          <ul className="-mx-1 divide-y divide-border">
+            {shown.map((h) => (
+              <li key={h.id} className="px-1 py-2.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <div className="min-w-[12rem] flex-1">
+                    <p className="text-sm text-foreground">
+                      <span className="text-foreground-muted">{h.title}:</span> <span className="break-words">{h.label}</span>
+                    </p>
+                    {h.detail && <p className="mt-0.5 break-words text-xs text-foreground">{h.detail}</p>}
+                    <p className="text-[11px] text-foreground-muted">
+                      {h.actorName} · {formatWhen(h.at)}
+                    </p>
+                  </div>
+                  {h.undone ? (
+                    <span className="ml-auto shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-foreground-muted">Annullata</span>
+                  ) : h.blocked ? (
+                    <span className="ml-auto shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-foreground-muted">{h.blocked}</span>
+                  ) : h.undo && askId !== h.id ? (
+                    <button
+                      type="button"
+                      disabled={busyId !== null}
+                      onClick={() => setAskId(h.id)}
+                      className="ml-auto min-h-10 shrink-0 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
+                    >
+                      {h.undo.label}
+                    </button>
+                  ) : null}
+                </div>
+                {h.undo && askId === h.id && (
+                  <div role="alertdialog" aria-label={h.undo.label} className="mt-2 rounded-xl border border-gold/40 bg-gold/10 p-3">
+                    <p className="text-sm text-foreground">{h.undo.question}</p>
+                    <div className="mt-2.5 flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAskId(null)}
+                        className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground"
+                      >
+                        Lascia com&apos;è
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyId !== null}
+                        onClick={() => undo(h.id)}
+                        className="min-h-10 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+                      >
+                        {busyId === h.id ? "…" : h.undo.label}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </Sheet>
   );
@@ -271,11 +322,14 @@ export function QrSheet({ onClose }: { onClose: () => void }) {
               role="radio"
               aria-checked={color === value}
               onClick={() => setColor(value)}
-              className={`min-h-11 rounded-xl border px-2 text-xs font-semibold ${
-                color === value ? "border-accent bg-accent text-accent-foreground" : "border-border text-foreground-muted hover:border-accent"
+              // Scelta segnata da un bordo e un pallino del colore: piena di colore sembrerebbe il pulsante «Scarica SVG».
+              className={`flex min-h-11 items-center justify-center gap-2 rounded-xl border px-2 text-xs font-semibold ${
+                color === value ? "border-accent bg-accent/10 text-foreground ring-1 ring-accent" : "border-border text-foreground-muted hover:border-accent"
               }`}
             >
+              <span aria-hidden className="h-3.5 w-3.5 rounded-full" style={{ background: value }} />
               {label}
+              {color === value && <span aria-hidden>✓</span>}
             </button>
           ))}
         </div>
@@ -299,7 +353,7 @@ export function QrSheet({ onClose }: { onClose: () => void }) {
         </div>
         <p className="text-[11px] leading-relaxed text-foreground-muted">
           L&apos;SVG è per la stampa (si ingrandisce senza sfocare), il PNG per documenti e social. Il QR già stampato in enoteca non cambia:
-          punta a un link che si ripunta dal sito di QR Code Generator.
+          porta sempre al menù, anche quando cambi prezzi e voci.
         </p>
       </div>
     </Sheet>

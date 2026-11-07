@@ -18,9 +18,19 @@ export function InstalledMark({ installed }: { installed: boolean }) {
   const router = useRouter();
   useEffect(() => {
     if (installed || !isStandalone()) return;
-    void markAppInstalled().then(() => router.refresh());
+    // Senza rete non importa: ci si riprova alla prossima apertura.
+    markAppInstalled()
+      .then(() => router.refresh())
+      .catch(() => {});
   }, [installed, router]);
   return null;
+}
+
+// Telefono o tablet (anche l'iPad, che si presenta come un Mac con lo schermo a tocco):
+// solo lì l'app si mette sulla schermata Home.
+function isMobileDevice(): boolean {
+  const ua = navigator.userAgent;
+  return /iPhone|iPad|iPod|Android/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
 }
 
 // Versione "leggera", per titolare/consulente: comparsa una volta sola dopo
@@ -36,10 +46,8 @@ export function InstallBanner() {
     const alreadyStandalone = isStandalone();
     const dismissed = localStorage.getItem(DISMISSED_KEY) === "1";
     // Solo su telefono e tablet: dal computer l'app non si installa sulla Home.
-    const ua = navigator.userAgent;
-    const mobile = /iPhone|iPad|iPod|Android/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- dipende da localStorage/matchMedia, non disponibili al primo render lato server
-    setVisible(mobile && !alreadyStandalone && !dismissed);
+    setVisible(isMobileDevice() && !alreadyStandalone && !dismissed);
   }, []);
 
   if (!visible || pathname === "/installa") return null;
@@ -80,15 +88,18 @@ const EMPLOYEE_DISMISSED_KEY = "employee-install-prompt-dismissed";
 // risulta davvero installata. Non è un blocco vero (si può sempre
 // proseguire), ma il più vicino a "quasi obbligato" che si può fare senza
 // impedire a qualcuno di lavorare se per qualche motivo non può installarla.
+//
+// Dal computer invece solo una riga discreta (come quella del titolare): lì l'app non
+// si installa, e il pannello a tutto schermo a ogni accesso era solo d'intralcio.
 export function EmployeeInstallPrompt() {
   const pathname = usePathname();
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState<false | "phone" | "computer">(false);
 
   useEffect(() => {
     const alreadyStandalone = isStandalone();
     const dismissedThisSession = sessionStorage.getItem(EMPLOYEE_DISMISSED_KEY) === "1";
     // eslint-disable-next-line react-hooks/set-state-in-effect -- dipende da sessionStorage/matchMedia, non disponibili al primo render lato server
-    setVisible(!alreadyStandalone && !dismissedThisSession);
+    setVisible(alreadyStandalone || dismissedThisSession ? false : isMobileDevice() ? "phone" : "computer");
   }, []);
 
   if (!visible || pathname === "/installa") return null;
@@ -96,6 +107,28 @@ export function EmployeeInstallPrompt() {
   function dismissForSession() {
     sessionStorage.setItem(EMPLOYEE_DISMISSED_KEY, "1");
     setVisible(false);
+  }
+
+  if (visible === "computer") {
+    return (
+      <div className="mb-4 flex items-center gap-3 rounded-xl border border-accent/25 bg-accent/[0.06] px-4 py-3 text-sm">
+        <span aria-hidden className="text-base">📲</span>
+        <p className="flex-1 text-foreground-muted">
+          Metti l&apos;app sul telefono: così ritrovi le tue ore con un tocco.{" "}
+          <Link href="/installa" onClick={dismissForSession} className="font-medium text-accent-ink hover:text-accent-hover">
+            Scopri come
+          </Link>
+        </p>
+        <button
+          type="button"
+          onClick={dismissForSession}
+          aria-label="Chiudi"
+          className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:text-foreground"
+        >
+          ✕
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -110,8 +143,8 @@ export function EmployeeInstallPrompt() {
           <img src="/icons/icon-192.png" alt="" width={64} height={64} className="mx-auto mb-4 rounded-2xl" />
           <h2 className="text-base font-semibold text-foreground">Installa l&apos;app sul telefono</h2>
           <p className="mt-2 text-sm text-foreground-muted">
-            Per ricevere gli orari e i promemoria delle ore in modo affidabile, aggiungi l&apos;app alla schermata
-            Home — bastano una decina di secondi, ti mostriamo tutti i passaggi.
+            Così ritrovi le tue ore con un tocco, come un&apos;app. Aggiungila alla schermata Home: bastano una
+            decina di secondi, ti mostriamo tutti i passaggi.
           </p>
           <Link
             href="/installa"

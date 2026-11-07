@@ -1,6 +1,6 @@
-import { blockHours, dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
+import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { LOGO_DATA_URI } from "@/lib/logo-data-uri";
-import { formatHours, leaveLabelFor } from "@/lib/schedule";
+import { blockTimeLabel, buildEmployeeSchedule, formatHours, leaveLabelFor } from "@/lib/schedule";
 
 type RangeBlock = { dateKey: string; startTime: string; endTime: string };
 type RangeLeave = { dateKey: string; type: "FERIE" | "PERMESSO" | "LIBERO" | "MALATTIA"; quantity: number };
@@ -48,16 +48,10 @@ export function RangeCard({
   leaveEntries: RangeLeave[];
   closures: RangeClosure[];
 }) {
-  const closedSet = new Set(closures.map((c) => c.dateKey));
-  const dayHours = new Map(
-    dateKeys.map((dateKey) => [
-      dateKey,
-      closedSet.has(dateKey)
-        ? 0
-        : blocks.filter((b) => b.dateKey === dateKey).reduce((sum, b) => sum + blockHours(b), 0),
-    ]),
-  );
-  const totalHours = Array.from(dayHours.values()).reduce((sum, h) => sum + h, 0);
+  // Stesso calcolo della vista Orari e del PDF (buildSchedule): le ferie di
+  // giorno intero e le chiusure annullano i turni rimasti sotto.
+  const schedule = buildEmployeeSchedule({ employeeId, dateKeys, blocks, leaveEntries, closures });
+  const totalHours = schedule.employeeHours(employeeId);
 
   return (
     <div style={{ width: 700, background: "#fffdfb", color: "#211c1e", fontFamily: "system-ui, sans-serif", padding: 36, borderRadius: 24 }}>
@@ -120,10 +114,11 @@ export function RangeCard({
         <tbody>
           {dateKeys.map((dateKey, i) => {
             const date = parseDateKey(dateKey);
-            const closed = closedSet.has(dateKey);
-            const dayBlocks = blocks.filter((b) => b.dateKey === dateKey).sort((a, b) => a.startTime.localeCompare(b.startTime));
-            const leave = leaveEntries.find((l) => l.dateKey === dateKey);
-            const hours = dayHours.get(dateKey) ?? 0;
+            const entry = schedule.entry(employeeId, dateKey);
+            const closed = entry.kind === "CHIUSO";
+            const dayBlocks = entry.blocks;
+            const leave = entry.leave;
+            const hours = entry.hours;
 
             return (
               <tr key={dateKey} style={{ background: i % 2 === 0 ? "#fff" : "#fbf1ef", borderBottom: i === dateKeys.length - 1 ? "none" : "1px solid #f1e2e0" }}>
@@ -133,7 +128,7 @@ export function RangeCard({
                 <td style={{ padding: "9px 12px" }}>
                   {closed ? (
                     <span style={{ color: "#8a2740", fontWeight: 600 }}>🔒 Locale chiuso</span>
-                  ) : leave && !(leave.type === "PERMESSO" && dayBlocks.length > 0) ? (
+                  ) : leave && entry.kind !== "TURNO" ? (
                     <span style={{ color: LEAVE_LABEL[leave.type](leave.quantity).color, fontWeight: 600 }}>
                       {LEAVE_LABEL[leave.type](leave.quantity).text}
                     </span>
@@ -141,7 +136,7 @@ export function RangeCard({
                     <>
                       {dayBlocks.map((b, bi) => (
                         <span key={bi} style={{ marginRight: 8, whiteSpace: "nowrap" }}>
-                          {b.startTime}–{b.endTime}
+                          {blockTimeLabel(b)}
                         </span>
                       ))}
                       {leave && (

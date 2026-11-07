@@ -25,12 +25,27 @@
   box-shadow: 0 2px 18px rgba(0, 0, 0, 0.12);
 }
 
+/* Su uno schermo più stretto del foglio (telefono) il foglio resta un A4 rimpicciolito,
+   come lo si vedrà stampato: --print-zoom lo calcola print-bar.tsx. Prima si stringeva
+   alla larghezza del telefono, con righe e legenda degli allergeni spezzate a caso.
+   Solo sullo schermo: la stampa non cambia. */
+@media screen {
+  .print-sheet {
+    zoom: var(--print-zoom, 1);
+  }
+}
+
 .print-avoid {
   break-inside: avoid;
 }
 
 .print-keep {
   break-after: avoid;
+}
+
+/* Legenda in fondo: se non sta sul foglio, si porta dietro l'ultima riga del menù. */
+.print-with-previous {
+  break-before: avoid;
 }
 
 @media print {

@@ -77,7 +77,7 @@ function Block({ title, hint, children, first = false }: { title: string; hint?:
     <div className={`space-y-3 ${first ? "" : "border-t border-border pt-3.5"}`}>
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground-muted">{title}</p>
-        {hint && <p className="mt-0.5 text-[11px] text-foreground-muted/80">{hint}</p>}
+        {hint && <p className="mt-0.5 text-[11px] text-foreground-muted">{hint}</p>}
       </div>
       {children}
     </div>
@@ -104,6 +104,9 @@ export function ItemSheet({
   nextMissing,
   progress,
   onNext,
+  sold = false,
+  onToggleSold,
+  onAdded,
 }: {
   sections: EditorSection[];
   section: EditorSection;
@@ -133,6 +136,11 @@ export function ItemSheet({
   // «Piatto 2 di 5» nel percorso «Compila allergeni».
   progress?: { position: number; total: number } | null;
   onNext?: (next: { itemId: string; groupId: string; name: string; key: string | null }) => void;
+  // «Esaurito» anche da qui, come nell'elenco (subito, senza «Salva»).
+  sold?: boolean;
+  onToggleSold?: () => void;
+  // Voce nuova salvata: la gestione ci scorre e la evidenzia.
+  onAdded?: (newId: string) => void;
 }) {
   const isWine = section.kind === "WINE";
   const [name, setName] = useState(item?.name ?? "");
@@ -201,20 +209,33 @@ export function ItemSheet({
   // Prezzo di un formato del gruppo (anche se scritto prima, nelle righe dei formati).
   const priceFor = (f: string) => formatPrices[f] ?? variants.find((v) => v.label.trim() === f)?.price ?? "";
   const willShare = canShare && priceMode === "formats" && shareFormats && rowLabels.length >= 2 && rowLabels.length <= 4;
+  // Modifiche non ancora salvate (per «Duplica»): si confronta con com'era la scheda all'apertura.
+  const formState = JSON.stringify([
+    name, sub, wineName, denomination, vintage, grapes, region, country, description, priceGlass, priceBottle, price, enomatic, traits,
+    pairWineId, recommended, availableFrom, availableTo, pairDishIds, pairHideIds, variants, allergenMode, allergens, traces, targetGroup,
+    formatPrices, priceMode,
+  ]);
+  const [initialState] = useState(formState);
+  const dirty = formState !== initialState;
+  // «Duplica» con modifiche a metà: prima si chiede se salvarle.
+  const [askDuplicate, setAskDuplicate] = useState(false);
   const allergensRef = useRef<HTMLFieldSetElement>(null);
   useEffect(() => {
     if (focusAllergens) allergensRef.current?.scrollIntoView({ block: "center" });
   }, [focusAllergens]);
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  // Regione: il messaggio «Scrivi la regione…» resta attaccato al campo finché non si cancella:
+  // va tolto anche quando si scrive la nazione (un vino estero non chiede la regione).
+  const regionRef = useRef<HTMLInputElement>(null);
 
   // Si può spostare solo tra sezioni dello stesso tipo: un vino non diventa
   // un piatto (i campi non sono gli stessi).
   const sameKind = sections.filter((s) => s.kind === section.kind);
 
-  async function submit(e: React.SyntheticEvent, goNext = false) {
-    e.preventDefault();
-    setBusy(true);
+  // Salva la scheda; null = non salvata (il messaggio d'errore è già comparso).
+  async function saveNow(message: boolean) {
     const save = () =>
       saveItem(item?.id ?? null, {
           name,
@@ -256,24 +277,47 @@ export function ItemSheet({
           }
         : save,
       // Piatto nuovo senza allergeni: il messaggio lo dice e propone «Compila ora».
-      item || isWine || allergenMode !== "unknown" || allergenNotice ? (item ? "Voce salvata" : "Voce aggiunta") : "",
+      !message ? "" : item || isWine || allergenMode !== "unknown" || allergenNotice ? `«${name.trim()}» ${item ? "salvata" : "aggiunta"}` : "",
     );
+    return result;
+  }
+
+  async function submit(e: React.SyntheticEvent, goNext = false) {
+    e.preventDefault();
+    setBusy(true);
+    const result = await saveNow(true);
     setBusy(false);
     if (result) {
       if (!item && !isWine && allergenMode === "unknown" && !allergenNotice && result.id) onMissingAllergens?.(result.id, name.trim());
+      if (!item && result.id) onAdded?.(result.id);
       onClose();
       if (goNext && nextMissing) onNext?.(nextMissing);
     }
   }
 
-  async function duplicate() {
+  // save: prima salva le modifiche della scheda (così la copia le ha anche lei).
+  async function duplicate(save = false) {
     if (!item) return;
+    setAskDuplicate(false);
     setBusy(true);
-    const result = await run(() => duplicateItem(item.id), "Voce duplicata");
+    if (save) {
+      // Il modulo controlla i campi obbligatori come con «Salva».
+      const form = formRef.current;
+      if (form && !form.reportValidity()) {
+        setBusy(false);
+        return;
+      }
+      const saved = await saveNow(false);
+      if (!saved) {
+        setBusy(false);
+        return;
+      }
+    }
+    const result = await run(() => duplicateItem(item.id), save ? `«${name.trim()}» salvata e duplicata` : `«${item.name}» duplicata`);
     setBusy(false);
     if (result) {
       onClose();
-      onDuplicated(result.id, item.name);
+      onDuplicated(result.id, save ? name.trim() : item.name);
     }
   }
 
@@ -362,22 +406,56 @@ export function ItemSheet({
 
   return (
     <Sheet title={progress ? `Allergeni · ${progress.position} di ${progress.total}` : copyOf ? "Copia da completare" : item ? "Modifica voce" : isWine ? "Nuovo vino" : "Nuova voce"} onClose={onClose}>
-      <form onSubmit={submit} className="space-y-3.5">
+      <form ref={formRef} onSubmit={submit} className="space-y-3.5">
         {copyOf && (
           <p role="status" className="rounded-xl border border-gold/40 bg-gold/10 px-3.5 py-2.5 text-sm text-foreground">
             Questa è una copia di «{copyOf}», già nel menù subito sotto l&apos;originale. Cambia quello che serve (nome, annata, prezzi…) e salva.
           </p>
         )}
-        {item && !copyOf && !progress && (
-          <div className="-mt-1 flex justify-end">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={duplicate}
-              className="min-h-9 rounded-full border border-border px-3 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-30"
-            >
-              Duplica
-            </button>
+        {item && !progress && (onToggleSold || !copyOf) && (
+          <div className="-mt-1 flex flex-wrap justify-end gap-2">
+            {onToggleSold && (
+              <button
+                type="button"
+                aria-pressed={sold}
+                // Non conta come modifica da salvare: vale subito, come nell'elenco.
+                data-unsaved-ignore
+                onClick={onToggleSold}
+                title={sold ? "Segna di nuovo disponibile" : "Segna esaurita"}
+                className={`min-h-9 rounded-full border px-3 text-xs font-semibold transition-colors ${
+                  sold ? "border-danger bg-danger text-white" : "border-border text-foreground-muted hover:border-danger hover:text-danger"
+                }`}
+              >
+                {sold ? "Esaurito · tocca per rimettere" : "Esaurito"}
+              </button>
+            )}
+            {!copyOf && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => (dirty ? setAskDuplicate(true) : void duplicate())}
+                className="min-h-9 rounded-full border border-border px-3 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-30"
+              >
+                Duplica
+              </button>
+            )}
+          </div>
+        )}
+        {askDuplicate && (
+          <div role="alertdialog" aria-label="Salvo prima le modifiche?" className="rounded-xl border border-gold/40 bg-gold/10 p-3">
+            <p className="text-sm font-medium text-foreground">Salvo prima le modifiche?</p>
+            <p className="mt-0.5 text-xs text-foreground-muted">Hai cambiato qualcosa in questa scheda. Se duplichi senza salvare, le modifiche vanno perse.</p>
+            <div className="mt-2.5 grid gap-2 sm:flex sm:justify-end">
+              <button type="button" onClick={() => setAskDuplicate(false)} className="order-last min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground sm:order-first">
+                Annulla
+              </button>
+              <button type="button" disabled={busy} onClick={() => void duplicate(false)} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground hover:border-accent disabled:opacity-50">
+                Duplica senza salvare
+              </button>
+              <button type="button" disabled={busy} onClick={() => void duplicate(true)} className="order-first min-h-10 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50 sm:order-last">
+                Salva e duplica
+              </button>
+            </div>
           </div>
         )}
         {!isWine && nameField}
@@ -418,10 +496,36 @@ export function ItemSheet({
             <Block title="Da dove viene" hint="Per i vini italiani la regione è obbligatoria: decide anche il posto in carta (prima la Toscana, poi le altre in ordine alfabetico, poi l'estero).">
             <div className="grid grid-cols-2 gap-3">
               <Field label={italian ? "Regione" : "Regione (facoltativa)"}>
-                <input value={region} onChange={(e) => setRegion(e.target.value)} maxLength={60} required={italian} list="wine-regions" autoComplete="off" className={inputClass} placeholder="es. Toscana" />
+                <input
+                  ref={regionRef}
+                  value={region}
+                  onChange={(e) => {
+                    e.currentTarget.setCustomValidity("");
+                    setRegion(e.target.value);
+                  }}
+                  // Il messaggio del browser («Compila questo campo») non dice che cosa scrivere.
+                  onInvalid={(e) => e.currentTarget.setCustomValidity("Scrivi la regione (es. Toscana); per un vino estero scrivi la nazione.")}
+                  maxLength={60}
+                  required={italian}
+                  list="wine-regions"
+                  autoComplete="off"
+                  className={inputClass}
+                  placeholder="es. Toscana"
+                />
               </Field>
               <Field label="Nazione" hint="Se la lasci vuota vale Italia.">
-                <input value={country} onChange={(e) => setCountry(e.target.value)} maxLength={60} list="wine-countries" autoComplete="off" className={inputClass} placeholder="es. Italia" />
+                <input
+                  value={country}
+                  onChange={(e) => {
+                    regionRef.current?.setCustomValidity("");
+                    setCountry(e.target.value);
+                  }}
+                  maxLength={60}
+                  list="wine-countries"
+                  autoComplete="off"
+                  className={inputClass}
+                  placeholder="es. Italia"
+                />
               </Field>
             </div>
             <datalist id="wine-regions">
@@ -806,7 +910,7 @@ export function ItemSheet({
 
         {/* «Salva» resta sempre in vista in fondo allo schermo: la scheda è lunga e per
             cambiare un prezzo non si deve scorrere fino in fondo. */}
-        <div className="sticky bottom-0 z-10 -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-mx-6 sm:px-6 sm:pb-3">
+        <div className="sticky bottom-0 z-10 -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-bottom-6 sm:-mx-6 sm:px-6 sm:pb-6">
           <button
             type="submit"
             onClick={progress ? (e) => void submit(e, true) : undefined}

@@ -67,7 +67,8 @@ await dialog().getByRole("button", { name: "Aggiungi", exact: true }).click();
 await dialog().waitFor({ state: "detached" });
 await settle(800);
 const t2 = (await toast().allInnerTexts()).join(" | ");
-check("con allergeni: «Voce aggiunta» con «Annulla»", /Voce aggiunta/.test(t2) && /Annulla/.test(t2) && !/Compila ora/.test(t2), t2);
+// Il messaggio dice il nome della voce: «Piatto Con Allergeni» aggiunta.
+check("con allergeni: ««Piatto Con Allergeni» aggiunta» con «Annulla»", /«Piatto Con Allergeni» aggiunta\s*Annulla/.test(t2) && !/«Piatto Con Allergeni»[^|]*Compila ora/.test(t2), t2);
 
 // ---- Piatto del giorno senza allergeni: contato e nel percorso
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });

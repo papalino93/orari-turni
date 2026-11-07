@@ -1,9 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { useLayoutEffect } from "react";
+
+// Larghezza del foglio A4 sullo schermo: 210 mm a 96 punti per pollice.
+const SHEET_PX = (210 * 96) / 25.4;
 
 // Barra sopra il foglio (non si stampa): torna alla gestione, esauriti sì/no, stampa.
 export function PrintBar({ withSoldOut, soldOutCount }: { withSoldOut: boolean; soldOutCount: number }) {
+  // Su un telefono il foglio si rimpicciolisce tutto intero (vedi print.css), lasciando
+  // 8 px di bordo grigio per lato, invece di stringersi alla larghezza dello schermo.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const fit = () => root.style.setProperty("--print-zoom", String(Math.min(1, (root.clientWidth - 16) / SHEET_PX)));
+    fit();
+    window.addEventListener("resize", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      root.style.removeProperty("--print-zoom");
+    };
+  }, []);
   return (
     <div className="print-no print-sans sticky top-0 z-10 mb-4 border-b border-black/10 bg-[#fffdf9]/95 px-4 py-3 backdrop-blur">
       <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-[#1f2420]">

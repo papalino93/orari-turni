@@ -117,15 +117,32 @@ check("pagina: «sangiovese» tra le più cercate", /Le parole più cercate[\s\S
 check("pagina: griglia giorni e orari", (await admin.locator("table").count()) === 1);
 const ov = await admin.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 check("pagina: nessuno scorrimento orizzontale a 390 px", ov <= 0, String(ov));
-const monthName = new Date().toLocaleDateString("it-IT", { month: "long", timeZone: "Europe/Rome" });
-const wdName = new Date().toLocaleDateString("it-IT", { weekday: "long", timeZone: "Europe/Rome" });
-check("classifica giorni: oggi al primo posto con 1 apertura", new RegExp(`Classifica dei giorni della settimana[\\s\\S]*?1\\.?\\s*${wdName}\\s*[\\d,]+\\s*al giorno\\s*1\\s*apertura`, "i").test(page), wdName);
-check("classifica mesi: questo mese al primo posto con 1 apertura", new RegExp(`Classifica dei mesi[\\s\\S]*?1\\.?\\s*${monthName}\\s*[\\d,]+\\s*al giorno\\s*1\\s*apertura`, "i").test(page), monthName);
-// Periodo a scelta: un intervallo nel passato, prima di «Inizia a contare», è vuoto.
+// Con un giorno solo contato (il conteggio è partito oggi) le classifiche non hanno niente da
+// mettere in fila: non compaiono.
+check("classifiche: con un giorno solo non compaiono", !/Classifica dei giorni della settimana/.test(page) && !/Classifica dei mesi/.test(page));
+// Per le classifiche servono più giorni e più mesi: per un momento il conteggio «parte» 40 giorni fa
+// e 20 aperture cadono 36 giorni fa (un altro giorno della settimana, un altro mese). Si tolgono subito dopo.
+const settingNow = DB(`select value from "MenuSetting" where id='stats'`);
+const romeDay = (offset) => DB(`select to_char((now() at time zone 'Europe/Rome') - interval '${offset} days', 'YYYY-MM-DD')`);
+const pastDay = romeDay(36);
+const pastDate = new Date(`${pastDay}T12:00:00Z`);
+const pastWd = ((pastDate.getUTCDay() + 6) % 7) + 1;
+DB(`update "MenuSetting" set value='{"enabled":true,"since":"${romeDay(40)}"}' where id='stats'`);
+for (let k = 0; k < 20; k++) DB(`insert into "MenuEvent" (id, day, hour, weekday, kind) values ('e2e_rank_${k}', '${pastDay}', 20, ${pastWd}, 'open')`);
+await admin.goto(`${BASE}/statistiche?p=all`, { waitUntil: "networkidle" });
+const ranks = await admin.locator("body").innerText();
+const monthName = pastDate.toLocaleDateString("it-IT", { month: "long", timeZone: "UTC" });
+const wdName = pastDate.toLocaleDateString("it-IT", { weekday: "long", timeZone: "UTC" });
+check("classifica giorni: il giorno con più aperture al primo posto, col totale", new RegExp(`Classifica dei giorni della settimana[\\s\\S]*?1\\.?\\s*${wdName}\\s*[\\d,]+\\s*al giorno\\s*20\\s*aperture`, "i").test(ranks), wdName);
+check("classifica mesi: il mese con più aperture al primo posto, col totale", new RegExp(`Classifica dei mesi[\\s\\S]*?1\\.?\\s*${monthName}\\s*[\\d,]+\\s*al giorno\\s*20\\s*aperture`, "i").test(ranks), monthName);
+// Periodo a scelta: un intervallo tutto prima di «Inizia a contare» mostra il primo giorno contato
+// (scritto nella riga «Giorno: …»), che qui non ha aperture.
 await admin.goto(`${BASE}/statistiche?dal=2020-01-01&al=2020-01-31`, { waitUntil: "networkidle" });
 const old = await admin.locator("body").innerText();
-check("dal… al…: periodo nel passato senza aperture", /Aperture del menù\s*0\b/i.test(old), old.slice(0, 300).replace(/\n/g, " | "));
-
+const firstDayLong = new Date(`${romeDay(40)}T12:00:00Z`).toLocaleDateString("it-IT", { weekday: "long", timeZone: "UTC" });
+check("dal… al…: periodo prima di «Inizia a contare» → primo giorno contato, senza aperture", /Aperture del menù\s*0\b/i.test(old) && new RegExp(`Giorno: ${firstDayLong}`, "i").test(old), (old.match(/(Periodo|Giorno):[^\n]*/) ?? [""])[0]);
+DB(`delete from "MenuEvent" where id like 'e2e_rank_%'`);
+DB(`update "MenuSetting" set value='${settingNow.replace(/'/g, "''")}' where id='stats'`);
 // Oggi sempre in vista, giorno per giorno, scorciatoie, scarico per Excel
 await admin.goto(`${BASE}/statistiche`, { waitUntil: "networkidle" });
 const todayCard = await admin.getByRole("region", { name: "Aperture di oggi" }).innerText();

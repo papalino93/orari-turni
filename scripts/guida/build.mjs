@@ -489,7 +489,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Guida · ogni giorno")}
     <div class="card"><h3>Cambiare un prezzo o un testo</h3><ol class="steps"><li>Cerca la voce e tocca il suo nome.</li><li>Cambia il campo e tocca <span class="ui">Salva</span>.</li></ol><p class="res">Tanti prezzi insieme: in <span class="ui">Strumenti</span>, <span class="ui">Tabella prezzi</span>, poi <span class="ui">Salva tutto</span>.</p></div>
     <div class="card"><h3>Aggiungere un vino o un piatto</h3><ol class="steps"><li>Tocca la categoria (es. Rossi).</li><li>In fondo al gruppo tocca <span class="ui">+ Aggiungi vino</span> o <span class="ui">+ Aggiungi voce</span>.</li><li>Compila (per un vino italiano anche la <b>regione</b>) e tocca <span class="ui">Aggiungi</span>.</li></ol><p class="res">Il vino va da solo al posto della sua regione. Uno simile a un altro: aprilo e <span class="ui">Duplica</span>. Tante voci: <span class="ui">Incolla più voci</span>.</p></div>
     <div class="card"><h3>Abbinare un vino a un piatto</h3><ol class="steps"><li>Apri il piatto.</li><li>In <span class="ui">Abbinamento consigliato</span> scrivi il nome del vino e toccalo.</li><li>Tocca <span class="ui">Salva</span>.</li></ol><p class="res">Per toglierlo: ✕ accanto al vino, poi Salva. Un vino o un piatto «della casa»: in <span class="ui">In vetrina</span>, <span class="ui">+ Aggiungi consiglio</span> (al massimo 4).</p></div>
-    <div class="card"><h3>Ho sbagliato qualcosa</h3><ol class="steps"><li>Subito: <span class="ui">Annulla</span> nel messaggio che compare in basso.</li><li>Più tardi: in <span class="ui">Strumenti</span>, <span class="ui">Storico</span>, poi <span class="ui">Ripristina</span> sulla riga giusta.</li></ol><p class="res">Funziona anche per una voce eliminata per errore.</p></div>
+    <div class="card"><h3>Ho sbagliato qualcosa</h3><ol class="steps"><li>Subito: <span class="ui">Annulla</span> nel messaggio che compare in basso.</li><li>Più tardi: in <span class="ui">Strumenti</span>, <span class="ui">Storico</span>: sulla riga giusta tocca il pulsante che dice cosa fa (es. <span class="ui">Torna com'era</span>) e conferma.</li></ol><p class="res">Una voce eliminata per errore: <span class="ui">Rimetti nel menù</span>.</p></div>
   </div>
 </section>`);
 
@@ -530,7 +530,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
   <h2>Le domande<br><em>di tutti i giorni</em></h2></div>
   <div class="faq">
     <div><h4>Le modifiche si vedono subito?</h4><p>Sì, in pochi secondi. Chi ha già il menù aperto lo vede aggiornato ricaricando la pagina.</p></div>
-    <div><h4>Se sbaglio, posso tornare indietro?</h4><p>Sì: «Annulla» subito dopo la modifica, oppure «Storico» e «Ripristina», anche giorni dopo.</p></div>
+    <div><h4>Se sbaglio, posso tornare indietro?</h4><p>Sì: «Annulla» subito dopo la modifica, oppure «Storico» e «Torna com'era» sulla riga giusta, anche giorni dopo.</p></div>
     <div><h4>Un vino è finito: lo elimino?</h4><p>No, tocca «Esaurito»: sparisce solo per oggi e torna da solo alle 5 del mattino. Elimina solo ciò che non avrete più.</p></div>
 
     <div><h4>Il QR stampato va rifatto quando cambio i prezzi?</h4><p>No: porta sempre alla stessa pagina, che si aggiorna da sola. Va solo ripuntato una volta alla nuova pagina.</p></div>

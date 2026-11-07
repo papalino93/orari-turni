@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 const MESSAGES: Record<string, string> = {
   chiave: "Telefono non collegato. Ricollegalo da «Widget sul telefono».",
-  tolto: "Accesso tolto · chiedi al titolare",
+  tolto: "Questo accesso non ha più widget: ricollega il telefono da «Widget sul telefono» oppure chiedi al titolare.",
   scaduta: "Collegamento scaduto: non usato da 90 giorni. Ricollegalo da «Widget sul telefono».",
   permesso: "Questo widget non è tra i tuoi. Chiedi al titolare.",
   troppe: "Troppe richieste: riprova tra qualche minuto.",

@@ -87,7 +87,7 @@ check("dipendente: dopo la conferma vede la settimana prossima", /18:11/.test(t)
 // Modificata dopo la conferma: la conferma si toglie e il titolare lo vede
 DB(`update "WeekPlan" set "publishedAt"=null, "changedAfterConfirmAt"=now() where "weekStart"='${nextWeek}'`);
 await adm.goto(`${BASE}/orari?date=${nextWeek}`, { waitUntil: "networkidle" });
-check("modificata dopo la conferma: «Modificati: conferma di nuovo»", (await adm.getByRole("button", { name: "Modificati: conferma di nuovo" }).count()) === 1);
+check("modificata dopo la conferma: «Modificati: i dipendenti non vedono…»", (await adm.getByRole("button", { name: "Modificati: i dipendenti non vedono questa settimana finché non confermi di nuovo" }).count()) === 1);
 t = await week(nextWeek);
 check("dipendente: tolta la conferma non la vede più", /Orari non ancora confermati/.test(t));
 
@@ -133,10 +133,14 @@ await emp.goto(`${BASE}/mie-ore`, { waitUntil: "networkidle" });
 const e2 = await b.newPage({ viewport: { width: 390, height: 844 } });
 await login(e2, "francesco", EMP_PW);
 await e2.goto(`${BASE}/mie-ore`, { waitUntil: "networkidle" });
-check("Installa: senza app, il dipendente vede l'invito", /Installa l'app sul telefono/.test(await e2.locator("body").innerText()));
+// Dal computer l'invito è una riga discreta («Metti l'app sul telefono…»), dal telefono un
+// pannello («Installa l'app sul telefono»); in fondo a «Le mie ore» c'è anche il collegamento.
+const invite = /Installa l'app sul telefono|Metti l'app sul telefono/;
+const e2Text = await e2.locator("body").innerText();
+check("Installa: senza app, il dipendente vede l'invito e il collegamento in fondo", /Metti l'app sul telefono/.test(e2Text) && (await e2.getByRole("link", { name: /Installa l'app sul telefono/ }).count()) === 1);
 DB(`update "Employee" set "appInstalledAt"=now() where username='francesco'`);
 await e2.reload({ waitUntil: "networkidle" });
-check("Installa: con l'app già installata l'invito sparisce", !/Installa l'app sul telefono/.test(await e2.locator("body").innerText()));
+check("Installa: con l'app già installata l'invito sparisce", !invite.test(await e2.locator("body").innerText()));
 
 // --- Accesso e tema
 const lp = await (await b.newContext({ viewport: { width: 390, height: 844 }, colorScheme: "light" })).newPage();

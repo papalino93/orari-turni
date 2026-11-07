@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// «Torna su» per le pagine lunghe senza la barra delle sezioni (la pagina di un evento con il suo menù):
+// «Torna su» per le pagine lunghe senza la barra delle sezioni (la pagina di un evento con il suo menù,
+// gli allergeni):
 // compare solo mentre si risale, dopo aver letto un bel po', e porta in cima con un tocco.
 export function TornaSu() {
   const [show, setShow] = useState(false);

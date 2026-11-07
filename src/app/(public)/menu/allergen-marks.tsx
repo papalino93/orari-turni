@@ -13,7 +13,7 @@ export function AllergenMarks({ item }: { item: { allergens: string[]; allergens
   );
   if (state === "none") return tracesLine || null;
   if (state === "unknown") {
-    return <div className="menu-sans mt-0.5 text-[12px] italic text-[#8A6A2E]">Allergeni da verificare con il personale</div>;
+    return <div className="menu-sans mt-0.5 text-[12px] italic text-[#7A5A22]">Allergeni da verificare con il personale</div>;
   }
   // I nomi, non i numeri: si leggono senza andare a cercare la legenda in fondo.
   const names = allergenNumbers(item.allergens).map((n) => ALLERGENS[n - 1].label);

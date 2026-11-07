@@ -5,8 +5,9 @@
 // bianco, senza nessuna evidenziazione di "oggi" e senza aree rosse estese —
 // solo i toni del brand usati con misura.
 
-import { addDays, dayLabel, formatDayMonth, formatWeekRange, parseDateKey } from "@/lib/week";
+import { addDays, dayLabel, formatDayMonth, formatDaySpan, formatWeekRange, parseDateKey } from "@/lib/week";
 import {
+  blockTimeLabel,
   buildSchedule,
   entryForPeriod,
   entryLabel,
@@ -27,6 +28,7 @@ import {
   GOLD,
   MARGIN,
   MUTED,
+  PAGE_H,
   ROW_ALT,
   TEXT,
   WINE,
@@ -81,12 +83,19 @@ export async function exportScheduleWeekPdf({
   // decina di dipendenti), drawPeriodTable ridisegna l'intestazione in
   // cima alla pagina successiva invece di lasciare righe senza contesto.
   y = drawSectionTitle(doc, "Programmazione per fascia oraria", y);
+  // Righe un po' più basse, se basta, perché mattina e pomeriggio stiano su
+  // un solo foglio A4 (con 8 persone «Tutto il giorno» finivano 2 righe su
+  // una seconda pagina). Sotto i 7 mm non si scende: due orari nella stessa
+  // casella non ci starebbero più, e allora meglio andare a pagina nuova.
+  const available = PAGE_H - 14 - y - (periods.length - 1) * PERIOD_GAP - periods.length * PERIOD_HEADER_H;
+  const rowH = Math.max(7, Math.min(9, Math.floor((available / Math.max(1, periods.length * rows.length)) * 10) / 10));
   for (const period of periods) {
     y = drawPeriodTable(doc, {
       title: PERIOD_LABEL[period],
       days,
       dateKeys,
       rows,
+      rowH,
       startY: y,
       cell: (emp, dateKey) => {
         const closed = schedule.isClosed(dateKey);
@@ -95,14 +104,14 @@ export async function exportScheduleWeekPdf({
           entry.kind,
           entry.kind === "TURNO"
             ? [
-                ...entry.blocks.map((b) => `${b.startTime}–${b.endTime}`),
+                ...entry.blocks.map(blockTimeLabel),
                 ...(entry.leave ? [leaveLabelFor(entry.leave.type, entry.leave.quantity)] : []),
               ].join("\n")
             : entryLabel(entry),
         );
       },
     });
-    y += 4;
+    y += PERIOD_GAP;
   }
 
   drawFooter(doc);
@@ -116,12 +125,14 @@ export async function exportMonthSummaryPdf({
   monthLabel,
   employees,
   blocks,
+  leaveEntries,
   closures,
 }: {
   monthDateKey: string;
   monthLabel: string;
   employees: Employee[];
   blocks: Block[];
+  leaveEntries: Leave[];
   closures: Closure[];
 }) {
   const { weekRangesInMonth, toDateKey } = await import("@/lib/week");
@@ -136,7 +147,9 @@ export async function exportMonthSummaryPdf({
     allDates.push(toDateKey(cursor));
     cursor = addDays(cursor, 1);
   }
-  const schedule = buildSchedule({ dateKeys: allDates, employees: rows, blocks, leaveEntries: [], closures });
+  // Con le assenze, come la vista Mese: senza, un turno rimasto sotto un giorno
+  // di ferie veniva sommato e il PDF dava più ore della vista.
+  const schedule = buildSchedule({ dateKeys: allDates, employees: rows, blocks, leaveEntries, closures });
 
   const doc = await newLandscapeDoc();
   let y = drawHeader(doc, "Riepilogo ore — tutto il personale", monthLabel);
@@ -146,7 +159,7 @@ export async function exportMonthSummaryPdf({
   drawGenericTable(doc, {
     startY: y,
     colWidths: colW,
-    header: ["Dipendente", ...weeks.map((w) => `${formatDayMonth(w.start)}–${formatDayMonth(w.end)}`), "Totale"],
+    header: ["Dipendente", ...weeks.map((w) => formatDaySpan(w.start, w.end)), "Totale"],
     rows: rows.map((emp) => [
       emp.name,
       ...weeks.map((w) => formatHours(schedule.hoursInRange(emp.id, toDateKey(w.start), toDateKey(w.end)))),
@@ -160,6 +173,9 @@ export async function exportMonthSummaryPdf({
 }
 
 // --- disegno specifico della griglia orari ----------------------------------
+
+const PERIOD_HEADER_H = 10;
+const PERIOD_GAP = 4;
 
 type CellStyle = { text: string; color: readonly [number, number, number]; bold: boolean; kind: string };
 
@@ -186,6 +202,7 @@ function drawPeriodTable(
     days: Date[];
     dateKeys: string[];
     rows: Employee[];
+    rowH: number;
     startY: number;
     cell: (emp: Employee, dateKey: string) => CellStyle;
   },
@@ -194,8 +211,8 @@ function drawPeriodTable(
   // capire e lascia più respiro alle colonne dei giorni.
   const nameColW = 50;
   const dayColW = (CONTENT_W - nameColW) / 7;
-  const headerH = 10;
-  const rowH = 9;
+  const headerH = PERIOD_HEADER_H;
+  const rowH = opts.rowH;
   let y = opts.startY;
 
   // Intestazione (fascia + giorni): estratta in una funzione perché va

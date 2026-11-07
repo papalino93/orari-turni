@@ -21,7 +21,9 @@ export function PhoneQr({ admin }: { admin: boolean }) {
   }, []);
   if (!qr) return null;
   return (
-    <div className="flex items-center gap-5 rounded-2xl border border-accent/40 bg-surface px-5 py-4">
+    // Solo su uno schermo largo: su un telefono che si presenta come computer (o una finestra
+    // stretta) il codice da inquadrare non serve.
+    <div className="hidden items-center gap-5 rounded-2xl border border-accent/40 bg-surface px-5 py-4 md:flex">
       {/* eslint-disable-next-line @next/next/no-img-element -- immagine generata qui */}
       <img src={qr} alt="Codice QR per aprire questa pagina sul telefono" width={110} height={110} className="shrink-0 rounded-lg bg-white p-1" />
       <div>
@@ -442,11 +444,11 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
         </Step>
         <Step n={4} title="Metti un widget sulla Home">
           <p>
-            Tieni premuto su uno spazio vuoto della Home finché le icone tremano, tocca <Key>Modifica</Key> in alto a sinistra, poi
+            Tieni premuto su uno spazio vuoto della Home finché le icone tremano, tocca <Key>Modifica</Key> in alto a sinistra, poi{" "}
             <span className="whitespace-nowrap"><Key>Aggiungi widget</Key>.</span>
           </p>
           <p>
-            Cerca <b className="text-foreground">Scriptable</b>, scorri fino alla grandezza giusta (la trovi qui sotto, sotto ogni widget) e tocca
+            Cerca <b className="text-foreground">Scriptable</b>, scorri fino alla grandezza giusta (la trovi qui sotto, sotto ogni widget) e tocca{" "}
             <span className="whitespace-nowrap"><Key>Aggiungi widget</Key>.</span>
           </p>
         </Step>

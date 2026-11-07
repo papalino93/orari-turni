@@ -16,10 +16,17 @@ import { prisma } from "@/lib/prisma";
 const ALGORITHM = "aes-256-gcm";
 const KEY_SALT = "orari-turni:employee-password:v1";
 
+// scrypt è lento apposta (decine di ms): ricalcolarlo per ogni password
+// rallentava la pagina Dipendenti di mezzo secondo e più. La chiave si
+// calcola una volta e si tiene in memoria, legata al segreto da cui viene
+// (se il segreto cambiasse, si ricalcola).
+let cachedKey: { secret: string; key: Buffer } | null = null;
+
 function getKey(): Buffer {
   const secret = process.env.NEXTAUTH_SECRET;
   if (!secret) throw new Error("NEXTAUTH_SECRET non configurato: impossibile cifrare/decifrare le password dei dipendenti.");
-  return crypto.scryptSync(secret, KEY_SALT, 32);
+  if (cachedKey?.secret !== secret) cachedKey = { secret, key: crypto.scryptSync(secret, KEY_SALT, 32) };
+  return cachedKey.key;
 }
 
 export function encryptEmployeePassword(plain: string): string {
@@ -41,19 +48,27 @@ export function decryptEmployeePassword(stored: string): string {
 }
 
 // Parole del mondo del vino invece di stringhe a caso: facili da leggere al
-// telefono e da ricordare, come richiesto. + 3 cifre casuali per non essere
-// indovinabili da chi conosce solo il nome del dipendente.
+// telefono e da ricordare, come richiesto. Due parole diverse + 3 cifre (oltre
+// un milione di combinazioni), estratte con il generatore sicuro di Node e non
+// con Math.random: non indovinabili da chi conosce il nome del dipendente, e con
+// il freno ai tentativi sbagliati (lib/login-limit.ts) nemmeno a forza di prove.
+// Le password già assegnate restano quelle: cambia solo come si creano le nuove.
 const WINE_WORDS = [
   "Nebbiolo", "Sangiovese", "Barbera", "Trebbiano", "Vermentino", "Moscato",
   "Primitivo", "Malvasia", "Brunello", "Amarone", "Passito", "Grillo",
   "Chianti", "Barolo", "Riesling", "Falanghina", "Aglianico", "Cortese",
   "Verdicchio", "Nerello", "Cannonau", "Lambrusco", "Refosco", "Bonarda",
+  "Dolcetto", "Arneis", "Fiano", "Greco", "Lagrein", "Pecorino", "Prosecco",
+  "Marsala", "Vernaccia", "Albana", "Freisa", "Sagrantino", "Teroldego",
+  "Ciliegiolo", "Negroamaro",
 ];
 
 export function generateEmployeePassword(): string {
-  const word = WINE_WORDS[Math.floor(Math.random() * WINE_WORDS.length)];
-  const digits = String(Math.floor(100 + Math.random() * 900));
-  return `${word}${digits}`;
+  const first = crypto.randomInt(WINE_WORDS.length);
+  // La seconda parola è sempre diversa dalla prima («BaroloBarolo» si detta male).
+  const second = (first + 1 + crypto.randomInt(WINE_WORDS.length - 1)) % WINE_WORDS.length;
+  const digits = String(crypto.randomInt(100, 1000));
+  return `${WINE_WORDS[first]}${WINE_WORDS[second]}${digits}`;
 }
 
 function slugify(name: string): string {

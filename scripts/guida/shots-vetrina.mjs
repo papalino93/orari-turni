@@ -5,7 +5,7 @@ import { launch, login, BASE, ADMIN_PW } from "../menu-e2e/lib.mjs";
 import { WORK } from "./work.mjs";
 
 const OUT = `${WORK}/img`;
-const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
+const DB = (sql) => execFileSync("psql", ["-h", "localhost", "-U", "orari", process.env.E2E_DB || "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } }).toString().trim();
 const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(new Date());
 const until = new Date(`${today}T12:00:00Z`);
 until.setUTCDate(until.getUTCDate() + 30);

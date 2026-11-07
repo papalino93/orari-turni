@@ -28,7 +28,7 @@ import { ConfirmWeekButton } from "./confirm-week";
 import { SummaryExportButton } from "./summary-export-button";
 import { ClearWeekButton } from "./clear-week-button";
 import { CopyWeekButton } from "./copy-week-button";
-import { useToast, runWithToast } from "@/components/toast";
+import { useToast, runWithToast, showActionError } from "@/components/toast";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { confirmPastShifts, setWeekPublished, undoConfirmShifts } from "./actions";
 
@@ -65,6 +65,7 @@ export function OrariView({
   leaveEntries,
   closures,
   weekPlan,
+  clearWeekWarnings = [],
 }: {
   view: ViewMode;
   displayMode: DisplayMode;
@@ -84,6 +85,8 @@ export function OrariView({
   leaveEntries: Leave[];
   closures: Closure[];
   weekPlan: { publishedAt: string | null; changedAfterConfirm: boolean };
+  /** Avvisi per la conferma di «Svuota settimana» (settimana passata, ore già inviate o approvate). */
+  clearWeekWarnings?: string[];
 }) {
   const router = useRouter();
   const date = parseDateKey(dateKey);
@@ -199,11 +202,13 @@ export function OrariView({
             ? {
                 label: "Annulla",
                 onClick: () => {
-                  void undoConfirmShifts(ids).then((r) => {
-                    if (r.ok) toast.showSuccess("Verifica annullata");
-                    else toast.showError(r.error);
-                    router.refresh();
-                  });
+                  void undoConfirmShifts(ids)
+                    .then((r) => {
+                      if (r.ok) toast.showSuccess("Verifica annullata");
+                      else toast.showError(r.error);
+                      router.refresh();
+                    })
+                    .catch((e) => showActionError(toast, e));
                 },
               }
             : undefined,
@@ -319,6 +324,17 @@ export function OrariView({
               {confirming ? "Verifica…" : `⚠️ ${schedule.unverifiedPastBlocks} da verificare`}
             </button>
           )}
+          {/* Prima il numero delle anomalie si vedeva solo aprendo «Impostazioni vista». */}
+          {(view === "week" || view === "day") && schedule.anomalies.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              className="min-h-11 rounded-full border border-border px-4 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+              title="Vedi cosa controllare"
+            >
+              {schedule.anomalies.length === 1 ? "1 cosa da controllare" : `${schedule.anomalies.length} cose da controllare`}
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {view === "week" && (
@@ -346,7 +362,7 @@ export function OrariView({
               employeeFilter={employeeFilter}
             />
           )}
-          {view === "month" && <SummaryExportButton monthDateKey={dateKey} employees={employees} blocks={blocks} closures={closures} />}
+          {view === "month" && <SummaryExportButton monthDateKey={dateKey} employees={employees} blocks={blocks} leaveEntries={leaveEntries} closures={closures} />}
         </div>
       </div>
 
@@ -368,6 +384,7 @@ export function OrariView({
           onUnshare={unshare}
           unsharing={publishing}
           weekStartKey={weekStartKey}
+          clearWeekWarnings={clearWeekWarnings}
           onNavigate={navigate}
           onClose={() => setSettingsOpen(false)}
         />
@@ -392,6 +409,7 @@ function SettingsSheet({
   onUnshare,
   unsharing,
   weekStartKey,
+  clearWeekWarnings,
   onNavigate,
   onClose,
 }: {
@@ -404,6 +422,7 @@ function SettingsSheet({
   onUnshare: () => void;
   unsharing: boolean;
   weekStartKey: string;
+  clearWeekWarnings: string[];
   onNavigate: (params: { view?: ViewMode; date?: string; employee?: string | null; mode?: DisplayMode }) => void;
   onClose: () => void;
 }) {
@@ -458,7 +477,7 @@ function SettingsSheet({
 
           {view === "week" && (
             <SheetSection label="Azioni">
-              <ClearWeekButton weekStartKey={weekStartKey} variant="menuitem" />
+              <ClearWeekButton weekStartKey={weekStartKey} variant="menuitem" warnings={clearWeekWarnings} />
             </SheetSection>
           )}
         </div>
@@ -470,7 +489,7 @@ function SettingsSheet({
 function SheetSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mb-4 last:mb-0">
-      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted/70">{label}</p>
+      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted">{label}</p>
       {children}
     </div>
   );
@@ -498,7 +517,7 @@ function WeekSummary({
         (isPublished ? (
           <InfoPopoverBadge tone="success" label={<>✓ Orari confermati</>}>
             <p className="text-foreground">I dipendenti vedono i loro turni di questa settimana in «Le mie ore».</p>
-            <p className="mt-1 text-foreground-muted">Se cambi un turno, la conferma si toglie da sola e va rifatta.</p>
+            <p className="mt-1 text-foreground-muted">Se cambi un turno, la conferma si toglie da sola: i dipendenti non vedono più questa settimana finché non la confermi di nuovo.</p>
             <button
               type="button"
               onClick={onUnshare}
@@ -527,22 +546,27 @@ function WeekSummary({
         </Badge>
       )}
       {anomalyCount > 0 ? (
-        <InfoPopoverBadge tone="warning" label={<>⚠️ {anomalyCount} da controllare</>}>
-          <p className="mb-1.5 font-medium text-foreground">Turni che vale la pena ricontrollare:</p>
+        <Badge tone="warning">⚠️ {anomalyCount} da controllare</Badge>
+      ) : (
+        <Badge tone="success">✓ 0 anomalie</Badge>
+      )}
+      {/* L'elenco sta sotto i riquadri, a tutta larghezza: prima era un
+          riquadro sospeso che usciva dal bordo della finestra ed era tagliato. */}
+      {anomalyCount > 0 && (
+        <div className="w-full rounded-xl border border-gold/30 bg-gold/[0.06] p-3">
+          <p className="mb-1.5 font-medium text-foreground">Da ricontrollare:</p>
           <ul className="space-y-1 text-foreground-muted">
-            {schedule.anomalies.slice(0, 6).map((a, i) => (
+            {schedule.anomalies.slice(0, 8).map((a, i) => (
               <li key={i} className="flex gap-1.5">
                 <span aria-hidden>·</span>
                 <span>{a.message}</span>
               </li>
             ))}
           </ul>
-          {schedule.anomalies.length > 6 && (
-            <p className="mt-1 text-foreground-muted">+ altr{schedule.anomalies.length - 6 === 1 ? "o" : "i"} {schedule.anomalies.length - 6}</p>
+          {anomalyCount > 8 && (
+            <p className="mt-1 text-foreground-muted">+ altr{anomalyCount - 8 === 1 ? "o" : "i"} {anomalyCount - 8}</p>
           )}
-        </InfoPopoverBadge>
-      ) : (
-        <Badge tone="success">✓ 0 anomalie</Badge>
+        </div>
       )}
     </div>
   );
@@ -724,7 +748,7 @@ function ViewSwitcher({ view, onSelect }: { view: ViewMode; onSelect: (v: ViewMo
               }`}
             >
               {VIEW_LABELS[v]}
-              <span className="text-[10px] font-medium uppercase tracking-wide text-foreground-muted/60">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-foreground-muted">
                 {VIEW_EDITABLE[v] ? "Modifica" : "Sola lettura"}
               </span>
             </button>
@@ -764,7 +788,7 @@ function DisplayModeMenu({ mode, onSelect }: { mode: DisplayMode; onSelect: (m: 
       </button>
       {open && (
         <div role="menu" className="absolute left-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-xl">
-          <p className="px-3 pb-1 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-foreground-muted/60">
+          <p className="px-3 pb-1 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-foreground-muted">
             Visualizza per
           </p>
           {(Object.keys(DISPLAY_MODE_LABELS) as DisplayMode[]).map((m) => (

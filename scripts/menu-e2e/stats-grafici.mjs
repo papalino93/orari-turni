@@ -77,7 +77,14 @@ for (const [label, w, h, theme] of [["computer", 1280, 900, "light"], ["telefono
   // Eventi
   const body = await p.locator("body").innerText();
   check(`${label}: scheda «Gli eventi funzionano?»`, /Gli eventi funzionano\?/.test(body));
-  check(`${label}: eventi, aperture medie al giorno a confronto`, /Giorni con un evento \(2\)/.test(body) && /Altri giorni \(12\)/.test(body));
+  // I 2 giorni dell'evento (12 aperture) contro gli STESSI giorni della settimana senza evento
+  // (una settimana prima: 4 aperture), non contro tutti gli altri giorni; sotto 4 serate niente percentuale.
+  const flat = body.replace(/\s+/g, " ");
+  check(
+    `${label}: eventi, aperture medie al giorno a confronto`,
+    /Giorni con un evento \(2\) 12 al giorno/.test(flat) && /Stessi giorni senza evento \(2\) 4 al giorno/.test(flat) && /Solo 2 serate con evento/.test(flat),
+    (flat.match(/Giorni con un evento[^%]{0,160}/) ?? [""])[0],
+  );
   const card = p.getByRole("region", { name: "Evento: Serata di prova" });
   const t = await card.innerText();
   check(`${label}: scheda dell'evento con la pagina aperta (7)`, /Hanno aperto la pagina\s*7/.test(t.replace(/\n/g, " ")), t);
