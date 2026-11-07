@@ -93,7 +93,7 @@ export function Sheet({
 }
 
 export const inputClass =
-  "w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-base text-foreground outline-none placeholder:text-foreground-muted/60 focus:border-accent sm:text-sm";
+  "w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-base text-foreground outline-none placeholder:text-foreground-muted focus:border-accent sm:text-sm";
 
 // Campi data: stesso aspetto degli altri, ma senza che il testo si tagli o si
 // sposti (su iOS/Android l'input date ha misure sue) quando la colonna è stretta.
@@ -104,7 +104,7 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
     <label className="block">
       <span className="mb-1 block text-xs font-medium text-foreground-muted">{label}</span>
       {children}
-      {hint && <span className="mt-1 block text-[11px] text-foreground-muted/80">{hint}</span>}
+      {hint && <span className="mt-1 block text-[11px] text-foreground-muted">{hint}</span>}
     </label>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { formatPromoDates, promoStatus } from "@/lib/menu-format";
+import { formatPromoDates } from "@/lib/menu-format";
+import { PromoBadge } from "./promo-badge";
 
 export type StripPromo = {
   id: string;
@@ -10,6 +11,8 @@ export type StripPromo = {
   showFrom: string;
   startDate: string;
   endDate: string;
+  startTime: string | null;
+  endTime: string | null;
   imageUpdatedAt: Date | null;
   imageWidth: number | null;
   imageHeight: number | null;
@@ -23,6 +26,9 @@ function Poster({ promo, className }: { promo: StripPromo; className: string }) 
       alt=""
       width={promo.imageWidth ?? 99}
       height={promo.imageHeight ?? 124}
+      // Miniature: si scaricano quando stanno per entrare nello schermo, senza bloccare la pagina.
+      loading="lazy"
+      decoding="async"
       className={`${className} flex-none rounded-[10px] object-cover`}
     />
   ) : (
@@ -34,7 +40,6 @@ function Poster({ promo, className }: { promo: StripPromo; className: string }) 
 
 // Scheda grande: locandina a sinistra, tipo, date e titolo a destra, «Scopri» in fondo.
 function Card({ promo, dayKey, big }: { promo: StripPromo; dayKey: string; big: boolean }) {
-  const status = promoStatus(promo, dayKey);
   const name = promo.label || (promo.kind === "EVENT" ? "Evento" : "Annuncio");
   return (
     <Link href={`/menu/p/${promo.slug}`} className="flex w-full items-start gap-4 rounded-[18px] border border-[#D9CEBC] bg-[#FBF7EF] p-3.5 no-underline">
@@ -43,14 +48,20 @@ function Card({ promo, dayKey, big }: { promo: StripPromo; dayKey: string; big: 
           restano in riga anche con titoli di lunghezza diversa. */}
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 self-stretch py-0.5">
         {/* «In corso» è un bollino a parte: con un'etichetta lunga non finisce mai nei puntini. */}
-        {status === "live" && (
-          <span className="menu-sans self-start rounded-full bg-[#6B1020] px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-[#F4EEE3]">
-            In corso
-          </span>
-        )}
-        <div className="menu-sans line-clamp-2 text-[12px] font-medium uppercase leading-snug tracking-[0.18em] text-[#9C7A45]">{name}</div>
+        <PromoBadge
+          showFrom={promo.showFrom}
+          startDate={promo.startDate}
+          endDate={promo.endDate}
+          startTime={promo.startTime}
+          endTime={promo.endTime}
+          dayKey={dayKey}
+        />
+        <div className="menu-sans line-clamp-2 text-[12px] font-medium uppercase leading-snug tracking-[0.18em] text-[#7A5A22]">{name}</div>
         <div className="menu-sans -mt-1 truncate text-[15px] text-[#4A504B]">{formatPromoDates(promo.startDate, promo.endDate)}</div>
-        <div className={`menu-serif mt-0.5 line-clamp-3 text-balance font-medium leading-[1.05] text-[#6B1020] ${big ? "text-[29px] sm:text-[35px]" : "text-[27px]"}`}>
+        {promo.kind === "EVENT" && promo.startTime && (
+          <div className="menu-sans -mt-1 text-[13px] text-[#4A504B]">{promo.endTime ? `Ore ${promo.startTime}–${promo.endTime}` : `Dalle ${promo.startTime}`}</div>
+        )}
+        <div className={`menu-serif mt-0.5 line-clamp-3 text-balance font-medium [overflow-wrap:anywhere] leading-[1.05] text-[#6B1020] ${big ? "text-[29px] sm:text-[35px]" : "text-[27px]"}`}>
           {promo.title}
         </div>
         <div className="menu-sans mt-auto pt-1 text-[13px] font-medium uppercase tracking-[0.18em] text-[#6B1020]">Scopri →</div>

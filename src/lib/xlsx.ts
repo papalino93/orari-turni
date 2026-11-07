@@ -17,13 +17,23 @@ function parseXml(files: Record<string, Uint8Array>, name: string): Document | n
 
 // Le intestazioni stanno nella prima riga che contiene una colonna "email"
 // (nel file reale ci sono alcune righe di titolo sopra).
+// Un file che non è un vero .xlsx (un .xls vecchio, un .numbers, un file rovinato) fa
+// rispondere la libreria in inglese («invalid zip data»): al titolare arriva invece un
+// messaggio in italiano che dice cosa fare.
+export const XLSX_UNREADABLE = "Non riesco ad aprire questo file Excel: salvalo di nuovo come .xlsx.";
+
 export function readXlsx(buffer: ArrayBuffer): Sheet {
-  const files = unzipSync(new Uint8Array(buffer));
+  let files: Record<string, Uint8Array>;
+  try {
+    files = unzipSync(new Uint8Array(buffer));
+  } catch {
+    throw new Error(XLSX_UNREADABLE);
+  }
   const sheetName = Object.keys(files)
     .filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n))
     .sort((a, b) => parseInt(a.replace(/\D/g, "")) - parseInt(b.replace(/\D/g, "")))[0];
   const sheet = sheetName && parseXml(files, sheetName);
-  if (!sheet) throw new Error("File non valido: nessun foglio trovato.");
+  if (!sheet || sheet.getElementsByTagName("parsererror").length > 0) throw new Error(XLSX_UNREADABLE);
 
   const shared: string[] = [];
   const sst = parseXml(files, "xl/sharedStrings.xml");

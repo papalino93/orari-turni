@@ -8,7 +8,10 @@ export function Variants({ variants, soldOut }: { variants: MenuVariant[]; soldO
       {variants.map((v) => (
         <div key={v.label} className="menu-sans flex items-baseline gap-2 text-base">
           <span className="text-[13px] text-[#5B605A]">{v.label}</span>
-          <span className="min-w-8 text-right font-medium text-[#6B1020]">{formatPrice(v.cents)}</span>
+          <span className="min-w-8 text-right font-medium text-[#6B1020]">
+            <span className="sr-only">€ </span>
+            {formatPrice(v.cents)}
+          </span>
         </div>
       ))}
     </div>
@@ -53,6 +56,7 @@ export function FormatPrices({
           <div key={f} className="w-11 sm:w-14" />
         ))}
         <div className={`menu-sans absolute right-0 top-0 whitespace-nowrap text-right text-base font-medium text-[#6B1020] ${soldOut ? "line-through" : ""}`}>
+          <span className="sr-only">€ </span>
           {formatPrice(price)}
         </div>
       </div>
@@ -64,7 +68,18 @@ export function FormatPrices({
         const v = variants?.find((x) => x.label === f);
         return (
           <div key={f} className={`menu-sans w-11 flex-none text-right text-base font-medium text-[#6B1020] sm:w-14 ${soldOut ? "line-through" : ""}`}>
-            {v ? formatPrice(v.cents) : "—"}
+            {/* Per il lettore dello schermo: «0,4 l € 6», non solo «6». */}
+            {v ? (
+              <>
+                <span className="sr-only">{f} € </span>
+                {formatPrice(v.cents)}
+              </>
+            ) : (
+              <>
+                <span aria-hidden>—</span>
+                <span className="sr-only">{f} non disponibile</span>
+              </>
+            )}
           </div>
         );
       })}

@@ -187,6 +187,53 @@ export function promoStatus(p: PromoDates, today: string): PromoStatus {
   return "scheduled";
 }
 
+// Giorno del calendario e minuti dalla mezzanotte, ora di Roma.
+function romeClock(now: Date): { dateKey: string; minutes: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((x) => x.type === type)?.value ?? "00";
+  return { dateKey: `${get("year")}-${get("month")}-${get("day")}`, minutes: Number(get("hour")) * 60 + Number(get("minute")) };
+}
+
+function addDays(key: string, days: number): string {
+  const { d, m, y } = dayParts(key);
+  return new Date(Date.UTC(y, m, d + days)).toISOString().slice(0, 10);
+}
+
+const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+
+// Stato di un evento in questo momento, tenendo conto dell'orario se c'è: «In corso» solo dentro
+// la fascia oraria (anche oltre la mezzanotte: 21:00–02:00), e prima dell'inizio, nel giorno
+// dell'evento, `todayFrom` = l'ora d'inizio («Stasera dalle 21:00»). Senza orario vale il giorno
+// (come promoStatus). Si calcola sull'orologio del telefono: le pagine del menù sono in cache.
+export function promoNow(
+  p: PromoDates & { startTime?: string | null; endTime?: string | null },
+  now: Date = new Date(),
+): { status: PromoStatus; todayFrom: string | null } {
+  const byDay = promoStatus(p, businessDayKey(now));
+  if (!p.startTime || byDay === "scheduled") return { status: byDay, todayFrom: null };
+  const { dateKey, minutes } = romeClock(now);
+  const start = toMinutes(p.startTime);
+  let end = p.endTime ? toMinutes(p.endTime) : 5 * 60; // senza fine: fino alla chiusura della giornata (le 5:00)
+  if (end <= start) end += 1440;
+  // Fascia del giorno di ieri che arriva fino a oggi, e quella di oggi.
+  for (const [day, offset] of [[addDays(dateKey, -1), -1440], [dateKey, 0]] as const) {
+    if (day < p.startDate || day > p.endDate) continue;
+    if (start + offset <= minutes && minutes < end + offset) return { status: "live", todayFrom: null };
+  }
+  // Fuori dalla fascia: prima della prossima volta è «annunciato», dopo l'ultima è concluso.
+  if (dateKey >= p.startDate && dateKey <= p.endDate && minutes < start) return { status: "announced", todayFrom: p.startTime };
+  if (dateKey >= p.endDate) return { status: "past", todayFrom: null };
+  return { status: "announced", todayFrom: null };
+}
+
 // Ordine di eventi e annunci, uguale in «In evidenza» e nella gestione: prima quelli
 // messi in ordine a mano («Riordina»), poi gli altri per data di inizio.
 export function comparePromos(

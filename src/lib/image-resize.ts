@@ -6,8 +6,18 @@ export type ResizedImage = { blob: Blob; width: number; height: number };
 
 const MAX_BYTES = 800 * 1024;
 
+// Il browser, se non sa leggere il file (HEIC su un computer, file rovinato, non una
+// foto), risponde in inglese («The source image could not be decoded.»): al titolare
+// arriva invece un messaggio in italiano che dice cosa fare.
+export const PHOTO_UNREADABLE = "Non riesco ad aprire questa foto: scegline una JPG o PNG.";
+
 export async function resizeToJpeg(file: File, maxWidth = 1200, maxHeight = 1600): Promise<ResizedImage> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    throw new Error(PHOTO_UNREADABLE);
+  }
   const scale = Math.min(1, maxWidth / bitmap.width, maxHeight / bitmap.height);
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));

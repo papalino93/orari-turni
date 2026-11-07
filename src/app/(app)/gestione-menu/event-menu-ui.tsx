@@ -6,12 +6,16 @@ import { useToast } from "@/components/toast";
 import { ZoomableImage } from "@/components/zoomable-image";
 import { resizeToJpeg } from "@/lib/image-resize";
 import { pdfToJpegs, type PageImage } from "@/lib/pdf-pages";
-import { addPromoPage, clearPromoPages, movePromoPage, removePromoPage, setPromoMenu } from "./promo-actions";
+import { addPromoPage, movePromoPage, removePromoPage, removePromoPages, setPromoMenu } from "./promo-actions";
+import { safeAction, type Result } from "./network";
 import { inputClass } from "./sheet";
 import type { EditorPromo, RunFn } from "./menu-editor";
 
 const MAX_PAGES = 6;
 const DEFAULT_NOTICE = "Allergeni: chiedi al personale.";
+
+// Errore con un messaggio già scritto per il titolare (gli altri, del browser, no).
+class UploadError extends Error {}
 
 // Impostazioni del menù speciale di un evento: voce per voce o PDF/foto, note in
 // cima, avviso allergeni unico; con «PDF o foto» anche le pagine caricate.
@@ -26,6 +30,9 @@ export function EventMenuPanel({ promo, run }: { promo: EditorPromo; run: RunFn 
   const [progress, setProgress] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const replaceRef = useRef(false);
+  // Conferme: togliere una pagina, sostituire tutte le pagine.
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const [confirmReplace, setConfirmReplace] = useState(false);
 
   const changed =
     mode !== promo.menuMode ||
@@ -35,29 +42,35 @@ export function EventMenuPanel({ promo, run }: { promo: EditorPromo; run: RunFn 
 
   async function save(nextMode = mode) {
     setBusy(true);
-    await run(() => setPromoMenu(promo.id, { mode: nextMode, note, allergenNotice: nextMode === "FILE" || notice, allergenText: noticeText }), "Menù speciale salvato");
+    await run(
+      () => safeAction(() => setPromoMenu(promo.id, { mode: nextMode, note, allergenNotice: nextMode === "FILE" || notice, allergenText: noticeText })),
+      "Menù speciale salvato",
+    );
     setBusy(false);
   }
 
   async function upload(files: FileList | null) {
     if (!files || files.length === 0) return;
     const list = [...files];
+    const replacing = replaceRef.current;
+    const oldIds = promo.pages.map((p) => p.id);
+    const added: string[] = [];
     setBusy(true);
     try {
       let images: PageImage[] = [];
       const pdf = list.find((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
-      const room = MAX_PAGES - (replaceRef.current ? 0 : promo.pages.length);
+      const room = MAX_PAGES - (replacing ? 0 : promo.pages.length);
       if (pdf) {
-        if (list.length > 1) throw new Error("Scegli un solo PDF, oppure solo foto.");
+        if (list.length > 1) throw new UploadError("Scegli un solo PDF, oppure solo foto.");
         images = await pdfToJpegs(pdf, room, (n, total) => setProgress(`Preparo la pagina ${n} di ${total}…`));
       } else {
-        if (list.length > room) throw new Error(`Al massimo ${MAX_PAGES} pagine in tutto.`);
+        if (list.length > room) throw new UploadError(`Al massimo ${MAX_PAGES} pagine in tutto.`);
         for (const [i, f] of list.entries()) {
           setProgress(`Preparo la foto ${i + 1} di ${list.length}…`);
           images.push(await resizeToJpeg(f, 1400, 2400));
         }
       }
-      if (replaceRef.current) await clearPromoPages(promo.id);
+      // Prima si caricano le nuove pagine; le vecchie si tolgono solo alla fine.
       for (const [i, img] of images.entries()) {
         setProgress(`Carico la pagina ${i + 1} di ${images.length}…`);
         const fd = new FormData();
@@ -65,14 +78,28 @@ export function EventMenuPanel({ promo, run }: { promo: EditorPromo; run: RunFn 
         fd.set("file", img.blob, `pagina-${i + 1}.jpg`);
         fd.set("width", String(img.width));
         fd.set("height", String(img.height));
-        const res = await addPromoPage(fd);
-        if (!res.ok) throw new Error(res.error);
+        if (replacing) fd.set("replacing", "1");
+        const res = await safeAction(() => addPromoPage(fd));
+        if (!res.ok) throw new UploadError(res.error);
+        added.push(res.data.id);
+      }
+      if (replacing) {
+        const res = await safeAction(() => removePromoPages(promo.id, oldIds));
+        if (!res.ok) throw new UploadError(res.error);
       }
       // Caricare un menù vuol dire usarlo: si passa a «PDF o foto» se non lo era già.
-      if (promo.menuMode !== "FILE") await setPromoMenu(promo.id, { mode: "FILE", note, allergenNotice: true, allergenText: noticeText });
-      toast.showSuccess(images.length === 1 ? "Pagina caricata" : `${images.length} pagine caricate`);
+      if (promo.menuMode !== "FILE") await safeAction(() => setPromoMenu(promo.id, { mode: "FILE", note, allergenNotice: true, allergenText: noticeText }));
+      toast.showSuccess(
+        replacing ? "Pagine sostituite" : images.length === 1 ? "Pagina caricata" : `${images.length} pagine caricate`,
+      );
     } catch (error) {
-      toast.showError(error instanceof Error ? error.message : "Impossibile caricare il file.");
+      // Caricamento interrotto: si tolgono le pagine nuove già arrivate, il menù resta com'era.
+      if (added.length) await safeAction(() => removePromoPages(promo.id, added));
+      toast.showError(
+        error instanceof UploadError
+          ? `${error.message}${added.length || replacing ? " Le pagine di prima sono rimaste com'erano." : ""}`
+          : "Non riesco a leggere il file: prova con un altro PDF o con delle foto.",
+      );
     }
     replaceRef.current = false;
     setProgress(null);
@@ -81,10 +108,10 @@ export function EventMenuPanel({ promo, run }: { promo: EditorPromo; run: RunFn 
     router.refresh();
   }
 
-  async function pageAction(fn: () => Promise<{ ok: boolean; error?: string }>) {
+  async function pageAction(fn: () => Promise<Result<unknown>>) {
     setBusy(true);
-    const res = await fn();
-    if (!res.ok) toast.showError(res.error ?? "Errore.");
+    const res = await safeAction(fn);
+    if (!res.ok) toast.showError(res.error);
     setBusy(false);
     router.refresh();
   }
@@ -160,22 +187,44 @@ export function EventMenuPanel({ promo, run }: { promo: EditorPromo; run: RunFn 
             Un PDF fino a {MAX_PAGES} pagine, oppure da 1 a {MAX_PAGES} foto. Il PDF diventa immagini: i clienti lo leggono dentro il menù.
           </p>
           {promo.pages.length > 0 && (
-            <ul className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6">
+            <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
               {promo.pages.map((p, i) => (
                 <li key={p.id} className="flex flex-col items-center gap-1.5">
                   <ZoomableImage src={`/menu/p/${promo.slug}/pagina/${p.id}`} label={`Ingrandisci la pagina ${i + 1}`} className="h-28 w-20 rounded-lg border border-border bg-white object-contain" />
                   <span className="text-[11px] text-foreground-muted">Pagina {i + 1}</span>
-                  <div className="flex gap-1">
-                    <button type="button" aria-label={`Sposta su la pagina ${i + 1}`} disabled={busy || i === 0} onClick={() => pageAction(() => movePromoPage(p.id, "up"))} className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted disabled:opacity-30">
-                      ↑
-                    </button>
-                    <button type="button" aria-label={`Sposta giù la pagina ${i + 1}`} disabled={busy || i === promo.pages.length - 1} onClick={() => pageAction(() => movePromoPage(p.id, "down"))} className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted disabled:opacity-30">
-                      ↓
-                    </button>
-                    <button type="button" aria-label={`Togli la pagina ${i + 1}`} disabled={busy} onClick={() => pageAction(() => removePromoPage(p.id))} className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-danger hover:text-danger disabled:opacity-30">
-                      ✕
-                    </button>
-                  </div>
+                  {confirmRemove === p.id ? (
+                    <div className="flex flex-col items-center gap-1.5 rounded-xl border border-danger/30 bg-danger-bg px-2 py-2">
+                      <span className="text-center text-[11px] text-danger">Togliere la pagina {i + 1}?</span>
+                      <div className="flex gap-1.5">
+                        <button type="button" onClick={() => setConfirmRemove(null)} className="min-h-11 rounded-full border border-border px-3 text-xs font-medium text-foreground-muted">
+                          Annulla
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setConfirmRemove(null);
+                            void pageAction(() => removePromoPage(p.id));
+                          }}
+                          className="min-h-11 rounded-full bg-danger px-3 text-xs font-semibold text-white disabled:opacity-60"
+                        >
+                          Togli
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1">
+                      <button type="button" aria-label={`Sposta su la pagina ${i + 1}`} disabled={busy || i === 0} onClick={() => pageAction(() => movePromoPage(p.id, "up"))} className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground-muted disabled:opacity-30">
+                        ↑
+                      </button>
+                      <button type="button" aria-label={`Sposta giù la pagina ${i + 1}`} disabled={busy || i === promo.pages.length - 1} onClick={() => pageAction(() => movePromoPage(p.id, "down"))} className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground-muted disabled:opacity-30">
+                        ↓
+                      </button>
+                      <button type="button" aria-label={`Togli la pagina ${i + 1}`} disabled={busy} onClick={() => setConfirmRemove(p.id)} className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-danger hover:text-danger disabled:opacity-30">
+                        ✕
+                      </button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -196,20 +245,37 @@ export function EventMenuPanel({ promo, run }: { promo: EditorPromo; run: RunFn 
               </button>
             )}
             {promo.pages.length > 0 && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  replaceRef.current = true;
-                  fileRef.current?.click();
-                }}
-                className={pill}
-              >
+              <button type="button" disabled={busy} onClick={() => setConfirmReplace(true)} className={pill}>
                 Sostituisci tutto
               </button>
             )}
             {progress && <span className="text-xs text-foreground-muted">{progress}</span>}
           </div>
+          {confirmReplace && (
+            <div className="mt-3 rounded-xl border border-border bg-surface-2 p-3">
+              <p className="text-xs text-foreground">
+                Scegli il nuovo PDF o le nuove foto: prendono il posto di tutte le {promo.pages.length} pagine di adesso. Quelle di adesso restano sul menù
+                finché le nuove non sono caricate.
+              </p>
+              <div className="mt-2.5 flex justify-end gap-2">
+                <button type="button" onClick={() => setConfirmReplace(false)} className="min-h-11 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted">
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirmReplace(false);
+                    replaceRef.current = true;
+                    fileRef.current?.click();
+                  }}
+                  className="min-h-11 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Scegli i file nuovi
+                </button>
+              </div>
+            </div>
+          )}
           {promo.pages.length === 0 && !progress && (
             <p className="mt-2 text-[11px] text-gold">Nessuna pagina: finché non carichi il menù, i clienti vedono solo locandina e testo.</p>
           )}

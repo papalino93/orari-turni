@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
 import { blockStatus, blockSummary, comparePromos, dishLabel, formatBlockDates, periodStatus, withDay, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
@@ -101,16 +101,19 @@ export type EditorPromo = {
   section: EditorSection | null;
 };
 
-export type HistoryEntry = {
-  id: string;
-  at: string;
-  actorName: string;
-  action: string;
-  label: string;
-  undone: boolean;
-};
+export type { HistoryEntry } from "./history";
+import type { HistoryEntry } from "./history";
 
 type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
+
+// Un'azione che non arriva al server (rete assente) o che il server non riconosce più
+// (sito aggiornato mentre la pagina era aperta) lancia un errore: invece della schermata
+// d'errore, un messaggio che dice cosa fare.
+export function actionErrorMessage(error: unknown): string {
+  const text = error instanceof Error ? error.message : String(error);
+  if (/server action|older or newer deployment|not found on the server/i.test(text)) return "Il sito è stato aggiornato: ricarica la pagina.";
+  return "Connessione assente: controlla la rete e riprova.";
+}
 
 // Esegue un'azione, mostra il toast giusto (con "Annulla" se la modifica è
 // annullabile) e ricarica i dati. message vuoto = nessun toast (es. riordino).
@@ -175,6 +178,7 @@ export function MenuEditor({
   blocks,
   venue,
   history,
+  canSeeStats = false,
 }: {
   sections: EditorSection[];
   daily: DailyData;
@@ -183,6 +187,8 @@ export function MenuEditor({
   blocks: MenuBlockView[];
   venue: EditorVenue;
   history: HistoryEntry[];
+  // «Statistiche» solo per titolare e consulente: un dipendente verrebbe rimandato alle sue ore.
+  canSeeStats?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -199,6 +205,13 @@ export function MenuEditor({
   const [copyOf, setCopyOf] = useState<{ id: string; name: string } | null>(null);
   // «Compila ora» dopo aver aggiunto un piatto senza allergeni: la scheda si apre già sugli allergeni.
   const [focusAllergens, setFocusAllergens] = useState<string | null>(null);
+  // Voce appena aggiunta: la gestione ci scorre e la evidenzia per qualche secondo (un vino
+  // nuovo va al posto della sua regione, non in fondo).
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  // «Riattiva tutto»: conferma prima di rimettere disponibili tutte le voci.
+  const [confirmReactivate, setConfirmReactivate] = useState(false);
+  // Evento o annuncio eliminato mentre era aperto: si passa al primo in programma (vedi sotto).
+  const [prevPromos, setPrevPromos] = useState(promos);
   // Stato "esaurito" mostrato subito, in attesa della risposta del server: vale
   // solo finché i dati ricaricati non lo sostituiscono (si confronta l'identità
   // dei dati, così non serve nessun effetto per "ripulirlo").
@@ -293,6 +306,27 @@ export function MenuEditor({
     }
   }
 
+  // La pagina aperta nella scheda «Eventi e annunci» è stata eliminata (non solo non ancora
+  // caricata, come subito dopo averla creata): si apre la prima in programma, oppure
+  // l'avviso «Nessun evento o annuncio in programma».
+  if (promos !== prevPromos) {
+    setPrevPromos(promos);
+    if (activeSlug.startsWith("promo:") && !promos.some((p) => `promo:${p.id}` === activeSlug) && prevPromos.some((p) => `promo:${p.id}` === activeSlug)) {
+      const next = promos.filter((p) => !(effectiveStatus(p, today) === "past" || (p.hidden && p.endDate < today))).sort(comparePromos)[0];
+      setActiveSlug(next ? `promo:${next.id}` : lastSectionSlug);
+    }
+  }
+
+  // Voce appena aggiunta: quando compare nell'elenco, ci si scorre e si evidenzia.
+  useEffect(() => {
+    if (!highlightId) return;
+    const el = document.getElementById(`voce-${highlightId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const t = setTimeout(() => setHighlightId(null), 3500);
+    return () => clearTimeout(t);
+  }, [highlightId, sections]);
+
   // Sul telefono l'elenco delle sezioni è sopra al contenuto: scegliendone una,
   // la pagina scorre da sola al contenuto invece di lasciarlo fuori schermo.
   function select(key: string | null) {
@@ -327,18 +361,32 @@ export function MenuEditor({
     select(first.key);
   }
 
-  async function undo(changeId: string) {
-    const res = await undoChange(changeId);
+  // Torna indietro (toast «Annulla» o Storico). true = fatto.
+  async function undo(changeId: string): Promise<boolean> {
+    let res: Awaited<ReturnType<typeof undoChange>>;
+    try {
+      res = await undoChange(changeId);
+    } catch (error) {
+      toast.showError(actionErrorMessage(error));
+      return false;
+    }
     if (!res.ok) {
       toast.showError(res.error);
-      return;
+      return false;
     }
-    toast.showSuccess("Modifica annullata");
+    toast.showSuccess(res.data.message);
     router.refresh();
+    return true;
   }
 
   const run: RunFn = async (fn, message) => {
-    const res = await fn();
+    let res: Awaited<ReturnType<typeof fn>>;
+    try {
+      res = await fn();
+    } catch (error) {
+      toast.showError(actionErrorMessage(error));
+      return null;
+    }
     if (!res.ok) {
       toast.showError(res.error);
       return null;
@@ -352,19 +400,26 @@ export function MenuEditor({
     return data;
   };
 
+  // I vini esauriti spariscono dalla carta dei clienti fino al giorno dopo: il messaggio lo dice.
+  const wineIds = new Set(allSections.filter((s) => s.kind === "WINE").flatMap((s) => s.groups.flatMap((g) => g.items.map((i) => i.id))));
   function toggleSold(item: EditorItem) {
     const next = !isSold(item);
     setLocal({ base: sections, map: { ...localSold, [item.id]: next } });
     startTransition(async () => {
       const result = await run(
         () => setSoldOut(item.id, next),
-        next ? `«${item.name}» segnata esaurita` : `«${item.name}» di nuovo disponibile`,
+        next
+          ? wineIds.has(item.id)
+            ? `«${item.name}» esaurito: tolto dalla carta fino a domattina`
+            : `«${item.name}» segnata esaurita`
+          : `«${item.name}» di nuovo disponibile`,
       );
       if (result === null) setLocal({ base: sections, map: { ...localSold } });
     });
   }
 
   function reactivateAll() {
+    setConfirmReactivate(false);
     const map: Record<string, boolean> = { ...localSold };
     for (const s of allSections) for (const g of s.groups) for (const i of g.items) map[i.id] = false;
     setLocal({ base: sections, map });
@@ -413,7 +468,7 @@ export function MenuEditor({
       >
         {/* Nella colonna del computer il titolo va a capo: l'etichetta «In corso» non lo taglia. */}
         <span className="truncate lg:line-clamp-2 lg:whitespace-normal">{p.title}</span>
-        {!active && (status === "past" ? <span className="shrink-0 text-[10px] text-foreground-muted/80">{p.endDate.slice(0, 4)}</span> : <StatusChip status={status} />)}
+        {!active && (status === "past" ? <span className="shrink-0 text-[10px] text-foreground-muted">{p.endDate.slice(0, 4)}</span> : <StatusChip status={status} />)}
       </button>
     );
   };
@@ -477,8 +532,8 @@ export function MenuEditor({
               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gold">Da sistemare</p>
               <div className="space-y-2">
                 {missingAllergens > 0 && (
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="min-w-0 flex-1 text-foreground">
+                  <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="min-w-0 text-foreground sm:flex-1">
                       {missingAllergens === 1 ? "1 piatto ha gli allergeni da compilare." : `${missingAllergens} piatti hanno gli allergeni da compilare.`}{" "}
                       <span className="text-foreground-muted">Finché non lo fai, i clienti vedono «da verificare con il personale».</span>
                     </p>
@@ -492,8 +547,8 @@ export function MenuEditor({
                   </div>
                 )}
                 {winesWithoutRegion.length > 0 && (
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="min-w-0 flex-1 text-foreground">
+                  <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="min-w-0 text-foreground sm:flex-1">
                       {winesWithoutRegion.length === 1 ? "1 vino italiano senza regione" : `${winesWithoutRegion.length} vini italiani senza regione`}
                       <span className="text-foreground-muted">: sul menù non si sa dove metterli.</span>
                     </p>
@@ -522,16 +577,34 @@ export function MenuEditor({
             onEdit={(item, groupId) => setSheet({ type: "item", itemId: item.id, groupId })}
           />
 
-          {soldOutCount > 0 && (
-            <div className="-mt-2 mb-4 flex justify-end">
-              <button type="button" onClick={reactivateAll} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
-                Riattiva tutto ({soldOutCount})
-              </button>
-            </div>
-          )}
+          {soldOutCount > 0 &&
+            (confirmReactivate ? (
+              <div role="alertdialog" aria-label="Riattiva tutto" className="-mt-2 mb-4 rounded-xl border border-border bg-surface p-3">
+                <p className="text-sm text-foreground">
+                  {soldOutCount === 1 ? "Rimettere disponibile 1 voce?" : `Rimettere disponibili ${soldOutCount} voci?`}{" "}
+                  <span className="text-foreground-muted">{soldOutCount === 1 ? "Torna" : "Tornano"} subito sul menù dei clienti.</span>
+                </p>
+                <div className="mt-2.5 flex justify-end gap-2">
+                  <button type="button" onClick={() => setConfirmReactivate(false)} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground">
+                    Annulla
+                  </button>
+                  <button type="button" onClick={reactivateAll} className="min-h-10 rounded-full bg-accent px-3.5 text-xs font-semibold text-accent-foreground hover:bg-accent-hover">
+                    Sì, riattiva tutto
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="-mt-2 mb-4 flex justify-end">
+                <button type="button" onClick={() => setConfirmReactivate(true)} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
+                  Riattiva tutto ({soldOutCount})
+                </button>
+              </div>
+            ))}
 
           <DailyPanel
             daily={daily}
+            isSold={isSold}
+            onToggleSold={toggleSold}
             run={run}
             onAdd={(groupId) => setSheet({ type: "item", itemId: null, groupId })}
             onEdit={(item, groupId) => setSheet({ type: "item", itemId: item.id, groupId })}
@@ -601,10 +674,10 @@ export function MenuEditor({
             { label: "Tabella prezzi", hint: "Cambia tanti prezzi insieme, anche di categorie diverse, e salva una volta sola.", onClick: () => setSheet({ type: "prices" }) },
             { label: "Riordina", hint: "L'ordine di categorie, gruppi, voci ed eventi sul menù.", onClick: () => setSheet({ type: "reorder", sections: true }) },
             { label: "Storico", hint: "Tutte le modifiche, con chi le ha fatte; si può tornare indietro.", onClick: () => setSheet({ type: "history" }) },
-            { label: "Anteprima", hint: "Il menù come lo vede il cliente, anche in un giorno scelto.", onClick: () => setSheet({ type: "preview" }) },
+            { label: "Anteprima", hint: "Il menù come lo vede il cliente, in questo momento.", onClick: () => setSheet({ type: "preview" }) },
             { label: "Menù da stampare", hint: "Foglio A4 sempre aggiornato, da stampare o salvare in PDF.", href: "/gestione-menu/stampa" },
             { label: "Codice QR", hint: "Il QR del menù, da stampare o da mettere sul sito.", onClick: () => setSheet({ type: "qr" }) },
-            { label: "Statistiche", hint: "Quante persone aprono il menù, quando e cosa cercano.", href: "/statistiche" },
+            ...(canSeeStats ? [{ label: "Statistiche", hint: "Quante persone aprono il menù, quando e cosa cercano.", href: "/statistiche" }] : []),
             { label: "Guida (PDF)", hint: "Come si usa la gestione, passo per passo.", href: "/gestione-menu/guida", download: true },
             { label: "Guida (video)", hint: "Circa tre minuti: le cose principali, animate.", href: "/gestione-menu/guida/video", download: true },
           ].map((tool) => (
@@ -656,7 +729,7 @@ export function MenuEditor({
                   }`}
                 >
                   <span>{s.label}</span>
-                  <span className={`text-xs ${active ? "text-accent-foreground/80" : "text-foreground-muted/70"}`}>{count}</span>
+                  <span className={`text-xs ${active ? "text-accent-foreground/80" : "text-foreground-muted"}`}>{count}</span>
                 </button>
               );
             })}
@@ -702,7 +775,8 @@ export function MenuEditor({
           )}
         </div>
 
-        <div ref={contentRef} className="min-w-0 scroll-mt-20 space-y-4">
+        {/* Margine sopra: sul telefono la barra di ricerca resta fissa in alto e non deve coprire il titolo. */}
+        <div ref={contentRef} className="min-w-0 scroll-mt-36 space-y-4">
           {(tab === "menu" ? promoSelected : !promoSelected) ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-foreground-muted">
               {tab === "eventi"
@@ -734,7 +808,7 @@ export function MenuEditor({
           {section && !(activePromo && !activePromo.hasMenu) && (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-1">
                   <h2 className="text-base font-semibold text-foreground">{activePromo ? "Menù speciale" : section.title}</h2>
                   {!activePromo && (
                     <button
@@ -753,6 +827,9 @@ export function MenuEditor({
                     >
                       Vedi nel menù
                     </button>
+                  )}
+                  {!activePromo && !section.groups.some((g) => g.items.some((i) => !i.textOnly)) && (
+                    <span className="rounded-full bg-gold/15 ml-1 px-2 py-0.5 text-[11px] font-medium text-gold">Non visibile ai clienti: è vuota</span>
                   )}
                 </div>
                 {/* «+ Aggiungi» anche qui, vicino alla sezione: la voce va in questa sezione. */}
@@ -816,6 +893,7 @@ export function MenuEditor({
                     run={run}
                     onToggleSold={toggleSold}
                     onEdit={(item) => setSheet({ type: "item", itemId: item.id, groupId: group.id })}
+                    highlightId={highlightId}
                     onAdd={() => setSheet({ type: "item", itemId: null, groupId: group.id })}
                     onImport={() => setSheet({ type: "import", groupId: group.id })}
                     closed={groupsUi.isClosed(group.id)}
@@ -858,7 +936,11 @@ export function MenuEditor({
             setPendingOpenId(newId);
           }}
           copyOf={copyOf && copyOf.id === sheet.itemId ? copyOf.name : null}
-          focusAllergens={focusAllergens === sheet.itemId}
+          // Nel percorso «Compila allergeni» la scheda si apre già sugli allergeni.
+          focusAllergens={focusAllergens === sheet.itemId || Boolean(sheet.queue)}
+          sold={editingItem ? isSold(editingItem) : false}
+          onToggleSold={editingItem ? () => toggleSold(editingItem) : undefined}
+          onAdded={(newId) => setHighlightId(newId)}
           onMissingAllergens={(newId, name) =>
             toast.showSuccess(`«${name}» aggiunta · mancano gli allergeni`, {
               label: "Compila ora",
@@ -1032,7 +1114,7 @@ function SectionTexts({
             <span className="mb-1 inline-block rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground-muted sm:hidden">{r.tag}</span>
             {r.title && <p className="text-sm font-medium text-foreground">{r.title}</p>}
             {r.text && <p className={`line-clamp-2 ${r.title ? "text-xs text-foreground-muted" : "text-sm text-foreground"}`}>{r.text}</p>}
-            {r.note && <p className="mt-0.5 text-[11px] text-foreground-muted/80">{r.note}</p>}
+            {r.note && <p className="mt-0.5 text-[11px] text-foreground-muted">{r.note}</p>}
           </div>
           <button
             type="button"
@@ -1053,13 +1135,13 @@ function SectionTexts({
       {top.length === 0 && bottom.length === 0 && <p className="mt-1.5 text-sm text-foreground-muted">Nessun testo: sul menù compaiono solo il titolo e le voci.</p>}
       {top.length > 0 && (
         <div className="mt-2">
-          <p className="text-[11px] text-foreground-muted/80">Sotto il titolo</p>
+          <p className="text-[11px] text-foreground-muted">Sotto il titolo</p>
           {list(top)}
         </div>
       )}
       {bottom.length > 0 && (
         <div className="mt-2">
-          <p className="text-[11px] text-foreground-muted/80">In fondo alla categoria</p>
+          <p className="text-[11px] text-foreground-muted">In fondo alla categoria</p>
           {list(bottom)}
         </div>
       )}
@@ -1099,8 +1181,11 @@ function GroupCard({
   closed,
   onToggleClosed,
   today,
+  highlightId = null,
 }: {
   today: string;
+  // Voce appena aggiunta, da evidenziare per qualche secondo.
+  highlightId?: string | null;
   group: EditorGroup;
   kind: "WINE" | "FOOD";
   isFirst: boolean;
@@ -1267,6 +1352,8 @@ function GroupCard({
                 </span>
               </button>
             </h3>
+            {/* Gli strumenti del gruppo restano insieme: sul telefono vanno tutti sulla riga sotto il nome. */}
+            <div className="ml-auto flex shrink-0 items-center gap-1">
             {kind === "FOOD" && (
               <button
                 type="button"
@@ -1274,7 +1361,7 @@ function GroupCard({
                 className="min-h-9 rounded-full border border-border px-3 text-[11px] font-medium text-foreground-muted hover:border-accent hover:text-foreground"
                 title="Colonne di prezzi uguali per tutte le voci (es. birre 0,2 l · 0,4 l · 1 l)"
               >
-                {group.formats ? `Formati: ${group.formats.join(" · ")}` : "Formati"}
+                {group.formats ? `Formati: ${group.formats.join(" · ")}` : "Prezzi per formato"}
               </button>
             )}
             <button type="button" onClick={() => setRenaming(true)} className={iconButton} aria-label={`Rinomina ${group.title}`} title="Rinomina">
@@ -1298,6 +1385,7 @@ function GroupCard({
                 <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
               </svg>
             </button>
+            </div>
           </>
         )}
       </header>
@@ -1387,7 +1475,13 @@ function GroupCard({
             const sold = isSold(item);
             const secondary = kind === "WINE" ? [item.wineName, wineDetail(item)].filter(Boolean).join(" · ") : item.description;
             return (
-              <li key={item.id} className={`flex items-center gap-2 border-b border-border px-3 py-1.5 last:border-b-0 ${sold ? "bg-surface-2/60" : ""}`}>
+              <li
+                key={item.id}
+                id={`voce-${item.id}`}
+                className={`flex scroll-mt-40 items-center gap-2 border-b border-border px-3 py-1.5 transition-colors duration-700 last:border-b-0 ${
+                  highlightId === item.id ? "bg-gold/20" : sold ? "bg-surface-2/60" : ""
+                }`}
+              >
                 <button type="button" onClick={() => onEdit(item)} className="min-h-12 min-w-0 flex-1 py-1 text-left" aria-label={`Modifica ${item.name}`}>
                   <span className={`block line-clamp-2 break-words text-sm font-medium ${sold ? "text-foreground-muted line-through" : "text-foreground"}`}>
                     {item.name}
@@ -1564,7 +1658,7 @@ function NewGroupForm({ sectionId, run }: { sectionId: string; run: RunFn }) {
         onChange={(e) => setTitle(e.target.value)}
         maxLength={80}
         placeholder="Nome del gruppo (es. Vini dolci)"
-        className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-base text-foreground outline-none placeholder:text-foreground-muted/60 focus:border-accent sm:text-sm"
+        className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-base text-foreground outline-none placeholder:text-foreground-muted focus:border-accent sm:text-sm"
       />
       <button type="submit" disabled={busy || !title.trim()} className="min-h-11 rounded-full bg-accent px-4 text-xs font-semibold text-accent-foreground disabled:opacity-50">
         Aggiungi

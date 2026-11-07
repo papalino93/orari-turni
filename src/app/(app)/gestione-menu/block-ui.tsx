@@ -143,7 +143,7 @@ export function BlocksPanel({
                         disabled={busy || index === 0}
                         onClick={() => move(b.id, "up")}
                         aria-label="Sposta su"
-                        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground-muted hover:text-foreground disabled:opacity-30"
+                        className="flex h-11 w-11 items-center justify-center rounded-full text-foreground-muted hover:text-foreground disabled:opacity-30"
                       >
                         <Chevron up />
                       </button>
@@ -152,7 +152,7 @@ export function BlocksPanel({
                         disabled={busy || index === group.length - 1}
                         onClick={() => move(b.id, "down")}
                         aria-label="Sposta giù"
-                        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground-muted hover:text-foreground disabled:opacity-30"
+                        className="flex h-11 w-11 items-center justify-center rounded-full text-foreground-muted hover:text-foreground disabled:opacity-30"
                       >
                         <Chevron />
                       </button>
@@ -282,7 +282,8 @@ export function BlockSheet({
         ) : (
         <div>
           <p className="mb-1 text-xs font-medium text-foreground-muted">Che cos&apos;è</p>
-          <div role="radiogroup" aria-label="Tipo di informazione" className="grid grid-cols-3 gap-2">
+          {/* Per una cosa nuova la scelta del solo tipo non conta come modifica da salvare. */}
+          <div role="radiogroup" aria-label="Tipo di informazione" data-unsaved-ignore={block ? undefined : true} className="grid grid-cols-3 gap-2">
             {(Object.keys(BLOCK_KIND_LABELS) as BlockKind[]).filter((k) => k !== "HIGHLIGHT").map((k) => (
               <button
                 key={k}

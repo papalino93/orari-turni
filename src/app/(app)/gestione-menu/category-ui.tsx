@@ -90,7 +90,8 @@ export function CategorySheet({
         {!section && (
           <div>
             <p className="mb-1 text-xs font-medium text-foreground-muted">Che cosa contiene</p>
-            <div role="radiogroup" aria-label="Che cosa contiene" className="grid grid-cols-2 gap-2">
+            {/* La scelta del solo tipo non conta come modifica da salvare. */}
+            <div role="radiogroup" aria-label="Che cosa contiene" data-unsaved-ignore className="grid grid-cols-2 gap-2">
               {(
                 [
                   ["FOOD", "Cucina o altro", "Un prezzo per voce (piatti, salatini, bevande)"],

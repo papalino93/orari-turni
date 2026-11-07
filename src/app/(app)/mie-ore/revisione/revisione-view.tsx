@@ -25,11 +25,14 @@ type AuditBlock = {
 type Status = "DRAFT" | "SUBMITTED" | "APPROVED" | "REOPENED";
 
 const STATUS_LABEL: Record<Status, string> = {
-  DRAFT: "Bozza",
+  DRAFT: "Da inviare",
   SUBMITTED: "Inviato — in attesa di approvazione",
   APPROVED: "Approvato",
-  REOPENED: "Riaperto dal titolare",
+  REOPENED: "Rimandato indietro dal titolare",
 };
+
+/** Perché il mese non si può toccare: prima dell'assunzione, non ancora arrivato, o troppo vecchio. */
+type LockedReason = "beforeHire" | "future" | "tooOld" | null;
 
 export function RevisioneView({
   employee,
@@ -44,6 +47,9 @@ export function RevisioneView({
   reopenNote,
   readOnly = false,
   hireMonthKey,
+  hireDateKey,
+  canEditMonth,
+  lockedReason,
 }: {
   employee: { id: string; name: string; jobTitle: string | null; photoVersion: string | null };
   isActive: boolean;
@@ -59,6 +65,11 @@ export function RevisioneView({
   readOnly?: boolean;
   /** "AAAA-MM" del mese di assunzione: prima di qui non c'è nulla da rivedere. */
   hireMonthKey: string;
+  /** "AAAA-MM-GG" dell'assunzione: i giorni prima non si toccano. */
+  hireDateKey: string;
+  /** Regola di editable-month.ts: mese in corso, ultimo concluso non inviato o rimandato indietro. */
+  canEditMonth: boolean;
+  lockedReason: LockedReason;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -86,7 +97,7 @@ export function RevisioneView({
     [dateKeys, employee, blocks, leaveEntries, closures],
   );
 
-  const editable = !readOnly && isActive && (status === "DRAFT" || status === "REOPENED");
+  const editable = !readOnly && isActive && canEditMonth;
   // Dallo schedule, non da sumHours(blocks): quest'ultimo contava anche i turni
   // rimasti su giorni di chiusura, così il totale inviato in approvazione non
   // corrispondeva a quello che il titolare vede nel suo riepilogo.
@@ -94,7 +105,8 @@ export function RevisioneView({
 
   const currentMonthKey = todayKey().slice(0, 7);
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
-  const isFutureMonth = monthKey > currentMonthKey;
+  // Dal mese in corso non si va avanti: un mese non ancora arrivato non ha ore da rivedere.
+  const isCurrentOrFutureMonth = monthKey >= currentMonthKey;
   const isBeforeHire = monthKey <= hireMonthKey;
   // Il mese in corso non è ancora finito: si possono comunque correggere i
   // giorni già passati (utile a metà mese), ma non "chiudere" ancora tutto
@@ -115,7 +127,12 @@ export function RevisioneView({
     startTransition(async () => {
       const result = await runWithToast(toast, () => submitMonth(year, month), "Mese inviato — in attesa di approvazione");
       setAskSubmit(false);
-      if (result !== null) router.refresh();
+      if (result !== null) {
+        router.refresh();
+        // Il pulsante d'invio, in fondo alla pagina, sparisce: si torna in
+        // cima, dove lo stato ora dice «Inviato».
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     });
   }
 
@@ -123,6 +140,12 @@ export function RevisioneView({
 
   return (
     <div className="mx-auto max-w-xl">
+      <Link
+        href={readOnly ? `/mie-ore?viewAs=${employee.id}` : "/mie-ore"}
+        className="-ml-1 mb-2 inline-flex min-h-11 items-center px-1 text-sm font-medium text-foreground-muted hover:text-foreground"
+      >
+        ‹ Le mie ore
+      </Link>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Revisione ore</h1>
@@ -136,7 +159,7 @@ export function RevisioneView({
             onClick={() => step(-1)}
             disabled={isBeforeHire}
             title={isBeforeHire ? "Non lavoravi ancora qui prima di questo mese" : undefined}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-30"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-30"
             aria-label="Mese precedente"
           >
             ‹
@@ -144,9 +167,9 @@ export function RevisioneView({
           <button
             type="button"
             onClick={() => step(1)}
-            disabled={isFutureMonth}
-            title={isFutureMonth ? "Non puoi rivedere un mese non ancora arrivato" : undefined}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-30"
+            disabled={isCurrentOrFutureMonth}
+            title={isCurrentOrFutureMonth ? "Non puoi rivedere un mese non ancora arrivato" : undefined}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-30"
             aria-label="Mese successivo"
           >
             ›
@@ -165,7 +188,13 @@ export function RevisioneView({
         </div>
       )}
 
-      <StatusBanner status={status} reopenNote={reopenNote} isActive={isActive} monthNotYetOver={monthNotYetOver} />
+      <StatusBanner
+        status={status}
+        reopenNote={reopenNote}
+        isActive={isActive}
+        monthNotYetOver={monthNotYetOver}
+        lockedReason={lockedReason}
+      />
 
       <div className="my-4 overflow-hidden rounded-2xl border border-border bg-surface">
         <div className="divide-y divide-border">
@@ -175,7 +204,8 @@ export function RevisioneView({
             const dayBlocks = blocks.filter((b) => b.dateKey === dateKey);
             const edited = dayBlocks.some((b) => b.originalStartTime || b.addedByEmployee) || !!entry.leave?.addedByEmployee;
             const isFutureDay = dateKey > todayKey();
-            const clickable = editable && !isFutureDay;
+            const isBeforeHireDay = dateKey < hireDateKey;
+            const clickable = editable && !isFutureDay && !isBeforeHireDay;
             return (
               <button
                 key={dateKey}
@@ -190,16 +220,18 @@ export function RevisioneView({
                 onClick={() => {
                   if (clickable) setEditingDate(dateKey);
                   else if (isFutureDay) toast.showError("Non puoi ancora registrare ore per un giorno futuro.");
+                  else if (isBeforeHireDay) toast.showError("In questo giorno non lavoravi ancora qui.");
                 }}
                 className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors ${
                   clickable ? "hover:bg-surface-2" : "cursor-default"
                 }`}
               >
                 <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-foreground-muted">
-                  {dayLabel(date)} <span className="font-normal normal-case text-foreground-muted/70">{formatDayMonth(date)}</span>
+                  {dayLabel(date)} <span className="font-normal normal-case text-foreground-muted">{formatDayMonth(date)}</span>
                   {edited && <span className="h-1.5 w-1.5 rounded-full bg-gold" title="Modificato o aggiunto da te" aria-hidden />}
                 </span>
-                <DayCellContent entry={entry} align="right" forEmployee />
+                {/* Il «+» tratteggiato solo dove si può davvero aggiungere qualcosa. */}
+                <DayCellContent entry={entry} align="right" readOnly={!clickable} forEmployee />
               </button>
             );
           })}
@@ -262,17 +294,31 @@ function StatusBanner({
   reopenNote,
   isActive,
   monthNotYetOver,
+  lockedReason,
 }: {
   status: Status;
   reopenNote: string | null;
   isActive: boolean;
   /** Il mese visualizzato è quello in corso: si corregge già, ma non si invia finché non finisce. */
   monthNotYetOver: boolean;
+  lockedReason: LockedReason;
 }) {
   if (!isActive) {
     return (
       <p className="rounded-xl border border-border bg-surface-2/50 px-4 py-3 text-xs text-foreground-muted">
         Account disattivato: questo mese resta consultabile ma non più modificabile.
+      </p>
+    );
+  }
+
+  if (lockedReason) {
+    return (
+      <p className="rounded-xl border border-border bg-surface-2/50 px-4 py-3 text-sm text-foreground-muted">
+        {lockedReason === "beforeHire"
+          ? "Non lavoravi ancora qui in questo mese: non c'è nulla da rivedere."
+          : lockedReason === "future"
+            ? "Questo mese non è ancora arrivato: non c'è nulla da rivedere."
+            : "Questo mese non si può più modificare: se serve, chiedi al titolare."}
       </p>
     );
   }
@@ -288,9 +334,16 @@ function StatusBanner({
 
   return (
     <div className={`rounded-xl border px-4 py-3 text-xs font-medium ${tone}`}>
-      {STATUS_LABEL[status]}
-      {status === "REOPENED" && reopenNote && (
-        <p className="mt-1 font-normal text-foreground">Nota del titolare: {reopenNote}</p>
+      {monthNotYetOver && status === "DRAFT" ? "Mese in corso" : STATUS_LABEL[status]}
+      {status === "SUBMITTED" && (
+        <p className="mt-1 font-normal text-foreground-muted">Il titolare deve controllarlo: finché non risponde non puoi cambiarlo.</p>
+      )}
+      {status === "APPROVED" && <p className="mt-1 font-normal text-foreground-muted">Non devi fare altro.</p>}
+      {status === "REOPENED" && (
+        <p className="mt-1 font-normal text-foreground">
+          {reopenNote ? <>Nota del titolare: {reopenNote} </> : null}
+          <span className="text-foreground-muted">Tocca un giorno per correggerlo, poi invia di nuovo il mese.</span>
+        </p>
       )}
       {status === "DRAFT" && (
         <p className="mt-1 font-normal text-foreground-muted">

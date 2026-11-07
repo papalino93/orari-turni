@@ -1792,8 +1792,8 @@ function wAndamento(fam, d, v) {
   a.topAlignContent();
   if (d.eventi) {
     const piu = d.eventi.delta !== null && d.eventi.delta > 0;
-    // Con meno di 3 serate la percentuale non è affidabile: si scrivono solo i numeri.
-    const poche = d.eventi.serate !== undefined && d.eventi.serate < 3;
+    // Con meno di 4 serate la percentuale non è affidabile (come in Statistiche): si scrivono solo i numeri.
+    const poche = d.eventi.serate !== undefined && d.eventi.serate < 4;
     if (poche) cella(a, "Giorni con evento", `${d.eventi.conEvento}`, `su ${d.eventi.serate} ${d.eventi.serate === 1 ? "serata" : "serate"} · gli stessi giorni ${d.eventi.senza}`, "/statistiche#eventi", C.crema, "al giorno");
     else cella(a, "Giorni con evento", d.eventi.delta === null ? "—" : `${piu ? "+" : ""}${d.eventi.delta}%`, `${d.eventi.conEvento} al giorno, stessi giorni senza ${d.eventi.senza}`, "/statistiche#eventi", piu ? C.verde : C.crema, d.eventi.delta === null ? "" : "di aperture");
   } else cella(a, "Giorni con evento", "—", "ancora nessun evento", "/statistiche#eventi");

@@ -34,14 +34,14 @@ export function EventActions({ slug, title, bookHref }: { slug: string; title: s
     <div className="mt-7 flex flex-col items-center gap-2.5">
       <div className="flex w-full max-w-[300px] flex-col gap-2.5">
         {bookHref && (
-          <a href={bookHref} data-stat-k="contact" data-stat-l={`Prenota · ${title}`} className={`${pill} bg-[#6B1020] !text-[#F4EEE3]`}>
+          <a href={bookHref} data-stat-k="contact" data-stat-l={`Prenota · ${title}`} data-stat-t={slug} className={`${pill} bg-[#6B1020] !text-[#F4EEE3]`}>
             Prenota
           </a>
         )}
-        <a href={`/menu/p/${slug}/calendario`} data-stat-k="contact" data-stat-l={`Calendario · ${title}`} className={`${pill} !text-[#6B1020]`}>
+        <a href={`/menu/p/${slug}/calendario`} data-stat-k="contact" data-stat-l={`Calendario · ${title}`} data-stat-t={slug} className={`${pill} !text-[#6B1020]`}>
           Aggiungi al calendario
         </a>
-        <button type="button" onClick={share} data-stat-k="contact" data-stat-l={`Condividi · ${title}`} className={`${pill} bg-transparent text-[#6B1020]`}>
+        <button type="button" onClick={share} data-stat-k="contact" data-stat-l={`Condividi · ${title}`} data-stat-t={slug} className={`${pill} bg-transparent text-[#6B1020]`}>
           Condividi
         </button>
       </div>

@@ -5,7 +5,7 @@ import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { useRouter } from "next/navigation";
 import { dayLabel, formatDayMonth, isOvernight, OVERNIGHT_LATEST_END, parseDateKey, sumHours } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
-import { entryLabel, formatHours, leaveLabelFor, type DayEntry, type Employee, type Block, type Leave, type LeaveType } from "@/lib/schedule";
+import { blockTimeLabel, entryLabel, formatHours, leaveLabelFor, type DayEntry, type Employee, type Block, type Leave, type LeaveType } from "@/lib/schedule";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { UnsavedBar, useUnsavedGuard } from "@/components/unsaved-guard";
 import { applyDayEntryToDays, saveDayEntry, type DayLeaveInput } from "./actions";
@@ -50,7 +50,7 @@ export function DayCellContent({
   }
 
   if (entry.kind === "NON_PIANIFICATO") {
-    if (readOnly) return <span className="text-xs text-foreground-muted/70">Nessun turno</span>;
+    if (readOnly) return <span className="text-xs text-foreground-muted">Nessun turno</span>;
     return (
       // Tutta la casella si tocca; il «+» più grande e marcato dice che lì si aggiunge un turno.
       <span className={`flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-foreground-muted/50 text-base text-foreground-muted ${align === "right" ? "ml-auto" : "mx-auto"}`}>
@@ -90,6 +90,11 @@ export function DayCellContent({
           <span>
             {b.startTime}–<wbr />
             {b.endTime}
+            {isOvernight(b.startTime, b.endTime) && (
+              <span className="ml-0.5 text-[10px] font-normal text-foreground-muted" title="Finisce dopo mezzanotte, il giorno dopo">
+                (+1)
+              </span>
+            )}
           </span>
         </span>
       ))}
@@ -314,7 +319,9 @@ function TimePresetSelect({
       }}
       aria-label={ariaLabel}
       title="Scegli da un elenco di orari"
-      className="h-8 w-6 shrink-0 cursor-pointer rounded-lg border border-border bg-surface-2 text-center text-xs text-foreground-muted outline-none focus:border-accent"
+      // appearance-none: senza, la freccia del sistema e il «▾» dell'opzione
+      // vuota stavano insieme in 24px e del «▾» restava un segno troncato.
+      className="h-8 w-7 shrink-0 cursor-pointer appearance-none rounded-lg border border-border bg-surface-2 px-0 text-center text-xs text-foreground-muted outline-none [text-align-last:center] focus:border-accent"
     >
       <option value="" disabled>
         ▾
@@ -627,7 +634,7 @@ export function DayEditorModal({
           <p className="text-xs text-foreground-muted">
             {dayLabel(date, true)} {formatDayMonth(date)}
           </p>
-          <h2 className="text-base font-semibold text-foreground">{employee.name}</h2>
+          <h2 className="text-base font-semibold text-foreground">{selfReview ? "Il tuo giorno" : employee.name}</h2>
         </div>
 
         {isClosed ? (
@@ -637,8 +644,8 @@ export function DayEditorModal({
               <span>
                 Il locale è chiuso in questa giornata: non è possibile pianificare turni.
                 {entry.suspendedBlocks.length > 0 &&
-                  ` C'è un turno conservato come bozza per ${employee.name} (${entry.suspendedBlocks
-                    .map((b) => `${b.startTime}–${b.endTime}`)
+                  ` C'è ${selfReview ? "un tuo turno conservato come bozza" : `un turno conservato come bozza per ${employee.name}`} (${entry.suspendedBlocks
+                    .map(blockTimeLabel)
                     .join(", ")}), tornerà visibile alla riapertura.`}
               </span>
             </div>
@@ -776,14 +783,25 @@ export function DayEditorModal({
             )}
             {mode === "PERMESSO" && (
               <p className="mt-2 text-xs text-foreground-muted">
-                Permesso per tutta la giornata: {employee.name} quel giorno non lavora. Se lavora anche solo qualche ora, scegli <b className="text-foreground">Turno</b>,
-                scrivi le ore lavorate e usa «Aggiungi ore di permesso al turno».
+                {selfReview ? (
+                  <>
+                    Permesso per tutta la giornata: quel giorno non lavori. Se lavori anche solo qualche ora, scegli{" "}
+                    <b className="text-foreground">Turno</b>, scrivi le ore lavorate e usa «Aggiungi ore di permesso al turno».
+                  </>
+                ) : (
+                  <>
+                    Permesso per tutta la giornata: {employee.name} quel giorno non lavora. Se lavora anche solo qualche ora, scegli{" "}
+                    <b className="text-foreground">Turno</b>, scrivi le ore lavorate e usa «Aggiungi ore di permesso al turno».
+                  </>
+                )}
               </p>
             )}
 
             {mode === "LIBERO" && (
               <p className="text-sm text-foreground-muted">
-                Il locale resta aperto: {employee.name} è a riposo. Non conta su ferie o permessi.
+                {selfReview
+                  ? "Il locale resta aperto: sei a riposo. Non conta su ferie o permessi."
+                  : `Il locale resta aperto: ${employee.name} è a riposo. Non conta su ferie o permessi.`}
               </p>
             )}
 

@@ -491,6 +491,9 @@ export async function duplicateItem(idInput: string): Promise<ActionResult<Chang
           allergenTraces: source.allergenTraces,
           variants: source.variants === null ? Prisma.DbNull : (source.variants as Prisma.InputJsonValue),
           onlyDay: source.onlyDay,
+          // «Solo in un periodo»: la copia vale negli stessi giorni dell'originale.
+          availableFrom: source.availableFrom,
+          availableTo: source.availableTo,
           sortOrder: source.sortOrder + 1,
         },
       });
@@ -1101,19 +1104,75 @@ function toColumn(key: string, value: unknown): unknown {
   return value;
 }
 
+// Messaggio dopo un annullamento: dice che cosa è successo e a quale voce.
+function undoneMessage(change: { action: string; entity: string; entityId: string; label: string }): string {
+  if (change.entityId === "*order") return `Ordine com'era prima: ${change.label}`;
+  if (change.entityId === "*prices") return `Prezzi com'erano prima: ${change.label.replace(/^Prezzi di /, "")}`;
+  if (change.action === "CREATE" && change.entityId === "*") return `Tolte dal menù: ${change.label}`;
+  switch (change.action) {
+    case "CREATE":
+      return `Tolto dal menù: «${change.label}»`;
+    case "DELETE":
+      return `Di nuovo nel menù: «${change.label}»`;
+    case "SOLD_OUT":
+      return `Di nuovo disponibile: «${change.label}»`;
+    case "AVAILABLE":
+      return `Di nuovo esaurito: «${change.label}»`;
+    case "RESET_SOLD_OUT":
+      return `Di nuovo esaurite: ${change.label}`;
+    default:
+      return change.entity === "setting" ? `${change.label}: com'erano prima` : `Com'era prima: «${change.label}»`;
+  }
+}
+
+// Cosa è stato eliminato, per dire perché un annullamento non si può fare.
+const DELETED_WHAT: Record<string, string> = {
+  item: "La voce è stata eliminata",
+  group: "Il gruppo è stato eliminato",
+  section: "La categoria è stata eliminata",
+  promo: "La pagina è stata eliminata",
+  block: "L'informazione è stata eliminata",
+};
+
+// Dopo un annullamento (una voce consigliata che torna, un gruppo rimesso…) i consigli
+// della casa non devono superare MAX_RECOMMENDED: quelli in più tra le voci appena
+// tornate (`scope`) restano nel menù senza «Consigliato». Restituisce i loro nomi.
+async function trimRecommended(tx: Prisma.TransactionClient, scope: Prisma.MenuItemWhereInput): Promise<string[]> {
+  const visible: Prisma.MenuItemWhereInput = {
+    recommended: true,
+    deletedAt: null,
+    textOnly: false,
+    group: { deletedAt: null, section: { promoId: null, dailyOnly: false, deletedAt: null } },
+  };
+  const total = await tx.menuItem.count({ where: visible });
+  if (total <= MAX_RECOMMENDED) return [];
+  const extra = await tx.menuItem.findMany({
+    where: { AND: [visible, scope] },
+    select: { id: true, name: true },
+    orderBy: { sortOrder: "desc" },
+    take: total - MAX_RECOMMENDED,
+  });
+  if (extra.length === 0) return [];
+  await tx.menuItem.updateMany({ where: { id: { in: extra.map((e) => e.id) } }, data: { recommended: false } });
+  return extra.map((e) => e.name);
+}
+
 // Riscrive i campi "prima" di una modifica registrata. Vale sia per il toast
-// "Annulla" subito dopo, sia per "Ripristina" dallo storico (anche a distanza
-// di giorni: torna al valore di allora, senza guardare cosa è successo dopo).
-export async function undoChange(idInput: string): Promise<ActionResult> {
+// "Annulla" subito dopo, sia per lo Storico (anche a distanza di giorni: torna
+// al valore di allora, senza guardare cosa è successo dopo). `message`: cosa dire
+// nel messaggio a comparsa (con il nome della voce).
+export async function undoChange(idInput: string): Promise<ActionResult<{ message: string }>> {
   return runAction(async () => {
     const editor = await requireMenuEditor();
     const id = parseId(idInput, "modifica");
     const change = await prisma.menuChange.findUnique({ where: { id } });
     assert(change, "Modifica non trovata.");
     assert(!change.undoneById, "Questa modifica è già stata annullata.");
+    assert(change.action !== "RESTORE", "Questa riga è già un annullamento: non si annulla di nuovo.");
+    let message = undoneMessage(change);
 
     await prisma.$transaction(async (tx) => {
-      const entity = change.entity as "item" | "group" | "section" | "promo" | "block";
+      const entity = change.entity as "item" | "group" | "section" | "promo" | "block" | "setting";
       const before = (change.before ?? {}) as Fields;
 
       // Inserimento in blocco: l'annullamento toglie tutte le voci aggiunte insieme.
@@ -1158,7 +1217,7 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
         const items = (before.items ?? {}) as Record<string, Fields>;
         for (const [rowId, fields] of Object.entries(items)) {
           const data: Fields = {};
-          for (const key of ["priceGlassCents", "priceBottleCents", "priceCents", "variants"]) if (key in fields) data[key] = fields[key];
+          for (const key of ["priceGlassCents", "priceBottleCents", "priceCents", "variants"]) if (key in fields) data[key] = toColumn(key, fields[key]);
           await tx.menuItem.updateMany({ where: { id: rowId, deletedAt: null }, data: data as Prisma.MenuItemUpdateManyMutationInput });
         }
         const undoId = await logChange(tx, {
@@ -1183,6 +1242,25 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
           entity: "item",
           entityId: "*",
           label: change.label,
+        });
+        await tx.menuChange.update({ where: { id }, data: { undoneById: undoId } });
+        return;
+      }
+
+      // Orari, contatti, copertina…: si rimette il valore di prima (vuoto = come all'inizio).
+      if (entity === "setting") {
+        assert(typeof before.value === "string", "Niente da ripristinare.");
+        const current = await tx.menuSetting.findUnique({ where: { id: change.entityId } });
+        if (before.value === "") await tx.menuSetting.deleteMany({ where: { id: change.entityId } });
+        else await tx.menuSetting.upsert({ where: { id: change.entityId }, create: { id: change.entityId, value: before.value }, update: { value: before.value } });
+        const undoId = await logChange(tx, {
+          actorName: editor.name,
+          action: "RESTORE",
+          entity: "setting",
+          entityId: change.entityId,
+          label: change.label,
+          before: { value: current?.value ?? "" },
+          after: { value: before.value },
         });
         await tx.menuChange.update({ where: { id }, data: { undoneById: undoId } });
         return;
@@ -1213,6 +1291,13 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
         findUnique: (args: { where: { id: string } }) => Promise<Fields | null>;
       }).findUnique({ where: { id: change.entityId } });
       assert(current, "L'elemento non esiste più.");
+      const deletedNow = current.deletedAt !== null && current.deletedAt !== undefined;
+      // Una modifica di una voce eliminata dopo non si vede sul menù: prima va rimessa la voce.
+      assert(
+        change.action === "CREATE" || "deletedAt" in data || !deletedNow,
+        `${DELETED_WHAT[entity] ?? "È stato eliminato"}: prima tocca «Rimetti nel menù» sulla riga «Eliminato», poi riprova.`,
+      );
+      assert(change.action !== "CREATE" || !deletedNow, `«${change.label}» non è più nel menù: è già stata tolta.`);
       await (delegate as unknown as {
         update: (args: { where: { id: string }; data: Fields }) => Promise<unknown>;
       }).update({ where: { id: change.entityId }, data });
@@ -1225,6 +1310,23 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
         const next = data[key];
         newValues[key] = next instanceof Date ? next.toISOString() : (next ?? null);
       }
+
+      // Al massimo 4 consigli della casa: una voce consigliata che torna, se sono già 4,
+      // torna senza «Consigliato» (e il messaggio lo dice).
+      const scope: Prisma.MenuItemWhereInput | null =
+        entity === "item" ? { id: change.entityId } : entity === "group" ? { groupId: change.entityId } : entity === "section" ? { group: { sectionId: change.entityId } } : null;
+      if (scope && change.action !== "CREATE") {
+        const trimmed = await trimRecommended(tx, scope);
+        if (trimmed.length > 0) {
+          if (entity === "item") {
+            currentValues.recommended = current.recommended ?? null;
+            newValues.recommended = false;
+          }
+          const who = entity === "item" ? "senza «Consigliato»" : `${trimmed.map((n) => `«${n}»`).join(", ")} senza «Consigliato»`;
+          message += ` · ${who}: ci sono già ${MAX_RECOMMENDED} consigli`;
+        }
+      }
+
       const undoId = await logChange(tx, {
         actorName: editor.name,
         action: "RESTORE",
@@ -1237,5 +1339,6 @@ export async function undoChange(idInput: string): Promise<ActionResult> {
       await tx.menuChange.update({ where: { id }, data: { undoneById: undoId } });
     });
     revalidateMenu();
+    return { message };
   });
 }

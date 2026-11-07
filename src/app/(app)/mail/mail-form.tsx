@@ -10,7 +10,7 @@ const DEFAULT_BODY = `Spett.le ${HEADER_TAG},\n\n`;
 const SAMPLE_CSV = "\uFEFFemail;intestazione\nmario.rossi@esempio.it;Dott. Rossi\nlaura.bianchi@esempio.it;Laura\n";
 
 const field =
-  "w-full rounded-xl border border-border bg-surface-2 px-3.5 py-3 text-base text-foreground placeholder:text-foreground-muted/60 focus:border-accent focus:outline-none sm:text-sm";
+  "w-full rounded-xl border border-border bg-surface-2 px-3.5 py-3 text-base text-foreground placeholder:text-foreground-muted focus:border-accent focus:outline-none sm:text-sm";
 const card = "rounded-2xl border border-border bg-surface p-5 sm:p-6";
 const primaryBtn =
   "inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40";
@@ -263,7 +263,7 @@ export function MailForm({
           {notice?.kind === "error" && step === 0 && <p className="mt-2 text-sm text-danger" role="alert">{notice.text}</p>}
 
           <details className="mt-3 text-sm" open={!hasList}>
-            <summary className="cursor-pointer text-accent-ink">Come deve essere fatto il file?</summary>
+            <summary className="cursor-pointer py-2.5 text-accent-ink">Come deve essere fatto il file?</summary>
             <div className="mt-2 rounded-xl bg-surface-2 p-3 text-xs text-foreground-muted">
               <p>Due colonne: la prima con l&apos;<b>email</b>, la seconda con l&apos;<b>intestazione</b>, cioè solo la parte di ognuno (nome o azienda). Esempio:</p>
               <table className="my-2 w-full text-left text-foreground">
@@ -288,7 +288,7 @@ export function MailForm({
               <a
                 href={`data:text/csv;charset=utf-8,${encodeURIComponent(SAMPLE_CSV)}`}
                 download="esempio-destinatari.csv"
-                className="mt-2 inline-block font-medium text-accent-ink"
+                className="mt-1 inline-flex min-h-10 items-center font-medium text-accent-ink"
               >
                 Scarica un file di esempio
               </a>
@@ -296,7 +296,7 @@ export function MailForm({
           </details>
 
           <details className="mt-2 text-sm">
-            <summary className="cursor-pointer text-accent-ink">Oppure incolla l&apos;elenco</summary>
+            <summary className="cursor-pointer py-2.5 text-accent-ink">Oppure incolla l&apos;elenco</summary>
             <label className="sr-only" htmlFor="mail-csv">
               Elenco destinatari
             </label>

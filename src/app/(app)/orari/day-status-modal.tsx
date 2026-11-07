@@ -7,7 +7,18 @@ import { dayLabel, formatDayMonth, parseDateKey } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
 import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { plural } from "@/lib/plural";
+import { leaveLabelFor, type buildSchedule } from "@/lib/schedule";
 import { closeDay, reopenDay } from "./actions";
+
+// Chi ha un'assenza (ferie, permesso, malattia) in quella giornata, per
+// avvisare prima di chiudere il locale: «Marta Neri ha Ferie quel giorno».
+export function absencesOn(schedule: ReturnType<typeof buildSchedule>, dateKey: string): string[] {
+  return schedule.employees.flatMap((e) => {
+    const leave = schedule.entry(e.id, dateKey).leave;
+    if (!leave || leave.type === "LIBERO") return [];
+    return [`${e.name}: ${leaveLabelFor(leave.type, leave.quantity).toLowerCase()}`];
+  });
+}
 
 type Status = "OPEN" | "CLOSED";
 
@@ -15,12 +26,15 @@ export function DayStatusModal({
   dateKey,
   isClosed,
   shiftCount,
+  absences = [],
   onClose,
 }: {
   dateKey: string;
   isClosed: boolean;
   /** Turni già presenti in questa giornata (0 se nessuno). */
   shiftCount: number;
+  /** Ferie, permessi e malattie di quel giorno (vedi absencesOn): chiudendo non contano più. */
+  absences?: string[];
   onClose: () => void;
 }) {
   const [status, setStatus] = useState<Status>(isClosed ? "CLOSED" : "OPEN");
@@ -117,6 +131,19 @@ export function DayStatusModal({
                 </>
               )}
             </p>
+            {absences.length > 0 && (
+              <div className="mb-4 rounded-lg border border-gold/40 bg-gold/10 px-3 py-2.5 text-sm text-foreground">
+                <p className="font-medium">{absences.length === 1 ? "Quel giorno c'è un'assenza:" : "Quel giorno ci sono assenze:"}</p>
+                <ul className="mt-1 text-foreground-muted">
+                  {absences.map((a) => (
+                    <li key={a}>· {a}</li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-xs text-foreground-muted">
+                  Con il locale chiuso non si contano (né nelle ferie né nei permessi); tornano a contare se riapri la giornata.
+                </p>
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               {shiftCount > 0 ? (
                 <>

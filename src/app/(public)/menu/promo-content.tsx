@@ -53,6 +53,8 @@ export function PromoContent({
   const showMenu = hasMenu && isPromoMenuVisible(promo, dayKey);
   const groups = showMenu && !fileMenu ? (promo.section?.groups ?? []).filter((g) => g.items.length > 0) : [];
   const dates = formatPromoDates(promo.startDate, promo.endDate);
+  // Con la locandina cambia la disposizione: vedi sotto.
+  const poster = Boolean(promo.imageUpdatedAt);
   const times = formatPromoTimes(promo.startTime, promo.endTime);
   // Prenota, calendario e condividi: solo per gli eventi non ancora conclusi.
   const bookHref =
@@ -73,36 +75,46 @@ export function PromoContent({
         </div>
       )}
 
-      {promo.imageUpdatedAt && (
-        // eslint-disable-next-line @next/next/no-img-element -- locandina servita dalla nostra rotta con cache lunga
-        <img
-          src={`/menu/p/${promo.slug}/immagine?v=${promo.imageUpdatedAt.getTime()}`}
-          alt={`Locandina: ${promo.title}`}
-          width={promo.imageWidth ?? undefined}
-          height={promo.imageHeight ?? undefined}
-          className="mx-auto h-auto max-h-[78svh] w-auto max-w-full rounded-[14px] object-contain shadow-[0_6px_28px_rgba(40,8,14,0.18)]"
-        />
-      )}
+      {/* Telefono: prima titolo, date e «Prenota», poi la locandina e il testo (la locandina a tutto
+          schermo spingeva tutto sotto). Schermi larghi: locandina a sinistra, il resto a destra. */}
+      <div className={poster ? "flex flex-col sm:grid sm:grid-cols-2 sm:items-start sm:gap-x-8" : ""}>
+        {poster && (
+          // eslint-disable-next-line @next/next/no-img-element -- locandina servita dalla nostra rotta con cache lunga
+          <img
+            src={`/menu/p/${promo.slug}/immagine?v=${promo.imageUpdatedAt!.getTime()}`}
+            alt={`Locandina: ${promo.title}`}
+            width={promo.imageWidth ?? undefined}
+            height={promo.imageHeight ?? undefined}
+            className="order-3 mx-auto mt-8 h-auto max-h-[78svh] w-auto max-w-full rounded-[14px] object-contain shadow-[0_6px_28px_rgba(40,8,14,0.18)] sm:col-start-1 sm:row-span-3 sm:row-start-1 sm:mt-0"
+          />
+        )}
 
-      <div className="mt-8 flex flex-col items-center gap-2 text-center">
-        <div className="menu-sans text-[11px] uppercase tracking-[0.34em] text-[#5B605A]">
-          {status === "past" ? "Concluso" : promo.label || (promo.kind === "EVENT" ? "Evento" : "Annuncio")}
+        <div className={`flex flex-col items-center gap-2 text-center ${poster ? "order-1 sm:col-start-2 sm:row-start-1" : "mt-8"}`}>
+          <div className="menu-sans text-[11px] uppercase tracking-[0.34em] text-[#5B605A]">
+            {status === "past" ? "Concluso" : promo.label || (promo.kind === "EVENT" ? "Evento" : "Annuncio")}
+          </div>
+          <Heading className="menu-serif m-0 mb-1 text-balance text-[42px] font-medium leading-[1.05] text-[#6B1020]">{promo.title}</Heading>
+          {/* Annunci: le date sono solo il periodo in cui l'annuncio è pubblicato, non si mostrano
+              (sembrerebbero una chiusura di più giorni). */}
+          {promo.kind !== "NOTICE" && <div className="menu-sans text-[13px] font-medium uppercase tracking-[0.14em] text-[#4A504B]">{dates}</div>}
+          {times && <div className="menu-sans -mt-1 text-[13px] tracking-[0.06em] text-[#4A504B]">{times}</div>}
+          <Ornament color="#9C7A45" />
         </div>
-        <Heading className="menu-serif m-0 mb-1 text-balance text-[42px] font-medium leading-[1.05] text-[#6B1020]">{promo.title}</Heading>
-        {/* Annunci: le date sono solo il periodo in cui l'annuncio è pubblicato, non si mostrano
-            (sembrerebbero una chiusura di più giorni). */}
-        {promo.kind !== "NOTICE" && <div className="menu-sans text-[13px] font-medium uppercase tracking-[0.14em] text-[#4A504B]">{dates}</div>}
-        {times && <div className="menu-sans -mt-1 text-[13px] tracking-[0.06em] text-[#4A504B]">{times}</div>}
-        <Ornament color="#9C7A45" />
+
+        {promo.body && (
+          <p
+            className={`mx-auto mt-7 max-w-[520px] whitespace-pre-line text-pretty text-center text-[17px] leading-normal text-[#3F4540] ${poster ? "order-4 sm:col-start-2 sm:row-start-2" : ""}`}
+          >
+            {nbPhone(promo.body)}
+          </p>
+        )}
+
+        {promo.kind === "EVENT" && status !== "past" && (
+          <div className={poster ? "order-2 sm:col-start-2 sm:row-start-3" : ""}>
+            <EventActions slug={promo.slug} title={promo.title} bookHref={bookHref} />
+          </div>
+        )}
       </div>
-
-      {promo.body && (
-        <p className="mx-auto mt-7 max-w-[520px] whitespace-pre-line text-pretty text-center text-[17px] leading-normal text-[#3F4540]">
-          {nbPhone(promo.body)}
-        </p>
-      )}
-
-      {promo.kind === "EVENT" && status !== "past" && <EventActions slug={promo.slug} title={promo.title} bookHref={bookHref} />}
 
       {status === "past" && (
         <p className="mt-7 text-center text-[16.5px] italic text-[#5B605A]">Questo appuntamento si è concluso. Grazie a chi c&apos;era!</p>

@@ -23,17 +23,24 @@ function summary(item: EditorItem, kind: "WINE" | "FOOD"): string {
 // da soli alle 5:00; «Riproponi» ripresenta quelli dei giorni scorsi.
 export function DailyPanel({
   daily,
+  isSold,
+  onToggleSold,
   run,
   onAdd,
   onEdit,
 }: {
   daily: DailyData;
+  // «Esaurito» come per le altre voci del menù.
+  isSold: (item: EditorItem) => boolean;
+  onToggleSold: (item: EditorItem) => void;
   run: RunFn;
   onAdd: (groupId: string) => void;
   onEdit: (item: EditorItem, groupId: string) => void;
 }) {
   const [showRecent, setShowRecent] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // «Togli»: si chiede conferma (la voce sparisce subito dal menù dei clienti).
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const rows = daily.sections.flatMap((s) =>
     s.groups.flatMap((g) => g.items.map((item) => ({ item, kind: s.kind, groupId: g.id }))),
@@ -46,6 +53,7 @@ export function DailyPanel({
     setBusyId(item.id);
     await run(() => deleteItem(item.id), `«${item.name}» tolto da oggi`);
     setBusyId(null);
+    setConfirmId(null);
   }
 
   async function repropose(r: DailyRecent) {
@@ -97,15 +105,19 @@ export function DailyPanel({
         </p>
       ) : (
         <ul className="mt-1 divide-y divide-border">
-          {rows.map(({ item, kind, groupId }) => (
-            <li key={item.id} className="flex items-center gap-2 py-1.5">
+          {rows.map(({ item, kind, groupId }) => {
+            const sold = isSold(item);
+            return (
+            <li key={item.id} className="py-1.5">
+              {/* Sul telefono, se il nome non ci sta accanto ai pulsanti, i pulsanti vanno sotto. */}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <button
                 type="button"
                 onClick={() => onEdit(item, groupId)}
                 aria-label={`Modifica ${item.name}`}
-                className="min-h-12 min-w-0 flex-1 text-left"
+                className="min-h-12 min-w-[9rem] flex-1 text-left"
               >
-                <span className="block line-clamp-2 break-words text-sm font-medium text-foreground">
+                <span className={`block line-clamp-2 break-words text-sm font-medium ${sold ? "text-foreground-muted line-through" : "text-foreground"}`}>
                   <span className="mr-2 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground-muted">
                     {kind === "WINE" ? "Vino" : "Piatto"}
                   </span>
@@ -116,17 +128,47 @@ export function DailyPanel({
                   <span className="mt-0.5 block text-[11px] font-medium text-gold">Allergeni da compilare</span>
                 )}
               </button>
+              <div className="ml-auto flex shrink-0 gap-2">
+              <button
+                type="button"
+                aria-pressed={sold}
+                onClick={() => onToggleSold(item)}
+                title={sold ? "Segna di nuovo disponibile" : "Segna esaurita"}
+                className={`min-h-11 shrink-0 rounded-full border px-3.5 text-xs font-semibold transition-colors ${
+                  sold ? "border-danger bg-danger text-white" : "border-border text-foreground-muted hover:border-danger hover:text-danger"
+                }`}
+              >
+                Esaurito
+                {sold && <span className="block text-[10px] font-medium leading-tight opacity-90">tocca per rimettere</span>}
+              </button>
               <button
                 type="button"
                 disabled={busyId === item.id}
-                onClick={() => remove(item)}
+                onClick={() => setConfirmId(confirmId === item.id ? null : item.id)}
+                aria-expanded={confirmId === item.id}
                 aria-label={`Togli ${item.name} da oggi`}
                 className="min-h-11 shrink-0 rounded-full border border-border px-3.5 text-xs font-semibold text-foreground-muted transition-colors hover:border-danger hover:text-danger disabled:opacity-50"
               >
                 Togli
               </button>
+              </div>
+              </div>
+              {confirmId === item.id && (
+                <div className="mt-1.5 rounded-xl border border-danger/30 bg-danger-bg p-3">
+                  <p className="text-xs text-danger">Togliere «{item.name}» da oggi? Sparisce subito dal menù dei clienti (la ritrovi in «Riproponi»).</p>
+                  <div className="mt-2.5 flex justify-end gap-2">
+                    <button type="button" onClick={() => setConfirmId(null)} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:text-foreground">
+                      No, lascialo
+                    </button>
+                    <button type="button" disabled={busyId === item.id} onClick={() => remove(item)} className="min-h-10 rounded-full bg-danger px-3.5 text-xs font-semibold text-white disabled:opacity-60">
+                      Sì, togli
+                    </button>
+                  </div>
+                </div>
+              )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 

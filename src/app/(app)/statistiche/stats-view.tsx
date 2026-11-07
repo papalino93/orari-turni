@@ -10,7 +10,7 @@ import type { StatsSetting } from "@/lib/menu";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { listRecentOpens, removeOpens, setStatsEnabled, type RecentOpen } from "./actions";
 import QRCode from "qrcode";
-import { Bars, Delta, EffectBars, Funnel, Heatmap, RankedList, Ranking, Sparkline, TrendChart, dec, fmtDay, fmtDayLong, n, weekdayOf } from "./stats-charts";
+import { Bars, Delta, EffectBars, Funnel, Heatmap, RankedList, Ranking, Sparkline, TrendChart, dec, fmtDay, fmtDayLong, fmtRange, n, weekdayOf } from "./stats-charts";
 
 function Card({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -83,7 +83,7 @@ function Group({ id, title, text, children }: { id: (typeof GROUPS)[number]["id"
 }
 
 // Numero grande con il piccolo andamento a fianco: la cifra che si legge per prima.
-function HeroKpi({ label, value, note, change, values }: { label: string; value: string; note: string; change: number | null; values: number[] }) {
+function HeroKpi({ label, value, note, change, values }: { label: string; value: string; note: React.ReactNode; change: number | null; values: number[] }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/20 via-accent/[0.06] to-transparent p-5 col-span-2 sm:col-span-3 lg:col-span-2">
       <p className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">{label}</p>
@@ -131,12 +131,13 @@ function TodayCard({ stats, recent, today, counting, since }: { stats: StatsData
         {!counting && <p className="mt-2 text-xs text-foreground-muted">{since ? "Conteggio in pausa." : "Il conteggio non è ancora iniziato."}</p>}
       </div>
       <dl className="flex gap-6 text-sm">
-        {/* Si confronta alla stessa ora (fino alle hh:59): il numero è quello «a quest'ora», sotto la giornata intera. */}
+        {/* Si confronta alla stessa ora e minuto: il numero è quello «a quest'ora», sotto la giornata intera. */}
         <div>
           <dt className="text-xs text-foreground-muted">Ieri a quest&apos;ora</dt>
           <dd className="flex items-center gap-2 font-medium tabular-nums text-foreground">
             {n(stats.yesterdaySoFar)}
-            <Delta value={vs(stats.yesterdaySoFar)} />
+            {/* Con il conteggio spento oggi resta a 0: un «−100%» sarebbe falso. */}
+            {counting && <Delta value={vs(stats.yesterdaySoFar)} />}
           </dd>
           <dd className="text-[11px] tabular-nums text-foreground-muted">in tutto il giorno {n(stats.yesterday)}</dd>
         </div>
@@ -146,7 +147,7 @@ function TodayCard({ stats, recent, today, counting, since }: { stats: StatsData
           </dt>
           <dd className="flex items-center gap-2 font-medium tabular-nums text-foreground">
             {n(stats.lastWeekSoFar)}
-            <Delta value={vs(stats.lastWeekSoFar)} />
+            {counting && <Delta value={vs(stats.lastWeekSoFar)} />}
           </dd>
           <dd className="text-[11px] tabular-nums text-foreground-muted">in tutto il giorno {n(stats.lastWeek)}</dd>
         </div>
@@ -217,7 +218,7 @@ function RemoveTestOpens({ today }: { today: string }) {
 
   return (
     <>
-      <button type="button" onClick={start} className="w-full text-left text-xs font-medium text-foreground-muted underline decoration-border underline-offset-4 hover:text-foreground sm:w-auto">
+      <button type="button" onClick={start} className="flex min-h-10 w-full items-center text-left text-xs font-medium text-foreground-muted underline decoration-border underline-offset-4 hover:text-foreground sm:w-auto">
         Togli aperture di prova
       </button>
       {open && (
@@ -258,7 +259,7 @@ function RemoveTestOpens({ today }: { today: string }) {
                             return next;
                           })
                         }
-                        className="min-h-9 text-xs font-medium text-accent hover:underline"
+                        className="min-h-10 px-1 text-xs font-medium text-accent hover:underline"
                       >
                         {g.rows.every((r) => chosen.has(r.id)) ? "Nessuna" : "Tutte"}
                       </button>
@@ -287,6 +288,14 @@ function RemoveTestOpens({ today }: { today: string }) {
       )}
     </>
   );
+}
+
+// «Altri sabati senza evento», o «Stessi giorni senza evento» se gli eventi cadono in giorni diversi.
+const WEEKDAY_PLURAL = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabati", "domeniche"];
+function sameDaysLabel(weekdays: number[]) {
+  if (weekdays.length !== 1) return "Stessi giorni senza evento";
+  const wd = weekdays[0];
+  return `${wd === 6 ? "Altre" : "Altri"} ${WEEKDAY_PLURAL[wd]} senza evento`;
 }
 
 // Ogni giorno del periodo scelto, dal più recente: si tocca un giorno per vederlo da solo.
@@ -392,6 +401,15 @@ export function StatsView({
     if (nav && chip) nav.scrollTo({ left: chip.offsetLeft - 16, behavior: "smooth" });
   }, [current]);
 
+  // Sul telefono anche la barra dei periodi scorre di lato: il periodo scelto («Tutto il tempo»
+  // è in fondo) va portato in vista, sennò non si capisce quale periodo si sta guardando.
+  const periodNav = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const nav = periodNav.current;
+    const chip = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (nav && chip && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = chip.offsetLeft - (nav.clientWidth - chip.offsetWidth) / 2;
+  }, [period, data.from, data.to]);
+
   const [askPause, setAskPause] = useState(false);
   function toggle() {
     const next = !enabled;
@@ -410,12 +428,30 @@ export function StatsView({
 
   const change =
     data.prevOpens === null || data.prevOpens === 0 ? null : Math.round(((data.opens - data.prevOpens) / data.prevOpens) * 100);
+  // Accanto alla percentuale: con quali giorni si confronta e quante aperture c'erano.
+  const compareNote =
+    data.compare && data.prevOpens !== null ? (
+      <>
+        rispetto a {fmtRange(data.compare.from, data.compare.to)}
+        {data.compare.partial ? " (fino a quest'ora)" : ""}: <span className="tabular-nums">{n(data.prevOpens)}</span>
+      </>
+    ) : (
+      "nel periodo scelto"
+    );
   // «Scarica per Excel»: lo stesso periodo della pagina.
   const exportHref = period === "custom" && data.from ? `/statistiche/giorni?dal=${data.from}&al=${data.to}` : `/statistiche/giorni?p=${period}`;
   const trend = [...data.daily].reverse().map((d) => d.count);
   const eventNames: Record<string, string> = {};
   for (const e of data.eventCards) for (const d of data.eventDays) if (d >= e.startDate && d <= e.endDate && !eventNames[d]) eventNames[d] = e.title;
   const hasData = data.opens > 0 || data.weeks.some((w) => w.count > 0);
+  // Classifiche: solo i giorni della settimana che nel periodo ci sono, e solo se sono almeno due.
+  const dayRows = data.dayRanking
+    .filter((d) => d.days > 0)
+    .map((d) => ({ key: String(d.weekday), label: WEEKDAY_NAMES[d.weekday], total: d.total, average: d.average, days: d.days }));
+  const showDayRanking = dayRows.length > 1;
+  const showMonthRanking = data.monthRanking.length > 1;
+  // «Ogni giorno della settimana nel tempo»: una scala sola per i sette grafici.
+  const weekdayMax = Math.max(1, ...data.weekdays.flat().map((d) => d.count));
 
   return (
     <div className="app-wide mx-auto max-w-5xl space-y-5 px-4 pb-16 pt-6">
@@ -464,7 +500,7 @@ export function StatsView({
         return (
           <div className="space-y-2">
           {/* Sul telefono una riga che scorre di lato; dal tablet in su va a capo. */}
-          <nav aria-label="Periodo" className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+          <nav ref={periodNav} aria-label="Periodo" className="relative -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
             {data.shortcuts.map((c) => {
               const on = period === "custom" && data.from === c.dal && data.to === c.al;
               return (
@@ -499,15 +535,18 @@ export function StatsView({
           </div>
         );
       })()}
-      {period === "custom" && data.from && (
+      {/* Sempre scritto, con le date: anche quando il pulsante del periodo è fuori schermo. */}
+      {setting.since && (
         <p className="-mt-2 text-xs text-foreground-muted">
-          {data.from === data.to ? (
+          {data.start === data.to ? (
             <>
-              Giorno: <span className="inline-block first-letter:uppercase">{fmtDayLong(data.from)}</span>.
+              Giorno: <span className="inline-block first-letter:uppercase">{fmtDayLong(data.start)}</span>
+              {data.to === data.today ? " (fino a quest'ora)" : ""}.
             </>
           ) : (
             <>
-              Periodo: dal {fmtDay(data.from)} al {fmtDay(data.to)}.
+              Periodo: dal {fmtDay(data.start)} al {fmtDay(data.to)}
+              {data.to === data.today ? " (oggi compreso)" : ""} · {n(data.daily.length)} giorni.
             </>
           )}
         </p>
@@ -547,7 +586,7 @@ export function StatsView({
               <HeroKpi
                 label="Aperture del menù"
                 value={n(data.opens)}
-                note={change === null ? "nel periodo scelto" : "rispetto al periodo prima"}
+                note={compareNote}
                 change={change}
                 values={trend}
               />
@@ -571,13 +610,32 @@ export function StatsView({
                 <TrendChart daily={data.daily} eventDays={data.eventDays} eventNames={eventNames} />
               </Card>
             )}
-            <Card title="Settimana per settimana" hint="Aperture del menù per settimana (da lunedì a domenica). L'ultima colonna è la settimana in corso.">
+            <Card
+              title="Settimana per settimana"
+              hint="Aperture del menù per settimana (da lunedì a domenica), sempre le ultime 26 settimane, qualunque periodo sia scelto sopra. Le colonne più chiare sono settimane incomplete: quella in corso e la prima, se il conteggio è iniziato a settimana già cominciata."
+            >
               {data.weeks.length === 0 ? (
                 <Empty />
               ) : (
                 <Bars
-                  data={data.weeks.map((w) => ({ key: w.start, count: w.count, tip: `Settimana dal ${fmtDay(w.start)}: ${n(w.count)} aperture` }))}
-                  label={(i) => (i % Math.max(1, Math.ceil(data.weeks.length / 6)) === 0 ? `${Number(data.weeks[i].start.slice(8))}/${Number(data.weeks[i].start.slice(5, 7))}` : "")}
+                  data={data.weeks.map((w) => ({
+                    key: w.start,
+                    count: w.count,
+                    partial: w.current || w.from !== null,
+                    tip: w.current
+                      ? `Settimana in corso, dal ${fmtDay(w.start)}: ${n(w.count)} aperture finora`
+                      : w.from
+                        ? `Settimana dal ${fmtDay(w.start)} (contata dal ${fmtDay(w.from)}): ${n(w.count)} aperture`
+                        : `Settimana dal ${fmtDay(w.start)}: ${n(w.count)} aperture`,
+                  }))}
+                  label={(i) => {
+                    const w = data.weeks[i];
+                    if (w.from) return `dal ${fmtDay(w.from)}`;
+                    // Etichette distanziate, ma non subito accanto a quella della prima settimana incompleta.
+                    const every = Math.max(1, Math.ceil(data.weeks.length / 6));
+                    if (i % every !== 0 || (data.weeks[0].from && i > 0 && i < Math.max(2, every))) return "";
+                    return `${Number(w.start.slice(8))}/${Number(w.start.slice(5, 7))}`;
+                  }}
                 />
               )}
             </Card>
@@ -588,30 +646,50 @@ export function StatsView({
             <Card title="Giorni e orari" hint="Quando viene aperto il menù: più intenso il colore, più aperture. Tocca una casella per leggere il numero.">
               <Heatmap heat={data.heat} />
             </Card>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card title="Classifica dei giorni della settimana" hint="In ordine di media: dal giorno in cui il menù si apre di più, in media, a quello in cui si apre di meno. Sotto, il totale delle aperture nel periodo.">
-                <Ranking empty={<Empty />} rows={data.dayRanking.map((d) => ({ key: String(d.weekday), label: WEEKDAY_NAMES[d.weekday], total: d.total, average: d.average, days: d.days }))} />
-              </Card>
-              <Card title="Classifica dei mesi" hint="In ordine di media al giorno, così un mese più lungo non vince solo perché ha più giorni (lo stesso mese di anni diversi conta insieme). Sotto, il totale.">
-                <Ranking empty={<Empty />} rows={data.monthRanking.map((m) => ({ key: String(m.month), label: MONTH_NAMES[m.month], total: m.total, average: m.average, days: m.days }))} />
-              </Card>
-            </div>
-            <Card title="Ogni giorno della settimana nel tempo" hint="Gli ultimi lunedì, martedì… a confronto: si vede se un giorno sta crescendo o calando.">
+            {/* Le classifiche servono solo se c'è qualcosa da mettere in fila: con un periodo di un giorno
+                (o di un mese solo) si nascondono, e i giorni che nel periodo non ci sono non compaiono. */}
+            {(showDayRanking || showMonthRanking) && (
+              <div className={`grid gap-4 ${showDayRanking && showMonthRanking ? "md:grid-cols-2" : ""}`}>
+                {showDayRanking && (
+                  <Card title="Classifica dei giorni della settimana" hint="In ordine di media: dal giorno in cui il menù si apre di più, in media, a quello in cui si apre di meno. Sotto, il totale delle aperture nel periodo.">
+                    <Ranking empty={<Empty />} rows={dayRows} />
+                  </Card>
+                )}
+                {showMonthRanking && (
+                  <Card title="Classifica dei mesi" hint="In ordine di media al giorno, così un mese più lungo non vince solo perché ha più giorni (lo stesso mese di anni diversi conta insieme). Sotto, il totale.">
+                    <Ranking empty={<Empty />} rows={data.monthRanking.map((m) => ({ key: String(m.month), label: MONTH_NAMES[m.month], total: m.total, average: m.average, days: m.days }))} />
+                  </Card>
+                )}
+              </div>
+            )}
+            <Card
+              title="Ogni giorno della settimana nel tempo"
+              hint={`Gli ultimi 8 lunedì, martedì… a confronto (qualunque periodo sia scelto sopra): si vede se un giorno sta crescendo o calando. Tutti i grafici hanno la stessa scala: la colonna più alta vale ${n(weekdayMax)} aperture.`}
+            >
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
-                {data.weekdays.map((list, wd) => (
-                  <div key={wd}>
-                    <p className="mb-1 text-xs font-medium capitalize text-foreground">{WEEKDAY_NAMES[wd]}</p>
-                    {list.length === 0 ? (
-                      <p className="text-[11px] text-foreground-muted">—</p>
-                    ) : (
-                      <Bars
-                        height={56}
-                        data={list.map((d) => ({ key: d.day, count: d.count, tip: `${WEEKDAY_NAMES[wd]} ${fmtDay(d.day)}: ${n(d.count)} aperture` }))}
-                        edges={[list[0], list[list.length - 1]].map((d) => `${Number(d.day.slice(8))}/${Number(d.day.slice(5, 7))}`) as [string, string]}
-                      />
-                    )}
-                  </div>
-                ))}
+                {data.weekdays.map((list, wd) => {
+                  const last = list[list.length - 1];
+                  return (
+                    <div key={wd}>
+                      <p className="mb-1 text-xs font-medium capitalize text-foreground">{WEEKDAY_NAMES[wd]}</p>
+                      {list.length === 0 ? (
+                        <p className="text-[11px] text-foreground-muted">—</p>
+                      ) : (
+                        <Bars
+                          height={56}
+                          max={weekdayMax}
+                          data={list.map((d) => ({
+                            key: d.day,
+                            count: d.count,
+                            partial: d.day === data.today,
+                            tip: `${WEEKDAY_NAMES[wd]} ${fmtDay(d.day)}${d.day === data.today ? " (oggi, in corso)" : ""}: ${n(d.count)} aperture`,
+                          }))}
+                          edges={[`${Number(list[0].day.slice(8))}/${Number(list[0].day.slice(5, 7))}`, last.day === data.today ? "oggi, in corso" : `${Number(last.day.slice(8))}/${Number(last.day.slice(5, 7))}`]}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           </Group>
@@ -644,16 +722,16 @@ export function StatsView({
           <Group id="eventi" title="Eventi e contatti" text="Gli eventi portano gente? Quanti aprono la pagina, prenotano, aggiungono al calendario, e quanti chiamano, scrivono o cercano la strada.">
             <Card
               title="Gli eventi funzionano?"
-              hint="Le aperture medie del menù nei giorni in cui c'era un evento, a confronto con tutti gli altri giorni del periodo scelto."
+              hint="Le aperture medie del menù nei giorni in cui c'era un evento, a confronto con gli stessi giorni della settimana senza evento (un sabato con gli altri sabati) del periodo scelto. Contano solo i giorni già finiti."
             >
               {data.effect ? (
                 <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-                  <EffectBars {...data.effect} />
+                  <EffectBars {...data.effect} offLabel={sameDaysLabel(data.effect.weekdays)} />
                   <div className="md:text-center">
                     {/* Con pochi giorni di evento la percentuale sarebbe un numero a caso: non si mostra. */}
                     {data.effect.onDays < 4 ? (
                       <p className="max-w-[16rem] text-sm text-foreground-muted">
-                        Solo {data.effect.onDays} {data.effect.onDays === 1 ? "giorno" : "giorni"} con un evento: troppo pochi per dire se portano più gente. Il confronto si fa dopo qualche serata in più.
+                        Solo {data.effect.onDays} {data.effect.onDays === 1 ? "serata" : "serate"} con evento: aspetta altre serate per un confronto affidabile.
                       </p>
                     ) : data.effect.offAvg > 0 ? (
                       <p className="text-4xl font-semibold tabular-nums text-foreground">
@@ -669,7 +747,13 @@ export function StatsView({
                   </div>
                 </div>
               ) : (
-                <Empty text="Nel periodo scelto non ci sono eventi: scegli un periodo più lungo per vedere se portano più gente." />
+                <Empty
+                  text={
+                    data.eventDays.length
+                      ? "Il confronto compare quando un giorno con evento è finito e ci sono gli stessi giorni della settimana senza evento da confrontare: scegli un periodo più lungo."
+                      : "Nel periodo scelto non ci sono eventi: scegli un periodo più lungo per vedere se portano più gente."
+                  }
+                />
               )}
             </Card>
             {data.eventCards.length > 0 && (
@@ -682,7 +766,8 @@ export function StatsView({
                     </h3>
                     <p className="text-xs text-foreground-muted">
                       {e.startDate === e.endDate ? fmtDay(e.startDate) : `${fmtDay(e.startDate)} – ${fmtDay(e.endDate)}`}
-                      {" · "}menù aperto {n(e.menuOpens)} {e.menuOpens === 1 ? "volta" : "volte"} in {n(e.days)} giorn{e.days === 1 ? "o" : "i"}
+                      {" · "}
+                      {e.upcoming ? "in arrivo: la pagina è già stata aperta nel periodo scelto" : `menù aperto ${n(e.menuOpens)} ${e.menuOpens === 1 ? "volta" : "volte"} in ${n(e.days)} giorn${e.days === 1 ? "o" : "i"}`}
                     </p>
                     <div className="mt-4">
                       <Funnel
@@ -717,7 +802,7 @@ export function StatsView({
             <>
               <p className="min-w-0 flex-1 text-foreground">Mettere in pausa il conteggio? Da ora non si conta più nulla finché non lo riaccendi.</p>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setAskPause(false)} className="min-h-9 rounded-full border border-border px-3 font-medium hover:text-foreground">
+                <button type="button" onClick={() => setAskPause(false)} className="min-h-10 rounded-full border border-border px-4 font-medium hover:text-foreground">
                   Annulla
                 </button>
                 <button
@@ -727,7 +812,7 @@ export function StatsView({
                     setAskPause(false);
                     toggle();
                   }}
-                  className="min-h-9 rounded-full bg-accent px-3 font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
+                  className="min-h-10 rounded-full bg-accent px-4 font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
                 >
                   Sì, metti in pausa
                 </button>
@@ -739,7 +824,7 @@ export function StatsView({
                 Si contano le aperture del menù{setting.since ? ` dal ${fmtDay(setting.since)}` : ""}. Non contano chi ha fatto l&apos;accesso, i telefoni
                 del personale segnati qui sopra, l&apos;Anteprima e i controlli automatici.
               </p>
-              <button type="button" onClick={() => setAskPause(true)} className="min-h-9 rounded-full border border-border px-3 font-medium hover:border-accent hover:text-foreground">
+              <button type="button" onClick={() => setAskPause(true)} className="min-h-10 rounded-full border border-border px-4 font-medium hover:border-accent hover:text-foreground">
                 Metti in pausa
               </button>
             </>

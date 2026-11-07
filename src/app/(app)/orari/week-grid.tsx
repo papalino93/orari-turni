@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { dayLabel, formatDayMonth, isToday, parseDateKey, toDateKey } from "@/lib/week";
 import { entryForPeriod, formatHours, formatHoursNumber, PERIOD_LABEL, PERIODS, type DayEntry, type Employee, type Period, buildSchedule } from "@/lib/schedule";
 import { DayCellContent, DayEditorModal, orderEmployees } from "./shared";
-import { DayStatusModal } from "./day-status-modal";
+import { absencesOn, DayStatusModal } from "./day-status-modal";
 import { ClosureRangeModal } from "./closure-range-modal";
 import { EmployeeAvatar } from "@/components/avatar";
 import { PdfExportModal } from "../dipendenti/pdf-export-modal";
@@ -124,6 +124,7 @@ export function WeekBody({
             const entry = schedule.entry(e.id, managingDate);
             return sum + entry.blocks.length + entry.suspendedBlocks.length;
           }, 0)}
+          absences={absencesOn(schedule, managingDate)}
           onClose={() => setManagingDate(null)}
         />
       )}
@@ -307,7 +308,11 @@ function PeriodsLayout({
           stessa settimana disallineate tra loro. */}
       <div className="relative hidden md:block">
         <div ref={scroller} onScroll={updateMore} className="overflow-x-auto">
-          <div className="w-max min-w-full space-y-4">
+          {/* Larghezza minima fissa e colonne fisse (table-fixed): Mattina e
+              Pomeriggio hanno così le colonne dei giorni allineate tra loro,
+              anche sul tablet in verticale, invece di allargarsi ognuna in
+              base al proprio contenuto. */}
+          <div className="min-w-[46rem] space-y-4">
             {PERIODS.map((period) => (
               <PeriodTable
                 key={period}
@@ -391,8 +396,9 @@ function PeriodsLayout({
                   aria-label={`${closed ? "Riapri" : "Chiudi"} il locale: ${dayLabel(d, true)} ${formatDayMonth(d)}`}
                   className="mr-1.5 flex min-h-11 shrink-0 items-center px-1"
                 >
-                  {/* Una parola invece del lucchetto da solo: il lucchetto faceva pensare a «bloccato». */}
-                  <span className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-foreground-muted">{closed ? "Riapri" : "Chiudi"}</span>
+                  {/* Parole invece del lucchetto da solo (faceva pensare a «bloccato»); «Chiudi» da solo
+                      sembrava «chiudi questo riquadro», quindi «Chiudi locale». */}
+                  <span className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-foreground-muted">{closed ? "Riapri locale" : "Chiudi locale"}</span>
                 </button>
               </div>
               {!open ? null : closed ? (
@@ -454,10 +460,10 @@ function PeriodTable({
 }) {
   return (
     <div className="rounded-2xl border border-border bg-surface">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full table-fixed border-collapse text-sm">
         <thead>
           <tr>
-            <th className="w-32 border-b border-border bg-surface-2/60 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-foreground lg:w-40">
+            <th className="w-40 border-b border-border bg-surface-2/60 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-foreground lg:w-44">
               {label}
             </th>
             {days.map((d) => {
@@ -468,7 +474,7 @@ function PeriodTable({
                 </th>
               );
             })}
-            <th className="border-b border-border bg-surface-2/60 px-2 py-2.5 text-center text-xs font-medium text-foreground-muted lg:px-3">
+            <th className="w-16 border-b border-border bg-surface-2/60 px-2 py-2.5 text-center text-xs font-medium text-foreground-muted lg:w-20 lg:px-3">
               Tot. ore
             </th>
           </tr>

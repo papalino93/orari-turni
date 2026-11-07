@@ -1,5 +1,17 @@
 import { prisma } from "@/lib/prisma";
-import { addDays, endOfMonth, lastCompletedMonth, monthLabel, parseDateKey, startOfWeek, toDateKey, todayKey } from "@/lib/week";
+import {
+  addDays,
+  dayLabel,
+  endOfMonth,
+  formatDayMonth,
+  lastCompletedMonth,
+  monthLabel,
+  parseDateKey,
+  startOfWeek,
+  toDateKey,
+  todayKey,
+} from "@/lib/week";
+import { blockTimeLabel, leaveLabelFor } from "@/lib/schedule";
 import { NewEmployeeForm } from "./new-employee-form";
 import { EmployeeList } from "./employee-list";
 import {
@@ -71,17 +83,63 @@ export default async function DipendentiPage() {
   const reviewMonth = lastCompletedMonth(now);
   const reviewMonthEnd = endOfMonth(new Date(Date.UTC(reviewMonth.year, reviewMonth.month - 1, 1)));
 
-  const [employeesRaw, blocks, leaveEntries, closures, pendingSubmissions, lastMonthSubmissions] = await Promise.all([
+  const [employeesRaw, blocks, leaveEntries, closures, reviewSubmissions, lastMonthSubmissions] = await Promise.all([
     prisma.employee.findMany({ orderBy: [{ active: "desc" }, { sortOrder: "asc" }] }),
     prisma.shiftBlock.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
     prisma.leaveEntry.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
     prisma.closureDay.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
-    // Solo gli invii "in attesa": è l'unico stato che richiede un'azione del
-    // titolare — bozze e mesi già approvati non hanno nulla da mostrare qui.
-    prisma.monthlySubmission.findMany({ where: { status: "SUBMITTED" } }),
+    // Inviati (da controllare), rimandati indietro (in attesa del dipendente)
+    // e approvati (gli ultimi, per poterli riaprire). Le bozze non servono qui.
+    prisma.monthlySubmission.findMany({
+      where: { status: { in: ["SUBMITTED", "REOPENED", "APPROVED"] } },
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+    }),
     prisma.monthlySubmission.findMany({ where: { ...reviewMonth } }),
   ]);
   const employees = await ensureEmployeeCredentials(employeesRaw);
+  const pendingSubmissions = reviewSubmissions.filter((s) => s.status === "SUBMITTED");
+
+  // Cosa ha cambiato il dipendente nei mesi da controllare, rispetto agli
+  // orari del titolare: turni corretti o aggiunti, turni tolti, permessi a
+  // ore segnati da lui. Chi approva lo vede subito sotto il mese.
+  const firstPending = pendingSubmissions.reduce<Date | null>((min, s) => {
+    const d = new Date(Date.UTC(s.year, s.month - 1, 1));
+    return !min || d < min ? d : min;
+  }, null);
+  const [editedBlocks, employeeLeaves, removals] = firstPending
+    ? await Promise.all([
+        prisma.shiftBlock.findMany({
+          where: { date: { gte: firstPending }, OR: [{ addedByEmployee: true }, { originalStartTime: { not: null } }] },
+          orderBy: [{ date: "asc" }, { startTime: "asc" }],
+        }),
+        prisma.leaveEntry.findMany({ where: { date: { gte: firstPending }, addedByEmployee: true }, orderBy: { date: "asc" } }),
+        prisma.shiftRemoval.findMany({ where: { date: { gte: firstPending } }, orderBy: [{ date: "asc" }, { startTime: "asc" }] }),
+      ])
+    : [[], [], []];
+  function changesFor(employeeId: string, employeeName: string, year: number, month: number): string[] {
+    const who = employeeName.split(" ")[0];
+    const inMonth = (d: Date) => d.getUTCFullYear() === year && d.getUTCMonth() === month - 1;
+    const day = (d: Date) => `${dayLabel(d)} ${formatDayMonth(d)}`;
+    const lines: { key: string; text: string }[] = [];
+    for (const b of editedBlocks) {
+      if (b.employeeId !== employeeId || !inMonth(b.date)) continue;
+      lines.push({
+        key: `${toDateKey(b.date)}${b.startTime}`,
+        text: b.originalStartTime
+          ? `${day(b.date)} · Corretto da ${who}: era ${blockTimeLabel({ startTime: b.originalStartTime, endTime: b.originalEndTime ?? "" })}, ora ${blockTimeLabel(b)}`
+          : `${day(b.date)} · Aggiunto da ${who}: ${blockTimeLabel(b)}`,
+      });
+    }
+    for (const r of removals) {
+      if (r.employeeId !== employeeId || !inMonth(r.date)) continue;
+      lines.push({ key: `${toDateKey(r.date)}${r.startTime}`, text: `${day(r.date)} · Tolto da ${who}: era ${blockTimeLabel(r)}` });
+    }
+    for (const l of employeeLeaves) {
+      if (l.employeeId !== employeeId || !inMonth(l.date)) continue;
+      lines.push({ key: `${toDateKey(l.date)}~`, text: `${day(l.date)} · ${leaveLabelFor(l.type, l.quantity)} segnato da ${who}` });
+    }
+    return lines.sort((a, b) => a.key.localeCompare(b.key)).map((l) => l.text);
+  }
 
   const submittedOrApprovedIds = new Set(
     lastMonthSubmissions.filter((s) => s.status === "SUBMITTED" || s.status === "APPROVED").map((s) => s.employeeId),
@@ -112,7 +170,22 @@ export default async function DipendentiPage() {
     canEditMenu: e.canEditMenu,
     pendingSubmissions: pendingSubmissions
       .filter((s) => s.employeeId === e.id)
-      .map((s) => ({ year: s.year, month: s.month, submittedAt: s.submittedAt?.toISOString() ?? null })),
+      .map((s) => ({
+        year: s.year,
+        month: s.month,
+        submittedAt: s.submittedAt?.toISOString() ?? null,
+        changes: changesFor(e.id, e.name, s.year, s.month),
+      })),
+    // Mesi rimandati indietro: prima sparivano da questa pagina finché il
+    // dipendente non li inviava di nuovo.
+    reopenedSubmissions: reviewSubmissions
+      .filter((s) => s.employeeId === e.id && s.status === "REOPENED")
+      .map((s) => ({ year: s.year, month: s.month, reopenedAt: s.reopenedAt?.toISOString() ?? null, note: s.reopenNote })),
+    // Gli ultimi tre mesi approvati, per poterli riaprire.
+    approvedSubmissions: reviewSubmissions
+      .filter((s) => s.employeeId === e.id && s.status === "APPROVED")
+      .slice(0, 3)
+      .map((s) => ({ year: s.year, month: s.month, approvedAt: s.approvedAt?.toISOString() ?? null })),
   }));
 
   return (
@@ -129,7 +202,7 @@ export default async function DipendentiPage() {
             : `${missingLastMonth.length} dipendenti non hanno ancora inviato le ore di `}
           {monthLabel(reviewMonth.month - 1)} {reviewMonth.year}
           {missingLastMonth.length > 1 && (
-            <span className="text-gold/80"> ({missingLastMonth.map((e) => e.name).join(", ")})</span>
+            <span className="text-gold"> ({missingLastMonth.map((e) => e.name).join(", ")})</span>
           )}
         </p>
       )}

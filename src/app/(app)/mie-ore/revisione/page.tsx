@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { daysInMonth, toDateKey, todayKey } from "@/lib/week";
 import { employeeVisibleDates } from "@/lib/week-visibility";
 import { RevisioneView } from "./revisione-view";
+import { employeeCanEditMonth, monthKeyOf } from "../editable-month";
 
 export default async function RevisionePage({
   searchParams,
@@ -64,6 +65,22 @@ export default async function RevisionePage({
   const blocks = rawBlocks.filter((b) => visible(b.date));
   const leaveEntries = rawLeaveEntries.filter((l) => visible(l.date));
 
+  const hireDateKey = toDateKey(employee.createdAt);
+  const hireMonthKey = hireDateKey.slice(0, 7);
+  const monthKey = monthKeyOf(year, month);
+  // Perché il mese non si tocca (se non si tocca): prima dell'assunzione non
+  // c'è nulla da rivedere; un mese vecchio mai inviato lo gestisce il titolare.
+  const status = submission?.status ?? null;
+  const canEditMonth = employeeCanEditMonth({ year, month, status, hireMonthKey, today });
+  const lockedReason: "beforeHire" | "future" | "tooOld" | null =
+    monthKey < hireMonthKey
+      ? "beforeHire"
+      : monthKey > today.slice(0, 7)
+        ? "future"
+        : !canEditMonth && (status === null || status === "DRAFT")
+          ? "tooOld"
+          : null;
+
   return (
     <RevisioneView
       employee={{
@@ -99,7 +116,10 @@ export default async function RevisionePage({
       status={submission?.status ?? "DRAFT"}
       reopenNote={submission?.status === "REOPENED" ? submission.reopenNote : null}
       readOnly={preview}
-      hireMonthKey={toDateKey(employee.createdAt).slice(0, 7)}
+      hireMonthKey={hireMonthKey}
+      hireDateKey={hireDateKey}
+      canEditMonth={canEditMonth}
+      lockedReason={lockedReason}
     />
   );
 }

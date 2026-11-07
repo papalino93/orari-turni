@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { runWithToast, useToast } from "@/components/toast";
 import { setFeatureVisible } from "../app-actions";
 
 // Le sezioni che si accendono e spengono nel menù in alto: «Mail» (finché l'invio non è collegato)
@@ -10,12 +11,21 @@ export function FeatureSetting({ feature, visible, title, hint }: { feature: "ma
   const [on, setOn] = useState(visible);
   const [pending, start] = useTransition();
   const router = useRouter();
+  const toast = useToast();
   function toggle() {
     const next = !on;
     setOn(next);
     start(async () => {
-      const res = await setFeatureVisible(feature, next);
-      if (!res.ok) setOn(!next);
+      // Se il salvataggio non riesce l'interruttore torna com'era e un messaggio dice perché.
+      const res = await runWithToast(toast, async () => {
+        try {
+          const r = await setFeatureVisible(feature, next);
+          return r.ok ? { ok: true as const, data: true } : r;
+        } catch {
+          return { ok: false as const, error: "Non sono riuscito a salvare: controlla la connessione e riprova." };
+        }
+      });
+      if (res === null) setOn(!next);
       router.refresh();
     });
   }

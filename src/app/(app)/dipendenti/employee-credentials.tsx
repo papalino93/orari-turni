@@ -42,22 +42,37 @@ export function EmployeeCredentials({
     }
   }
 
+  // Uscendo dal campo non si salva subito: cambiare la password scollega il
+  // dipendente, quindi si chiede conferma come per «Nuova password».
+  const [askSetPassword, setAskSetPassword] = useState<string | null>(null);
   function savePassword() {
     setEditingPassword(false);
     const trimmed = passwordValue.trim();
     if (trimmed && trimmed !== password) {
-      startTransition(async () => {
-        const result = await runWithToast(toast, () => setEmployeePassword(employeeId, trimmed), "Password aggiornata");
-        if (result !== null) {
-          setReveal(true);
-          router.refresh();
-        } else {
-          setPasswordValue(password ?? "");
-        }
-      });
+      setAskSetPassword(trimmed);
     } else {
       setPasswordValue(password ?? "");
     }
+  }
+
+  function confirmSetPassword() {
+    const next = askSetPassword;
+    if (!next) return;
+    startTransition(async () => {
+      const result = await runWithToast(toast, () => setEmployeePassword(employeeId, next), "Password aggiornata");
+      setAskSetPassword(null);
+      if (result !== null) {
+        setReveal(true);
+        router.refresh();
+      } else {
+        setPasswordValue(password ?? "");
+      }
+    });
+  }
+
+  function cancelSetPassword() {
+    setAskSetPassword(null);
+    setPasswordValue(password ?? "");
   }
 
   // Una password nuova toglie l'accesso con quella vecchia: prima si chiede conferma.
@@ -77,13 +92,13 @@ export function EmployeeCredentials({
   return (
     <div className="border-t border-border bg-surface-2/40 px-4 py-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted/70">
+        <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted">
           <LockIcon /> Accesso Area Dipendenti
         </p>
         <Link
           href={`/mie-ore?viewAs=${employeeId}`}
           title="Vedi esattamente cosa vede questo dipendente, in sola lettura"
-          className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-foreground-muted hover:text-accent-ink"
+          className="-my-2 flex min-h-10 shrink-0 items-center gap-1 text-[11px] font-medium text-foreground-muted hover:text-accent-ink"
         >
           <EyeIcon /> Visualizza come
         </Link>
@@ -103,7 +118,7 @@ export function EmployeeCredentials({
               // saveUsername() una seconda volta — doppia richiesta al
               // server e doppio toast per un singolo Invio.
               onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-              className="w-32 rounded border border-accent bg-surface px-1.5 py-0.5 font-mono text-xs outline-none"
+              className="w-48 rounded border border-accent bg-surface px-1.5 py-0.5 font-mono text-xs outline-none"
             />
           ) : (
             <button
@@ -132,7 +147,7 @@ export function EmployeeCredentials({
               onBlur={savePassword}
               // Vedi lo stesso commento sul campo username qui sopra.
               onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-              className="w-32 rounded border border-accent bg-surface px-1.5 py-0.5 font-mono text-xs outline-none"
+              className="w-48 rounded border border-accent bg-surface px-1.5 py-0.5 font-mono text-xs outline-none"
             />
           ) : (
             <button
@@ -162,6 +177,18 @@ export function EmployeeCredentials({
             Nuova password
           </button>
         </div>
+        {askSetPassword !== null && (
+          <ConfirmSheet
+            title="Cambiare la password?"
+            confirmLabel="Sì, cambia password"
+            busyLabel="Salvo…"
+            busy={pending}
+            onConfirm={confirmSetPassword}
+            onCancel={cancelSetPassword}
+          >
+            <p>Con la password attuale non si potrà più entrare e il dipendente verrà scollegato: dovrai dargli quella nuova.</p>
+          </ConfirmSheet>
+        )}
         {askRegenerate && (
           <ConfirmSheet
             title="Creare una nuova password?"

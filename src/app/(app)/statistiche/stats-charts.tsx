@@ -4,7 +4,7 @@
 // griglia appena visibile, valore al passaggio del dito/mouse e, per ogni grafico, una tabella
 // equivalente. I colori sono var(--chart) e var(--chart-2) (oro, solo per gli eventi).
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { WEEKDAY_LABELS, WEEKDAY_NAMES } from "@/lib/menu-stats";
 
 const MONTHS = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
@@ -14,11 +14,25 @@ export const fmtDay = (day: string) => {
 };
 export const weekdayOf = (day: string) => (new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7;
 export const fmtDayLong = (day: string) => `${WEEKDAY_NAMES[weekdayOf(day)]} ${fmtDay(day)}`;
+// Giorni con cui si confronta: «sab 31 ott», «lun 26 – sab 31 ott», «9 set – 8 ott» (periodi lunghi
+// senza il giorno della settimana).
+export const fmtRange = (from: string, to: string) => {
+  const wd = (d: string) => `${WEEKDAY_LABELS[weekdayOf(d)].toLowerCase()} `;
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1;
+  if (from === to) return `${wd(from)}${fmtDay(from)}`;
+  const withWd = days <= 7;
+  const sameMonth = from.slice(0, 7) === to.slice(0, 7);
+  const start = sameMonth ? String(Number(from.slice(8))) : fmtDay(from);
+  return `${withWd ? wd(from) : ""}${start} – ${withWd ? wd(to) : ""}${fmtDay(to)}`;
+};
 // Numeri all'italiana (1.759 · 4,5) scritti a mano: toLocaleString dà risultati
 // diversi sul server e nel browser, e la pagina si ridisegnerebbe.
 export const n = (v: number) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 export const dec = (v: number) => (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, "").replace(".", ",");
 const apert = (c: number) => `apertur${c === 1 ? "a" : "e"}`;
+
+// Nota: sul telefono, dopo un tocco il browser segnala subito che il dito «è uscito» (pointerleave):
+// lì il fumetto resta aperto finché non si tocca un altro punto, sennò sparirebbe all'istante.
 
 // Larghezza reale di un contenitore (i grafici SVG si disegnano alla misura vera: testi mai stirati).
 function useWidth(): [(el: HTMLElement | null) => void, number] {
@@ -44,12 +58,21 @@ function niceMax(v: number) {
   return 10 * p;
 }
 
-function Tooltip({ left, top, children }: { left: number; top: number; children: React.ReactNode }) {
+// Fumetto con il valore: centrato sul punto, ma spostato quanto basta (con la sua larghezza vera)
+// per restare dentro il riquadro largo «bound».
+function Tooltip({ left, top, bound, children }: { left: number; top: number; bound?: number; children: React.ReactNode }) {
+  const el = useRef<HTMLDivElement>(null);
+  const [x, setX] = useState(left);
+  useLayoutEffect(() => {
+    const w = el.current?.offsetWidth ?? 0;
+    setX(bound && w ? Math.max(w / 2, Math.min(bound - w / 2, left)) : left);
+  }, [left, bound, children]);
   return (
     <div
+      ref={el}
       role="status"
-      className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs leading-snug text-foreground shadow-lg"
-      style={{ left, top }}
+      className="pointer-events-none absolute z-20 w-max -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs leading-snug text-foreground shadow-lg"
+      style={{ left: x, top, maxWidth: bound }}
     >
       {children}
     </div>
@@ -63,7 +86,7 @@ function TableToggle({ on, set }: { on: boolean; set: (v: boolean) => void }) {
       type="button"
       onClick={() => set(!on)}
       aria-pressed={on}
-      className="min-h-9 shrink-0 rounded-full border border-border px-3 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
+      className="min-h-10 shrink-0 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
     >
       {on ? "Vedi il grafico" : "Vedi come tabella"}
     </button>
@@ -119,7 +142,8 @@ export function TrendChart({ daily, eventDays, eventNames }: { daily: Day[]; eve
   const H = 220;
   const L = 36;
   const R = 10;
-  const T = 16;
+  // Spazio in alto per il numero del giorno più forte, sopra la riga dorata degli eventi.
+  const T = 26;
   const B = 26;
   const N = rows.length;
   const max = Math.max(1, ...rows.map((r) => r.count));
@@ -129,6 +153,12 @@ export function TrendChart({ daily, eventDays, eventNames }: { daily: Day[]; eve
   const step = N > 1 ? (w - L - R) / (N - 1) : 0;
 
   const peak = rows.reduce((b, r, i) => (r.count > rows[b].count ? i : b), 0);
+  // Il numero sta sopra il punto; vicino alla cima sale sopra la riga dorata degli eventi (in y = T),
+  // così non ci cade sopra e non sembra barrato.
+  const peakLabelY = (() => {
+    const above = y(rows[peak]?.count ?? 0) - 10;
+    return above < T + 13 ? Math.min(above, T - 4) : above;
+  })();
   const line = rows.map((r, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(r.count).toFixed(1)}`).join(" ");
   const area = N > 1 ? `${line} L${x(N - 1).toFixed(1)} ${y(0)} L${x(0).toFixed(1)} ${y(0)} Z` : "";
 
@@ -206,7 +236,7 @@ export function TrendChart({ daily, eventDays, eventNames }: { daily: Day[]; eve
                 className="block touch-pan-y select-none"
                 onPointerMove={move}
                 onPointerDown={move}
-                onPointerLeave={() => setHover(null)}
+                onPointerLeave={(e) => e.pointerType !== "touch" && setHover(null)}
               >
                 <defs>
                   <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
@@ -241,7 +271,7 @@ export function TrendChart({ daily, eventDays, eventNames }: { daily: Day[]; eve
                     <circle cx={x(peak)} cy={y(rows[peak].count)} r="4.5" fill="var(--chart)" stroke="var(--surface)" strokeWidth="2" />
                     <text
                       x={Math.max(L + 10, Math.min(w - R - 10, x(peak)))}
-                      y={Math.max(T + 4, y(rows[peak].count) - 10)}
+                      y={peakLabelY}
                       textAnchor="middle"
                       fontSize="11"
                       fontWeight="600"
@@ -267,7 +297,7 @@ export function TrendChart({ daily, eventDays, eventNames }: { daily: Day[]; eve
                 )}
               </svg>
               {h && hover !== null && (
-                <Tooltip left={Math.max(70, Math.min(w - 70, x(hover)))} top={Math.max(34, y(h.count) - 12)}>
+                <Tooltip left={x(hover)} top={Math.max(34, y(h.count) - 12)} bound={w}>
                   <b className="font-semibold first-letter:uppercase">{fmtDayLong(h.day)}</b>
                   <br />
                   <span className="tabular-nums">
@@ -289,22 +319,36 @@ export function TrendChart({ daily, eventDays, eventNames }: { daily: Day[]; eve
   );
 }
 
-// Colonne verticali (settimane): l'ultima in colore pieno, le altre un po' più chiare; il valore si legge toccando.
-export function Bars({ data, label, height = 132, edges }: { data: { key: string; count: number; tip: string }[]; label?: (i: number) => string; height?: number; edges?: [string, string] }) {
-  const max = Math.max(1, ...data.map((d) => d.count));
+// Colonne verticali (settimane, giorni): colore pieno, più chiaro per quelle incomplete («partial»:
+// la settimana o il giorno in corso, la prima settimana contata a metà); il valore si legge toccando.
+// «max» dà la stessa scala a più grafici messi uno accanto all'altro.
+export function Bars({
+  data,
+  label,
+  height = 132,
+  edges,
+  max: scale,
+}: {
+  data: { key: string; count: number; tip: string; partial?: boolean }[];
+  label?: (i: number) => string;
+  height?: number;
+  edges?: [string, string];
+  max?: number;
+}) {
+  const max = scale ?? Math.max(1, ...data.map((d) => d.count));
   const [hover, setHover] = useState<number | null>(null);
-  const [pos, setPos] = useState({ left: 0, top: 0 });
+  const [pos, setPos] = useState({ left: 0, top: 0, bound: 0 });
   const box = useRef<HTMLDivElement>(null);
   function show(i: number, el: HTMLElement) {
     const b = box.current?.getBoundingClientRect();
     const r = el.getBoundingClientRect();
     if (!b) return;
     setHover(i);
-    setPos({ left: Math.max(60, Math.min(b.width - 60, r.left - b.left + r.width / 2)), top: r.top - b.top - 6 });
+    setPos({ left: r.left - b.left + r.width / 2, top: r.top - b.top - 6, bound: b.width });
   }
   return (
     <div>
-      <div ref={box} className="relative" onPointerLeave={() => setHover(null)}>
+      <div ref={box} className="relative" onPointerLeave={(e) => e.pointerType !== "touch" && setHover(null)}>
         <div className="flex items-end gap-[3px] border-b border-border" style={{ height }}>
           {data.map((d, i) => (
             <div
@@ -317,15 +361,19 @@ export function Bars({ data, label, height = 132, edges }: { data: { key: string
               <div
                 className="w-full rounded-t-[4px] transition-opacity"
                 style={{
-                  height: `${Math.max(d.count ? 4 : 0, (d.count / max) * 100)}%`,
+                  height: `${Math.max(d.count ? 4 : 0, Math.min(100, (d.count / max) * 100))}%`,
                   background: "var(--chart)",
-                  opacity: hover === i ? 1 : i === data.length - 1 ? 1 : 0.55,
+                  opacity: d.partial ? (hover === i ? 0.5 : 0.28) : hover === i ? 1 : 0.8,
                 }}
               />
             </div>
           ))}
         </div>
-        {hover !== null && <Tooltip left={pos.left} top={pos.top}>{data[hover].tip}</Tooltip>}
+        {hover !== null && (
+          <Tooltip left={pos.left} top={pos.top} bound={pos.bound}>
+            {data[hover].tip}
+          </Tooltip>
+        )}
       </div>
       {edges ? (
         <div className="mt-1 flex justify-between text-[10px] text-foreground-muted">
@@ -359,19 +407,38 @@ export function Heatmap({ heat }: { heat: number[][] }) {
   const hours = first === -1 ? order.slice(12, 19) : order.slice(first, last + 1);
   let peak = { wd: -1, h: -1, c: 0 };
   heat.forEach((row, wd) => row.forEach((c, h) => c > peak.c && (peak = { wd, h, c })));
-  const [tip, setTip] = useState<{ wd: number; h: number; left: number; top: number } | null>(null);
+  const [tip, setTip] = useState<{ wd: number; h: number; left: number; top: number; bound: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   function show(wd: number, h: number, el: HTMLElement) {
     const b = box.current?.getBoundingClientRect();
     const r = el.getBoundingClientRect();
     if (!b) return;
-    setTip({ wd, h, left: Math.max(80, Math.min(b.width - 80, r.left - b.left + r.width / 2)), top: r.top - b.top - 4 });
+    setTip({ wd, h, left: r.left - b.left + r.width / 2, top: r.top - b.top - 4, bound: b.width });
   }
   const tint = (c: number) => `color-mix(in srgb, var(--chart) ${Math.round(14 + Math.sqrt(c / max) * 86)}%, transparent)`;
+  // Sul telefono le caselle si stringono per far stare tutte le ore; se proprio non ci stanno, una
+  // sfumatura con «scorri →» dice che ce ne sono altre, e il momento più forte è portato in vista.
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const check = () => setMore(el.scrollWidth - el.clientWidth - el.scrollLeft > 4);
+    const cell = el.querySelector<HTMLElement>("[data-peak]");
+    if (cell && el.scrollWidth > el.clientWidth && cell.offsetLeft + cell.offsetWidth > el.clientWidth) el.scrollLeft = cell.offsetLeft - el.clientWidth / 2;
+    check();
+    const obs = new ResizeObserver(check);
+    obs.observe(el);
+    el.addEventListener("scroll", check, { passive: true });
+    return () => {
+      obs.disconnect();
+      el.removeEventListener("scroll", check);
+    };
+  }, [heat]);
   return (
     <div>
-      <div ref={box} className="relative overflow-x-auto" onPointerLeave={() => setTip(null)}>
-        <table className="w-full border-separate [border-spacing:3px] text-[11px]">
+      <div className="relative">
+      <div ref={box} className="relative overflow-x-auto [scrollbar-width:thin]" onPointerLeave={(e) => e.pointerType !== "touch" && setTip(null)}>
+        <table className="w-full border-separate [border-spacing:2px] text-[11px] sm:[border-spacing:3px]">
           <thead>
             <tr>
               <th />
@@ -385,7 +452,7 @@ export function Heatmap({ heat }: { heat: number[][] }) {
           <tbody>
             {heat.map((row, wd) => (
               <tr key={wd}>
-                <th scope="row" className="pr-1.5 text-left font-medium text-foreground-muted">
+                <th scope="row" className="pr-1 text-left font-medium text-foreground-muted sm:pr-1.5">
                   {WEEKDAY_LABELS[wd]}
                 </th>
                 {hours.map((h) => {
@@ -397,7 +464,8 @@ export function Heatmap({ heat }: { heat: number[][] }) {
                       title={`${WEEKDAY_NAMES[wd]} ${h}:00–${h + 1}:00 · ${n(c)} ${apert(c)}`}
                       onPointerEnter={(e) => show(wd, h, e.currentTarget)}
                       onPointerDown={(e) => show(wd, h, e.currentTarget)}
-                      className={`h-8 min-w-6 rounded-md ${c ? "" : "bg-surface-2/60"} ${isPeak ? "outline outline-2 outline-offset-1 outline-foreground" : ""}`}
+                      data-peak={isPeak ? "" : undefined}
+                      className={`h-8 rounded-md sm:min-w-6 ${c ? "" : "bg-surface-2/60"} ${isPeak ? "outline outline-2 outline-offset-1 outline-foreground" : ""}`}
                       style={c ? { background: tint(c) } : undefined}
                     >
                       <span className="sr-only">{n(c)}</span>
@@ -409,7 +477,7 @@ export function Heatmap({ heat }: { heat: number[][] }) {
           </tbody>
         </table>
         {tip && (
-          <Tooltip left={tip.left} top={tip.top}>
+          <Tooltip left={tip.left} top={tip.top} bound={tip.bound}>
             <b className="font-semibold capitalize">{WEEKDAY_NAMES[tip.wd]}</b> {tip.h}:00–{tip.h + 1}:00
             <br />
             <span className="tabular-nums">
@@ -417,6 +485,12 @@ export function Heatmap({ heat }: { heat: number[][] }) {
             </span>
           </Tooltip>
         )}
+      </div>
+      {more && (
+        <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 flex w-16 items-center justify-end bg-gradient-to-l from-surface via-surface/80 to-transparent pr-0.5 text-[11px] font-medium text-foreground-muted">
+          scorri →
+        </span>
+      )}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-foreground-muted">
         <span className="flex items-center gap-2">
@@ -493,11 +567,11 @@ export function Ranking({ rows, empty }: { rows: { key: string; label: string; t
 }
 
 // Confronto a due barre: aperture medie al giorno nei giorni con un evento e negli altri.
-export function EffectBars({ onAvg, offAvg, onDays, offDays }: { onAvg: number; offAvg: number; onDays: number; offDays: number }) {
+export function EffectBars({ onAvg, offAvg, onDays, offDays, offLabel = "Altri giorni" }: { onAvg: number; offAvg: number; onDays: number; offDays: number; offLabel?: string }) {
   const max = Math.max(onAvg, offAvg, 1);
   const rows = [
     { label: `Giorni con un evento (${n(onDays)})`, v: onAvg, color: "var(--chart-2)" },
-    { label: `Altri giorni (${n(offDays)})`, v: offAvg, color: "var(--chart)" },
+    { label: `${offLabel} (${n(offDays)})`, v: offAvg, color: "var(--chart)" },
   ];
   return (
     <div className="space-y-3">
@@ -522,16 +596,16 @@ export function EffectBars({ onAvg, offAvg, onDays, offDays }: { onAvg: number; 
 export function Funnel({ steps }: { steps: { label: string; value: number }[] }) {
   const base = Math.max(1, steps[0]?.value ?? 1);
   return (
+    // Ogni riga di un <dl> è un <div> con dentro solo <dt> e <dd> (niente <div> in mezzo): la barra
+    // sta in un secondo <dd>, nascosto a chi usa la lettura vocale.
     <dl className="space-y-2">
       {steps.map((s, i) => (
-        <div key={s.label}>
-          <div className="flex items-baseline justify-between text-sm">
-            <dt className="text-foreground-muted">{s.label}</dt>
-            <dd className={`tabular-nums ${i === 0 ? "font-semibold" : "font-medium"} text-foreground`}>{n(s.value)}</dd>
-          </div>
-          <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
-            <div className="h-full rounded-full" style={{ width: `${Math.min(100, (s.value / base) * 100)}%`, background: "var(--chart-2)", opacity: i === 0 ? 1 : 0.7 }} />
-          </div>
+        <div key={s.label} className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 text-sm">
+          <dt className="text-foreground-muted">{s.label}</dt>
+          <dd className={`tabular-nums ${i === 0 ? "font-semibold" : "font-medium"} text-foreground`}>{n(s.value)}</dd>
+          <dd aria-hidden className="col-span-2 mt-0.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
+            <span className="block h-full rounded-full" style={{ width: `${Math.min(100, (s.value / base) * 100)}%`, background: "var(--chart-2)", opacity: i === 0 ? 1 : 0.7 }} />
+          </dd>
         </div>
       ))}
     </dl>

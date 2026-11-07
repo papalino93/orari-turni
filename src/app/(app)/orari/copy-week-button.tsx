@@ -61,7 +61,7 @@ export function CopyWeekButton({
         // undoCopyPreviousWeek in actions.ts.
         toast.showSuccess(`${plural(result.filledSlots, "giornata ricopiata", "giornate ricopiate")} dalla settimana precedente${extra}`, {
           label: "Annulla",
-          onClick: () => undo(result.createdBlockIds, result.createdLeaveIds),
+          onClick: () => undo(result.createdBlockIds, result.createdLeaveIds, result.wasConfirmed),
         });
       }
       router.refresh();
@@ -69,10 +69,16 @@ export function CopyWeekButton({
     });
   }
 
-  function undo(blockIds: string[], leaveIds: string[]) {
+  function undo(blockIds: string[], leaveIds: string[], wasConfirmed: boolean) {
     startTransition(async () => {
-      const result = await runWithToast(toast, () => undoCopyPreviousWeek(blockIds, leaveIds), "Annullato");
-      if (result !== null) router.refresh();
+      const result = await runWithToast(
+        toast,
+        () => undoCopyPreviousWeek(blockIds, leaveIds, wasConfirmed ? weekStartKey : undefined),
+        undefined,
+      );
+      if (result === null) return;
+      toast.showSuccess(result.reconfirmed ? "Annullato: la settimana è di nuovo confermata" : "Annullato");
+      router.refresh();
     });
   }
 

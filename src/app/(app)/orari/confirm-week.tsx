@@ -53,9 +53,16 @@ export function ConfirmWeekButton({
         <button
           type="button"
           onClick={() => setAsk("confirm")}
-          className="flex min-h-11 items-center gap-1.5 rounded-full border border-gold/50 bg-gold/15 px-4 text-sm font-semibold text-gold hover:bg-gold/25"
+          // Dopo una modifica i dipendenti non vedono più nulla di questa
+          // settimana (non solo il turno cambiato): il pulsante lo dice per
+          // intero, su due righe se serve.
+          className={`flex min-h-11 items-center gap-1.5 border border-gold/50 bg-gold/15 px-4 text-sm font-semibold text-gold hover:bg-gold/25 ${
+            changedAfterConfirm ? "max-w-[20rem] rounded-2xl py-1.5 text-left leading-snug" : "rounded-full"
+          }`}
         >
-          {changedAfterConfirm ? "Modificati: conferma di nuovo" : "Conferma orari della settimana"}
+          {changedAfterConfirm
+            ? "Modificati: i dipendenti non vedono questa settimana finché non confermi di nuovo"
+            : "Conferma orari della settimana"}
         </button>
       )}
       {ask === "confirm" && (
@@ -71,6 +78,9 @@ export function ConfirmWeekButton({
             Settimana <b className="text-foreground">{range}</b>. Da adesso i dipendenti vedono i loro turni di questa
             settimana in «Le mie ore».
           </p>
+          {changedAfterConfirm && (
+            <p>Dopo la conferma hai cambiato qualcosa: finché non confermi di nuovo, i dipendenti non vedono nessun turno di questa settimana.</p>
+          )}
           <p>Se poi cambi un turno, la conferma si toglie da sola e va rifatta.</p>
         </ConfirmSheet>
       )}

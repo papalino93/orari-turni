@@ -5,24 +5,52 @@ export type PageImage = { blob: Blob; width: number; height: number };
 
 const MAX_BYTES = 850 * 1024;
 const TARGET_WIDTH = 1400;
+const TOO_HEAVY = "Una pagina è troppo pesante anche ridotta.";
 
 async function canvasToJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
   for (const quality of [0.85, 0.75, 0.65, 0.5]) {
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
     if (blob && blob.size <= MAX_BYTES) return blob;
   }
-  throw new Error("Una pagina è troppo pesante anche ridotta.");
+  throw new Error(TOO_HEAVY);
 }
 
-async function openPdf(file: File) {
+// pdf.js, se il file è rovinato, protetto da password o non è un PDF, risponde in
+// inglese («Invalid PDF structure», «No password given»…): al titolare arriva invece
+// un messaggio in italiano.
+export const PDF_UNREADABLE = "Non riesco ad aprire questo PDF.";
+
+async function loadPdf(file: File) {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
   return pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
 }
 
-type PdfDoc = Awaited<ReturnType<typeof openPdf>>;
+type PdfDoc = Awaited<ReturnType<typeof loadPdf>>;
+
+async function openPdf(file: File): Promise<PdfDoc> {
+  try {
+    return await loadPdf(file);
+  } catch (error) {
+    // Senza rete pdf.js non si scarica: quello va detto come errore di connessione.
+    if (error instanceof TypeError && /fetch|import|module|load failed/i.test(error.message)) {
+      throw new Error("Connessione assente: controlla la rete e riprova.");
+    }
+    throw new Error(PDF_UNREADABLE);
+  }
+}
 
 async function renderPage(doc: PdfDoc, n: number): Promise<PageImage> {
+  try {
+    return await renderPageImage(doc, n);
+  } catch (error) {
+    // I messaggi già in italiano (pagina troppo pesante) restano quelli.
+    if (error instanceof Error && error.message === TOO_HEAVY) throw error;
+    throw new Error(PDF_UNREADABLE);
+  }
+}
+
+async function renderPageImage(doc: PdfDoc, n: number): Promise<PageImage> {
   const page = await doc.getPage(n);
   const base = page.getViewport({ scale: 1 });
   const scale = Math.min(3, TARGET_WIDTH / base.width);

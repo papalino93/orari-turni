@@ -20,23 +20,54 @@ import { NextResponse } from "next/server";
 // modificare il menù" (vive nel database). Chi non ce l'ha viene rimandato
 // altrove dalla pagina stessa, e ogni Server Action lo ricontrolla.
 // "/widget": la guida per mettere i widget sul telefono (la pagina mostra solo quelli permessi).
-const EMPLOYEE_ALLOWED_PREFIXES = ["/mie-ore", "/installa", "/gestione-menu", "/widget"];
+// "/api/employee-photo": la propria foto (la route rifiuta quella degli altri).
+const EMPLOYEE_ALLOWED_PREFIXES = ["/mie-ore", "/installa", "/gestione-menu", "/widget", "/api/employee-photo"];
+
+// Pagine di partenza: "/" e "/orari" (l'app installata sul telefono si apre su /orari,
+// vedi manifest.ts). Un dipendente che arriva qui va alla sua area senza avvisi; da ogni
+// altra pagina del titolare arriva con ?bloccato=1, e la sua pagina spiega perché
+// (vedi BlockedNotice in components/app-shell.tsx) invece di cambiare pagina in silenzio.
+const START_PAGES = ["/", "/orari"];
 
 export default withAuth(
   function proxy(req) {
     const { pathname } = req.nextUrl;
-    const role = req.nextauth?.token?.role;
+    const token = req.nextauth?.token;
+    const role = token?.role;
+
+    // Senza accesso arrivano qui solo le chiamate delle azioni (vedi «authorized» sotto):
+    // ognuna risponde da sé con un messaggio, quindi non le si tocca.
+    if (!token) return NextResponse.next();
 
     if (role === "EMPLOYEE") {
       const allowed = EMPLOYEE_ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
       if (!allowed) {
-        return NextResponse.redirect(new URL("/mie-ore", req.url));
+        const target = new URL("/mie-ore", req.url);
+        if (!START_PAGES.includes(pathname)) target.searchParams.set("bloccato", "1");
+        return NextResponse.redirect(target);
       }
     }
 
     return NextResponse.next();
   },
-  { pages: { signIn: "/login" } },
+  {
+    pages: { signIn: "/login" },
+    callbacks: {
+      // Accesso scaduto mentre una pagina è aperta: la chiamata di un'azione (intestazione
+      // «Next-Action», per esempio «Salva» in una scheda) non va rimandata alla pagina di
+      // accesso, perché il browser riceverebbe una pagina invece della risposta, mostrerebbe
+      // «Qualcosa è andato storto» e si perderebbe quello che si è scritto. La si lascia
+      // arrivare all'azione, che controlla l'accesso da sé (requireUser/requireEmployee/
+      // requireMenuEditor… in lib/guard.ts) e risponde con un messaggio da mostrare; il
+      // resto della pagina, senza accesso, non viene comunque mostrato (vedi (app)/layout.tsx).
+      // Il controllo sul ruolo qui sopra resta anche per queste chiamate.
+      // Solo POST: una chiamata d'azione è sempre un POST, e Next non tratta come azione
+      // una GET con la stessa intestazione (sarebbe una pagina servita senza controllo).
+      // Verificato: ogni azione controlla l'accesso prima di aggiornare qualunque pagina
+      // (revalidatePath), e senza aggiornamenti Next non disegna la pagina nella risposta.
+      authorized: ({ req, token }) => !!token || (req.method === "POST" && req.headers.has("next-action")),
+    },
+  },
 );
 
 export const config = {

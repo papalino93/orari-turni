@@ -3,7 +3,7 @@
 // Nessuna delle viste ricalcola nulla per conto suo — se lo facessero,
 // prima o poi mostrerebbero numeri diversi sugli stessi turni.
 
-import { blockHours, shiftEndMinutes, sumHours, timeToMinutes, todayKey } from "@/lib/week";
+import { blockHours, dayLabel, formatDayMonth, isOvernight, parseDateKey, shiftEndMinutes, sumHours, timeToMinutes, todayKey } from "@/lib/week";
 
 export type Role = "EMPLOYEE" | "OWNER";
 export type LeaveType = "FERIE" | "PERMESSO" | "LIBERO" | "MALATTIA";
@@ -97,10 +97,16 @@ export function leaveLabelFor(type: LeaveType, quantity: number): string {
   return DAY_KIND_LABEL[leaveTypeToKind(type)];
 }
 
+// Orario di un turno: «18:00–01:00 (+1)» quando si esce dopo mezzanotte, il
+// giorno dopo (il turno resta nel giorno in cui inizia).
+export function blockTimeLabel(b: { startTime: string; endTime: string }): string {
+  return `${b.startTime}–${b.endTime}${isOvernight(b.startTime, b.endTime) ? " (+1)" : ""}`;
+}
+
 // Etichetta breve di una casella, usata identica in web, export e PDF.
 export function entryLabel(entry: DayEntry): string {
   if (entry.kind === "TURNO") {
-    const times = entry.blocks.map((b) => `${b.startTime}–${b.endTime}`).join(" · ");
+    const times = entry.blocks.map(blockTimeLabel).join(" · ");
     return entry.leave ? `${times} · ${leaveLabelFor(entry.leave.type, entry.leave.quantity)}` : times;
   }
   if (entry.leave) return leaveLabelFor(entry.leave.type, entry.leave.quantity);
@@ -304,6 +310,32 @@ export function buildSchedule({
   };
 }
 
+// Calendario di un solo dipendente su un intervallo (PDF e anteprima della
+// scheda Dipendenti). Passa da buildSchedule come la vista Orari: prima il PDF
+// sommava i turni per conto suo e contava anche quelli sotto un giorno di
+// ferie, dando un totale diverso da quello della vista Mese/Anno.
+export function buildEmployeeSchedule({
+  employeeId,
+  dateKeys,
+  blocks,
+  leaveEntries,
+  closures,
+}: {
+  employeeId: string;
+  dateKeys: string[];
+  blocks: { dateKey: string; startTime: string; endTime: string }[];
+  leaveEntries: { dateKey: string; type: LeaveType; quantity: number }[];
+  closures: Closure[];
+}): Schedule {
+  return buildSchedule({
+    dateKeys,
+    employees: [{ id: employeeId, name: "", role: "EMPLOYEE", jobTitle: null, sortOrder: 0, photoVersion: null }],
+    blocks: blocks.map((b, i) => ({ ...b, id: `b${i}`, employeeId, confirmed: true })),
+    leaveEntries: leaveEntries.map((l, i) => ({ ...l, id: `l${i}`, employeeId })),
+    closures,
+  });
+}
+
 function findAnomalies(
   employees: Employee[],
   dateKeys: string[],
@@ -312,6 +344,12 @@ function findAnomalies(
   today: string,
 ): Anomaly[] {
   const anomalies: Anomaly[] = [];
+  // Ogni messaggio dice anche il giorno («Gio 12/11 · …»): senza, in una
+  // settimana o in un mese non si capiva dove andare a guardare.
+  const on = (dateKey: string) => {
+    const d = parseDateKey(dateKey);
+    return `${dayLabel(d)} ${formatDayMonth(d)} · `;
+  };
 
   for (const emp of employees) {
     for (const dateKey of dateKeys) {
@@ -322,7 +360,7 @@ function findAnomalies(
           anomalies.push({
             dateKey,
             employeeId: emp.id,
-            message: `${emp.name}: turno da completare (${b.startTime}–${b.endTime})`,
+            message: `${on(dateKey)}${emp.name}: turno da completare (${b.startTime}–${b.endTime})`,
           });
         }
       }
@@ -340,7 +378,7 @@ function findAnomalies(
           anomalies.push({
             dateKey,
             employeeId: emp.id,
-            message: `${emp.name}: due turni sovrapposti`,
+            message: `${on(dateKey)}${emp.name}: due turni sovrapposti`,
           });
         }
         maxEndSoFar = Math.max(maxEndSoFar, shiftEndMinutes(sorted[i].startTime, sorted[i].endTime));
@@ -350,7 +388,7 @@ function findAnomalies(
         anomalies.push({
           dateKey,
           employeeId: emp.id,
-          message: `${emp.name}: turno sospeso, la giornata è chiusa`,
+          message: `${on(dateKey)}${emp.name}: turno sospeso, la giornata è chiusa`,
         });
       }
     }
@@ -370,12 +408,13 @@ function findAnomalies(
       anomalies.push({
         dateKey,
         employeeId: null,
-        message: "Giornata passata senza nessun turno registrato",
+        message: `${on(dateKey)}Nessun turno registrato (giornata passata)`,
       });
     }
   }
 
-  return anomalies;
+  // In ordine di giorno, non per dipendente.
+  return anomalies.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
 }
 
 export type CoverageRange = { start: number; end: number; count: number };

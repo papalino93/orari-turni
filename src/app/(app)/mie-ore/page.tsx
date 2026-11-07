@@ -1,19 +1,24 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   addDays,
+  dayLabel,
   endOfMonth,
   isValidDateKey,
   lastCompletedMonth,
   parseDateKey,
+  shiftEndMinutes,
   startOfWeek,
+  timeToMinutes,
   toDateKey,
   todayKey,
 } from "@/lib/week";
-import { MieOreView } from "./mie-ore-view";
+import { buildSchedule } from "@/lib/schedule";
+import { employeeVisibleDates } from "@/lib/week-visibility";
+import { MieOreView, type NextShift } from "./mie-ore-view";
+import { employeeCanEditMonth } from "./editable-month";
 
 export default async function MieOrePage({
   searchParams,
@@ -77,39 +82,59 @@ export default async function MieOrePage({
   // Il dipendente vede sempre il passato e la settimana in corso; le settimane
   // successive solo quando il titolare ha confermato gli orari (WeekPlan.publishedAt).
   const currentWeekStart = startOfWeek(now);
-  const weekPlan = weekStart > currentWeekStart ? await prisma.weekPlan.findUnique({ where: { weekStart } }) : null;
+  const weekPlan = weekStart >= currentWeekStart ? await prisma.weekPlan.findUnique({ where: { weekStart } }) : null;
   const notConfirmed = weekStart > currentWeekStart && !weekPlan?.publishedAt;
+  // Settimana in corso non ancora confermata: si vede lo stesso (regola di
+  // lib/week-visibility.ts), ma va detto — altrimenti una colonna di «Nessun
+  // turno» sembra una settimana di riposo.
+  const currentWeekUnconfirmed = weekStart.getTime() === currentWeekStart.getTime() && !weekPlan?.publishedAt;
 
-  const [rawBlocks, rawLeaveEntries, closures, lastMonthSubmission] = await Promise.all([
+  const [rawBlocks, rawLeaveEntries, closures, submissions, nextShift] = await Promise.all([
     prisma.shiftBlock.findMany({ where: { employeeId: employee.id, date: { gte: weekStart, lte: weekEnd } } }),
     prisma.leaveEntry.findMany({ where: { employeeId: employee.id, date: { gte: weekStart, lte: weekEnd } } }),
     prisma.closureDay.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
-    prisma.monthlySubmission.findUnique({
-      where: { employeeId_year_month: { employeeId: employee.id, ...reviewMonth } },
-    }),
+    prisma.monthlySubmission.findMany({ where: { employeeId: employee.id } }),
+    employee.deactivatedAt ? null : findNextShift(employee.id),
   ]);
 
   const blocks = notConfirmed ? [] : rawBlocks;
   const leaveEntries = notConfirmed ? [] : rawLeaveEntries;
 
-  // Widget sul telefono: il collegamento compare solo a chi il titolare li ha dati.
-  const widgetLink = !preview && employee.widgets.length > 0 && (
-    <Link
-      href="/widget"
-      className="mx-auto mb-4 flex min-h-11 max-w-xl items-center justify-between rounded-2xl border border-border bg-surface px-5 py-3 transition-colors hover:border-accent"
-    >
-      <span>
-        <span className="block text-sm font-medium text-foreground">Widget sul telefono</span>
-        <span className="block text-xs text-foreground-muted">I tuoi turni sulla schermata Home dell&apos;iPhone</span>
-      </span>
-      <span className="text-foreground-muted">›</span>
-    </Link>
-  );
+  const statusOf = (y: number, m: number) => submissions.find((s) => s.year === y && s.month === m)?.status ?? null;
+  const lastMonthSubmission = submissions.find((s) => s.year === reviewMonth.year && s.month === reviewMonth.month);
+  // Mesi che il titolare ha rimandato indietro, anche vecchi (settembre
+  // riaperto mentre il promemoria parlava solo di ottobre): il più vecchio per primo.
+  const reopenedMonths = submissions
+    .filter((s) => s.status === "REOPENED")
+    .sort((a, b) => a.year - b.year || a.month - b.month)
+    .map((s) => ({ year: s.year, month: s.month, note: s.reopenNote }));
+
+  // Mese a cui punta «Qualcosa non torna in questi giorni?». Una settimana
+  // può stare a cavallo di due mesi: se contiene oggi vale il mese corrente
+  // (quello che si sta vivendo), altrimenti quello in cui cade il lunedì
+  // della settimana mostrata. Il collegamento compare solo se quei giorni sono
+  // già arrivati e il mese si può ancora correggere: niente invito a
+  // «correggere» una settimana futura o un mese ormai chiuso.
+  const today = todayKey();
+  const correctionAnchor = dateKeys.includes(today) ? today : toDateKey(weekStart);
+  const correctionMonth = { year: Number(correctionAnchor.slice(0, 4)), month: Number(correctionAnchor.slice(5, 7)) };
+  const showCorrectionLink =
+    !notConfirmed &&
+    toDateKey(weekStart) <= today &&
+    employeeCanEditMonth({
+      ...correctionMonth,
+      status: statusOf(correctionMonth.year, correctionMonth.month),
+      hireMonthKey: toDateKey(employee.createdAt).slice(0, 7),
+      today,
+    });
 
   return (
-    <>
-    {widgetLink}
     <MieOreView
+      nextShift={nextShift}
+      showWidgetLink={!preview && employee.widgets.length > 0}
+      reopenedMonths={reopenedMonths}
+      correctionMonth={showCorrectionLink ? correctionMonth : null}
+      currentWeekUnconfirmed={currentWeekUnconfirmed}
       notConfirmed={notConfirmed}
       employee={{
         id: employee.id,
@@ -121,7 +146,6 @@ export default async function MieOrePage({
       deactivatedAtKey={employee.deactivatedAt ? toDateKey(employee.deactivatedAt) : null}
       lastCompletedMonth={reviewMonth}
       lastMonthStatus={lastMonthSubmission?.status ?? null}
-      lastMonthReopenNote={lastMonthSubmission?.status === "REOPENED" ? lastMonthSubmission.reopenNote : null}
       wasHiredByReviewMonth={wasHiredByReviewMonth}
       weekStartKey={toDateKey(weekStart)}
       dateKeys={dateKeys}
@@ -146,6 +170,69 @@ export default async function MieOrePage({
       }))}
       closures={closures.map((c) => ({ dateKey: toDateKey(c.date), reason: c.reason }))}
     />
-    </>
   );
+}
+
+// Ora del giorno nel fuso del locale, in minuti dalla mezzanotte.
+const clockFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Rome",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+// «Prossimo turno» in cima a Le mie ore: il primo turno non ancora finito,
+// tra quelli che il dipendente può vedere (passato, settimana in corso e
+// settimane confermate — come nel resto della pagina). Si parte da ieri: un
+// turno di ieri che finisce dopo mezzanotte (18:00–01:00) può essere ancora
+// in corso. La fine si conta con shiftEndMinutes, così 00:00 vale 24:00.
+// Giorni di chiusura e assenze passano da buildSchedule come altrove.
+async function findNextShift(employeeId: string): Promise<NextShift | null> {
+  const today = todayKey();
+  const todayDate = parseDateKey(today);
+  const from = addDays(todayDate, -1);
+  const to = addDays(todayDate, 42);
+  const [blocks, leaveEntries, closures, visible, plans] = await Promise.all([
+    prisma.shiftBlock.findMany({ where: { employeeId, date: { gte: from, lte: to } } }),
+    prisma.leaveEntry.findMany({ where: { employeeId, date: { gte: from, lte: to } } }),
+    prisma.closureDay.findMany({ where: { date: { gte: from, lte: to } } }),
+    employeeVisibleDates(),
+    prisma.weekPlan.findMany({ where: { weekStart: { gte: startOfWeek(from), lte: to }, publishedAt: { not: null } } }),
+  ]);
+  const confirmedWeeks = new Set(plans.map((p) => toDateKey(p.weekStart)));
+  const dateKeys = Array.from({ length: 44 }, (_, i) => toDateKey(addDays(from, i)));
+  const schedule = buildSchedule({
+    dateKeys,
+    employees: [{ id: employeeId, name: "", role: "EMPLOYEE", jobTitle: null, sortOrder: 0, photoVersion: null }],
+    blocks: blocks
+      .filter((b) => visible(b.date))
+      .map((b) => ({ id: b.id, employeeId, dateKey: toDateKey(b.date), startTime: b.startTime, endTime: b.endTime, confirmed: b.confirmed })),
+    leaveEntries: leaveEntries
+      .filter((l) => visible(l.date))
+      .map((l) => ({ id: l.id, employeeId, dateKey: toDateKey(l.date), type: l.type, quantity: l.quantity })),
+    closures: closures.map((c) => ({ dateKey: toDateKey(c.date), reason: c.reason })),
+    today,
+  });
+
+  const nowMinutes = timeToMinutes(clockFormatter.format(new Date()));
+  for (const [i, dateKey] of dateKeys.entries()) {
+    const entry = schedule.entry(employeeId, dateKey);
+    if (entry.kind !== "TURNO") continue;
+    const dayOffset = i - 1; // -1 = ieri, 0 = oggi, 1 = domani…
+    const sorted = entry.blocks.slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const idx = sorted.findIndex((b) => dayOffset * 1440 + shiftEndMinutes(b.startTime, b.endTime) > nowMinutes);
+    if (idx === -1) continue;
+    const date = parseDateKey(dateKey);
+    const first = sorted[idx];
+    return {
+      dayOffset,
+      dayName: dayLabel(date, true).toLowerCase(),
+      dayOfMonth: date.getUTCDate(),
+      monthIndex: date.getUTCMonth(),
+      times: sorted.slice(idx).map((b) => `${b.startTime}–${b.endTime}`),
+      inProgress: dayOffset * 1440 + timeToMinutes(first.startTime) <= nowMinutes,
+      confirmed: confirmedWeeks.has(toDateKey(startOfWeek(date))),
+    };
+  }
+  return null;
 }

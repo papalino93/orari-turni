@@ -435,7 +435,10 @@ export async function addPromoPage(formData: FormData): Promise<ActionResult<{ i
     const id = parseId(formData.get("promoId"), "pagina");
     const promo = await prisma.menuPromo.findFirst({ where: { id, deletedAt: null }, include: { _count: { select: { pages: true } } } });
     assert(promo && promo.kind === "EVENT", "Evento non trovato.");
-    assert(promo._count.pages < MAX_PAGES, `Al massimo ${MAX_PAGES} pagine.`);
+    // «Sostituisci tutto»: le nuove pagine arrivano prima di togliere le vecchie, così un
+    // caricamento interrotto non lascia il menù a metà; per poco convivono le due serie.
+    const replacing = formData.get("replacing") === "1";
+    assert(promo._count.pages < (replacing ? MAX_PAGES * 2 : MAX_PAGES), `Al massimo ${MAX_PAGES} pagine.`);
     const file = formData.get("file");
     assert(file instanceof Blob && file.size > 0, "Pagina vuota.");
     assert(file.size <= MAX_IMAGE_BYTES, "La pagina è troppo pesante.");
@@ -456,6 +459,20 @@ export async function removePromoPage(pageIdInput: string): Promise<ActionResult
     await requireMenuEditor();
     const id = parseId(pageIdInput, "pagina del menù");
     await prisma.menuPromoPage.deleteMany({ where: { id } });
+    revalidateMenu();
+  });
+}
+
+// Toglie più pagine insieme: le vecchie dopo «Sostituisci tutto», o quelle appena
+// caricate se il caricamento si è interrotto a metà.
+export async function removePromoPages(promoIdInput: string, pageIdsInput: string[]): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireMenuEditor();
+    const promoId = parseId(promoIdInput, "pagina");
+    assert(Array.isArray(pageIdsInput) && pageIdsInput.length <= MAX_PAGES * 2, "Elenco non valido.");
+    const ids = pageIdsInput.map((x) => parseId(x, "pagina del menù"));
+    if (ids.length === 0) return;
+    await prisma.menuPromoPage.deleteMany({ where: { promoId, id: { in: ids } } });
     revalidateMenu();
   });
 }

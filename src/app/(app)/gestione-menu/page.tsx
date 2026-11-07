@@ -3,7 +3,8 @@ import { getMenuEditor } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
 import { businessDayKey, formatPrice, isSoldOut, parseFormats, parseVariants } from "@/lib/menu-format";
 import { loadBlocks, loadDaily, loadDailyRecent, loadMenu, loadPromosForEditor, loadVenue } from "@/lib/menu";
-import { MenuEditor, type EditorPromo, type EditorSection, type HistoryEntry } from "./menu-editor";
+import { MenuEditor, type EditorPromo, type EditorSection } from "./menu-editor";
+import { buildHistory } from "./history";
 import type { DailyRecent } from "./daily-ui";
 
 type LoadedSection = Awaited<ReturnType<typeof loadMenu>>[number];
@@ -86,7 +87,7 @@ export default async function GestioneMenuPage() {
     loadVenue(),
     loadDaily(dayKey),
     loadDailyRecent(dayKey),
-    prisma.menuChange.findMany({ orderBy: { at: "desc" }, take: 60 }),
+    prisma.menuChange.findMany({ orderBy: { at: "desc" }, take: 120 }),
   ]);
 
   const sections = menu.map((s) => toEditorSection(s, dayKey));
@@ -124,15 +125,33 @@ export default async function GestioneMenuPage() {
     section: p.section ? { ...toEditorSection(p.section, dayKey), title: p.title, label: p.title } : null,
   }));
 
-  const entries: HistoryEntry[] = history.map((h) => ({
-    id: h.id,
-    at: h.at.toISOString(),
-    actorName: h.actorName,
-    action: h.action,
-    label: h.label,
-    // Un «Ripristinato» di un'operazione di gruppo (prezzi, ordine, voci incollate) non si ripristina di nuovo.
-    undone: h.undoneById !== null || (h.action === "RESTORE" && h.entityId.startsWith("*")),
-  }));
+  // Storico: per dire «Voce eliminata», i nomi della «Tabella prezzi» e che cosa ha annullato ogni annullamento.
+  const idsOf = (entity: string) => [...new Set(history.filter((h) => h.entity === entity && !h.entityId.startsWith("*")).map((h) => h.entityId))];
+  const priceIds = history.flatMap((h) => (h.entityId === "*prices" ? Object.keys(((h.after ?? {}) as { items?: Record<string, unknown> }).items ?? {}) : []));
+  const restoreIds = history.filter((h) => h.action === "RESTORE").map((h) => h.id);
+  const gone = { deletedAt: { not: null } } as const;
+  const [deletedItems, deletedGroups, deletedSections, deletedPromos, deletedBlocks, priceNames, originals] = await Promise.all([
+    prisma.menuItem.findMany({ where: { id: { in: idsOf("item") }, ...gone }, select: { id: true } }),
+    prisma.menuGroup.findMany({ where: { id: { in: idsOf("group") }, ...gone }, select: { id: true } }),
+    prisma.menuSection.findMany({ where: { id: { in: idsOf("section") }, ...gone }, select: { id: true } }),
+    prisma.menuPromo.findMany({ where: { id: { in: idsOf("promo") }, ...gone }, select: { id: true } }),
+    prisma.menuBlock.findMany({ where: { id: { in: idsOf("block") }, ...gone }, select: { id: true } }),
+    prisma.menuItem.findMany({ where: { id: { in: [...new Set(priceIds)] } }, select: { id: true, name: true } }),
+    prisma.menuChange.findMany({ where: { undoneById: { in: restoreIds } }, select: { undoneById: true, action: true } }),
+  ]);
+  const deleted = new Set([
+    ...deletedItems.map((x) => `item:${x.id}`),
+    ...deletedGroups.map((x) => `group:${x.id}`),
+    ...deletedSections.map((x) => `section:${x.id}`),
+    ...deletedPromos.map((x) => `promo:${x.id}`),
+    ...deletedBlocks.map((x) => `block:${x.id}`),
+  ]);
+  const entries = buildHistory(history, {
+    today: dayKey,
+    deleted,
+    names: new Map(priceNames.map((x) => [x.id, x.name])),
+    undoneActions: new Map(originals.map((o) => [o.undoneById as string, o.action])),
+  });
 
-  return <MenuEditor sections={sections} daily={{ sections: dailySections, recent }} promos={promos} today={dayKey} blocks={blocks} venue={venueData} history={entries} />;
+  return <MenuEditor sections={sections} daily={{ sections: dailySections, recent }} promos={promos} today={dayKey} blocks={blocks} venue={venueData} history={entries} canSeeStats={editor.role === "ADMIN"} />;
 }

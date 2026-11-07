@@ -1,5 +1,7 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { getMenuEditor } from "@/lib/guard";
 import { serveFile } from "@/lib/serve-file";
 
@@ -9,7 +11,12 @@ import { serveFile } from "@/lib/serve-file";
 // Va servito a pezzi (Range) e in streaming: sul telefono il PDF si apre subito invece di aspettare tutto il file.
 export async function GET(request: Request) {
   const editor = await getMenuEditor();
-  if (!editor) return NextResponse.redirect(new URL("/login", request.url));
+  if (!editor) {
+    // Con l'accesso fatto ma senza il permesso sul menù (dipendente): alla sua area, non
+    // alla pagina di accesso, che lo farebbe sembrare scollegato.
+    const session = await getServerSession(authOptions);
+    return NextResponse.redirect(new URL(session?.user ? "/mie-ore" : "/login", request.url));
+  }
   return serveFile(request, path.join(process.cwd(), "docs/guida/Guida-gestione-menu.pdf"), {
     contentType: "application/pdf",
     filename: "Guida gestione menu - Angolo del Vino.pdf",

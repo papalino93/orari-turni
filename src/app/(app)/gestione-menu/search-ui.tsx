@@ -65,7 +65,7 @@ export function ItemSearch({
         aria-label="Cerca una voce"
         autoComplete="off"
         enterKeyHint="search"
-        className="min-h-12 w-full rounded-full border border-border bg-surface px-5 text-base text-foreground outline-none placeholder:text-foreground-muted/60 focus:border-accent sm:text-sm"
+        className="min-h-12 w-full rounded-full border border-border bg-surface px-5 text-base text-foreground outline-none placeholder:text-foreground-muted focus:border-accent sm:text-sm"
       />
       {tokens.length > 0 && (
         <div

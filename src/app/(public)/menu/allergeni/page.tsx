@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { ALLERGENS, allergenState } from "@/lib/allergens";
 import { businessDayKey, isPromoMenuVisible, inPeriod } from "@/lib/menu-format";
 import { loadDaily, loadMenu, loadVenue, loadVisiblePromos } from "@/lib/menu";
 import { MenuFooter } from "../venue-footer";
+import { BackToMenu } from "../back-to-menu";
+import { TornaSu } from "../torna-su";
 import { Ornament } from "../ornament";
 import { Suspense } from "react";
 import { AllergenExplorer, AllergenExplorerFromUrl, type ExplorerSection } from "./allergen-explorer";
@@ -56,12 +57,9 @@ export default async function AllergeniPage() {
           alt="L’Angolo del Vino"
           className="h-auto w-[200px] [filter:invert(1)_sepia(0.25)_brightness(0.97)]"
         />
-        <Link
-          href="/menu"
-          className="menu-sans flex min-h-11 items-center text-[11px] font-medium uppercase tracking-[0.22em] !text-[#E3D4BC] no-underline"
-        >
+        <BackToMenu className="menu-sans flex min-h-11 items-center text-[11px] font-medium uppercase tracking-[0.22em] !text-[#E3D4BC] no-underline">
           ← Torna al menù
-        </Link>
+        </BackToMenu>
       </header>
 
       <main className="menu-main mx-auto max-w-[720px] px-6 pb-[72px] pt-14">
@@ -96,7 +94,7 @@ export default async function AllergeniPage() {
           <ol className="mt-6 grid list-none gap-x-8 gap-y-3.5 p-0 sm:grid-cols-2">
             {ALLERGENS.map((a, i) => (
               <li key={a.code} className="flex gap-3">
-                <span className="menu-serif w-6 flex-none text-right text-lg font-medium italic text-[#9C7A45]">{i + 1}</span>
+                <span className="menu-serif w-6 flex-none text-right text-lg font-medium italic text-[#7A5A22]">{i + 1}</span>
                 <span>
                   <span className="menu-sans block text-[13px] font-medium uppercase tracking-[0.12em] text-[#1F2621]">{a.label}</span>
                   <span className="block text-[15px] leading-snug text-[#5B605A]">{a.detail}</span>
@@ -108,16 +106,14 @@ export default async function AllergeniPage() {
 
         <div className="mt-16 flex flex-col items-center gap-3.5 text-center">
           <Ornament color="#9C7A45" />
-          <Link
-            href="/menu"
-            className="menu-sans flex min-h-11 items-center text-[11px] font-medium uppercase tracking-[0.22em] underline underline-offset-4"
-          >
+          <BackToMenu className="menu-sans flex min-h-11 items-center text-[11px] font-medium uppercase tracking-[0.22em] underline underline-offset-4">
             Torna al menù
-          </Link>
+          </BackToMenu>
         </div>
       </main>
 
       <MenuFooter hours={venue.hours} contacts={venue.contacts} />
+      <TornaSu />
     </>
   );
 }

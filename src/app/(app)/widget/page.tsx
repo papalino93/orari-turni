@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -94,6 +95,15 @@ function Layout({ children, admin }: { children: React.ReactNode; admin: boolean
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
+        {/* Il dipendente arriva qui da «Le mie ore»: un link per tornarci (come in /installa). */}
+        {!admin && (
+          <Link
+            href="/mie-ore"
+            className="-ml-1 mb-2 inline-flex min-h-11 items-center px-1 text-sm font-medium text-foreground-muted hover:text-foreground"
+          >
+            ‹ Le mie ore
+          </Link>
+        )}
         <h1 className="mb-1 text-xl font-semibold tracking-tight">Widget sul telefono</h1>
         <p className="text-sm text-foreground-muted">
           Riquadri sulla schermata Home dell&apos;iPhone che si aggiornano da soli e con un tocco aprono la pagina giusta. Funzionano con

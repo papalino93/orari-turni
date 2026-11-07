@@ -442,11 +442,11 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
         </Step>
         <Step n={4} title="Metti un widget sulla Home">
           <p>
-            Tieni premuto su uno spazio vuoto della Home finché le icone tremano, tocca <Key>Modifica</Key> in alto a sinistra, poi
+            Tieni premuto su uno spazio vuoto della Home finché le icone tremano, tocca <Key>Modifica</Key> in alto a sinistra, poi{" "}
             <span className="whitespace-nowrap"><Key>Aggiungi widget</Key>.</span>
           </p>
           <p>
-            Cerca <b className="text-foreground">Scriptable</b>, scorri fino alla grandezza giusta (la trovi qui sotto, sotto ogni widget) e tocca
+            Cerca <b className="text-foreground">Scriptable</b>, scorri fino alla grandezza giusta (la trovi qui sotto, sotto ogni widget) e tocca{" "}
             <span className="whitespace-nowrap"><Key>Aggiungi widget</Key>.</span>
           </p>
         </Step>

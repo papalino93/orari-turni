@@ -33,9 +33,10 @@ html:has(.menu-root) body {
 .menu-root .menu-chip-idle-border {
   border-color: #d9cebc;
 }
-/* Testo più grande (strumento «Aa» nella barra): ingrandisce il contenuto, non la copertina. */
-html[data-menu-large] .menu-root .menu-main {
-  zoom: 1.16;
+/* Testo più grande (strumento «A+» nella barra): ingrandisce di un quarto tutto il menù (barra,
+   in evidenza, carta, piè di pagina), non la copertina né le finestre e i pulsanti fissi. */
+html[data-menu-large] .menu-root > :not(header):not(.fixed):not([role="dialog"]) {
+  zoom: 1.25;
 }
 /* Voce trovata con la ricerca: un breve alone dorato. */
 @keyframes menu-found {

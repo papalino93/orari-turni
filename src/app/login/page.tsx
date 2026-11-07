@@ -2,12 +2,21 @@
 
 import { useState, type FormEvent } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { VERSION_LABEL } from "@/lib/version";
 import { BrandMark } from "@/components/brand-mark";
+import { LOGIN_BLOCKED_PREFIX } from "@/lib/login-limit";
+
+// Dove andare dopo l'accesso: la pagina da cui si era partiti (il Proxy la passa come
+// ?callbackUrl=/…), purché sia un indirizzo di questo sito. Mai «//altrosito» o «/\…»,
+// che il browser leggerebbe come un altro sito. Altrimenti "/": il Proxy manda ognuno
+// alla sua prima sezione (Orari per il titolare, Le mie ore per i dipendenti).
+function nextPage(): string {
+  const target = new URLSearchParams(window.location.search).get("callbackUrl") ?? "";
+  if (!target.startsWith("/") || target.startsWith("//") || target.startsWith("/\\") || target.startsWith("/login")) return "/";
+  return target;
+}
 
 export default function LoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -19,20 +28,28 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const res = await signIn("credentials", {
-      username,
-      password,
-      redirect: false,
-    });
-
-    setLoading(false);
-
-    if (res?.error) {
-      setError("Nome utente o password non corretti.");
+    let res: Awaited<ReturnType<typeof signIn>>;
+    try {
+      res = await signIn("credentials", {
+        username: username.trim(),
+        password,
+        redirect: false,
+      });
+    } catch {
+      setLoading(false);
+      setError("Connessione assente: controlla la rete e riprova.");
       return;
     }
-    router.push("/orari");
-    router.refresh();
+
+    if (!res?.ok || res.error) {
+      setLoading(false);
+      // Troppi tentativi sbagliati (vedi lib/login-limit.ts): il messaggio dice quanto aspettare.
+      setError(res?.error?.startsWith(LOGIN_BLOCKED_PREFIX) ? res.error : "Nome utente o password non corretti.");
+      return;
+    }
+    // Caricamento completo e non router.push: la pagina di accesso, con l'accesso ormai
+    // fatto, rimanda a "/" (vedi layout.tsx) e non deve contendersi la destinazione.
+    window.location.assign(nextPage());
   }
 
   return (
@@ -79,6 +96,9 @@ export default function LoginPage() {
             <input
               id="username"
               autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -116,7 +136,12 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {error && <p className="rounded-lg bg-[#3a1c1a] px-3 py-2 text-sm text-[#e2574c]">{error}</p>}
+          {/* #f27b70 su #3a1c1a: contrasto 5,8 (il rosso di prima, #e2574c, arrivava a 4,2). */}
+          {error && (
+            <p role="alert" className="rounded-lg bg-[#3a1c1a] px-3 py-2 text-sm text-[#f27b70]">
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"

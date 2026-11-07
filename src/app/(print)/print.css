@@ -33,6 +33,11 @@
   break-after: avoid;
 }
 
+/* Legenda in fondo: se non sta sul foglio, si porta dietro l'ultima riga del menù. */
+.print-with-previous {
+  break-before: avoid;
+}
+
 @media print {
   html,
   body,

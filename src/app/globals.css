@@ -13,13 +13,16 @@
   /* Scritte e collegamenti color bordeaux: sul fondo scuro un rosa chiaro, sennò non si leggono. */
   --accent-ink: #e98ba2;
   --gold: #c9a24b;
-  /* Colori dei grafici (statistiche): controllati per daltonici e contrasto su questo sfondo. */
-  --chart: #c4506d;
+  /* Colori dei grafici (statistiche): controllati per daltonici e contrasto su questo sfondo.
+     --chart è anche il testo della pastiglia «oggi»: #d9667f su fondo bordeaux 20% = 4,8:1
+     (prima #c4506d, 3,7:1). */
+  --chart: #d9667f;
   --chart-2: #b8892c;
   --success: #3fae74;
   --success-bg: #163425;
   --danger: #e2574c;
-  --danger-bg: #3a1c1a;
+  /* Fondo dei messaggi d'errore: un filo più scuro perché il rosso ci si legga (4,6:1, prima 4,2). */
+  --danger-bg: #2c1615;
   --radius: 0.75rem;
 }
 
@@ -34,12 +37,15 @@
   --accent-hover: #711f34;
   --accent-foreground: #fdf2f4;
   --accent-ink: #8a2740;
-  --gold: #93701f;
+  /* Oro più scuro di prima (#93701f): le scritte dorate stanno quasi sempre su fondi
+     dorati chiari (bg-gold/10…/20), dove scendevano a 3,1–4,0:1. Così 4,8–6,8:1. */
+  --gold: #735614;
   --chart: #8a2740;
   --chart-2: #93701f;
   --success: #217a4c;
   --success-bg: #e3f5ea;
-  --danger: #c23b33;
+  /* Un filo più scuro di #c23b33: sul fondo rosa dei messaggi d'errore 4,9:1 (prima 4,45). */
+  --danger: #b9362f;
   --danger-bg: #fbe7e5;
 }
 

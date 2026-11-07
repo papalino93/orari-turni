@@ -10,6 +10,9 @@ export type HoursException = {
   closed: boolean;
   ranges: Range[];
   note: string;
+  // Annuncio pubblicato insieme alla chiusura («Pubblica anche un annuncio sul menù»):
+  // si aggiorna con le date e si toglie quando la chiusura viene eliminata.
+  promoId?: string;
 };
 // weekly: 7 giorni, da lunedì (0) a domenica (6); nessuna fascia = chiuso.
 export type Hours = { showStatus: boolean; weekly: Range[][]; exceptions: HoursException[] };
@@ -84,6 +87,7 @@ export function parseHours(raw: string | null | undefined): Hours {
         closed: Boolean(e.closed),
         ranges: parseRanges(e.ranges),
         note: typeof e.note === "string" ? e.note.slice(0, 120) : "",
+        ...(typeof e.promoId === "string" && e.promoId ? { promoId: e.promoId } : {}),
       },
     ];
   });
@@ -188,6 +192,34 @@ export function openStatus(hours: Hours, now: Date): OpenStatus | null {
   const today = exceptionFor(hours, dateKey);
   const head = today?.closed ? `Chiuso oggi${today.note ? ` · ${today.note}` : ""}` : "Chiuso";
   return { open: false, label: when ? `${head} · riapre ${when}` : head };
+}
+
+// --- Annuncio di una chiusura o apertura straordinaria -------------------------
+
+const MONTHS = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"] as const;
+
+// «lunedì 12 novembre», «dal 24 al 26 dicembre», «dall'1 all'8 gennaio»,
+// «dal 30 dicembre al 2 gennaio».
+export function exceptionDaysText(startDate: string, endDate: string): string {
+  const [, sm, sd] = startDate.split("-").map(Number);
+  const [, em, ed] = endDate.split("-").map(Number);
+  if (startDate === endDate) return `${DAY_NAMES[weekdayIndex(startDate)].toLowerCase()} ${sd} ${MONTHS[sm - 1]}`;
+  const from = [1, 8, 11].includes(sd) ? "dall'" : "dal ";
+  const to = [1, 8, 11].includes(ed) ? "all'" : "al ";
+  return sm === em ? `${from}${sd} ${to}${ed} ${MONTHS[em - 1]}` : `${from}${sd} ${MONTHS[sm - 1]} ${to}${ed} ${MONTHS[em - 1]}`;
+}
+
+// Titolo e testo dell'annuncio creato da una chiusura: le date nel titolo (i clienti
+// non vedono le date di un annuncio), il motivo nel testo.
+export function exceptionNotice(ex: Pick<HoursException, "startDate" | "endDate" | "closed" | "ranges" | "note">): { title: string; body: string } {
+  const days = exceptionDaysText(ex.startDate, ex.endDate);
+  const note = ex.note.trim().replace(/[.:;,!\s]+$/, "");
+  const reason = note ? note.charAt(0).toUpperCase() + note.slice(1) : "";
+  if (ex.closed) {
+    return { title: `Chiusi ${days}`.slice(0, 80), body: reason ? `${reason}: il locale resta chiuso.` : "Il locale resta chiuso." };
+  }
+  const times = ex.ranges.map((x) => `${x.open}–${x.close}`).join(" · ");
+  return { title: `Orario speciale ${days}`.slice(0, 80), body: `${reason ? `${reason}. ` : ""}Orario: ${times}.` };
 }
 
 // Orari della settimana per la scheda a fondo pagina: giorni consecutivi con

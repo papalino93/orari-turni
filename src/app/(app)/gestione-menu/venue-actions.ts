@@ -2,13 +2,16 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireMenuEditor } from "@/lib/guard";
-import { logChange } from "@/lib/menu-log";
+import { diff, logChange } from "@/lib/menu-log";
 import { revalidateMenu } from "@/lib/menu";
+import { businessDayKey } from "@/lib/menu-format";
 import {
+  exceptionNotice,
   internationalNumber,
   isDayKey,
   isHttpsUrl,
   isTime,
+  parseHours,
   type Contacts,
   type Hero,
   type Hours,
@@ -96,12 +99,48 @@ function parseRangesInput(value: unknown, where: string): Range[] {
   });
 }
 
-export async function saveHours(input: Hours): Promise<ActionResult<ChangeResult>> {
+// Nuova chiusura dal sito: «announce» chiede di pubblicare anche l'annuncio sul menù.
+export type HoursInput = Omit<Hours, "exceptions"> & { exceptions: (HoursException & { announce?: boolean })[] };
+
+export type HoursResult = ChangeResult & {
+  // Annunci delle chiusure: pubblicati, tolti, aggiornati, e quelli col testo scritto
+  // a mano (non aggiornato da solo) da ricontrollare perché le date sono cambiate.
+  notices: { created: number; removed: number; updated: number; toCheck: string[] };
+};
+
+async function noticeSlug(title: string): Promise<string> {
+  const base =
+    title
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "annuncio";
+  for (let i = 0; i < 5; i++) {
+    const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+    if (!(await prisma.menuPromo.findUnique({ where: { slug } }))) return slug;
+  }
+  return `${base}-${Date.now().toString(36)}`;
+}
+
+const sameException = (a: HoursException, b: HoursException) =>
+  a.startDate === b.startDate && a.endDate === b.endDate && a.closed === b.closed && a.note === b.note && JSON.stringify(a.ranges) === JSON.stringify(b.ranges);
+
+export async function saveHours(input: HoursInput): Promise<ActionResult<HoursResult>> {
   return runAction(async () => {
+    const editor = await requireMenuEditor();
     assert(Array.isArray(input?.weekly) && input.weekly.length === 7, "Orari della settimana non validi.");
     const weekly = input.weekly.map((ranges, i) => parseRangesInput(ranges, ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"][i]));
     const rawExceptions = Array.isArray(input.exceptions) ? input.exceptions : [];
     assert(rawExceptions.length <= 60, "Troppe eccezioni.");
+
+    // Il collegamento chiusura → annuncio si legge da ciò che è salvato, non dal browser.
+    const current = await prisma.menuSetting.findUnique({ where: { id: "hours" } });
+    const previous = new Map(parseHours(current?.value).exceptions.map((e) => [e.id, e]));
+    const today = businessDayKey();
+
+    const toAnnounce = new Set<string>();
     const exceptions: HoursException[] = rawExceptions.map((e, i) => {
       assert(typeof e?.id === "string" && e.id.length > 0 && e.id.length <= 40, "Eccezione non valida.");
       assert(isDayKey(e.startDate) && isDayKey(e.endDate), `Eccezione ${i + 1}: date non valide.`);
@@ -109,9 +148,122 @@ export async function saveHours(input: Hours): Promise<ActionResult<ChangeResult
       const closed = Boolean(e.closed);
       const ranges = closed ? [] : parseRangesInput(e.ranges, `Eccezione ${i + 1}`);
       assert(closed || ranges.length > 0, `Eccezione ${i + 1}: indica gli orari oppure «chiuso».`);
-      return { id: e.id, startDate: e.startDate, endDate: e.endDate, closed, ranges, note: parseText(e.note, "nota", { max: 120 }) };
+      const before = previous.get(e.id);
+      // Una chiusura nuova riceve un codice definitivo: così, riaprendo gli orari, non sembra
+      // più «appena aggiunta» (e non si può pubblicare un secondo annuncio).
+      const id = before ? e.id : `ex-${Date.now().toString(36)}-${i}-${Math.random().toString(36).slice(2, 6)}`;
+      if (!before && e.announce === true) toAnnounce.add(id);
+      const note = parseText(e.note, "nota", { max: 120 });
+      return { id, startDate: e.startDate, endDate: e.endDate, closed, ranges, note, ...(before?.promoId ? { promoId: before.promoId } : {}) };
     });
-    return saveSetting("hours", "Orari", { showStatus: input.showStatus !== false, weekly, exceptions });
+    assert(new Set(exceptions.map((e) => e.id)).size === exceptions.length, "Eccezione ripetuta: chiudi e riapri gli orari.");
+
+    // Annunci collegati alle chiusure eliminate (non quelle già passate, che il sito
+    // toglie da solo dall'elenco) o cambiate.
+    const kept = new Map(exceptions.map((e) => [e.id, e]));
+    const removedLinks = [...previous.values()].filter((e) => e.promoId && !kept.has(e.id) && e.endDate >= today);
+    const changedLinks = exceptions.filter((e) => {
+      const before = previous.get(e.id);
+      return e.promoId && before && !sameException(before, e);
+    });
+    const linkedIds = [...removedLinks, ...changedLinks].map((e) => e.promoId!);
+    const linked = new Map(
+      (linkedIds.length ? await prisma.menuPromo.findMany({ where: { id: { in: linkedIds }, deletedAt: null } }) : []).map((p) => [p.id, p]),
+    );
+    const slugs = new Map<string, string>();
+    for (const e of exceptions) if (toAnnounce.has(e.id)) slugs.set(e.id, await noticeSlug(exceptionNotice(e).title));
+
+    const notices: HoursResult["notices"] = { created: 0, removed: 0, updated: 0, toCheck: [] };
+    const value = JSON.stringify({ showStatus: input.showStatus !== false, weekly, exceptions });
+    if (current?.value === value && toAnnounce.size === 0) return { changeId: null, notices };
+
+    const changeId = await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      for (const e of exceptions) {
+        if (!toAnnounce.has(e.id)) continue;
+        const { title, body } = exceptionNotice(e);
+        const showFrom = today < e.startDate ? today : e.startDate;
+        const promo = await tx.menuPromo.create({
+          data: { kind: "NOTICE", slug: slugs.get(e.id)!, title, label: "Orari", body, showFrom, startDate: e.startDate, endDate: e.endDate },
+        });
+        e.promoId = promo.id;
+        notices.created++;
+        await logChange(tx, {
+          actorName: editor.name,
+          action: "CREATE",
+          entity: "promo",
+          entityId: promo.id,
+          label: title,
+          after: { title, label: "Orari", body, showFrom, startDate: e.startDate, endDate: e.endDate, startTime: null, endTime: null, hidden: false, hasMenu: true },
+        });
+      }
+      for (const e of removedLinks) {
+        const promo = linked.get(e.promoId!);
+        if (!promo) continue;
+        await tx.menuPromo.update({ where: { id: promo.id }, data: { deletedAt: now } });
+        notices.removed++;
+        await logChange(tx, {
+          actorName: editor.name,
+          action: "DELETE",
+          entity: "promo",
+          entityId: promo.id,
+          label: promo.title,
+          before: { deletedAt: null },
+          after: { deletedAt: now.toISOString() },
+        });
+      }
+      for (const e of changedLinks) {
+        const promo = linked.get(e.promoId!);
+        if (!promo) continue;
+        const before = previous.get(e.id)!;
+        const auto = exceptionNotice(before);
+        const next = exceptionNotice(e);
+        // Titolo e testo si rifanno da soli solo se non sono stati riscritti a mano.
+        const titleAuto = promo.title === auto.title;
+        const bodyAuto = (promo.body ?? "") === auto.body;
+        const fields = {
+          title: titleAuto ? next.title : promo.title,
+          body: bodyAuto ? next.body : promo.body,
+          showFrom: promo.showFrom < e.startDate ? promo.showFrom : e.startDate,
+          startDate: e.startDate,
+          endDate: e.endDate,
+        };
+        const changed = diff(
+          { title: promo.title, body: promo.body, showFrom: promo.showFrom, startDate: promo.startDate, endDate: promo.endDate },
+          fields,
+        );
+        const datesChanged = before.startDate !== e.startDate || before.endDate !== e.endDate || before.closed !== e.closed;
+        if ((!titleAuto || !bodyAuto) && datesChanged) notices.toCheck.push(fields.title);
+        if (!changed) continue;
+        await tx.menuPromo.update({ where: { id: promo.id }, data: fields });
+        notices.updated++;
+        await logChange(tx, {
+          actorName: editor.name,
+          action: "UPDATE",
+          entity: "promo",
+          entityId: promo.id,
+          label: fields.title,
+          before: changed.before,
+          after: changed.after,
+        });
+      }
+      const saved = JSON.stringify({ showStatus: input.showStatus !== false, weekly, exceptions });
+      await tx.menuSetting.upsert({ where: { id: "hours" }, create: { id: "hours", value: saved }, update: { value: saved } });
+      return logChange(tx, {
+        actorName: editor.name,
+        action: "UPDATE",
+        entity: "setting",
+        entityId: "hours",
+        label: "Orari",
+        before: { value: current?.value ?? "" },
+        after: { value: saved },
+      });
+    });
+    revalidateMenu();
+    // Con annunci pubblicati o tolti insieme agli orari niente «Annulla» rapido: rimetterebbe
+    // solo gli orari e lascerebbe l'annuncio da solo. Restano nello storico, uno per uno.
+    const touched = notices.created + notices.removed + notices.updated > 0;
+    return { changeId: touched ? null : changeId, notices };
   });
 }
 

@@ -1,5 +1,7 @@
 import { Ornament } from "./ornament";
-import { mapsHref, telHref, weeklyRows, whatsappHref, type Contacts, type Hours } from "@/lib/menu-venue";
+import { mapsHref, telHref, whatsappHref, type Contacts, type Hours } from "@/lib/menu-venue";
+import { businessDayKey } from "@/lib/menu-format";
+import { VenueHours } from "./venue-hours";
 
 // Orari e contatti a piè di pagina: ogni pulsante compare solo se il dato c'è.
 // Si aprono nella stessa scheda: con «indietro» il cliente torna sempre al menù (in una
@@ -15,25 +17,12 @@ export function VenueInfo({ hours, contacts }: { hours: Hours; contacts: Contact
     contacts.review && { href: contacts.review, label: "Lascia una recensione" },
     contacts.instagram && { href: contacts.instagram, label: "Instagram" },
   ].filter((b): b is { href: string; label: string } => Boolean(b));
-  const rows = weeklyRows(hours);
-  const hasHours = rows.some((r) => r.text !== "Chiuso");
+  const hasHours = hours.weekly.some((r) => r.length > 0) || hours.exceptions.length > 0;
   if (buttons.length === 0 && !hasHours) return null;
 
   return (
     <section aria-label="Orari e contatti" className="flex w-full max-w-[420px] flex-col items-center gap-6">
-      {hasHours && (
-        <div className="flex w-full flex-col items-center gap-3">
-          <div className="menu-sans text-[10px] uppercase tracking-[0.34em] text-[#E9DCC4]">Orari</div>
-          <dl className="m-0 grid w-full grid-cols-[auto_1fr] gap-x-5 gap-y-1.5 text-[15px]">
-            {rows.map((row) => (
-              <div key={row.days} className="contents">
-                <dt className="menu-sans self-baseline text-[12px] uppercase tracking-[0.14em] text-[#F4EEE3]/90">{row.days}</dt>
-                <dd className="m-0 self-baseline text-right text-[#F4EEE3]">{row.text}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      )}
+      {hasHours && <VenueHours hours={hours} dayKey={businessDayKey()} />}
       {buttons.length > 0 && (
         <div className="flex flex-wrap justify-center gap-2.5">
           {buttons.map((b) => (

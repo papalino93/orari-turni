@@ -10,8 +10,11 @@ import { clearWeekData } from "./actions";
 export function ClearWeekButton({
   weekStartKey,
   variant = "pill",
+  warnings = [],
 }: {
   weekStartKey: string;
+  /** Settimana passata, ore già inviate o approvate: detto chiaro nella conferma. */
+  warnings?: string[];
   /** "menuitem": stile a riga piena per stare dentro il menu "Altre azioni" invece che come pillola isolata nella toolbar. */
   variant?: "pill" | "menuitem";
 }) {
@@ -63,16 +66,23 @@ export function ClearWeekButton({
               className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
             >
               <h2 className="text-base font-semibold text-foreground">Svuotare questa settimana?</h2>
+              {warnings.length > 0 && (
+                <div className="mt-3 space-y-1.5 rounded-lg border border-danger/30 bg-danger/[0.06] px-3 py-2.5 text-sm text-danger">
+                  {warnings.map((w) => (
+                    <p key={w}>{w}</p>
+                  ))}
+                </div>
+              )}
               <p className="mt-2 text-sm text-foreground-muted">
                 Verranno eliminati tutti i turni, ferie, permessi e riposi inseriti in questa settimana, per tutti i
-                dipendenti. Le giornate impostate come chiuse non vengono toccate. Azione irreversibile.
+                dipendenti. Le giornate impostate come chiuse non vengono toccate. Non si può annullare.
               </p>
               <div className="mt-5 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
                   disabled={pending}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground-muted hover:text-foreground disabled:opacity-50"
+                  className="min-h-11 rounded-lg border border-border px-4 text-sm font-medium text-foreground-muted hover:text-foreground disabled:opacity-50"
                 >
                   Annulla
                 </button>
@@ -80,7 +90,7 @@ export function ClearWeekButton({
                   type="button"
                   onClick={confirmClear}
                   disabled={pending}
-                  className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                  className="min-h-11 rounded-lg bg-danger px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
                 >
                   {pending ? "Elimino…" : "Sì, svuota"}
                 </button>
