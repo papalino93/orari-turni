@@ -73,6 +73,9 @@ model Employee {
   // /gestione-menu). Letto dal database a ogni richiesta — mai dal token —
   // così revocarlo ha effetto immediato anche su una sessione già aperta.
   canEditMenu   Boolean   @default(false)
+  // Permesso, assegnato dal titolare, di vedere e gestire le richieste di prenotazione
+  // (/prenotazioni). Letto dal database a ogni richiesta, come canEditMenu.
+  canManageBookings Boolean @default(false)
   // Come User.appInstalledAt: l'app è già installata sul suo telefono.
   appInstalledAt DateTime?
   // Widget sulla Home del telefono (Scriptable) che il titolare gli permette: codici di
@@ -86,6 +89,7 @@ model Employee {
   leaveBalances       LeaveBalance[]
   monthlySubmissions  MonthlySubmission[]
   shiftRemovals       ShiftRemoval[]
+  pushSubscriptions   PushSubscription[]
 
   @@index([role])
 }
@@ -419,6 +423,7 @@ model MenuPromo {
   image   MenuPromoImage?
   section MenuSection?
   pages   MenuPromoPage[]
+  bookings BookingRequest[]
 
   @@index([endDate])
 }
@@ -564,5 +569,112 @@ model WidgetDevice {
   revokedAt   DateTime?
 
   @@index([userId])
+  @@index([employeeId])
+}
+
+// ---------- Prenotazioni online (richieste da confermare a mano)
+//
+// Il cliente CHIEDE un tavolo da /menu/prenota; il titolare o un dipendente autorizzato
+// conferma, propone un altro orario o rifiuta. Mai accettate in automatico: i tavoli
+// sono modulari. Le scadute non hanno uno stato: una richiesta ancora in attesa con
+// startsAt passato si mostra «scaduta» (calcolato alla lettura, lib/booking).
+enum BookingStatus {
+  PENDING   // in attesa di risposta
+  PROPOSED  // il locale ha proposto un altro orario: aspetta il cliente
+  CONFIRMED
+  DECLINED  // il locale non ha posto (o il cliente ha detto no alla proposta)
+  CANCELLED // annullata dal cliente o dal locale
+}
+
+model BookingRequest {
+  id        String        @id @default(cuid())
+  // Codice breve da dire al telefono («K7P3QX»).
+  code      String        @unique
+  // Impronta SHA-256 del link segreto della pagina del cliente (mai il link in chiaro).
+  tokenHash String        @unique
+  status    BookingStatus @default(PENDING)
+  // Giorno commerciale (YYYY-MM-DD, cambia alle 5:00) e ora «HH:MM»: 00:30 è dopo la mezzanotte di `day`.
+  day       String
+  time      String
+  startsAt  DateTime
+  people    Int
+  name      String
+  phone     String
+  email     String?
+  // Come vuole la risposta: "whatsapp" o "email".
+  contact   String        @default("whatsapp")
+  note      String?
+  // «Qualcuno ha allergie o intolleranze»: solo sì/no, i dettagli si chiedono al tavolo.
+  allergies Boolean       @default(false)
+  // Da dove arriva: "google", "menu", "evento", "altro".
+  source    String?
+  promoId   String?
+  promo     MenuPromo?    @relation(fields: [promoId], references: [id], onDelete: SetNull)
+  // Proposta del locale (stesso giorno, altro orario).
+  proposedTime     String?
+  proposedStartsAt DateTime?
+  // Messaggio scritto dal locale nell'ultima risposta.
+  staffMessage     String?
+  handledAt        DateTime?
+  handledBy        String?
+  // Chi ha annullato: "cliente" o "locale".
+  cancelledBy      String?
+  arrivedAt        DateTime?
+  noShowAt         DateTime?
+  // Creata dal titolare a funzione spenta, da un'anteprima o da una prova: non avvisa nessuno.
+  isTest    Boolean       @default(false)
+  ipHash    String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  log BookingLog[]
+
+  @@index([status, startsAt])
+  @@index([day])
+  @@index([phone, createdAt])
+  @@index([ipHash, createdAt])
+  @@index([promoId])
+}
+
+// Cronologia di una richiesta: chi ha fatto cosa e quando, messaggi partiti o non partiti.
+model BookingLog {
+  id        String         @id @default(cuid())
+  requestId String
+  request   BookingRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  at        DateTime       @default(now())
+  // "cliente", "sistema" o il nome di chi lavora.
+  actor     String
+  // CREATED CONFIRMED PROPOSED DECLINED CANCELLED ACCEPTED REFUSED ARRIVED NOSHOW REOPENED
+  // MAIL_OK MAIL_FAIL PUSH_OK PUSH_FAIL WHATSAPP_OPENED
+  kind      String
+  message   String?
+
+  @@index([requestId, at])
+}
+
+// Serate in cui non si accettano più richieste online («Siamo al completo»).
+model BookingClosedDay {
+  day       String   @id
+  reason    String?
+  createdBy String?
+  createdAt DateTime @default(now())
+}
+
+// Iscrizioni alle notifiche sul telefono (Web Push), una per dispositivo.
+model PushSubscription {
+  id         String    @id @default(cuid())
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  // Titolare/consulente (User.username) oppure dipendente.
+  username   String?
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  lastOkAt   DateTime?
+  failCount  Int       @default(0)
+
+  @@index([username])
   @@index([employeeId])
 }

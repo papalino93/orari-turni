@@ -142,7 +142,7 @@ function parseCsv(text: string, delimiter: string): string[][] {
 
 export const HEADER_TAG = "{intestazione}";
 
-function escapeHtml(s: string) {
+export function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
@@ -189,10 +189,11 @@ export function buildMail(
 
 // Servizio usato per spedire: Resend (predefinito) o Brevo, scelto con
 // MAIL_PROVIDER=brevo. Cambiare servizio non tocca pagina e azioni.
-type ProviderName = "resend" | "brevo";
+type ProviderName = "resend" | "brevo" | "log";
 
 function providerName(): ProviderName {
-  return process.env.MAIL_PROVIDER?.toLowerCase() === "brevo" ? "brevo" : "resend";
+  const p = process.env.MAIL_PROVIDER?.toLowerCase();
+  return p === "brevo" ? "brevo" : p === "log" ? "log" : "resend";
 }
 
 function apiKey() {
@@ -208,6 +209,8 @@ export function dailyLimit(): number {
 }
 
 export function mailConfigured(): boolean {
+  // «log»: solo per le prove in locale, non spedisce nulla (scrive nel terminale del server).
+  if (providerName() === "log") return true;
   return Boolean(apiKey() && process.env.MAIL_FROM);
 }
 
@@ -218,6 +221,13 @@ function parseFrom(value: string): { name?: string; email: string } {
 }
 
 export function getProvider(): MailProvider {
+  if (providerName() === "log") {
+    return {
+      async sendBatch(mails) {
+        for (const m of mails) console.log(`[mail di prova] a ${m.to}: ${m.subject}`);
+      },
+    };
+  }
   const key = apiKey();
   const from = process.env.MAIL_FROM;
   if (!key || !from) throw new Error("Invio mail non configurato: mancano la chiave del servizio o MAIL_FROM.");
