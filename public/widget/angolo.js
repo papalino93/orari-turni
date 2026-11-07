@@ -36,6 +36,8 @@ function colori(nome) {
     oro: new Color(T.accento),
     oroFondo: new Color(T.accento, T.chiaro ? 0.1 : 0.17),
     oroArea: new Color(T.accento, T.chiaro ? 0.14 : 0.2),
+    // Barre delle settimane passate: abbastanza piene da vedersi anche sui fondi scuri.
+    barra: new Color(T.accento, T.chiaro ? 0.24 : 0.45),
     oroBordo: new Color(T.accento, 0.65),
     verde: new Color(T.verde),
     ambra: new Color(T.ambra),
@@ -80,30 +82,69 @@ function misure(fam) {
 async function caricaDati(nome) {
   const fm = FileManager.local();
   const file = fm.joinPath(fm.documentsDirectory(), `angolo-${nome}.json`);
+  let risposto = false;
   try {
     const r = new Request(`${SITO}/api/widget/${nome}`);
     r.headers = { Authorization: `Bearer ${CHIAVE}`, "X-Device-Name": Device.name() };
     r.timeoutInterval = 12;
-    const json = await r.loadJSON();
+    let json = null;
+    try {
+      json = await r.loadJSON();
+    } finally {
+      risposto = !!(r.response && r.response.statusCode);
+    }
     const stato = r.response ? r.response.statusCode : 200;
     if (stato === 200 && json && !json.errore) {
-      fm.writeString(file, JSON.stringify(json));
+      // Con il momento del salvataggio: se poi manca la rete, il widget dice di quando sono i dati.
+      fm.writeString(file, JSON.stringify({ ...json, _salvato: Date.now() }));
       return { dati: json, vecchi: false };
     }
-    if (json && json.errore) return { errore: json.messaggio || "Errore", codice: json.errore };
+    // «Troppe richieste» è passeggero: meglio l'ultima copia che un errore.
+    if (json && json.errore && json.errore !== "troppe") return { errore: json.messaggio || "Errore", codice: json.errore };
   } catch (e) {}
-  if (fm.fileExists(file)) return { dati: JSON.parse(fm.readString(file)), vecchi: true };
-  return { errore: "Nessuna connessione. Riprova tra poco.", codice: "rete" };
+  if (fm.fileExists(file)) {
+    try {
+      const copia = JSON.parse(fm.readString(file));
+      return { dati: copia, vecchi: true, salvato: copia._salvato || null };
+    } catch (e) {}
+  }
+  // Il sito ha risposto ma con un errore (es. in aggiornamento): non è la rete del telefono.
+  return risposto ? { errore: "Il sito non risponde: riprovo tra poco.", codice: "sito" } : { errore: "Nessuna connessione. Riprova tra poco.", codice: "rete" };
 }
 
-// Immagini del sito (QR): scaricate una volta e tenute sul telefono.
+// Immagini del sito (QR, logo): tenute sul telefono e riscaricate ogni 7 giorni. Se non arrivano
+// (niente rete, errore) si usa la copia salvata; se non c'è nemmeno quella, null: il widget si disegna lo stesso.
 async function caricaImmagine(nome) {
   const fm = FileManager.local();
   const file = fm.joinPath(fm.documentsDirectory(), `angolo-${nome.replace(/\//g, "-")}`);
-  if (fm.fileExists(file)) return fm.readImage(file);
-  const img = await new Request(`${SITO}/widget/${nome}`).loadImage();
-  fm.writeImage(file, img);
-  return img;
+  const salvata = fm.fileExists(file);
+  const fresca = salvata && Date.now() - fm.modificationDate(file).getTime() < 7 * 86_400_000;
+  if (fresca) return fm.readImage(file);
+  try {
+    const r = new Request(`${SITO}/widget/${nome}`);
+    r.timeoutInterval = 10;
+    const img = await r.loadImage();
+    if (r.response && r.response.statusCode === 200 && img) {
+      fm.writeImage(file, img);
+      return img;
+    }
+  } catch (e) {}
+  return salvata ? fm.readImage(file) : null;
+}
+
+// Il QR in un riquadro bianco; se l'immagine non c'è (prima volta senza rete) una scritta al suo posto.
+function immagineQr(box, lato) {
+  if (QR) {
+    const img = box.addImage(QR);
+    img.imageSize = new Size(lato, lato);
+    return img;
+  }
+  const c = box.addStack();
+  c.size = new Size(lato, lato);
+  c.centerAlignContent();
+  const t = testo(c, "QR\ntocca per aprirlo", F.testo(Math.max(8, Math.round(lato / 9))), new Color("#2A0A12"), 3);
+  t.centerAlignText();
+  return c;
 }
 
 async function scegliAnteprima() {
@@ -192,14 +233,30 @@ function logo(stack, h) {
   return img;
 }
 
+// Di quando sono i dati salvati: «21:34», «ieri 21:34» o «5/11 21:34» (i numeri «di oggi» possono essere di ieri).
+function quandoSalvato(d) {
+  if (!d._salvato) return d.aggiornato;
+  const allora = new Date(d._salvato);
+  const giorno = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((giorno(new Date()) - giorno(allora)) / 86_400_000);
+  if (diff <= 0) return d.aggiornato;
+  if (diff === 1) return `ieri ${d.aggiornato}`;
+  return `${allora.getDate()}/${allora.getMonth() + 1} ${d.aggiornato}`;
+}
+
 // Piccola, nella riga del titolo (mai sopra i riquadri): a che ora sono i dati e ogni quanto cambiano.
 // iPhone decide da solo quando aggiornare i widget: si chiede ogni 15 minuti, di solito arriva entro la mezz'ora.
 function scrittaAggiornato(stack, d, vecchi, largo) {
-  const t = vecchi ? `non aggiornato · ${d.aggiornato}` : largo ? `aggiornato ${d.aggiornato} · ogni 30 min circa` : d.aggiornato;
+  const t = vecchi ? `non aggiornato · ${quandoSalvato(d)}` : largo ? `aggiornato ${d.aggiornato} · ogni 30 min circa` : d.aggiornato;
   const x = testo(stack, t, Font.regularSystemFont(largo ? 8 : 9), vecchi ? C.rossoTesto : C.crema3);
   x.minimumScaleFactor = 0.7;
   x.rightAlignText();
   return x;
+}
+
+// «▲ 12%», «▼ 5%», «= uguale» (lo zero non ha una freccia).
+function variazione(pct) {
+  return pct > 0 ? `▲ ${pct}%` : pct < 0 ? `▼ ${Math.abs(pct)}%` : "=";
 }
 
 // Pillola con la variazione: oro se sale, mattone se scende, neutra se uguale.
@@ -416,8 +473,17 @@ const FORMATI = {
 
 function disegna(nome, fam, risposta) {
   if (!FORMATI[nome]) return messaggio(fam, "Parameter", `Parola «${nome}» sconosciuta. Controlla il campo «Parameter» del widget.`);
-  if (risposta.errore) return messaggio(fam, risposta.codice === "rete" ? "Senza rete" : "Angolo del Vino", risposta.errore, risposta.codice === "tolto" ? C.rossoTesto : C.oro);
+  if (risposta.errore) {
+    // Sulla schermata di blocco c'è posto per due parole: messaggi corti apposta.
+    const BREVI = { chiave: "Ricollega il telefono", scaduta: "Ricollega il telefono", tolto: "Widget tolto", permesso: "Widget non tuo", troppe: "Riprovo tra poco", rete: "Senza rete", sito: "Sito non raggiungibile", sconosciuto: "Widget sconosciuto" };
+    const breve = fam && fam.startsWith("accessory") ? BREVI[risposta.codice] || "Errore" : risposta.errore;
+    const w = messaggio(fam, risposta.codice === "rete" ? "Senza rete" : "Angolo del Vino", breve, risposta.codice === "tolto" ? C.rossoTesto : C.oro);
+    // Toccandolo si apre la pagina dove ricollegare il telefono (non l'anteprima di Scriptable).
+    if (["chiave", "scaduta", "tolto", "permesso"].includes(risposta.codice)) w.url = `${SITO}/widget`;
+    return w;
+  }
   if (!FORMATI[nome].includes(fam)) {
+    if (fam && fam.startsWith("accessory")) return messaggio(fam, "", "Grandezza sbagliata");
     const adatti = FORMATI[nome].filter((f) => NOMI_FORMATO[f]).map((f) => NOMI_FORMATO[f]);
     // Dice cosa fare: scegliere uno script della grandezza giusta per questo riquadro.
     const qui = fam && fam.startsWith("accessory") ? "blocco" : NOMI_FORMATO[fam] === "extra grande" ? "grande" : NOMI_FORMATO[fam];
@@ -454,7 +520,7 @@ function wAperture(fam, d, v) {
   const giornoBreve = d.giornoSettimana.slice(0, 3);
   if (fam === "accessoryInline") {
     const w = accessorio();
-    testo(w, `Menù oggi ${d.oggi}${d.deltaSettimanaScorsa !== null ? ` · ${d.deltaSettimanaScorsa >= 0 ? "▲" : "▼"}${Math.abs(d.deltaSettimanaScorsa)}%` : ""}`, F.forte(12), Color.white());
+    testo(w, `Menù oggi ${d.oggi}${d.deltaSettimanaScorsa !== null ? ` · ${variazione(d.deltaSettimanaScorsa)}` : ""}`, F.forte(12), Color.white());
     return w;
   }
   if (fam === "accessoryCircular") {
@@ -477,7 +543,7 @@ function wAperture(fam, d, v) {
     testo(r, d.oggi, F.numero(24), Color.white());
     r.addSpacer(6);
     testo(r, "aperture", F.medio(12), new Color("#FFFFFF", 0.75));
-    if (d.deltaSettimanaScorsa !== null) testo(w, `${d.deltaSettimanaScorsa >= 0 ? "▲" : "▼"} ${Math.abs(d.deltaSettimanaScorsa)}% su ${giornoBreve} scorso`, F.medio(11), new Color("#FFFFFF", 0.75));
+    if (d.deltaSettimanaScorsa !== null) testo(w, `${variazione(d.deltaSettimanaScorsa)} su ${giornoBreve}. scorso`, F.medio(11), new Color("#FFFFFF", 0.75));
     return w;
   }
   const w = nuovoWidget(fam);
@@ -641,7 +707,7 @@ function wRiepilogo(fam, d, v) {
   const w = nuovoWidget(fam);
   const { CW } = misure(fam);
   const giornoBreve = d.giornoSettimana.slice(0, 3);
-  intestazione(w, fam === "medium" ? "Riepilogo" : `Riepilogo · ${d.giorno.toLowerCase()}`, d, v);
+  intestazione(w, fam === "medium" || misure(fam).CW < 300 ? "Riepilogo" : `Riepilogo · ${d.giorno.toLowerCase()}`, d, v);
   w.addSpacer(fam === "medium" ? 8 : 10);
   const scheda = (stack, larghezza, lab, val, unita, sotto, url) => {
     const c = colonna(stack);
@@ -1034,8 +1100,7 @@ function wQr(fam, d) {
   box.setPadding(8, 8, 8, 8);
   box.borderColor = C.oroBordo;
   box.borderWidth = 1.5;
-  const img = box.addImage(QR);
-  img.imageSize = new Size(lato, lato);
+  immagineQr(box, lato);
   r.addSpacer();
   w.addSpacer(fam === "small" ? 6 : 14);
   const t = riga(w);
@@ -1231,8 +1296,7 @@ function wMenuQr(fam) {
   box.backgroundColor = C.qr;
   box.cornerRadius = 10;
   box.setPadding(4, 4, 4, 4);
-  const img = box.addImage(QR);
-  img.imageSize = new Size(lato - 8, lato - 8);
+  immagineQr(box, lato - 8);
   qr.addSpacer();
   dx.addSpacer(4);
   const t = riga(dx);
@@ -1328,8 +1392,7 @@ function wPannello(fam, d, v) {
   box.backgroundColor = C.qr;
   box.cornerRadius = 8;
   box.setPadding(4, 4, 4, 4);
-  const img = box.addImage(QR);
-  img.imageSize = new Size(latoQr - 8, latoQr - 8);
+  immagineQr(box, latoQr - 8);
   qrr.addSpacer();
   qr.addSpacer();
   w.addSpacer(gap);
@@ -1361,7 +1424,8 @@ function wPannello(fam, d, v) {
     else {
       pillola(pr, d.delta);
       pr.addSpacer(5);
-      testo(pr, "su ieri a quest'ora", F.testo(10), C.crema2).minimumScaleFactor = 0.75;
+      // Sul telefono piccolo la frase intera esce dal riquadro.
+      testo(pr, CW < 300 ? "su ieri" : "su ieri a quest'ora", F.testo(10), C.crema2).minimumScaleFactor = 0.75;
     }
   }
   r2.addSpacer(gap);
@@ -1397,6 +1461,7 @@ function wPannello(fam, d, v) {
     // 5 · Chi lavora stasera
     const tu = tessera(r3, tw, th, d.linkTurni);
     testo(tu, "STASERA AL LAVORO", F.titoletto(), C.oro);
+    tu.addSpacer(2);
     tu.addSpacer();
     if (d.stasera.chiuso) testo(tu, d.stasera.chiuso, F.serifForte(15), C.rossoTesto, 2);
     else if (d.stasera.persone.length) {
@@ -1405,7 +1470,7 @@ function wPannello(fam, d, v) {
       const ps = d.stasera.persone.map((p) => (typeof p === "string" ? { nome: p, orario: "" } : p));
       // Fino a 5 persone nome e orario, con la scritta più grande che ci sta nel riquadro
       // (altezza meno margini 20 e titolo 13, diviso per le righe); da 6 in su i nomi su due colonne.
-      const perRiga = (th - 20 - 13) / ps.length;
+      const perRiga = (th - 20 - 15) / ps.length;
       if (ps.length <= 5) {
         const f = Math.max(8, Math.min(12, Math.floor((perRiga / 1.25) * 2) / 2));
         ps.forEach((p) => {
@@ -1442,7 +1507,15 @@ function wPannello(fam, d, v) {
     df.addSpacer();
     if (d.daFare > 1 && d.daFareVoci) {
       // Più cose: il numero e sotto le prime due, una per riga (le altre si vedono toccando).
-      testo(df, d.daFare, F.numero(22), C.ambra);
+      // Accanto al numero, quante altre ce ne sono oltre le due scritte sotto.
+      const nr = riga(df);
+      nr.bottomAlignContent();
+      testo(nr, d.daFare, F.numero(22), C.ambra);
+      if (d.daFareVoci.length > 2) {
+        nr.addSpacer(6);
+        testo(nr, `+${d.daFareVoci.length - 2} ${d.daFareVoci.length - 2 === 1 ? "altra" : "altre"}`, F.testo(9.5), C.crema3);
+      }
+      nr.addSpacer();
       const voci = d.daFareVoci.slice(0, 2);
       // Il numero dice quante sono in tutto; le altre si vedono toccando il riquadro.
       for (const t of voci) testo(df, `• ${t}`, F.testo(10), C.crema2);
@@ -1685,7 +1758,7 @@ function wAndamento(fam, d, v) {
       centro(x.n, F.forte(9), x.inCorso ? C.crema : C.crema2);
       c.addSpacer(2);
       const h = Math.max(3, Math.round((x.n / max) * hMax));
-      const img = c.addImage(barraSettimana(bw, h, x.inCorso ? C.oro : C.oroArea));
+      const img = c.addImage(barraSettimana(bw, h, x.inCorso ? C.oro : C.barra));
       img.imageSize = new Size(bw, h);
       c.addSpacer(3);
       centro(x.inCorso ? "questa" : x.da, F.testo(8), x.inCorso ? C.oro : C.crema3);
@@ -1719,7 +1792,10 @@ function wAndamento(fam, d, v) {
   a.topAlignContent();
   if (d.eventi) {
     const piu = d.eventi.delta !== null && d.eventi.delta > 0;
-    cella(a, "Giorni con evento", d.eventi.delta === null ? "—" : `${piu ? "+" : ""}${d.eventi.delta}%`, `${d.eventi.conEvento} al giorno, gli altri ${d.eventi.senza}`, "/statistiche#eventi", piu ? C.verde : C.crema, d.eventi.delta === null ? "" : "di aperture");
+    // Con meno di 3 serate la percentuale non è affidabile: si scrivono solo i numeri.
+    const poche = d.eventi.serate !== undefined && d.eventi.serate < 3;
+    if (poche) cella(a, "Giorni con evento", `${d.eventi.conEvento}`, `su ${d.eventi.serate} ${d.eventi.serate === 1 ? "serata" : "serate"} · gli stessi giorni ${d.eventi.senza}`, "/statistiche#eventi", C.crema, "al giorno");
+    else cella(a, "Giorni con evento", d.eventi.delta === null ? "—" : `${piu ? "+" : ""}${d.eventi.delta}%`, `${d.eventi.conEvento} al giorno, stessi giorni senza ${d.eventi.senza}`, "/statistiche#eventi", piu ? C.verde : C.crema, d.eventi.delta === null ? "" : "di aperture");
   } else cella(a, "Giorni con evento", "—", "ancora nessun evento", "/statistiche#eventi");
   a.addSpacer(gap);
   cella(a, "Ore in turno", `${d.ore.questa} h`, `questa settimana · scorsa ${d.ore.scorsa} h`, d.linkOre);

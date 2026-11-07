@@ -8,8 +8,9 @@ import { businessDayKey, formatPrice, inPeriod, periodStatus } from "@/lib/menu-
 import { openStatus, romeNow } from "@/lib/menu-venue";
 import { blockHours, periodOf } from "@/lib/schedule";
 import { employeeVisibleDates } from "@/lib/week-visibility";
-import { endOfMonth, lastCompletedMonth, parseDateKey } from "@/lib/week";
+import { endOfMonth, lastCompletedMonth, parseDateKey, shiftEndMinutes } from "@/lib/week";
 import { MENU_QR_URL } from "@/lib/widgets";
+import { opensAtSameTime } from "@/lib/opens-same-time";
 
 const DAYS = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 const DAYS_SHORT = ["L", "M", "M", "G", "V", "S", "D"];
@@ -34,6 +35,8 @@ const initials = (name: string) =>
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("");
 const hhmm = (t: string) => (t.endsWith(":00") ? String(Number(t.slice(0, 2))) : `${Number(t.slice(0, 2))}:${t.slice(3)}`);
+// L'ora di fine: «00:00» è mezzanotte, si scrive «24».
+const fineOra = (t: string) => (t === "00:00" ? "24" : hhmm(t));
 // Variazione in percentuale, arrotondata; null se il confronto non ha senso (base zero).
 const delta = (now: number, before: number) => (before > 0 ? Math.round(((now - before) / before) * 100) : null);
 const clockNow = () => {
@@ -48,14 +51,12 @@ async function opensPerDay(from: string): Promise<Map<string, number>> {
 
 // Aperture fino a quest'ora, per i giorni indicati: i confronti si fanno alla stessa ora, altrimenti
 // una giornata appena iniziata contro giornate intere sembra sempre un crollo.
-async function opensSoFar(days: string[], hour: number): Promise<Map<string, number>> {
-  const rows = await prisma.menuEvent.groupBy({ by: ["day"], where: { kind: "open", day: { in: days }, hour: { lte: hour } }, _count: { _all: true } });
-  return new Map(rows.map((r) => [r.day, r._count._all]));
-}
+// (fino all'ora e al minuto di adesso: vedi opensAtSameTime)
+const opensSoFar = (days: string[]) => opensAtSameTime(days);
 
 // ---------- Aperture di oggi
 export async function dataAperture() {
-  const { day: today, hour } = romeParts();
+  const { day: today } = romeParts();
   const { since } = await loadStatsSetting();
   const per = await opensPerDay(addDays(today, -63));
   const count = (d: string) => per.get(d) ?? 0;
@@ -63,7 +64,7 @@ export async function dataAperture() {
   const same = Array.from({ length: 8 }, (_, i) => addDays(today, -7 * (i + 1))).filter((d) => !since || d >= since);
   const yesterday = addDays(today, -1);
   const lastWeekDay = addDays(today, -7);
-  const soFar = await opensSoFar([yesterday, ...same], hour);
+  const soFar = await opensSoFar([yesterday, ...same]);
   const at = (d: string) => soFar.get(d) ?? 0;
   const avg = same.length ? Math.round(same.reduce((s, d) => s + at(d), 0) / same.length) : null;
   return {
@@ -87,7 +88,7 @@ export async function dataAperture() {
 
 // ---------- Statistiche della settimana
 export async function dataSettimana() {
-  const { day: today, hour } = romeParts();
+  const { day: today } = romeParts();
   const mon = monday(today);
   const prevMon = addDays(mon, -7);
   const per = await opensPerDay(prevMon);
@@ -97,7 +98,7 @@ export async function dataSettimana() {
   const scorsa = Array.from({ length: 7 }, (_, i) => count(addDays(prevMon, i)));
   const totale = questa.reduce((a, b) => a + b, 0);
   // La settimana scorsa fino allo stesso giorno e alla stessa ora.
-  const oggiScorso = (await opensSoFar([addDays(prevMon, wd)], hour)).get(addDays(prevMon, wd)) ?? 0;
+  const oggiScorso = (await opensSoFar([addDays(prevMon, wd)])).get(addDays(prevMon, wd)) ?? 0;
   const stessoPunto = scorsa.slice(0, wd).reduce((a, b) => a + b, 0) + oggiScorso;
   const [hours, search, pick] = await Promise.all([
     prisma.menuEvent.groupBy({ by: ["hour"], where: { kind: "open", day: { gte: mon } }, _count: { _all: true } }),
@@ -198,9 +199,10 @@ export async function dataOggi() {
     const list = closure ? [] : blocks.filter((b) => periodOf(b) === p).sort((a, b) => a.employee.sortOrder - b.employee.sortOrder);
     if (list.length === 0) return null;
     const start = list.map((b) => b.startTime).sort()[0];
-    const end = list.map((b) => b.endTime).sort().at(-1)!;
+    // La fine più tarda contando la mezzanotte («00:00» = 24, «01:00» dopo un inizio serale = 25).
+    const ultimo = [...list].sort((a, b) => shiftEndMinutes(b.startTime, b.endTime) - shiftEndMinutes(a.startTime, a.endTime))[0];
     return {
-      orario: `${hhmm(start)}–${hhmm(end)}`,
+      orario: `${hhmm(start)}–${fineOra(ultimo.endTime)}`,
       persone: list.map((b) => ({ nome: corti.get(b.employee.id) ?? firstName(b.employee.name), iniziali: initials(b.employee.name) })),
     };
   };
@@ -345,7 +347,8 @@ export async function dataTurni(employeeId: string) {
   const visible = await employeeVisibleDates();
   const until = addDays(dateKey, 28);
   const [blocks, leaves, closures] = await Promise.all([
-    prisma.shiftBlock.findMany({ where: { employeeId, date: { gte: parseDateKey(mon), lte: parseDateKey(until) } }, select: { date: true, startTime: true, endTime: true }, orderBy: [{ date: "asc" }, { startTime: "asc" }] }),
+    // Da ieri: un turno di ieri che finisce dopo mezzanotte può essere ancora in corso.
+    prisma.shiftBlock.findMany({ where: { employeeId, date: { gte: parseDateKey(addDays(mon < dateKey ? mon : dateKey, -1)), lte: parseDateKey(until) } }, select: { date: true, startTime: true, endTime: true }, orderBy: [{ date: "asc" }, { startTime: "asc" }] }),
     prisma.leaveEntry.findMany({ where: { employeeId, date: { gte: parseDateKey(mon), lte: parseDateKey(addDays(mon, 6)) } }, select: { date: true, type: true } }),
     prisma.closureDay.findMany({ where: { date: { gte: parseDateKey(mon), lte: parseDateKey(until) } }, select: { date: true } }),
   ]);
@@ -353,20 +356,23 @@ export async function dataTurni(employeeId: string) {
   const closed = new Set(closures.map((c) => key(c.date)));
   const shifts = blocks.filter((b) => visible(b.date) && !closed.has(key(b.date)));
   const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
-  const next = shifts.find((b) => key(b.date) > dateKey || (key(b.date) === dateKey && toMin(b.endTime) > minutes));
+  // Minuti da oggi a mezzanotte: un turno «18:00–00:00» finisce a 24:00, uno «18–01» il giorno dopo.
+  const giorni = (d: string) => Math.round((toDate(d).getTime() - toDate(dateKey).getTime()) / 86_400_000);
+  const fineAssoluta = (b: (typeof shifts)[number]) => giorni(key(b.date)) * 1440 + shiftEndMinutes(b.startTime, b.endTime);
+  const next = shifts.find((b) => fineAssoluta(b) > minutes);
   let prossimo = null;
   if (next) {
     const d = key(next.date);
     const startAt = toDate(d).getTime() + (toMin(next.startTime) - 12 * 60) * 60_000;
     const nowAt = toDate(dateKey).getTime() + (minutes - 12 * 60) * 60_000;
     const hoursTo = Math.round((startAt - nowAt) / 3_600_000);
-    const inCorso = d === dateKey && toMin(next.startTime) <= minutes;
-    const quando = d === dateKey ? "Oggi" : d === addDays(dateKey, 1) ? "Domani" : DAYS[weekday(d)];
+    const inCorso = giorni(d) * 1440 + toMin(next.startTime) <= minutes;
+    const quando = d === dateKey ? "Oggi" : d === addDays(dateKey, 1) ? "Domani" : d === addDays(dateKey, -1) ? "Da ieri" : DAYS[weekday(d)];
     prossimo = {
       quando,
       giorno: dayShort(d),
       inizio: next.startTime,
-      fine: next.endTime,
+      fine: next.endTime === "00:00" ? "24:00" : next.endTime,
       ore: Math.round(blockHours(next) * 10) / 10,
       tra: inCorso ? "in corso" : hoursTo < 1 ? "tra poco" : hoursTo < 48 ? `tra ${hoursTo} ${hoursTo === 1 ? "ora" : "ore"}` : `tra ${Math.round(hoursTo / 24)} giorni`,
       link: `/mie-ore?date=${d}`,
@@ -375,7 +381,7 @@ export async function dataTurni(employeeId: string) {
   const leaveLabel: Record<string, string> = { FERIE: "ferie", PERMESSO: "permesso", LIBERO: "riposo", MALATTIA: "malattia" };
   const settimana = Array.from({ length: 7 }, (_, i) => {
     const d = addDays(mon, i);
-    const own = shifts.filter((b) => key(b.date) === d);
+    const own = shifts.filter((b) => key(b.date) === d).sort((a, b) => toMin(a.startTime) - toMin(b.startTime));
     const leave = leaves.find((l) => key(l.date) === d);
     return {
       lettera: DAYS_SHORT[i],
@@ -383,7 +389,7 @@ export async function dataTurni(employeeId: string) {
       oggi: d === dateKey,
       lavoro: own.length > 0,
       inizio: own[0]?.startTime ?? null,
-      testo: closed.has(d) ? "chiuso" : own.length ? `${hhmm(own[0].startTime)}–${hhmm(own.at(-1)!.endTime)}` : leave ? leaveLabel[leave.type] : "riposo",
+      testo: closed.has(d) ? "chiuso" : own.length ? `${hhmm(own[0].startTime)}–${fineOra(own.at(-1)!.endTime)}` : leave ? leaveLabel[leave.type] : "riposo",
       prossimo: !!next && key(next.date) === d,
     };
   });
@@ -414,7 +420,20 @@ export function shortNames(people: { id: string; name: string }[]) {
     let n = 1;
     const pezzo = (p: string[], k: number) => p.slice(1).join(" ").slice(0, k).toLowerCase();
     while (n < cognome.length && omonimi.some(([, p]) => pezzo(p, n) === cognome.slice(0, n).toLowerCase())) n++;
-    out.set(id, `${nome} ${cognome.slice(0, n)}.`);
+    // Il punto solo se il cognome è accorciato («Andrea R.»), non dopo un cognome intero («Andrea Rossi»).
+    out.set(id, n < cognome.length ? `${nome} ${cognome.slice(0, n)}.` : `${nome} ${cognome}`);
+  }
+  // Nomi e cognomi identici (due «Marco Bianchi»): un numero per distinguerli.
+  const visti = new Map<string, number>();
+  const conta = new Map<string, number>();
+  for (const v of out.values()) conta.set(v, (conta.get(v) ?? 0) + 1);
+  for (const [id] of unici) {
+    const v = out.get(id)!;
+    if ((conta.get(v) ?? 0) > 1) {
+      const k = (visti.get(v) ?? 0) + 1;
+      visti.set(v, k);
+      out.set(id, `${v} ${k}`);
+    }
   }
   return out;
 }
@@ -429,7 +448,11 @@ async function staffShortNames() {
 // Chi è al lavoro adesso (e fino a quando), e chi arriva più tardi oggi.
 async function staffNow() {
   const now = new Date();
-  const { dateKey, minutes } = romeNow(now);
+  const rome = romeNow(now);
+  // Prima delle 5 del mattino è ancora la serata di ieri (come per esauriti e fuori menù):
+  // chi fa 18–01 è ancora al lavoro all'una, e «stasera» sono quelli di ieri sera.
+  const dateKey = businessDayKey(now);
+  const minutes = dateKey === rome.dateKey ? rome.minutes : rome.minutes + 24 * 60;
   const [blocks, closure] = await Promise.all([
     prisma.shiftBlock.findMany({
       where: { date: parseDateKey(dateKey), employee: { active: true } },
@@ -451,7 +474,8 @@ async function staffNow() {
   const dopo = blocks.filter((b) => toMin(b.startTime) > minutes).map(person);
   // Una persona sola volta anche se la sera ha due pezzi di turno: dal primo inizio all'ultima fine.
   const perPersona = new Map<string, ReturnType<typeof person>>();
-  for (const b of blocks.filter((x) => periodOf(x) === "pomeriggio")) {
+  // «Stasera» è chi è in turno dopo le 18: anche un turno lungo iniziato la mattina (11–22).
+  for (const b of blocks.filter((x) => endMin(x.startTime, x.endTime) > 18 * 60)) {
     const p = person(b);
     const prima = perPersona.get(b.employee.id);
     if (!prima) perPersona.set(b.employee.id, p);
@@ -485,7 +509,7 @@ export async function dataSala() {
     return ORE.filter((h) => h <= fino).map((h) => (s += at(d, h)));
   };
   const oggi = Array.from({ length: 24 }, (_, h) => at(today, h)).reduce((a, b) => a + b, 0);
-  const ieriFinora = Array.from({ length: hour + 1 }, (_, h) => at(yesterday, h)).reduce((a, b) => a + b, 0);
+  const ieriFinora = (await opensAtSameTime([yesterday])).get(yesterday) ?? 0;
   return {
     aggiornato: clockNow(),
     oggi,
@@ -557,7 +581,9 @@ export async function dataStasera() {
   if (!ev) return { aggiornato: clockNow(), evento: null, link: "/gestione-menu" };
   const oggi = ev.startDate <= day;
   const giorni = oggi ? 0 : Math.round((toDate(ev.startDate).getTime() - toDate(day).getTime()) / 86_400_000);
-  const { minutes } = romeNow(new Date());
+  // Dopo mezzanotte (prima delle 5) è ancora la serata di ieri: all'1:00 sono le «25:00» del giorno del locale.
+  const rome = romeNow(new Date());
+  const minutes = rome.dateKey === day ? rome.minutes : rome.minutes + 24 * 60;
   const inCorso = oggi && (!ev.startTime || toMin(ev.startTime) <= minutes);
   const tra = inCorso ? "in corso" : oggi && ev.startTime ? (() => { const m = toMin(ev.startTime) - minutes; return m < 60 ? `tra ${m} min` : `tra ${Math.round(m / 60)} ${Math.round(m / 60) === 1 ? "ora" : "ore"}`; })() : giorni === 1 ? "domani" : `tra ${giorni} giorni`;
   const [views, viewsToday, items] = await Promise.all([
@@ -576,7 +602,7 @@ export async function dataStasera() {
       tra,
       giorno: Number(ev.startDate.slice(8)),
       mese: MONTHS[Number(ev.startDate.slice(5, 7)) - 1].slice(0, 3).toUpperCase(),
-      quando: oggi ? (ev.startTime ? `Oggi ${hhmm(ev.startTime)}${ev.endTime ? `–${hhmm(ev.endTime)}` : ""}` : "Oggi") : `${dayShort(ev.startDate)}${ev.startTime ? ` · ${hhmm(ev.startTime)}` : ""}`,
+      quando: oggi ? (ev.startTime ? `Oggi ${hhmm(ev.startTime)}${ev.endTime ? `–${fineOra(ev.endTime)}` : ""}` : "Oggi") : `${dayShort(ev.startDate)}${ev.startTime ? ` · ore ${hhmm(ev.startTime)}` : ""}`,
       locandina: ev.imageUpdatedAt ? `/menu/p/${ev.slug}/immagine?v=${ev.imageUpdatedAt.getTime()}` : null,
       menu: items.map((i) => ({ nome: i.name, prezzo: i.priceCents !== null ? formatPrice(i.priceCents) : i.priceGlassCents !== null ? formatPrice(i.priceGlassCents) : "" })),
       visite: views,
@@ -588,10 +614,14 @@ export async function dataStasera() {
 
 // ---------- Andamento (per il consulente e il titolare)
 export async function dataAndamento() {
-  const { day: today, hour } = romeParts();
+  const { day: today } = romeParts();
   const mon = monday(today);
   const wd = weekday(today);
-  const { since } = await loadStatsSetting();
+  // Il giorno da cui si conta; se non è impostato, il primo giorno con aperture (come in Statistiche):
+  // niente «Luglio 0» tra i mesi interi prima che esistessero i dati.
+  const { since: impostato } = await loadStatsSetting();
+  const primo = impostato ? null : await prisma.menuEvent.findFirst({ where: { kind: "open" }, orderBy: { day: "asc" }, select: { day: true } });
+  const since = impostato ?? primo?.day ?? null;
   // Si guarda indietro al massimo 8 settimane, e mai prima del giorno da cui si conta.
   const from = since && since > addDays(mon, -7 * 7) ? since : addDays(mon, -7 * 7);
   const counted = (d: string) => !since || d >= since;
@@ -607,7 +637,7 @@ export async function dataAndamento() {
   const [per, soFar, byWd, byHour, events, oreQuesta, oreScorsa] = await Promise.all([
     opensPerDay(from < threeBack ? from : threeBack),
     // Oggi è a metà: i confronti prendono lo stesso giorno di prima solo fino a quest'ora.
-    opensSoFar([addDays(today, -7), ...(prevSameDay ? [prevSameDay] : [])], hour),
+    opensSoFar([addDays(today, -7), ...(prevSameDay ? [prevSameDay] : [])]),
     prisma.menuEvent.groupBy({ by: ["weekday"], where: { kind: "open", day: { gte: from, lt: today } }, _count: { _all: true } }),
     prisma.menuEvent.groupBy({ by: ["hour"], where: { kind: "open", day: { gte: from, lt: today } }, _count: { _all: true } }),
     prisma.menuPromo.findMany({ where: { kind: "EVENT", deletedAt: null, hidden: false, startDate: { lte: today }, endDate: { gte: from } }, select: { startDate: true, endDate: true } }),
@@ -667,8 +697,12 @@ export async function dataAndamento() {
   for (const e of events) for (let d = e.startDate; d <= e.endDate; d = addDays(d, 1)) evDays.add(d);
   const past = range(from, Math.round((toDate(today).getTime() - toDate(from).getTime()) / 86400000)).filter(counted);
   const avg = (list: string[]) => (list.length ? Math.round(list.reduce((s, d) => s + count(d), 0) / list.length) : null);
-  const conEvento = avg(past.filter((d) => evDays.has(d)));
-  const senza = avg(past.filter((d) => !evDays.has(d)));
+  // Le serate con evento contro gli STESSI giorni della settimana senza evento (un sabato con evento
+  // contro gli altri sabati, non contro la media di tutti i giorni, lunedì compresi).
+  const giorniEvento = past.filter((d) => evDays.has(d));
+  const settimanaEventi = new Set(giorniEvento.map((d) => weekday(d)));
+  const conEvento = avg(giorniEvento);
+  const senza = avg(past.filter((d) => !evDays.has(d) && settimanaEventi.has(weekday(d))));
   // Il giorno più forte per MEDIA (aperture diviso quante volte quel giorno c'è stato nel periodo):
   // con il totale, in un periodo con 5 venerdì e 4 sabati vincerebbe il venerdì anche se rende meno.
   // L'ora più forte: aperture in quell'ora diviso i giorni del periodo.
@@ -693,7 +727,7 @@ export async function dataAndamento() {
     mese,
     mesi,
     settimane,
-    eventi: conEvento !== null && senza !== null ? { conEvento, senza, delta: delta(conEvento, senza) } : null,
+    eventi: conEvento !== null && senza !== null ? { conEvento, senza, delta: delta(conEvento, senza), serate: giorniEvento.length } : null,
     giornoForte: bestWd && bestWd.media > 0 ? DAYS[(bestWd.w + 6) % 7] : null,
     giornoMedia: bestWd && bestWd.media > 0 ? media(bestWd.media) : null,
     oraForte: bestHour ? `${bestHour.h}–${bestHour.h + 1}` : null,
