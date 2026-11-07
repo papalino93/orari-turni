@@ -43,6 +43,8 @@ const nextConfig: NextConfig = {
       },
       // Tutto tranne il menù pubblico, che qualcuno potrebbe voler mostrare nel proprio sito.
       { source: "/((?!menu(?:/|$)).*)", headers: noFraming },
+      // Le pagine della prenotazione (con «Annulla») non si incorniciano mai, anche se stanno sotto /menu.
+      { source: "/menu/prenota/:path*", headers: noFraming },
       { source: "/", headers: noStore },
       { source: "/:area(orari|dipendenti|statistiche|account|ferie|mail|mie-ore|installa|prenotazioni)", headers: noStore },
       { source: "/:area(orari|dipendenti|statistiche|account|ferie|mail|mie-ore|installa|prenotazioni)/:rest*", headers: noStore },

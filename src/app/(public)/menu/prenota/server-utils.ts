@@ -29,7 +29,10 @@ export function formAge(stamp: unknown, now: number = Date.now()): number | null
   const a = Buffer.from(mac);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  return now - Number(ts);
+  const age = now - Number(ts);
+  // Un modulo aperto da più di 12 ore non vale più (un programma non può riusare un timbro all'infinito).
+  if (age > 12 * 3600_000) return null;
+  return age;
 }
 
 // La chiamata arriva da una pagina di questo sito? (le route accettano JSON solo da qui)
@@ -47,7 +50,8 @@ export function sameOrigin(request: NextRequest): boolean {
 }
 
 export function clientIp(request: NextRequest): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "?";
+  // Su Vercel x-real-ip è scritto dalla piattaforma; x-forwarded-for solo come riserva (in locale).
+  return request.headers.get("x-real-ip")?.trim() || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "?";
 }
 
 // Indirizzo pubblico della richiesta (per i link nei messaggi al cliente).

@@ -15,9 +15,12 @@ import {
   addDays,
   availability,
   businessDay,
+  dayLong,
   dayShort,
   normalizeSource,
+  peopleText,
   parseBookingSettings,
+  phoneProblem,
   romeInstant,
   timeToDayMinutes,
   type BookingSettings,
@@ -61,12 +64,14 @@ export function hashToken(token: string): string {
 }
 
 // Indirizzo pubblico del sito: il dominio di produzione se c'è, altrimenti quello della richiesta.
+// Anche da un'anteprima di Vercel i link ai clienti puntano al sito vero (le anteprime sono protette).
 export function siteOrigin(requestOrigin?: string | null): string {
-  if (process.env.VERCEL_ENV === "production" && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  }
-  return requestOrigin || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000");
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  return requestOrigin || "http://localhost:3000";
 }
+
+// Le anteprime di Vercel usano il database vero: da lì non parte mai nessun messaggio.
+const isPreview = () => process.env.VERCEL_ENV === "preview";
 
 export function statusPath(id: string): string {
   return `/menu/prenota/r/${tokenFor(id)}`;
@@ -176,10 +181,14 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
     return { ok: false, error: `Per più di ${settings.maxPeople} persone chiamaci o scrivici: ci organizziamo meglio a voce.`, field: "people" };
   }
   if (name.length < 2) return { ok: false, error: "Scrivi il tuo nome.", field: "name" };
+  // Niente indirizzi web o email nel nome: finirebbe nei messaggi che partono a nome del locale.
+  if (/https?:|www\.|:\/\/|@|<|>/i.test(name)) return { ok: false, error: "Scrivi solo il nome (e, se vuoi, il cognome).", field: "name" };
+  const phoneError = phoneProblem(phoneRaw, contact);
+  if (phoneError) return { ok: false, error: phoneError, field: "phone" };
   const phone = internationalNumber(phoneRaw);
   if (!phone) return { ok: false, error: "Il numero di telefono non sembra giusto: controllalo.", field: "phone" };
   if (contact === "email" && !isValidEmail(email)) return { ok: false, error: "L'indirizzo email non sembra giusto: controllalo.", field: "email" };
-  if (input.privacy !== true) return { ok: false, error: "Per inviare la richiesta serve il consenso all'uso dei dati.", field: "privacy" };
+  if (input.privacy !== true) return { ok: false, error: "Per inviare la richiesta, conferma di aver letto l'informativa sulla privacy.", field: "privacy" };
 
   const avail = await dayAvailability(day, settings, now);
   if (avail.state !== "open") {
@@ -191,8 +200,8 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
           : avail.state === "past"
             ? "Quel giorno è già passato: scegli un altro giorno."
             : avail.state === "tooFar"
-              ? `Si può chiedere un tavolo al massimo ${settings.daysAhead} giorni prima.`
-              : "Per quel giorno è troppo tardi per prenotare online: chiamaci.";
+              ? `Si può chiedere un tavolo fino a ${settings.daysAhead} giorni prima.`
+              : "Per quel giorno è troppo tardi per chiedere un tavolo online: chiamaci.";
     return { ok: false, error: why, field: "day" };
   }
   const slot = avail.slots.find((s) => s.time === time);
@@ -208,16 +217,17 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
       prisma.bookingRequest.count({ where: { ipHash, createdAt: { gte: hourAgo } } }),
       prisma.bookingRequest.count({ where: { phone, status: { in: ["PENDING", "PROPOSED"] }, startsAt: { gte: now } } }),
     ]);
-    if (byIp >= 5) return { ok: false, error: "Hai mandato tante richieste in poco tempo: aspetta un po' oppure chiamaci." };
+    if (byIp >= 10) return { ok: false, error: "Hai mandato tante richieste in poco tempo: aspetta un po' oppure chiamaci." };
     if (pendingByPhone >= 3) return { ok: false, error: "Con questo numero ci sono già 3 richieste in attesa: aspetta la nostra risposta oppure chiamaci." };
   }
   const slug = str(input.event, 120);
-  const promo = slug ? await prisma.menuPromo.findFirst({ where: { slug, deletedAt: null }, select: { id: true } }) : null;
+  const promo = slug ? await prisma.menuPromo.findFirst({ where: { slug, kind: "EVENT", hidden: false, deletedAt: null }, select: { id: true } }) : null;
   const source = promo ? "evento" : normalizeSource(input.source);
 
   let created: BookingRow | null = null;
   let reused: { id: string; code: string; isTest: boolean } | null = null;
-  for (let attempt = 0; attempt < 5 && !created && !reused; attempt++) {
+  let taken = false;
+  for (let attempt = 0; attempt < 5 && !created && !reused && !taken; attempt++) {
     try {
       created = await prisma.$transaction(async (tx) => {
         // Stesso telefono, giorno e ora già chiesti (doppio tocco, rete che ripete l'invio): si riusa
@@ -226,10 +236,13 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking:${phone}:${day}:${time}`}))`;
         const same = await tx.bookingRequest.findFirst({
           where: { phone, day, time, status: { in: ["PENDING", "PROPOSED", "CONFIRMED"] } },
-          select: { id: true, code: true, isTest: true },
+          select: { id: true, code: true, isTest: true, ipHash: true, createdAt: true },
         });
         if (same) {
-          reused = same;
+          // Si ridà il link solo a chi l'ha appena chiesta dallo stesso indirizzo: chi conosce solo
+          // telefono, giorno e ora di qualcun altro non deve poter vedere o annullare la sua richiesta.
+          if (same.ipHash === ipHash && now.getTime() - same.createdAt.getTime() < 15 * 60000) reused = same;
+          else taken = true;
           return null;
         }
         const row = await tx.bookingRequest.create({
@@ -242,7 +255,7 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
             people,
             name,
             phone,
-            email: email || null,
+            email: contact === "email" ? email || null : null,
             contact,
             note: note || null,
             allergies: input.allergies === true,
@@ -261,11 +274,18 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
       if (!(e instanceof Error && /Unique constraint/i.test(e.message))) throw e;
     }
   }
+  if (taken) {
+    return {
+      ok: false,
+      error: "Con questo numero c'è già una richiesta per quel giorno e quell'ora: trovi il link nel messaggio che ti abbiamo mandato, oppure chiamaci.",
+      field: "time",
+    };
+  }
   if (reused) {
     const r = reused as { id: string; code: string; isTest: boolean };
     return { ok: true, id: r.id, code: r.code, statusPath: statusPath(r.id), isTest: r.isTest, reused: true };
   }
-  if (!created) return { ok: false, error: "Non sono riuscito a salvare la richiesta: riprova tra poco." };
+  if (!created) return { ok: false, error: "Non siamo riusciti a salvare la richiesta: riprova tra poco." };
   return { ok: true, id: created.id, code: created.code, statusPath: statusPath(created.id), isTest };
 }
 
@@ -273,7 +293,8 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
 export async function afterCreate(id: string, origin: string | null): Promise<void> {
   const b = await prisma.bookingRequest.findUnique({ where: { id } });
   if (!b) return;
-  if (b.isTest) return;
+  if (b.isTest || isPreview()) return;
+  await purgeOldBookings().catch(() => {});
   const alert = staffAlert(b);
   await notifyStaff(b.id, alert.title, alert.body, "/prenotazioni");
   if (b.contact === "email" && b.email) await sendCustomerMail(b, "received", origin);
@@ -286,6 +307,7 @@ async function log(requestId: string, actor: string, kind: string, message?: str
 }
 
 async function notifyStaff(requestId: string, title: string, body: string, url: string) {
+  if (isPreview()) return;
   const settings = await loadBookingSettings();
   const push = await sendPushToStaff({ title, body, url, tag: `booking-${requestId}` }).catch((e: unknown) => ({ sent: 0, failed: 1, error: String(e) }));
   if (push.sent) await log(requestId, "sistema", "PUSH_OK", `Notifica a ${push.sent} ${push.sent === 1 ? "telefono" : "telefoni"}`);
@@ -307,8 +329,10 @@ async function notifyStaff(requestId: string, title: string, body: string, url: 
   }
 }
 
-function messageInput(b: BookingRow, origin: string | null) {
+function messageInput(b: BookingRow, origin: string | null, extra: { address?: string | null } = {}) {
   return {
+    ...extra,
+    bookUrl: `${siteOrigin(origin)}/prenota`,
     name: b.name,
     day: b.day,
     time: b.time,
@@ -320,10 +344,14 @@ function messageInput(b: BookingRow, origin: string | null) {
   };
 }
 
-async function sendCustomerMail(b: BookingRow, kind: MessageKind, origin: string | null): Promise<boolean> {
-  if (!b.email || !mailConfigured() || b.isTest) return false;
-  const m = messageInput(b, origin);
+async function sendCustomerMail(b: BookingRow, kind: MessageKind, origin: string | null, wasConfirmed = false): Promise<boolean> {
+  if (!b.email || !mailConfigured() || b.isTest || isPreview()) return false;
+  const m = { ...messageInput(b, origin, { address: (await loadVenue()).contacts.address || null }), wasConfirmed };
   const text = customerMessage(kind, m);
+  // Nell'HTML diventano link solo gli indirizzi del sito (pagina della richiesta, modulo): nient'altro.
+  const links = [m.statusUrl, m.bookUrl].filter(Boolean) as string[];
+  const linkify = (escaped: string) =>
+    links.reduce((acc, u) => acc.split(escapeHtml(u)).join(`<a href="${escapeHtml(u)}">${escapeHtml(u)}</a>`), escaped);
   try {
     await getProvider().sendBatch([
       {
@@ -332,7 +360,7 @@ async function sendCustomerMail(b: BookingRow, kind: MessageKind, origin: string
         text,
         html: text
           .split(/\n{2,}/)
-          .map((p) => `<p>${escapeHtml(p).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>').replace(/\n/g, "<br>")}</p>`)
+          .map((p) => `<p>${linkify(escapeHtml(p)).replace(/\n/g, "<br>")}</p>`)
           .join(""),
       },
     ]);
@@ -345,8 +373,8 @@ async function sendCustomerMail(b: BookingRow, kind: MessageKind, origin: string
 }
 
 // Messaggio WhatsApp già scritto per il cliente (chi lavora tocca Invia dal telefono del locale).
-export function customerWhatsappHref(b: BookingRow, kind: MessageKind, origin: string | null): string | null {
-  return whatsappHref(b.phone, customerMessage(kind, messageInput(b, origin)));
+export function customerWhatsappHref(b: BookingRow, kind: MessageKind, origin: string | null, address?: string | null): string | null {
+  return whatsappHref(b.phone, customerMessage(kind, messageInput(b, origin, { address: address ?? null })));
 }
 
 // ---------- Risposte del locale
@@ -387,9 +415,11 @@ async function respond(
   const now = new Date();
   const res = await prisma.bookingRequest.updateMany({
     where: { id, status: { in: from } },
-    data: { ...data, handledAt: now, handledBy: actor.name },
+    data: { ...data, handledBy: actor.name },
   });
   if (res.count === 0) return { ok: false, error: await alreadyHandled(id) };
+  // Prima risposta del locale (per il «tempo di risposta» nei numeri): non si sovrascrive dopo.
+  await prisma.bookingRequest.updateMany({ where: { id, handledAt: null }, data: { handledAt: now } });
   await log(id, actor.name, logKind, logMessage);
   const booking = await prisma.bookingRequest.findUniqueOrThrow({ where: { id } });
   let mailSent = false;
@@ -397,14 +427,18 @@ async function respond(
   if (kind) {
     if (booking.contact === "email" && booking.email) mailSent = await sendCustomerMail(booking, kind, origin);
     // WhatsApp sempre pronto: anche per chi ha scelto l'email, se la mail non è partita.
-    wa = customerWhatsappHref(booking, kind, origin);
+    wa = customerWhatsappHref(booking, kind, origin, (await loadVenue()).contacts.address || null);
   }
   return { ok: true, booking, mailSent, whatsappHref: wa };
 }
 
 const msg = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 300) : null);
 
-export function confirmBooking(id: string, actor: StaffActor, message: unknown, origin: string | null) {
+export async function confirmBooking(id: string, actor: StaffActor, message: unknown, origin: string | null): Promise<StaffResult> {
+  const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { startsAt: true, status: true } });
+  if (b && b.status === "PENDING" && b.startsAt.getTime() < Date.now() - 30 * 60000) {
+    return { ok: false, error: "L'orario di questa richiesta è già passato: non si può più confermare." };
+  }
   return respond(id, actor, ["PENDING"], { status: "CONFIRMED", staffMessage: msg(message) }, "CONFIRMED", msg(message), "confirmed", origin);
 }
 
@@ -415,6 +449,18 @@ export async function proposeTime(id: string, actor: StaffActor, time: unknown, 
   if (time === b.time) return { ok: false, error: "È lo stesso orario richiesto: scegline un altro oppure conferma." };
   const startsAt = romeInstant(b.day, timeToDayMinutes(time));
   if (startsAt.getTime() < Date.now()) return { ok: false, error: "Quell'orario è già passato: scegline un altro." };
+  // Solo dentro gli orari di apertura di quel giorno (anche se la serata è «al completo» online).
+  const [{ hours }, closures, settings] = await Promise.all([loadVenue(), closuresBetween(b.day, b.day), loadBookingSettings()]);
+  const closure = closures.get(b.day);
+  const open = availability(
+    b.day,
+    hours,
+    { ...settings, firstTime: "05:00", step: 5, lastBeforeClose: 0, leadMinutes: 0, daysAhead: 400 },
+    closure?.kind === "closed" ? closure : null,
+    new Date(),
+  );
+  if (open.state !== "open") return { ok: false, error: "Quel giorno siamo chiusi: non si può proporre un orario." };
+  if (!open.slots.some((sl) => sl.time === time)) return { ok: false, error: `Alle ${time} siamo chiusi: scegli un orario dentro l'apertura.` };
   return respond(
     id,
     actor,
@@ -423,6 +469,23 @@ export async function proposeTime(id: string, actor: StaffActor, time: unknown, 
     "PROPOSED",
     `Proposto alle ${time}${msg(message) ? ` · ${msg(message)}` : ""}`,
     "proposed",
+    origin,
+  );
+}
+
+// Il cliente ha risposto «sì» all'orario proposto, per esempio su WhatsApp: lo segna chi lavora.
+export async function acceptProposalForCustomer(id: string, actor: StaffActor, origin: string | null): Promise<StaffResult> {
+  const b = await prisma.bookingRequest.findUnique({ where: { id } });
+  if (!b) return { ok: false, error: "Questa richiesta non c'è più." };
+  if (b.status !== "PROPOSED" || !b.proposedTime || !b.proposedStartsAt) return { ok: false, error: await alreadyHandled(id) };
+  return respond(
+    id,
+    actor,
+    ["PROPOSED"],
+    { status: "CONFIRMED", time: b.proposedTime, startsAt: b.proposedStartsAt, proposedTime: null, proposedStartsAt: null, staffMessage: null },
+    "ACCEPTED",
+    `Il cliente ha detto sì alle ${b.proposedTime} (segnato da ${actor.name})`,
+    "confirmed",
     origin,
   );
 }
@@ -437,12 +500,16 @@ export function cancelByVenue(id: string, actor: StaffActor, message: unknown, o
 
 // Arrivati / non venuti: solo per le confermate, dal giorno stesso.
 export async function markArrival(id: string, actor: StaffActor, arrived: boolean | null): Promise<{ ok: true } | { ok: false; error: string }> {
-  const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { status: true } });
+  const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { status: true, day: true, startsAt: true } });
   if (!b || b.status !== "CONFIRMED") return { ok: false, error: "Si può segnare solo una prenotazione confermata." };
-  await prisma.bookingRequest.update({
-    where: { id },
-    data: arrived === null ? { arrivedAt: null, noShowAt: null } : arrived ? { arrivedAt: new Date(), noShowAt: null } : { noShowAt: new Date(), arrivedAt: null },
+  const now = new Date();
+  if (arrived === true && b.day > businessDay(now)) return { ok: false, error: "Si può segnare «Arrivati» solo dal giorno della prenotazione." };
+  if (arrived === false && b.startsAt.getTime() > now.getTime()) return { ok: false, error: "«Non venuti» si può segnare solo dopo l'orario." };
+  const r = await prisma.bookingRequest.updateMany({
+    where: { id, status: "CONFIRMED" },
+    data: arrived === null ? { arrivedAt: null, noShowAt: null } : arrived ? { arrivedAt: now, noShowAt: null } : { noShowAt: now, arrivedAt: null },
   });
+  if (!r.count) return { ok: false, error: "Nel frattempo è stata annullata: ricarica la pagina." };
   await log(id, actor.name, arrived === null ? "ARRIVAL_CLEARED" : arrived ? "ARRIVED" : "NOSHOW", null);
   return { ok: true };
 }
@@ -482,15 +549,15 @@ export async function customerAction(token: string, action: unknown, origin: str
   const now = new Date();
   if (action === "cancel") {
     const r = await prisma.bookingRequest.updateMany({
-      where: { id: b.id, status: { in: ["PENDING", "PROPOSED", "CONFIRMED"] }, startsAt: { gte: new Date(now.getTime() - 2 * 3600000) } },
+      where: { id: b.id, status: { in: ["PENDING", "PROPOSED", "CONFIRMED"] }, startsAt: { gt: now }, arrivedAt: null, noShowAt: null },
       data: { status: "CANCELLED", cancelledBy: "cliente" },
     });
     if (!r.count) return { ok: false, error: "Non si può più annullare da qui: chiamaci." };
     await log(b.id, "cliente", "CANCELLED", null);
     const after = await prisma.bookingRequest.findUniqueOrThrow({ where: { id: b.id } });
     if (!after.isTest) {
-      await notifyStaff(b.id, "Prenotazione annullata dal cliente", `${after.name} · ${dayShort(after.day)} alle ${after.time} · ${after.people} pers.`, "/prenotazioni");
-      if (after.contact === "email") await sendCustomerMail(after, "cancelledByCustomer", origin);
+      await notifyStaff(b.id, "Prenotazione annullata dal cliente", `${after.name} · ${dayLong(after.day)} alle ${after.time} · ${peopleText(after.people)}`, "/prenotazioni");
+      if (after.contact === "email") await sendCustomerMail(after, "cancelledByCustomer", origin, b.status === "CONFIRMED");
     }
     return { ok: true, booking: after };
   }
@@ -510,8 +577,8 @@ export async function customerAction(token: string, action: unknown, origin: str
     if (!after.isTest) {
       await notifyStaff(
         b.id,
-        accept ? "Il cliente ha accettato il nuovo orario" : "Il cliente non può al nuovo orario",
-        `${after.name} · ${dayShort(after.day)} alle ${accept ? after.time : b.proposedTime} · ${after.people} pers.`,
+        accept ? "Il cliente ha accettato il nuovo orario" : "Il cliente ha detto no al nuovo orario",
+        `${after.name} · ${dayLong(after.day)} alle ${accept ? after.time : b.proposedTime} · ${peopleText(after.people)}`,
         "/prenotazioni",
       );
       if (accept && after.contact === "email") await sendCustomerMail(after, "confirmed", origin);
@@ -530,6 +597,7 @@ export async function pendingCount(): Promise<number> {
 }
 
 export async function listBookings(now: Date = new Date()) {
+  await purgeOldBookings(now).catch(() => {});
   const today = businessDay(now);
   const since = addDays(today, -30);
   const rows = await prisma.bookingRequest.findMany({
@@ -561,7 +629,7 @@ export async function bookingStats(now: Date = new Date()) {
       confirmed++;
       people += r.people;
     }
-    if (r.status === "DECLINED") declined++;
+    if (r.status === "DECLINED" && r.cancelledBy !== "cliente") declined++;
     if (r.status === "CANCELLED") cancelled++;
     if (r.noShowAt) noShow++;
     if (r.handledAt) responseMinutes.push((r.handledAt.getTime() - r.createdAt.getTime()) / 60000);
@@ -569,4 +637,20 @@ export async function bookingStats(now: Date = new Date()) {
   responseMinutes.sort((a, b) => a - b);
   const median = responseMinutes.length ? responseMinutes[Math.floor(responseMinutes.length / 2)] : null;
   return { total: rows.length, confirmed, declined, cancelled, noShow, people, medianResponseMinutes: median, bySource: [...bySource.entries()].sort((a, b) => b[1] - a[1]) };
+}
+
+// ---------- Conservazione dei dati (informativa: «fino a 6 mesi dopo la data, poi li cancelliamo»)
+
+const KEEP_DAYS = 183;
+
+export async function purgeOldBookings(now: Date = new Date()): Promise<number> {
+  const limit = addDays(businessDay(now), -KEEP_DAYS);
+  const r = await prisma.bookingRequest.deleteMany({ where: { day: { lt: limit } } });
+  return r.count;
+}
+
+// Il cliente chiede di cancellare i suoi dati: il titolare la elimina con la cronologia.
+export async function eraseBooking(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const r = await prisma.bookingRequest.deleteMany({ where: { id } });
+  return r.count ? { ok: true } : { ok: false, error: "Questa richiesta non c'è più." };
 }

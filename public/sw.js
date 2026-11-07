@@ -49,7 +49,9 @@ self.addEventListener("notificationclick", (event) => {
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const same = windows.find((c) => c.url === url);
       if (same) return same.focus();
-      const ours = windows.find((c) => new URL(c.url).origin === self.location.origin && !new URL(c.url).pathname.startsWith("/menu"));
+      // Si riusa solo una finestra già sulle prenotazioni: spostarne un'altra (es. la gestione del
+      // menù con modifiche non salvate) farebbe perdere il lavoro.
+      const ours = windows.find((c) => new URL(c.url).origin === self.location.origin && new URL(c.url).pathname.startsWith("/prenotazioni"));
       if (ours) {
         try {
           await ours.focus();

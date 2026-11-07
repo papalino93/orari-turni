@@ -239,7 +239,7 @@ export const STATUS_LABEL: Record<BookingView, string> = {
   PENDING: "Da confermare",
   PROPOSED: "Altro orario proposto",
   CONFIRMED: "Confermata",
-  DECLINED: "Non c'è posto",
+  DECLINED: "Al completo",
   CANCELLED: "Annullata",
   EXPIRED: "Scaduta senza risposta",
 };
@@ -253,4 +253,40 @@ export const SOURCE_LABEL: Record<string, string> = {
 
 export function normalizeSource(v: unknown): string {
   return typeof v === "string" && v in SOURCE_LABEL ? v : "altro";
+}
+
+// ---------- Telefono del cliente
+//
+// Un numero sbagliato vuol dire una risposta che non arriva mai: si controlla prima dell'invio
+// (stessa funzione nel modulo e sul server). Restituisce il testo dell'errore o null se va bene.
+export function phoneProblem(raw: string, contact: "whatsapp" | "email"): string | null {
+  const plain = raw.replace(/[\s.\-/()]/g, "");
+  if (!plain) return "Scrivi il tuo numero di telefono.";
+  if (!/^\+?\d+$/.test(plain)) return "Nel numero di telefono ci sono caratteri strani: scrivi solo le cifre.";
+  let national: string | null = null;
+  if (plain.startsWith("+39")) national = plain.slice(3);
+  else if (plain.startsWith("0039")) national = plain.slice(4);
+  else if (!plain.startsWith("+") && !plain.startsWith("00")) {
+    if (!/^[03]/.test(plain)) return "Se è un numero estero, scrivilo con il prefisso, es. +44 …";
+    national = plain;
+  }
+  if (national !== null) {
+    if (national.startsWith("3") && national.length !== 10) return "Il numero sembra incompleto: un cellulare ha 10 cifre (es. 333 123 4567).";
+    if (national.startsWith("0") && (national.length < 6 || national.length > 11)) return "Il numero di telefono non sembra giusto: controllalo.";
+    if (!/^[03]/.test(national)) return "Il numero di telefono non sembra giusto: controllalo.";
+    if (national.startsWith("0") && contact === "whatsapp") return "Su WhatsApp possiamo risponderti solo su un cellulare: scrivi il cellulare oppure scegli Email.";
+  } else {
+    const digits = plain.replace(/^\+|^00/, "");
+    if (digits.length < 8 || digits.length > 15) return "Il numero di telefono non sembra giusto: controllalo.";
+  }
+  return null;
+}
+
+// «333 123 4567» / «+44 7700 900123»: il numero per intero, leggibile, per farlo controllare al cliente.
+export function phoneReadable(international: string): string {
+  if (international.startsWith("39") && international.length === 12) {
+    const n = international.slice(2);
+    return `${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}`;
+  }
+  return `+${international}`;
 }

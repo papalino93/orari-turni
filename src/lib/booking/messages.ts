@@ -16,6 +16,11 @@ export type MessageInput = {
   staffMessage?: string | null;
   statusUrl: string;
   allergies?: boolean;
+  // Per «annullata dal cliente»: era già confermata (prenotazione) o ancora una richiesta?
+  wasConfirmed?: boolean;
+  // Indirizzo del locale (nella conferma) e pagina per chiedere un altro giorno (dopo un «al completo»).
+  address?: string | null;
+  bookUrl?: string | null;
 };
 
 const first = (name: string) => name.trim().split(/\s+/)[0] || name.trim();
@@ -29,15 +34,15 @@ export function customerMessage(kind: MessageKind, m: MessageInput): string {
     case "received":
       return `${ciao} abbiamo ricevuto la tua richiesta per ${when}, ${peopleText(m.people)}. Non è ancora confermata: ti rispondiamo noi appena possibile.\n\nQui vedi sempre a che punto è: ${m.statusUrl}\n\n${VENUE_NAME}`;
     case "confirmed":
-      return `${ciao} ti aspettiamo ${when}, tavolo per ${m.people}.${m.allergies ? " Abbiamo preso nota delle allergie: ne parliamo al tavolo." : ""}${extra}\n\nSe cambia qualcosa, puoi annullare da qui: ${m.statusUrl}\n\nA presto, ${VENUE_NAME}`;
+      return `${ciao} ti aspettiamo ${when}, tavolo per ${peopleText(m.people)}.${m.allergies ? " Abbiamo preso nota delle allergie: ne parliamo al tavolo." : ""}${extra}${m.address ? `\n\nCi trovi in ${m.address}.` : ""}\n\nSe cambia qualcosa, puoi annullare da qui: ${m.statusUrl}\n\nA presto, ${VENUE_NAME}`;
     case "proposed":
-      return `${ciao} ${dayLong(m.day)} alle ${m.time} siamo pieni. Ti va bene alle ${m.proposedTime}?${extra}\n\nTocca qui per dirci sì o no: ${m.statusUrl}\n\n${VENUE_NAME}`;
+      return `${ciao} ${dayLong(m.day)} alle ${m.time} siamo al completo. Ti va bene alle ${m.proposedTime}?${extra}\n\nRispondi pure qui con «sì» o «no», oppure da questa pagina: ${m.statusUrl}\n\n${VENUE_NAME}`;
     case "declined":
-      return `${ciao} ci dispiace: ${when} siamo al completo.${extra}\n\nSperiamo di vederti presto! ${VENUE_NAME}`;
+      return `${ciao} ci dispiace: ${when} siamo al completo.${extra}${m.bookUrl ? `\n\nSe vuoi, chiedi un altro giorno: ${m.bookUrl}` : ""}\n\nSperiamo di vederti presto! ${VENUE_NAME}`;
     case "cancelledByVenue":
-      return `${ciao} purtroppo dobbiamo annullare il tavolo di ${when}.${extra}\n\nCi scusiamo davvero. ${VENUE_NAME}`;
+      return `${ciao} purtroppo dobbiamo annullare il tavolo di ${when}.${extra || " Ci scusiamo davvero."}\n\n${VENUE_NAME}`;
     case "cancelledByCustomer":
-      return `${ciao} abbiamo annullato la tua prenotazione di ${when}. Grazie per averci avvisato!\n\n${VENUE_NAME}`;
+      return `${ciao} come ci hai chiesto, abbiamo annullato la tua ${m.wasConfirmed ? "prenotazione" : "richiesta"} per ${when}. Grazie per averci avvisato!\n\n${VENUE_NAME}`;
   }
 }
 
@@ -53,8 +58,9 @@ export function customerSubject(kind: MessageKind, m: MessageInput): string {
     case "declined":
       return `Siamo al completo ${dayLong(m.day)}`;
     case "cancelledByVenue":
-    case "cancelledByCustomer":
       return `Prenotazione annullata: ${when}`;
+    case "cancelledByCustomer":
+      return `${m.wasConfirmed ? "Prenotazione annullata" : "Richiesta annullata"}: ${when}`;
   }
 }
 

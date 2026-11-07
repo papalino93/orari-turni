@@ -170,7 +170,11 @@ function parseSubscription(sub: SubscriptionInput) {
   const auth = typeof sub?.keys?.auth === "string" ? sub.keys.auth : "";
   let ok = false;
   try {
-    ok = new URL(endpoint).protocol === "https:";
+    // Solo i servizi di notifica veri (Apple, Google, Mozilla, Microsoft): il server non chiama indirizzi qualsiasi.
+    const u = new URL(endpoint);
+    ok =
+      u.protocol === "https:" &&
+      /(^|\.)(push\.apple\.com|fcm\.googleapis\.com|android\.googleapis\.com|push\.services\.mozilla\.com|notify\.windows\.com)$/.test(u.hostname);
   } catch {
     ok = false;
   }
