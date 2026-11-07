@@ -1,6 +1,6 @@
 // Caratteristiche dei vini (Biologico, Biodinamico, Vegano, Senza solfiti aggiunti):
 // spunte nella scheda, riga sul menù, filtri della ricerca, abbinamento, annulla.
-import { launch, login, check, BASE, results, ADMIN_PW, DB, tool, goTab } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, tool, goTab, undoFromHistory } from "./lib.mjs";
 
 const WINE = "menu_itm_033"; // Mastrojanni, Rossi
 const DISH = "menu_itm_051"; // Tagliere Classico
@@ -91,7 +91,7 @@ check("abbinamento: anche nel riquadro", /Bio/.test(box) && /Vegano/.test(box), 
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await tool(page, "Storico");
 await dialog().waitFor();
-await dialog().locator("li", { hasText: /Modificato: Mastrojanni/ }).first().getByRole("button", { name: "Ripristina" }).click();
+await undoFromHistory(dialog().locator("li", { hasText: /Modificato: Mastrojanni/ }).first(), "Torna com'era");
 await settle(2000);
 check("ripristina: caratteristiche tolte", DB(`select traits from "MenuItem" where id='${WINE}'`) === "{}");
 

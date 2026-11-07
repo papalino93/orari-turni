@@ -226,6 +226,9 @@ export function ItemSheet({
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  // Regione: il messaggio «Scrivi la regione…» resta attaccato al campo finché non si cancella:
+  // va tolto anche quando si scrive la nazione (un vino estero non chiede la regione).
+  const regionRef = useRef<HTMLInputElement>(null);
 
   // Si può spostare solo tra sezioni dello stesso tipo: un vino non diventa
   // un piatto (i campi non sono gli stessi).
@@ -494,6 +497,7 @@ export function ItemSheet({
             <div className="grid grid-cols-2 gap-3">
               <Field label={italian ? "Regione" : "Regione (facoltativa)"}>
                 <input
+                  ref={regionRef}
                   value={region}
                   onChange={(e) => {
                     e.currentTarget.setCustomValidity("");
@@ -510,7 +514,18 @@ export function ItemSheet({
                 />
               </Field>
               <Field label="Nazione" hint="Se la lasci vuota vale Italia.">
-                <input value={country} onChange={(e) => setCountry(e.target.value)} maxLength={60} list="wine-countries" autoComplete="off" className={inputClass} placeholder="es. Italia" />
+                <input
+                  value={country}
+                  onChange={(e) => {
+                    regionRef.current?.setCustomValidity("");
+                    setCountry(e.target.value);
+                  }}
+                  maxLength={60}
+                  list="wine-countries"
+                  autoComplete="off"
+                  className={inputClass}
+                  placeholder="es. Italia"
+                />
               </Field>
             </div>
             <datalist id="wine-regions">

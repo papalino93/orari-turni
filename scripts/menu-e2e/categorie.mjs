@@ -1,7 +1,7 @@
 // Categorie create dalla gestione (crea, rinomina, elimina, annulla), il riquadro in
 // vetrina (caviale e tartufo bianco) e il promemoria degli allergeni che non conta gli
 // eventi finiti o nascosti.
-import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, DB, resetBlocks, goTab, expandPanels } from "./lib.mjs";
+import { launch, login, check, BASE, SHOTS, results, ADMIN_PW, DB, resetBlocks, goTab, expandPanels, undoFromHistory } from "./lib.mjs";
 
 const cleanup = () => {
   DB(`delete from "MenuSection" where title like 'Prova E2E%'`);
@@ -120,7 +120,7 @@ await goTab(page, "Strumenti");
 await page.getByRole("list", { name: "Strumenti del menù" }).getByRole("button", { name: /^Storico/ }).click();
 const entry = sheet().locator("li", { hasText: "Categoria «Prova E2E bis»" }).first();
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/categoria-storico.png` });
-await entry.getByRole("button", { name: "Ripristina" }).click();
+await undoFromHistory(entry, "Rimetti nel menù");
 await page.waitForTimeout(1500);
 await page.keyboard.press("Escape");
 await sheet().waitFor({ state: "detached" });

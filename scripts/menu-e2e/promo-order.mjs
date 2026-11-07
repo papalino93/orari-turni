@@ -1,7 +1,7 @@
 // Ordine di eventi e annunci: di base per data, poi a mano da «Riordina» → «Eventi e
 // annunci». Il primo è il più a sinistra in «In evidenza»; si annulla e si torna all'ordine
 // per data.
-import { launch, login, check, BASE, results, ADMIN_PW, DB, tool, goTab } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB, tool, goTab, undoFromHistory } from "./lib.mjs";
 
 // giorno commerciale (cambia alle 5:00 ora italiana)
 const biz = (offset = 0) =>
@@ -80,7 +80,7 @@ await tool(p, "Storico");
 await dlg.waitFor();
 const hist = await dlg.innerText();
 check("storico: «Ordine di eventi e annunci»", /Ordine di eventi e annunci/.test(hist));
-await dlg.locator("li", { hasText: "Ordine di eventi e annunci" }).first().getByRole("button", { name: /Ripristina|Annulla/ }).first().click();
+await undoFromHistory(dlg.locator("li", { hasText: "Ordine di eventi e annunci" }).first(), "Torna all'ordine di prima");
 await p.waitForTimeout(1500);
 check("storico: ripristinato, di nuovo per data", DB(`select count(*) from "MenuPromo" where "sortOrder" is not null`) === "0");
 await p.keyboard.press("Escape");

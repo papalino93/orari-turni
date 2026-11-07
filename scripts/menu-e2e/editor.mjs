@@ -1,4 +1,4 @@
-import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels, tool, goTab } from "./lib.mjs";
+import { discardIfAsked, launch, login, check, BASE, SHOTS, results, ADMIN_PW, EMP_PW, DB, resetBlocks, expandPanels, tool, goTab, undoFromHistory } from "./lib.mjs";
 
 resetBlocks();
 DB(`delete from \"MenuChange\"`);
@@ -57,6 +57,10 @@ const faded = await pub.evaluate(() => {
 check("pubblico: piatto esaurito sbiadito", faded !== null && Number(faded) < 1, String(faded));
 
 await page.locator("button", { hasText: /Riattiva tutto \(2\)/ }).click();
+// Chiede conferma prima di rimettere disponibili tutte le voci.
+const askReactivate = page.getByRole("alertdialog", { name: "Riattiva tutto" });
+check("riattiva tutto: chiede conferma con il numero di voci", /Rimettere disponibili 2 voci\?/.test(await askReactivate.innerText()));
+await askReactivate.getByRole("button", { name: "Sì, riattiva tutto" }).click();
 await settle();
 t = await publicText();
 check("riattiva tutto: vino torna in menù", t.includes("Alberelli di Giodo"));
@@ -138,7 +142,7 @@ const hist = await dialog().innerText();
 check("storico: elenca le modifiche con autore", /Andrea/.test(hist) && /Vino Prova/.test(hist) && /esaurito/i.test(hist), hist.split("\n").slice(0, 6).join(" | "));
 const modEntry = dialog().locator("li", { hasText: /Modificato: Vino Prova/ }).first();
 check("storico: voce 'Modificato' presente", (await modEntry.count()) === 1);
-await modEntry.locator("button", { hasText: "Ripristina" }).click();
+await undoFromHistory(modEntry, "Torna al prezzo di prima");
 await settle(1500);
 t = await publicText();
 const prices = DB(`select "priceBottleCents" from "MenuItem" where name='Vino Prova' and "deletedAt" is null order by "sortOrder"`).split("\n");
@@ -245,6 +249,7 @@ await marta.locator("li button[aria-pressed]").first().click();
 await marta.waitForTimeout(1500);
 check("marta con permesso: può segnare esaurito", Number(DB(`select count(*) from \"MenuItem\" where \"soldOutDay\" is not null`)) === 1);
 await marta.locator("button", { hasText: /Riattiva tutto/ }).click();
+await marta.getByRole("alertdialog", { name: "Riattiva tutto" }).getByRole("button", { name: "Sì, riattiva tutto" }).click();
 await marta.waitForTimeout(1500);
 check("marta: riattiva tutto", Number(DB(`select count(*) from \"MenuItem\" where \"soldOutDay\" is not null`)) === 0);
 
@@ -259,7 +264,9 @@ check("dipendenti: interruttore spento", (await sw.getAttribute("aria-checked"))
 await marta.goto(`${BASE}/gestione-menu`, { waitUntil: "domcontentloaded", timeout: 120000 });
 check("revoca immediata: Marta rimandata a /mie-ore", new URL(marta.url()).pathname === "/mie-ore", marta.url());
 
-// stessa azione server riusata da chi non ha più il permesso
+// stessa azione server riusata da chi non ha più il permesso (senza accesso il proxy lascia
+// passare la richiesta, perché un salvataggio con la sessione scaduta non mostri una pagina
+// d'errore: è l'azione a rifiutarla con «Il sito non ti riconosce più…»)
 const itemId = DB(`select id from \"MenuItem\" order by id limit 1`);
 async function replay(requestCtx, label) {
   if (!actionId) { check(`${label}: id azione catturato`, false); return; }
@@ -269,7 +276,7 @@ async function replay(requestCtx, label) {
     maxRedirects: 0,
   });
   const body = await res.text();
-  check(`${label}: azione rifiutata`, /permesso|login|Unauthorized/i.test(body) || res.status() >= 300, `status ${res.status()} ${body.slice(0, 80).replace(/\n/g, " ")}`);
+  check(`${label}: azione rifiutata`, /permesso|login|Unauthorized|non ti riconosce/i.test(body) || res.status() >= 300, `status ${res.status()} ${body.slice(0, 80).replace(/\n/g, " ")}`);
 }
 await replay(martaCtx.request, "marta senza permesso");
 const anon = await browser.newContext();

@@ -86,6 +86,9 @@ check("allergeni: il piatto del giorno è nella pagina", /Risotto ai porcini/.te
 // Togli + annulla
 await page.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
 await panel().getByRole("button", { name: "Togli Risotto ai porcini da oggi" }).click();
+// «Togli» chiede conferma prima di togliere la voce dal menù dei clienti.
+check("togli: chiede conferma e intanto la voce resta", /Togliere «Risotto ai porcini» da oggi\?/.test(await panel().innerText()) && /Risotto ai porcini/.test(await menu()));
+await panel().getByRole("button", { name: "Sì, togli" }).click();
 await settle();
 check("togli: sparisce dal pannello e dal menù", !/Risotto ai porcini/.test(await panel().innerText()) && !/Risotto ai porcini/.test(await menu()));
 await page.locator('[role="status"] button:has-text("Annulla")').last().click();

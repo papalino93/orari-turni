@@ -80,6 +80,9 @@ await panel.getByRole("button", { name: "Sposta giù la pagina 1" }).click();
 await p.waitForTimeout(1500);
 check("pagine: spostata giù", DB(`select string_agg(id, ',' order by "sortOrder") from "MenuPromoPage" where "promoId"='${PROMO}'`) === `${ids[1]},${ids[0]}`);
 await panel.getByRole("button", { name: "Togli la pagina 2" }).click();
+// La ✕ chiede conferma («Togliere la pagina 2?») prima di togliere la pagina.
+check("pagine: la ✕ chiede conferma", /Togliere la pagina 2\?/.test(await panel.innerText()) && DB(`select count(*) from "MenuPromoPage" where "promoId"='${PROMO}'`) === "2");
+await panel.getByRole("button", { name: "Togli", exact: true }).click();
 await p.waitForTimeout(1500);
 check("pagine: tolta una", DB(`select count(*) from "MenuPromoPage" where "promoId"='${PROMO}'`) === "1");
 await panel.locator('input[type="file"]').setInputFiles(photo);

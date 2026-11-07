@@ -50,8 +50,9 @@ async function createPromo({ type, title, label, body, start, end, showFrom, wit
     await dialog().getByLabel("Inizio evento").fill(start);
     await dialog().getByLabel("Fine evento").fill(end);
   } else {
-    await dialog().getByLabel("Dal", { exact: true }).fill(start);
-    await dialog().getByLabel("Al", { exact: true }).fill(end);
+    // Annuncio: «Mostra dal» / «Fino al» (i giorni in cui resta sul menù).
+    await dialog().getByLabel("Mostra dal", { exact: true }).fill(start);
+    await dialog().getByLabel("Fino al", { exact: true }).fill(end);
   }
   if (noMenu) await dialog().getByRole("checkbox", { name: /Ha un menù dedicato/ }).uncheck();
   await dialog().getByRole("button", { name: type === "EVENT" ? /^Crea evento/ : "Crea annuncio" }).click();
@@ -132,7 +133,7 @@ check("pubblico: l'evento non è più aperto a pagina piena (la carta resta vici
 const card = pub.locator('section[aria-label="In evidenza"] a').first();
 check("pubblico: locandina caricata nella scheda", await card.locator("img").first().evaluate((i) => i.complete && i.naturalWidth > 0));
 const live = (await publicText(`/menu/p/${slug}`)).text.replace(/ /g, " ");
-check("pubblico: menù speciale con formati e prezzi nella pagina dell'evento", /Paulaner Helles/.test(live) && /0,2 l\s*3,50/.test(live) && /0,4 l\s*6/.test(live) && /1 l\s*11/.test(live));
+check("pubblico: menù speciale con formati e prezzi nella pagina dell'evento", /Paulaner Helles/.test(live) && /0,2 l\s*€\s*3,50/.test(live) && /0,4 l\s*€\s*6/.test(live) && /1 l\s*€\s*11/.test(live));
 if (SHOTS) {
   await card.scrollIntoViewIfNeeded();
   await pub.waitForTimeout(500);
@@ -237,7 +238,9 @@ if (createActionId) {
     data: JSON.stringify([{ kind: "NOTICE", title: "Intruso", showFrom: biz(0), startDate: biz(0), endDate: biz(1) }]),
     maxRedirects: 0,
   });
-  check("anonimo: creazione rifiutata", res2.status() >= 300 || /login|permesso/i.test(await res2.text()));
+  // Senza accesso il proxy lascia passare i salvataggi (sessione scaduta: niente pagina
+  // d'errore); è l'azione a rifiutarli con «Il sito non ti riconosce più…».
+  check("anonimo: creazione rifiutata", res2.status() >= 300 || /login|permesso|non ti riconosce/i.test(await res2.text()));
 } else {
   check("id azione di creazione catturato", false);
 }

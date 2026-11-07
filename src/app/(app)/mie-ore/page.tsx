@@ -132,6 +132,7 @@ export default async function MieOrePage({
     <MieOreView
       nextShift={nextShift}
       showWidgetLink={!preview && employee.widgets.length > 0}
+      showInstallLink={!employee.appInstalledAt}
       reopenedMonths={reopenedMonths}
       correctionMonth={showCorrectionLink ? correctionMonth : null}
       currentWeekUnconfirmed={currentWeekUnconfirmed}

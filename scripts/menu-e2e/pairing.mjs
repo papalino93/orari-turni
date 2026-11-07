@@ -76,7 +76,8 @@ const box = pub.locator(`a[data-pair-from="${DISH}"]`);
 check("menù: riquadro sotto il piatto", (await box.count()) === 1);
 const boxText = (await box.innerText()).replace(/\s+/g, " ");
 check("menù: titolo, nome e zona del vino", /Abbinamento consigliato/i.test(boxText) && /Mastrojanni/.test(boxText) && /Rosso di Montalcino/.test(boxText), boxText);
-check("menù: prezzo al calice e alla bottiglia", /Calice ?8/.test(boxText) && /Bottiglia ?40/.test(boxText), boxText);
+// «Calice € 8 · Bottiglia € 40» (il «€» è anche per il lettore dello schermo).
+check("menù: prezzo al calice e alla bottiglia", /Calice € 8\b/.test(boxText) && /Bottiglia € 40\b/.test(boxText), boxText);
 const bb = await box.boundingBox();
 check("menù: riquadro toccabile (almeno 44 px)", bb && bb.height >= 44);
 // I riquadri «Abbinamento consigliato» (con data-stat-k) sono sotto i piatti; i tocchi di «Sta bene con» sotto i vini sono un'altra cosa.

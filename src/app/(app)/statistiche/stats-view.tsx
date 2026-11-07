@@ -595,7 +595,7 @@ export function StatsView({
                 icon={ICONS.quando}
                 label="Orario più forte"
                 value={data.best.hour >= 0 ? `${WEEKDAY_LABELS[data.best.weekday]} ${data.best.hour}–\u2060${data.best.hour + 1}` : "—"}
-                note={data.best.count ? `${n(data.best.count)} aperture` : undefined}
+                note={data.best.count ? `${n(data.best.count)} ${data.best.count === 1 ? "apertura" : "aperture"}` : undefined}
               />
               <Kpi
                 className="col-span-2 sm:col-span-1"
@@ -664,7 +664,7 @@ export function StatsView({
             )}
             <Card
               title="Ogni giorno della settimana nel tempo"
-              hint={`Gli ultimi 8 lunedì, martedì… a confronto (qualunque periodo sia scelto sopra): si vede se un giorno sta crescendo o calando. Tutti i grafici hanno la stessa scala: la colonna più alta vale ${n(weekdayMax)} aperture.`}
+              hint={`Gli ultimi 8 lunedì, martedì… a confronto (qualunque periodo sia scelto sopra): si vede se un giorno sta crescendo o calando. Tutti i grafici hanno la stessa scala: la colonna più alta vale ${n(weekdayMax)} ${weekdayMax === 1 ? "apertura" : "aperture"}.`}
             >
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
                 {data.weekdays.map((list, wd) => {

@@ -73,6 +73,13 @@ export async function tool(page, label) {
   await page.getByRole("list", { name: "Strumenti del menù" }).getByRole(/^(Menù da stampare|Guida|Statistiche)/.test(label) ? "link" : "button", { name: new RegExp(`^${label}`) }).click();
 }
 
+// Storico: il pulsante della riga dice che cosa fa («Rimetti nel menù», «Torna com'era»,
+// «Annulla aggiunta»…) e chiede conferma nella riga stessa, con un pulsante con lo stesso nome.
+export async function undoFromHistory(entry, label) {
+  await entry.getByRole("button", { name: label, exact: true }).click();
+  await entry.getByRole("alertdialog", { name: label }).getByRole("button", { name: label, exact: true }).click();
+}
+
 // Nuovo evento o annuncio, dalla scheda «Eventi e annunci».
 export async function newPromo(page, kind = "evento") {
   await goTab(page, "Eventi e annunci");

@@ -232,7 +232,7 @@ export function TrendChart({ daily, eventDays, eventNames }: { daily: Day[]; eve
                 width={w}
                 height={H}
                 role="img"
-                aria-label={`Aperture del menù giorno per giorno, dal ${fmtDay(rows[0].day)} al ${fmtDay(rows[N - 1].day)}. Il giorno più forte è ${fmtDayLong(rows[peak].day)} con ${n(rows[peak].count)} aperture.`}
+                aria-label={`Aperture del menù giorno per giorno, dal ${fmtDay(rows[0].day)} al ${fmtDay(rows[N - 1].day)}. Il giorno più forte è ${fmtDayLong(rows[peak].day)} con ${n(rows[peak].count)} ${apert(rows[peak].count)}.`}
                 className="block touch-pan-y select-none"
                 onPointerMove={move}
                 onPointerDown={move}

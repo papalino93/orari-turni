@@ -44,6 +44,7 @@ export function MieOreView({
   correctionMonth,
   nextShift,
   showWidgetLink = false,
+  showInstallLink = true,
 }: {
   /** Settimana futura che il titolare non ha ancora confermato: i turni non si mostrano. */
   notConfirmed?: boolean;
@@ -69,6 +70,8 @@ export function MieOreView({
   correctionMonth: { year: number; month: number } | null;
   nextShift: NextShift | null;
   showWidgetLink?: boolean;
+  /** Falso quando l'app è già installata: niente più inviti a installarla. */
+  showInstallLink?: boolean;
 }) {
   const router = useRouter();
   const weekStart = parseDateKey(weekStartKey);
@@ -237,8 +240,9 @@ export function MieOreView({
         </Link>
       )}
 
-      {/* In fondo, sempre raggiungibili: non sono cose di tutti i giorni. */}
-      {!preview && (
+      {/* In fondo, sempre raggiungibili: non sono cose di tutti i giorni («Installa l'app» solo
+          finché l'app non risulta installata, come l'invito in alto). */}
+      {!preview && (showWidgetLink || showInstallLink) && (
         <div className="mt-8 space-y-3">
           {showWidgetLink && (
             <Link
@@ -252,16 +256,18 @@ export function MieOreView({
               <span className="text-foreground-muted" aria-hidden>›</span>
             </Link>
           )}
-          <Link
-            href="/installa"
-            className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 transition-colors hover:border-accent"
-          >
-            <span>
-              <span className="block text-sm font-medium text-foreground">Installa l&apos;app sul telefono</span>
-              <span className="block text-xs text-foreground-muted">Un&apos;icona sulla schermata Home, come una vera app</span>
-            </span>
-            <span className="text-foreground-muted" aria-hidden>›</span>
-          </Link>
+          {showInstallLink && (
+            <Link
+              href="/installa"
+              className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 transition-colors hover:border-accent"
+            >
+              <span>
+                <span className="block text-sm font-medium text-foreground">Installa l&apos;app sul telefono</span>
+                <span className="block text-xs text-foreground-muted">Un&apos;icona sulla schermata Home, come una vera app</span>
+              </span>
+              <span className="text-foreground-muted" aria-hidden>›</span>
+            </Link>
+          )}
         </div>
       )}
     </div>
