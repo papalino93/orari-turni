@@ -22,7 +22,6 @@ import {
   launch,
   newContext,
   login,
-  wait,
   randomIp,
   randomPhone,
 } from "./prenota-lib.mjs";
@@ -41,6 +40,8 @@ const D1 = open[0];
 const D2 = open[1];
 const shot = async (p, name) => SHOTS && p.screenshot({ path: `${SHOTS}/prenota-${name}.png`, fullPage: true });
 const rowsBy = (where) => DB(`select count(*) from "BookingRequest" where ${where}`);
+// Un evento in corso o nei prossimi giorni (lo slug cambia quando si rifanno i dati di prova).
+const EVENT_SLUG = DB(`select slug from "MenuPromo" where kind='EVENT' and hidden=false and "deletedAt" is null and "endDate" >= to_char(now() at time zone 'Europe/Rome', 'YYYY-MM-DD') order by "startDate" limit 1`);
 const body = (over = {}) => ({ day: D1.day, time: D1.slots[0], people: 2, name: "Prova C Api", phone: randomPhone(), email: "", contact: "whatsapp", note: "", allergies: false, source: "menu", event: "", privacy: true, sito: "", ...over });
 
 let browser;
@@ -73,23 +74,31 @@ try {
     const huge = await postRequest(body({ t, note: "x".repeat(5000), name: "Prova C Enorme" }));
     check("corpo enorme: rifiutato", huge.json?.ok === false && rowsBy(`name='Prova C Enorme'`) === "0");
 
-    // Doppio tocco su «Invia» (o rete che ripete la richiesta): stesso telefono, giorno e ora.
+    // Doppio tocco su «Invia» (o rete che ripete la richiesta): stesso telefono, giorno e ora, stesso indirizzo.
+    const twinIp = randomIp();
     const twin = body({ t, name: "Prova C Doppio", phone: randomPhone(), day: D2.day, time: D2.slots[0] });
-    const again = await postRequest(twin);
-    const again2 = await postRequest(twin);
-    check("doppio invio uno dopo l'altro: la stessa richiesta", again.json?.statusPath === again2.json?.statusPath && rowsBy(`name='Prova C Doppio'`) === "1");
+    const again = await postRequest(twin, { ip: twinIp });
+    const again2 = await postRequest(twin, { ip: twinIp });
+    check("doppio invio uno dopo l'altro (stesso indirizzo): la stessa richiesta", !!again.json?.statusPath && again.json?.statusPath === again2.json?.statusPath && rowsBy(`name='Prova C Doppio'`) === "1");
+    // Chi conosce solo telefono, giorno e ora di qualcun altro non ottiene il suo link.
+    const thief = await postRequest(twin);
+    check("stessi dati da un altro indirizzo: niente link, «c'è già una richiesta»", thief.json?.ok === false && !thief.json.statusPath && /c'è già una richiesta/.test(thief.json.error ?? "") && thief.json.field === "time", JSON.stringify(thief.json));
     const twin2 = body({ t, name: "Prova C Doppio insieme", phone: randomPhone(), day: D2.day, time: D2.slots[1] });
-    await Promise.all([postRequest(twin2), postRequest(twin2)]);
-    check("doppio invio nello stesso istante: una sola richiesta", rowsBy(`name='Prova C Doppio insieme'`) === "1", `richieste salvate: ${rowsBy(`name='Prova C Doppio insieme'`)}`);
+    const both = await Promise.all([postRequest(twin2, { ip: twinIp }), postRequest(twin2, { ip: twinIp })]);
+    check("doppio invio nello stesso istante: una sola richiesta, tutti e due ok", rowsBy(`name='Prova C Doppio insieme'`) === "1" && both.every((x) => x.json?.ok), `richieste salvate: ${rowsBy(`name='Prova C Doppio insieme'`)}`);
 
     const field = await postRequest(body({ t, name: "P" }));
     check("errore di campo: torna «field: name» con un testo per il cliente", field.json?.ok === false && field.json.field === "name" && field.json.error === "Scrivi il tuo nome.");
 
-    // Troppi invii dallo stesso indirizzo: 5 all'ora.
+    // Troppi invii dallo stesso indirizzo: 10 all'ora.
     const ip = randomIp();
     const res = [];
-    for (let i = 0; i < 6; i++) res.push(await postRequest(body({ t, name: `Prova C Ip ${i}`, time: D2.slots[i % D2.slots.length], day: D2.day }), { ip }));
-    check("troppi invii dallo stesso telefono/rete: il sesto è fermato", res.slice(0, 5).every((x) => x.json?.ok) && res[5].json?.ok === false && /tante richieste/.test(res[5].json.error), res.map((x) => (x.json?.ok ? "ok" : x.json?.error)).join(" / "));
+    for (let i = 0; i < 11; i++) res.push(await postRequest(body({ t, name: `Prova C Ip ${i}`, time: D2.slots[i % D2.slots.length], day: D2.day }), { ip }));
+    check("troppi invii dallo stesso telefono/rete: l'undicesimo è fermato", res.slice(0, 10).every((x) => x.json?.ok) && res[10].json?.ok === false && /tante richieste/.test(res[10].json.error), res.map((x) => (x.json?.ok ? "ok" : x.json?.error)).join(" / "));
+
+    // Telefono incompleto: lo dice il server (e lo stesso testo il modulo)
+    const short = await postRequest(body({ t, name: "Prova C Corto", phone: "333 12345" }));
+    check("telefono incompleto: «un cellulare ha 10 cifre», niente salvato", short.json?.ok === false && short.json.field === "phone" && /incompleto/.test(short.json.error) && rowsBy(`name='Prova C Corto'`) === "0", JSON.stringify(short.json));
 
     // Pagina di stato: intestazioni e link inventato
     const st = await fetch(`${BASE}${ok.json.statusPath}`, { redirect: "manual" });
@@ -132,7 +141,7 @@ process.exit(finish());
 async function browserTests() {
   browser = await launch();
   const startedAt = DB(`select to_char(now() at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US')`);
-  // Ogni «cliente» con un suo indirizzo (il servizio conta 5 richieste all'ora per indirizzo).
+  // Ogni «cliente» con un suo indirizzo (il servizio conta 10 richieste all'ora per indirizzo).
   const client = async (extra = {}) => {
     const ctx = await newContext(browser, "phone", { extraHTTPHeaders: { "x-forwarded-for": randomIp() }, ...extra });
     const p = await ctx.newPage();
@@ -164,8 +173,10 @@ async function browserTests() {
     const r = await p.goto(`${BASE}/menu/prenota`, { waitUntil: "networkidle", timeout: 120000 });
     check("spenta: il cliente riceve 404", r.status() === 404, String(r.status()));
     await p.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
-    check("spenta: nel menù niente «Prenota un tavolo»", (await p.getByRole("link", { name: "Prenota un tavolo" }).count()) === 0);
-    await p.goto(`${BASE}/menu/p/oktoberfest`, { waitUntil: "networkidle", timeout: 120000 });
+    check("spenta: nel menù niente «Chiedi un tavolo»", (await p.getByRole("link", { name: "Chiedi un tavolo" }).count()) === 0);
+    const rp = await p.goto(`${BASE}/menu/prenota/privacy`, { waitUntil: "networkidle", timeout: 120000 });
+    check("spenta: anche l'informativa è 404 per il cliente", rp.status() === 404, String(rp.status()));
+    await p.goto(`${BASE}/menu/p/${EVENT_SLUG}`, { waitUntil: "networkidle", timeout: 120000 });
     const book = await p.getByRole("link", { name: /^Prenota/ }).first().getAttribute("href").catch(() => null);
     check("spenta: «Prenota» dell'evento resta WhatsApp", !book || /wa\.me/.test(book), book);
     await ctx.close();
@@ -182,6 +193,8 @@ async function browserTests() {
     check("anteprima: la richiesta del titolare è «di prova»", DB(`select "isTest" from "BookingRequest" where name='Prova C Anteprima'`) === "t", `${a.p.url()} ${await alerts(a.p)}`);
     check("anteprima: la pagina di stato lo dice", /Richiesta di prova/.test(await a.p.locator("body").innerText()));
     await shot(a.p, "anteprima-stato");
+    const rpa = await a.p.goto(`${BASE}/menu/prenota/privacy`, { waitUntil: "networkidle", timeout: 120000 });
+    check("spenta: il titolare vede l'informativa", rpa.status() === 200, String(rpa.status()));
     await a.ctx.close();
   }
   setBookingSetting({ enabled: true });
@@ -190,11 +203,11 @@ async function browserTests() {
   {
     const { ctx, p } = await client();
     await p.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
-    const link = p.getByRole("link", { name: "Prenota un tavolo" });
-    check("accesa: nel menù «Prenota un tavolo» → /menu/prenota?da=menu", (await link.count()) >= 1 && (await link.first().getAttribute("href")) === "/menu/prenota?da=menu", await link.first().getAttribute("href").catch(() => "assente"));
-    await p.goto(`${BASE}/menu/p/oktoberfest`, { waitUntil: "networkidle", timeout: 120000 });
+    const link = p.getByRole("link", { name: "Chiedi un tavolo" });
+    check("accesa: nel menù «Chiedi un tavolo» → /menu/prenota?da=menu", (await link.count()) >= 1 && (await link.first().getAttribute("href")) === "/menu/prenota?da=menu", await link.first().getAttribute("href").catch(() => "assente"));
+    await p.goto(`${BASE}/menu/p/${EVENT_SLUG}`, { waitUntil: "networkidle", timeout: 120000 });
     const book = await p.getByRole("link", { name: /^Prenota/ }).first().getAttribute("href").catch(() => null);
-    check("accesa: «Prenota» dell'evento apre il modulo con l'evento", /^\/menu\/prenota\?evento=oktoberfest/.test(book ?? ""), book);
+    check("accesa: «Prenota» dell'evento apre il modulo con l'evento", (book ?? "").startsWith(`/menu/prenota?evento=${EVENT_SLUG}`), book);
     await ctx.close();
   }
 
@@ -214,10 +227,11 @@ async function browserTests() {
     check("l'errore sparisce appena si sceglie", !/Scegli quante persone/.test(await alerts(p)));
     await send(p);
     check("errore: «Scegli il giorno.»", /Scegli il giorno\./.test(await alerts(p)));
-    // Giorni: i chiusi/al completo non si possono scegliere
-    const disabled = await p.locator("[data-day]:disabled").count();
-    const notOpen = days.filter((d) => !["open", "noSlots"].includes(d.state)).length;
-    check("giorni chiusi o al completo non si possono toccare", disabled === notOpen, `${disabled} vs ${notOpen}`);
+    // Giorni: i chiusi/al completo non si possono scegliere (e oggi, dopo la chiusura, è «Chiuso»)
+    const disabled = await p.locator("[data-day]:disabled").evaluateAll((els) => els.map((e) => e.getAttribute("data-day")));
+    const todayOver = /Chiuso/.test(await p.locator(`[data-day="${days[0].day}"]`).innerText()) && days[0].state === "noSlots";
+    const notOpen = days.filter((d) => !["open", "noSlots"].includes(d.state) || (todayOver && d.day === days[0].day)).map((d) => d.day);
+    check("giorni chiusi o al completo non si possono toccare", disabled.join() === notOpen.join(), `${disabled.length} vs ${notOpen.length}`);
     await pick(p, null, D1.day);
     check("dopo il giorno compaiono i suoi orari", (await p.getByRole("radiogroup", { name: "Ora" }).getByRole("radio").count()) === D1.slots.length);
     await send(p);
@@ -231,7 +245,13 @@ async function browserTests() {
     check("telefono: tastiera numerica (inputmode=tel) e autocompletamento", (await p.getByLabel("Telefono", { exact: true }).getAttribute("inputmode")) === "tel" && (await p.getByLabel("Telefono", { exact: true }).getAttribute("autocomplete")) === "tel");
     await p.getByLabel("Telefono", { exact: true }).fill("12");
     await send(p);
-    check("errore: «Il numero di telefono non sembra giusto»", /non sembra giusto/.test(await alerts(p)));
+    check("errore: numero corto senza prefisso → «scrivilo con il prefisso»", /prefisso/.test(await alerts(p)), await alerts(p));
+    await p.getByLabel("Telefono", { exact: true }).fill("333 12345");
+    await send(p);
+    check("errore: cellulare incompleto → «un cellulare ha 10 cifre» (prima dell'invio)", /incompleto: un cellulare ha 10 cifre/.test(await alerts(p)), await alerts(p));
+    await p.getByLabel("Telefono", { exact: true }).fill("055 123456");
+    await send(p);
+    check("errore: fisso con WhatsApp → «solo su un cellulare»", /solo su un cellulare/.test(await alerts(p)), await alerts(p));
     const phone = randomPhone();
     await p.getByLabel("Telefono", { exact: true }).fill(phone);
     // Email (il server di prova finge di spedire: la scelta c'è)
@@ -270,15 +290,19 @@ async function browserTests() {
     check("salvata: 2 persone, giorno e ora scelti, allergie, nota, dal menù, WhatsApp, in attesa", row.startsWith(`2|${D1.day}|${D1.slots[1]}|true|Prova C nota: seggiolone|menu|whatsapp|PENDING|`), row);
     const code = row.split("|").pop();
     const body = await p.locator("main").innerText();
-    check("pagina di stato: «Richiesta inviata» e «Non è ancora confermata: ti rispondiamo su WhatsApp»", /Richiesta inviata/.test(body) && /Non è ancora confermata: ti rispondiamo su WhatsApp/.test(body), body.slice(0, 200));
+    const readable = phone.replace(/\s/g, "").replace(/^(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3");
+    check("pagina di stato: «Richiesta inviata» e il numero per intero da controllare", /Richiesta inviata/.test(body) && body.replace(/\u00a0/g, " ").includes(`Non è ancora confermata: ti rispondiamo su WhatsApp al ${readable}. Il numero è sbagliato? Annulla la richiesta qui sotto e rifalla.`), body.slice(0, 260));
     check("pagina di stato: codice breve e riepilogo", body.includes(code) && body.includes(D1.slots[1]) && /Sì, ne parliamo al tavolo/.test(body));
-    check("pagina di stato: telefono mascherato (non tutto in chiaro)", !body.includes(phone.replace(/\s/g, "").slice(3)) && /•/.test(body));
+    check("pagina di stato: nel riepilogo il telefono è mascherato", /•/.test(await p.locator("main dl").first().innerText()) && !(await p.locator("main dl").first().innerText()).includes(readable));
+    check("pagina di stato: «È per stasera» solo per oggi (questa è per un altro giorno)", !/È per stasera/.test(body));
+    check("pagina di stato: «Salva o manda il link»", (await p.getByRole("button", { name: "Salva o manda il link" }).count()) === 1);
     check("pagina di stato: «Salva questa pagina…»", /Salva questa pagina: qui vedi sempre a che punto è/.test(body));
     check("pagina di stato: niente scorrimento orizzontale", (await overflow(p)) <= 0);
     await shot(p, "stato-in-attesa");
     // Il cliente annulla
     await p.getByRole("button", { name: "Annulla la richiesta" }).click();
     check("annulla: chiede conferma sul posto", (await p.getByRole("group", { name: "Vuoi annullare la richiesta?" }).count()) === 1);
+    check("annulla: in evidenza (e già selezionato) «No, tienila»", (await p.evaluate(() => document.activeElement?.textContent?.trim())) === "No, tienila");
     await p.getByRole("button", { name: "No, tienila" }).click();
     check("«No, tienila»: resta in attesa", DB(`select status from "BookingRequest" where name='Prova C Cliente'`) === "PENDING");
     await p.getByRole("button", { name: "Annulla la richiesta" }).click();
@@ -351,14 +375,14 @@ async function browserTests() {
   {
     const ip = randomIp();
     const t = await formStamp();
-    for (let i = 0; i < 5; i++) await postRequest(body({ t, name: `Prova C Rete ${i}`, day: D2.day, time: D2.slots[i % D2.slots.length] }), { ip });
+    for (let i = 0; i < 10; i++) await postRequest(body({ t, name: `Prova C Rete ${i}`, day: D2.day, time: D2.slots[i % D2.slots.length] }), { ip });
     const { ctx, p } = await client({ extraHTTPHeaders: { "x-forwarded-for": ip } });
     await p.goto(`${BASE}/menu/prenota`, { waitUntil: "networkidle", timeout: 120000 });
     await p.waitForTimeout(3200);
-    await fillAll(p, { name: "Prova C Rete 6", day: D1.day, time: D1.slots[0] });
+    await fillAll(p, { name: "Prova C Rete browser", day: D1.day, time: D1.slots[0] });
     await send(p);
     await p.waitForTimeout(1500);
-    check("troppi invii: «Hai mandato tante richieste…» sotto il pulsante, nessun salvataggio", /Hai mandato tante richieste/.test(await alerts(p)) && rowsBy(`name='Prova C Rete 6'`) === "0", await alerts(p));
+    check("troppi invii: «Hai mandato tante richieste…» sotto il pulsante, nessun salvataggio", /Hai mandato tante richieste/.test(await alerts(p)) && rowsBy(`name='Prova C Rete browser'`) === "0", await alerts(p));
     await ctx.close();
   }
 
@@ -379,10 +403,15 @@ async function browserTests() {
       check("giornata chiusa: il motivo e non si tocca", /Prova C ferie/.test(await closedCard.innerText()) && (await closedCard.isDisabled()));
     }
     const todayCard = p.locator(`[data-day="${days[0].day}"]`);
-    check("anticipo 24 h: oggi «Chiamaci»", /Chiamaci/.test(await todayCard.innerText()), await todayCard.innerText());
-    await todayCard.click();
-    check("oggi: «Per oggi è tardi per prenotare online: chiamaci…» con Chiama", /Per oggi è tardi per prenotare online/.test(await p.locator("main").innerText()) && (await p.getByRole("link", { name: "Chiama" }).count()) >= 1);
-    await shot(p, "oggi-tardi");
+    // Dopo l'ultima chiusura di oggi la carta dice «Chiuso»; prima, con l'anticipo di 24 ore, «Chiamaci».
+    if (/Chiuso/.test(await todayCard.innerText())) {
+      check("dopo la chiusura di oggi: «Chiuso» e non si tocca (non «Chiamaci»)", (await todayCard.isDisabled()) && !/Chiamaci/.test(await todayCard.innerText()));
+    } else if (days[0].state === "open" || days[0].state === "noSlots") {
+      check("anticipo 24 h: oggi «Chiamaci»", /Chiamaci/.test(await todayCard.innerText()), await todayCard.innerText());
+      await todayCard.click();
+      check("oggi: «Per oggi è tardi per prenotare online: chiamaci…» con Chiama", /Per oggi è tardi per prenotare online/.test(await p.locator("main").innerText()) && (await p.getByRole("link", { name: "Chiama" }).count()) >= 1);
+      await shot(p, "oggi-tardi");
+    }
     // Il server controlla lo stesso: una richiesta per il giorno al completo viene rifiutata.
     const r = await postRequest(body({ t: await formStamp(), day: full, time: "20:00", name: "Prova C Pieno" }));
     check("invio per un giorno al completo: rifiutato con «al completo»", r.json?.ok === false && /al completo/.test(r.json.error));
@@ -456,12 +485,18 @@ async function browserTests() {
     const exp = await make("Prova C Scaduta", { day: D1.day, time: D1.slots[0] });
     DB(`update "BookingRequest" set "startsAt"=now() - interval '3 hours' where id='${exp.id}'`);
     await p.goto(`${BASE}${exp.path}`, { waitUntil: "networkidle" });
-    check("scaduta: «Non siamo riusciti a risponderti in tempo» con Chiama", /Non siamo riusciti a risponderti in tempo/.test(await p.locator("main").innerText()) && (await p.getByRole("link", { name: "Chiama" }).count()) >= 1);
+    const expText = await p.locator("main").innerText();
+    check("scaduta: «Ci dispiace davvero: la tua richiesta è rimasta senza risposta.» con Chiama e «Chiedi un altro giorno»", /Ci dispiace davvero: la tua richiesta è rimasta senza risposta\./.test(expText) && (await p.getByRole("link", { name: "Chiama" }).count()) >= 1 && (await p.getByRole("link", { name: "Chiedi un altro giorno" }).count()) === 1);
 
+    // Per stasera: nei primi 15 minuti «È per stasera», dopo (a meno di 90 minuti) «Non siamo ancora riusciti…»
     const late = await make("Prova C Tardi", { day: D1.day, time: D1.slots[0] });
     DB(`update "BookingRequest" set day='${days[0].day}', "startsAt"=now() + interval '60 minutes' where id='${late.id}'`);
     await p.goto(`${BASE}${late.path}`, { waitUntil: "networkidle" });
-    check("per oggi, in attesa a meno di 90 minuti: «Non siamo ancora riusciti a risponderti» con Chiama", /Non siamo ancora riusciti a risponderti/.test(await p.locator("main").innerText()));
+    const fresh = await p.locator("main").innerText();
+    check("per stasera, appena inviata: «È per stasera · Ti rispondiamo appena possibile…», non ancora «Non siamo riusciti»", /È per stasera/.test(fresh) && /Ti rispondiamo appena possibile\. Se hai fretta, chiamaci/.test(fresh) && !/Non siamo ancora riusciti/.test(fresh));
+    DB(`update "BookingRequest" set "createdAt"=now() - interval '20 minutes' where id='${late.id}'`);
+    await p.reload({ waitUntil: "networkidle" });
+    check("per oggi, in attesa da 20 minuti e a meno di 90 dall'orario: «Non siamo ancora riusciti a risponderti» con Chiama", /Non siamo ancora riusciti a risponderti/.test(await p.locator("main").innerText()) && !/È per stasera/.test(await p.locator("main").innerText()));
     await ctx.close();
   }
 
@@ -475,6 +510,45 @@ async function browserTests() {
     const r = await p.goto(`${BASE}/menu/prenota/privacy`, { waitUntil: "networkidle" });
     const t = await p.locator("main").innerText();
     check("informativa: pagina 200 con titolare, dati, conservazione 6 mesi, diritti", r.status() === 200 && /Chi tratta i dati/i.test(t) && /6 mesi/.test(t) && /I tuoi diritti/i.test(t) && /6\.1\.b/.test(t), t.slice(0, 120));
+    check("informativa: nome e telefono servono, «sì» sulle allergie generico, fornitori fuori dall'UE, WhatsApp (Meta)", /Nome e telefono servono: senza, non possiamo risponderti\./.test(t) && /non dice chi né cosa/.test(t) && /fuori dall.Unione europea/.test(t) && /WhatsApp \(Meta\)/.test(t) && /Non vendiamo i tuoi dati/.test(t));
+    // Carte dei giorni: a 360 si vede un pezzo della quinta (si capisce che scorrono), testi da 12 px in su
+    await p.goto(`${BASE}/menu/prenota`, { waitUntil: "networkidle", timeout: 120000 });
+    const strip = await p.evaluate(() => {
+      const cards = [...document.querySelectorAll("[data-day]")];
+      const fifth = cards[4]?.getBoundingClientRect();
+      const small = cards.flatMap((c) => [...c.querySelectorAll("span")]).filter((el) => el.textContent.trim() && parseFloat(getComputedStyle(el).fontSize) < 12).length;
+      return { fifthLeft: fifth ? Math.round(fifth.left) : null, width: window.innerWidth, small };
+    });
+    check("360: la quinta carta dei giorni si vede in parte", strip.fifthLeft !== null && strip.fifthLeft < strip.width - 20, JSON.stringify(strip));
+    check("360: testi delle carte dei giorni almeno 12 px", strip.small === 0, JSON.stringify(strip));
+    await ctx.close();
+  }
+
+  // ---------- Tablet: due settimane di giorni, poi «Altri giorni»; «A+» del menù; tastiera
+  {
+    const { ctx, p } = await client({ viewport: { width: 820, height: 1180 }, isMobile: false });
+    await ctx.addInitScript(() => {
+      try {
+        localStorage.setItem("menu-text-large", "1");
+      } catch {}
+    });
+    await p.goto(`${BASE}/menu/prenota`, { waitUntil: "networkidle", timeout: 120000 });
+    const visible = await p.locator("[data-day]:visible").count();
+    const total = await p.locator("[data-day]").count();
+    check("tablet: prima 14 giorni e «Altri giorni»", visible === Math.min(14, total) && (total <= 14 || (await p.getByRole("button", { name: "Altri giorni" }).count()) === 1), `${visible} su ${total}`);
+    if (total > 14) {
+      await p.getByRole("button", { name: "Altri giorni" }).click();
+      check("tablet: «Altri giorni» mostra tutti i giorni", (await p.locator("[data-day]:visible").count()) === total);
+    }
+    check("«A+» del menù vale anche qui (testo più grande)", await p.evaluate(() => document.documentElement.hasAttribute("data-menu-large") && getComputedStyle(document.querySelector("main")).zoom === "1.25"));
+    // Tastiera: un solo Tab per gruppo, le frecce scelgono
+    const tabStops = await p.evaluate(() => [...document.querySelectorAll('[role="radiogroup"][aria-label="Quante persone"] [role="radio"]')].filter((b) => b.tabIndex === 0).length);
+    check("tastiera: nel gruppo «Quante persone» un solo pulsante raggiungibile con Tab", tabStops === 1, String(tabStops));
+    await p.getByRole("radio", { name: "1 persona", exact: true }).focus();
+    await p.keyboard.press("ArrowRight");
+    await p.keyboard.press("ArrowRight");
+    check("tastiera: con le frecce si sceglie (→ → = 3 persone)", (await p.getByRole("radio", { name: "3 persone" }).getAttribute("aria-checked")) === "true" && (await p.evaluate(() => document.activeElement?.getAttribute("aria-label"))) === "3 persone");
+    check("tablet: niente scorrimento orizzontale", (await overflow(p)) <= 0);
     await ctx.close();
   }
 
@@ -483,7 +557,7 @@ async function browserTests() {
     const { ctx, p } = await client();
     await p.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
     await p.waitForTimeout(1200);
-    await p.getByRole("link", { name: "Prenota un tavolo" }).first().click();
+    await p.getByRole("link", { name: "Chiedi un tavolo" }).first().click();
     await p.waitForURL(/\/menu\/prenota/);
     await p.waitForTimeout(1500);
     await p.goto(`${BASE}/menu/prenota/privacy`, { waitUntil: "networkidle" });

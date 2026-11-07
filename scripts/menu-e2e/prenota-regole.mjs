@@ -14,6 +14,7 @@ if (!/\/orari_test(\?|$)/.test(process.env.DATABASE_URL || "")) {
 }
 const R = await import("@/lib/booking/rules");
 const S = await import("@/lib/booking/service");
+const { whatsappPending } = await import("@/lib/booking/whatsapp-queue");
 const { prisma } = await import("@/lib/prisma");
 const { availability, romeInstant, romeParts, businessDay, viewStatus, parseBookingSettings, DEFAULT_BOOKING_SETTINGS, timeToDayMinutes, dayShort, dayLong, dayRelative, peopleText, addDays, weekdayOf } = R;
 
@@ -232,19 +233,29 @@ try {
     [{ people: "due" }, "people", /quante persone/],
     [{ people: 11 }, "people", /Per più di 10 persone chiamaci/],
     [{ name: " A " }, "name", /nome/],
-    [{ phone: "12" }, "phone", /telefono/],
+    [{ phone: "12" }, "phone", /prefisso/],
+    [{ phone: "333 12345" }, "phone", /incompleto/],
+    [{ phone: "333 1234 5678" }, "phone", /incompleto/],
+    [{ phone: "055 123456" }, "phone", /solo su un cellulare/],
+    [{ phone: "333-abc-4567" }, "phone", /caratteri strani/],
     [{ contact: "email", email: "non-una-mail" }, "email", /email/],
-    [{ privacy: false }, "privacy", /consenso/],
-    [{ privacy: "true" }, "privacy", /consenso/],
+    [{ privacy: false }, "privacy", /informativa/],
+    [{ privacy: "true" }, "privacy", /informativa/],
     [{ time: "03:17" }, "time", /non è più disponibile/],
     [{ day: addDays(businessDay(new Date()), -1) }, "day", /già passato/],
-    [{ day: addDays(businessDay(new Date()), 31) }, "day", /al massimo 30 giorni/],
+    [{ day: addDays(businessDay(new Date()), 31) }, "day", /fino a 30 giorni/],
+    [{ name: "Vai su www.esempio.it" }, "name", /solo il nome/],
   ];
   for (const [over, field, re] of errs) {
     const r = await create(over);
     check(`richiesta: ${JSON.stringify(over)} → errore sul campo «${field}»`, !r.ok && r.field === field && re.test(r.error), r.ok ? "accettata!" : `${r.field}: ${r.error}`);
   }
   check("richiesta: nessuna riga salvata dagli errori", DB(`select count(*) from "BookingRequest" where name like 'Prova C%'`) === "0");
+  const landline = await create({ phone: "055 1234567", contact: "email", email: "prova-c@example.com", time: slot(D1, 3) });
+  check("telefono fisso con risposta per email: accettato", landline.ok, landline.error);
+  if (landline.ok) DB(`delete from "BookingRequest" where id=${q(landline.id)}`);
+  check("phoneProblem: stessi messaggi nel modulo (cellulare giusto, estero col prefisso)", R.phoneProblem("333 123 4567", "whatsapp") === null && R.phoneProblem("+44 7700 900123", "whatsapp") === null && /incompleto/.test(R.phoneProblem("33312345", "whatsapp")));
+  check("phoneReadable: «333 123 4567» e «+44…»", R.phoneReadable("393331234567") === "333 123 4567" && R.phoneReadable("447700900123") === "+447700900123");
 
   // Richiesta giusta
   const okIn = base({ people: 4, note: "  Tavolo   vicino alla finestra  " + "x".repeat(400), allergies: true, source: "google" });
@@ -273,19 +284,33 @@ try {
   await S.afterCreate(em.id, "http://localhost:3100");
   check("email del cliente salvata in minuscolo, ricevuta inviata («Richiesta ricevuta…»)", DB(`select email from "BookingRequest" where id=${q(em.id)}`) === "prova.c@example.com" && /Email al cliente: Richiesta ricevuta/.test(DB(`select string_agg(coalesce(message,''), ' | ') from "BookingLog" where "requestId"=${q(em.id)}`)));
 
-  // Doppio invio: stesso telefono, giorno e ora → la stessa richiesta
-  const again = await S.createBookingRequest({ ...okIn, name: "Prova C doppio" }, ctx());
-  check("doppio invio: torna la stessa richiesta, niente doppioni", again.ok && again.id === ok.id && DB(`select count(*) from "BookingRequest" where phone=${q(saved.phone)}`) === "1");
-  const twoAtOnce = await Promise.all([0, 1].map(() => S.createBookingRequest(base({ phone: "333 9111111", time: slot(D3, 0), day: D3.day, name: "Prova C doppio click" }), ctx())));
+  // Doppio invio: stesso telefono, giorno e ora dallo stesso indirizzo (entro 15 minuti) → la stessa richiesta
+  const okIp = randomIp();
+  const first = await S.createBookingRequest({ ...okIn, phone: "333 9222222", name: "Prova C doppio" }, ctx({ ip: okIp }));
+  const again = await S.createBookingRequest({ ...okIn, phone: "333 9222222", name: "Prova C doppio" }, ctx({ ip: okIp }));
+  check("doppio invio dallo stesso indirizzo: torna la stessa richiesta, niente doppioni", first.ok && again.ok && again.id === first.id && again.reused === true && DB(`select count(*) from "BookingRequest" where phone='393339222222'`) === "1");
+  // …ma chi conosce solo telefono, giorno e ora di qualcun altro non ottiene il suo link.
+  const other = await S.createBookingRequest({ ...okIn, phone: "333 9222222", name: "Prova C altro" }, ctx());
+  check("stesso telefono, giorno e ora da un altro indirizzo: niente link, «c'è già una richiesta»", !other.ok && !other.statusPath && /c'è già una richiesta/.test(other.error), JSON.stringify(other));
+  DB(`update "BookingRequest" set "createdAt" = now() - interval '20 minutes' where phone='393339222222'`);
+  const later = await S.createBookingRequest({ ...okIn, phone: "333 9222222", name: "Prova C doppio" }, ctx({ ip: okIp }));
+  check("…e dallo stesso indirizzo dopo 15 minuti nemmeno", !later.ok && /c'è già una richiesta/.test(later.error));
+  DB(`delete from "BookingRequest" where phone='393339222222'`);
+  const sameIp = randomIp();
+  const twoAtOnce = await Promise.all([0, 1].map(() => S.createBookingRequest(base({ phone: "333 9111111", time: slot(D3, 0), day: D3.day, name: "Prova C doppio click" }), ctx({ ip: sameIp }))));
   const twoRows = DB(`select count(*) from "BookingRequest" where phone='393339111111'`);
-  check("doppio clic nello stesso istante: una sola richiesta", twoAtOnce.every((r) => r.ok) && twoRows === "1", `righe: ${twoRows}`);
+  check("doppio clic nello stesso istante (stesso indirizzo): una sola richiesta, tutti e due ok", twoAtOnce.every((r) => r.ok) && twoAtOnce[0].id === twoAtOnce[1].id && twoRows === "1", `righe: ${twoRows}`);
   DB(`delete from "BookingRequest" where phone='393339111111'`);
+  const twoIps = await Promise.all([0, 1].map(() => S.createBookingRequest(base({ phone: "333 9111112", time: slot(D3, 0), day: D3.day, name: "Prova C doppio click" }), ctx())));
+  const twoIpRows = DB(`select count(*) from "BookingRequest" where phone='393339111112'`);
+  check("stesso istante da due indirizzi: una sola richiesta, l'altro legge «c'è già una richiesta»", twoIpRows === "1" && twoIps.filter((r) => r.ok).length === 1 && /c'è già una richiesta/.test(twoIps.find((r) => !r.ok)?.error ?? ""), `righe: ${twoIpRows}`);
+  DB(`delete from "BookingRequest" where phone='393339111112'`);
 
-  // Limite per IP: 5 all'ora
+  // Limite per IP: 10 all'ora
   const ip = randomIp();
   const fromIp = [];
-  for (let i = 0; i < 6; i++) fromIp.push(await create({ time: slot(D2, i % D2.availability.slots.length), day: D2.day }, { ip }));
-  check("stesso IP: le prime 5 passano, la sesta no («tante richieste»)", fromIp.slice(0, 5).every((r) => r.ok) && !fromIp[5].ok && /tante richieste/.test(fromIp[5].error), fromIp.map((r) => (r.ok ? "ok" : r.error)).join(" / "));
+  for (let i = 0; i < 11; i++) fromIp.push(await create({ time: slot(D2, i % D2.availability.slots.length), day: D2.day }, { ip }));
+  check("stesso IP: le prime 10 passano, l'undicesima no («tante richieste»)", fromIp.slice(0, 10).every((r) => r.ok) && !fromIp[10].ok && /tante richieste/.test(fromIp[10].error), fromIp.map((r) => (r.ok ? "ok" : r.error)).join(" / "));
   check("stesso IP: il titolare non ha limiti", (await create({ time: slot(D2, 1), day: D2.day }, { ip, isAdmin: true })).ok);
 
   // Limite per telefono: 3 in attesa
@@ -424,6 +449,12 @@ try {
   const m1 = await fresh();
   check("arrivati su una richiesta non confermata → errore", !(await S.markArrival(m1.id, marta, true)).ok);
   await S.confirmBooking(m1.id, marta, null, null);
+  const early = await S.markArrival(m1.id, marta, true);
+  check("«Arrivati» prima del giorno della prenotazione → errore", !early.ok && /solo dal giorno/.test(early.error), early.error);
+  const notYet = await S.markArrival(m1.id, marta, false);
+  check("«Non venuti» prima dell'orario → errore", !notYet.ok && /dopo l'orario/.test(notYet.error), notYet.error);
+  // Diventa una prenotazione di stasera, già iniziata da mezz'ora.
+  DB(`update "BookingRequest" set day='${businessDay(new Date())}', "startsAt" = now() - interval '30 minutes' where id=${q(m1.id)}`);
   await S.markArrival(m1.id, marta, true);
   check("«Arrivati»: arrivedAt segnato", DB(`select ("arrivedAt" is not null)||'|'||("noShowAt" is not null) from "BookingRequest" where id=${q(m1.id)}`) === "true|false");
   await S.markArrival(m1.id, marta, false);
@@ -433,6 +464,51 @@ try {
   check("cronologia: ARRIVED, NOSHOW, ARRIVAL_CLEARED", DB(`select string_agg(kind, ',' order by at) from "BookingLog" where "requestId"=${q(m1.id)} and kind in ('ARRIVED','NOSHOW','ARRIVAL_CLEARED')`) === "ARRIVED,NOSHOW,ARRIVAL_CLEARED");
   await S.markWhatsappOpened(m1.id, marta);
   check("WhatsApp aperto: in cronologia", DB(`select count(*) from "BookingLog" where "requestId"=${q(m1.id)} and kind='WHATSAPP_OPENED'`) === "1");
+
+  // Il cliente ha risposto all'orario proposto fuori dal sito: lo segna chi lavora
+  const queue = async (id) => {
+    const b = await prisma.bookingRequest.findUnique({ where: { id }, include: { log: true } });
+    return whatsappPending(b, Date.now());
+  };
+  const y1 = await fresh();
+  const y1t = D1.availability.slots.map((s) => s.time).find((t) => t !== DB(`select time from "BookingRequest" where id=${q(y1.id)}`));
+  check("proposta: «Il cliente ha detto sì» su una richiesta non proposta → errore", !(await S.acceptProposalForCustomer(y1.id, marta, null)).ok);
+  await S.proposeTime(y1.id, marta, y1t, null, null);
+  const yes = await S.acceptProposalForCustomer(y1.id, giulia, null);
+  check("«Il cliente ha detto sì»: confermata al nuovo orario da chi l'ha segnato", yes.ok && yes.booking.status === "CONFIRMED" && yes.booking.time === y1t && yes.booking.proposedTime === null && row(y1.id) === "CONFIRMED|Prova C Giulia|");
+  check("…cronologia «ACCEPTED» di Giulia, messaggio di conferma pronto per WhatsApp", DB(`select actor||':'||kind from "BookingLog" where "requestId"=${q(y1.id)} and kind='ACCEPTED'`) === "Prova C Giulia:ACCEPTED" && decodeURIComponent(yes.whatsappHref ?? "").includes("ti aspettiamo"));
+  check("…nella lista «Da mandare su WhatsApp» come conferma", (await queue(y1.id)) === "confirmed");
+  check("…segnarlo di nuovo → «Già confermata»", /Già confermata/.test((await S.acceptProposalForCustomer(y1.id, marta, null)).error ?? ""));
+  const n1 = await fresh();
+  await S.proposeTime(n1.id, marta, D1.availability.slots.map((s) => s.time).find((t) => t !== DB(`select time from "BookingRequest" where id=${q(n1.id)}`)), null, null);
+  const no = await S.refuseProposalForCustomer(n1.id, giulia, null);
+  check("«Il cliente ha detto no»: chiusa dal cliente, nessun messaggio «al completo»", no.ok && row(n1.id) === "DECLINED|Prova C Giulia|cliente" && no.whatsappHref === null && no.mailSent === false);
+  check("…cronologia «REFUSED» di Giulia, e niente nella lista WhatsApp", DB(`select actor||':'||kind from "BookingLog" where "requestId"=${q(n1.id)} and kind='REFUSED'`) === "Prova C Giulia:REFUSED" && (await queue(n1.id)) === null);
+  check("…non conta tra le «al completo» nei numeri", (await S.bookingStats()).declined === Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and status='DECLINED' and "cancelledBy" is distinct from 'cliente' and "createdAt" >= now() - interval '90 days'`)));
+
+  // «Ci ha avvisato il cliente»: annullata senza messaggi
+  const g1 = await fresh();
+  await S.confirmBooking(g1.id, marta, null, null);
+  await S.markWhatsappOpened(g1.id, marta);
+  const gone = await S.cancelForCustomer(g1.id, giulia, null);
+  check("«Ci ha avvisato il cliente» su una confermata: annullata dal cliente, nessun messaggio", gone.ok && row(g1.id) === "CANCELLED|Prova C Giulia|cliente" && gone.whatsappHref === null);
+  check("…cronologia «Ci ha avvisato il cliente», niente nella lista WhatsApp", DB(`select message from "BookingLog" where "requestId"=${q(g1.id)} and kind='CANCELLED'`) === S.CUSTOMER_TOLD_US && (await queue(g1.id)) === null);
+  check("…il cliente dalla sua pagina non può più annullare", !(await S.customerAction(S.tokenFor(g1.id), "cancel", null)).ok);
+  const g2 = await fresh();
+  const gone2 = await S.cancelForCustomer(g2.id, marta, null);
+  check("«Il cliente non viene più» su una richiesta da confermare: annullata dal cliente", gone2.ok && row(g2.id) === "CANCELLED|Prova C Marta|cliente");
+  check("…poi «Conferma» → «Il cliente l'ha annullata.»", (await S.confirmBooking(g2.id, giulia, null, null)).error === "Il cliente l'ha annullata.");
+
+  // Annullo del locale: messaggio da mandare su WhatsApp
+  check("annullo del locale: nella lista WhatsApp come annullamento", (await queue(v1.id)) === "cancelledByVenue");
+
+  // Cancella i dati (il cliente lo chiede)
+  const e1 = await fresh();
+  await S.confirmBooking(e1.id, marta, null, null);
+  const er = await S.eraseBooking(e1.id);
+  check("cancella i dati: richiesta e cronologia sparite", er.ok && DB(`select count(*) from "BookingRequest" where id=${q(e1.id)}`) === "0" && DB(`select count(*) from "BookingLog" where "requestId"=${q(e1.id)}`) === "0");
+  check("…cancellare di nuovo → «non c'è più»", !(await S.eraseBooking(e1.id)).ok);
+  check("…il link del cliente non trova più niente", (await S.findByToken(S.tokenFor(e1.id))) === null);
 
   // Elenchi e numeri
   const list = await S.listBookings();

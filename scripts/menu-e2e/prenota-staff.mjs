@@ -1,8 +1,12 @@
 // Prenotazioni online, parte del personale (E2E sul server di prova): elenco «Da gestire», dettaglio,
 // conferma (WhatsApp ed email), proposta + accettazione del cliente, «al completo», annullo del cliente
 // e del locale, due persone che confermano insieme, permessi dei dipendenti (senza, con, revoca
-// immediata), «Siamo pieni stasera» e chiusura di un altro giorno, «Arrivati»/«Non venuti», Numeri,
-// accendi/spegni e impostazioni, voce del menù in alto, widget «Da fare».
+// immediata), «Stasera siamo al completo» e chiusura di un altro giorno, «Arrivati»/«Non venuti», Numeri,
+// accendi/spegni e impostazioni, voce del menù in alto, widget «Da fare»; il cliente ha detto sì/no
+// (segnato da chi lavora), «Ci ha avvisato il cliente», «Il cliente non viene più», «Cancella i dati»,
+// lista «Da mandare su WhatsApp», tocco sulla notifica (?r=), barra in alto a 1024 px.
+// Non dipende dall'ora: se oggi non ci sono più orari prenotabili, le prove della fascia di stasera
+// controllano che non ci sia e la chiusura si prova su un altro giorno.
 // Uso: node scripts/menu-e2e/prenota-staff.mjs   (SHOTS=<cartella> per le foto)
 import { createHash, randomBytes } from "node:crypto";
 import {
@@ -147,6 +151,11 @@ try {
     canc: await make("Prova C Annulla"),
     race: await make("Prova C Insieme"),
     perm: await make("Prova C Permesso"),
+    yes: await make("Prova C Detto si"),
+    no: await make("Prova C Detto no"),
+    told: await make("Prova C Avvisato"),
+    gone: await make("Prova C Sparito"),
+    erase: await make("Prova C Dati"),
   };
 
   await goList(A);
@@ -155,21 +164,25 @@ try {
   check("menù in alto: il numero delle richieste da confermare", new RegExp(`${pending} da confermare`).test((await navLink.getAttribute("aria-label")) ?? (await navLink.innerText())), `${await navLink.getAttribute("aria-label")} (attese ${pending})`);
   const todo = A.getByRole("tab", { name: /^Da gestire/ });
   const todoN = Number((await todo.innerText()).match(/\d+/)?.[0] ?? 0);
-  // Il numero della scheda conta anche le risposte ancora da mandare su WhatsApp.
-  check("scheda «Da gestire» aperta, con il numero", (await todo.getAttribute("aria-selected")) === "true" && todoN >= pending, `${await todo.innerText()} (in attesa ${pending})`);
+  // Il numero della scheda = solo le richieste da confermare (come il pallino del menù in alto); le prove del titolare comprese.
+  const pendingAll = Number(DB(`select count(*) from "BookingRequest" where status='PENDING' and "startsAt">=now() and day >= '${TODAY}'`));
+  check("scheda «Da gestire» aperta, con il numero delle richieste da confermare", (await todo.getAttribute("aria-selected")) === "true" && todoN === pendingAll, `${await todo.innerText()} (da confermare ${pendingAll})`);
+  check("titolo «Da confermare (N)» sopra le richieste", (await A.getByRole("heading", { name: `Da confermare (${pendingAll})` }).count()) === 1);
   for (const r of Object.values(R)) check(`«Da gestire»: c'è «${r.name}»`, (await card(A, r.name).count()) === 1);
   const confCard = await card(A, "Prova C Conferma").innerText();
-  check("riga: nota, «⚠ Allergie» e da Google", /Prova C seggiolone/.test(confCard) && /Allergie/.test(confCard) && /Google/.test(confCard), confCard.replace(/\n/g, " "));
+  check("riga: nota, «⚠ Allergie: chiedere al tavolo» e «da Google»", /Prova C seggiolone/.test(confCard) && /⚠ Allergie: chiedere al tavolo/.test(confCard) && /da Google/.test(confCard), confCard.replace(/\n/g, " "));
   await shot(A, "da-gestire");
 
   // Dettaglio e conferma (titolare: WhatsApp pronto)
   const s1 = await openCard(A, "Prova C Conferma");
   const s1t = await s1.innerText();
-  check("dettaglio: allergie, nota, telefono, da dove arriva", /allergie o intolleranze/.test(s1t) && /Prova C seggiolone/.test(s1t) && /Telefono/i.test(s1t) && /Google/.test(s1t));
-  check("dettaglio: pulsanti «✓ Conferma», «Proponi un altro orario», «Siamo al completo»", (await s1.getByRole("button", { name: "✓ Conferma" }).count()) === 1 && (await s1.getByRole("button", { name: "Proponi un altro orario" }).count()) === 1 && (await s1.getByRole("button", { name: "Siamo al completo" }).count()) === 1);
+  check("dettaglio: allergie, nota, telefono, da dove arriva", /⚠ Allergie: chiedere al tavolo/.test(s1t) && /Prova C seggiolone/.test(s1t) && /Telefono/i.test(s1t) && /Da Google/.test(s1t));
+  check("dettaglio: pulsanti «✓ Conferma», «Proponi un altro orario», «Rispondi: siamo al completo»", (await s1.getByRole("button", { name: "✓ Conferma" }).count()) === 1 && (await s1.getByRole("button", { name: "Proponi un altro orario" }).count()) === 1 && (await s1.getByRole("button", { name: "Rispondi: siamo al completo" }).count()) === 1);
+  check("dettaglio (titolare): «Chiama» e «Scrivi» su WhatsApp", (await s1.getByRole("link", { name: "Chiama" }).count()) === 1 && (await s1.getByRole("link", { name: "Scrivi" }).count()) === 1);
   await shot(A, "dettaglio");
   await s1.getByRole("button", { name: "✓ Conferma" }).click();
   await s1.getByText("✓ Confermata").waitFor();
+  check("dopo «Conferma»: l'etichetta di prima («Da confermare · arrivata…») non c'è più", !/Da confermare|arrivata .* fa/.test(await s1.innerText()));
   check("conferma: nel database «CONFIRMED» da chi ha risposto", status(R.conf.id) === `CONFIRMED|${ADMIN_NAME}|`, status(R.conf.id));
   const wa = s1.getByRole("link", { name: "Manda la risposta su WhatsApp" });
   const waHref = (await wa.getAttribute("href")) ?? "";
@@ -215,9 +228,10 @@ try {
   // Al completo
   await goList(A);
   const s4 = await openCard(A, "Prova C Completo");
-  await s4.getByRole("button", { name: "Siamo al completo" }).click();
+  await s4.getByRole("button", { name: "Rispondi: siamo al completo" }).click();
   await s4.getByLabel("Messaggio per il cliente (facoltativo)").fill("Prova C riprova sabato");
-  await s4.getByRole("button", { name: "Rispondi: al completo" }).click();
+  check("al completo: titolo e pulsante con lo stesso testo «Rispondi: siamo al completo»", (await s4.getByText("Rispondi: siamo al completo", { exact: true }).count()) === 2);
+  await s4.getByRole("button", { name: "Rispondi: siamo al completo" }).click();
   await s4.getByText("✓ Risposto: siamo al completo").waitFor();
   check("al completo: «DECLINED» con il messaggio", DB(`select status||'|'||"staffMessage" from "BookingRequest" where id='${R.decl.id}'`) === "DECLINED|Prova C riprova sabato");
   await C.goto(`${BASE}${R.decl.path}`, { waitUntil: "networkidle" });
@@ -243,10 +257,117 @@ try {
   await tab(A, "Prossimi giorni");
   const s6 = await openCard(A, "Prova C Conferma");
   await s6.getByRole("button", { name: "Annulla la prenotazione" }).click();
+  check("annullo: due scelte, «Ci ha avvisato il cliente» e «Annulliamo noi»", (await s6.getByRole("button", { name: "Ci ha avvisato il cliente (nessun messaggio)" }).count()) === 1 && (await s6.getByRole("button", { name: "Annulliamo noi (il cliente riceve le scuse)" }).count()) === 1);
+  await s6.getByRole("button", { name: "Annulliamo noi (il cliente riceve le scuse)" }).click();
   await s6.getByRole("button", { name: "Sì, annulla e avvisa" }).click();
   await s6.getByText("✓ Prenotazione annullata").waitFor();
   check("il locale annulla: «CANCELLED» dal locale, WhatsApp pronto con le scuse", status(R.conf.id) === `CANCELLED|${ADMIN_NAME}|locale` && decodeURIComponent((await s6.getByRole("link", { name: "Manda la risposta su WhatsApp" }).getAttribute("href")) ?? "").includes("dobbiamo annullare"));
   await A.keyboard.press("Escape");
+
+  // ---------- Il cliente ha detto sì / no all'orario proposto (risposta arrivata su WhatsApp o al telefono)
+  const proposeOn = async (r) => {
+    await goList(A);
+    const sh = await openCard(A, r.name);
+    await sh.getByRole("button", { name: "Proponi un altro orario" }).click();
+    const radios = sh.getByRole("radiogroup", { name: "Orario da proporre" }).getByRole("radio");
+    const t = (await radios.last().innerText()).trim();
+    await radios.last().click();
+    await sh.getByRole("button", { name: `Proponi le ${t}` }).click();
+    await sh.getByText(`✓ Proposte le ${t}`).waitFor();
+    await A.keyboard.press("Escape");
+    return t;
+  };
+  const yesTime = await proposeOn(R.yes);
+  await goList(A);
+  const sy = await openCard(A, R.yes.name);
+  const yesBtn = sy.getByRole("button", { name: `Il cliente ha detto sì: conferma alle ${yesTime}` });
+  check("proposta in attesa: pulsante «Il cliente ha detto sì: conferma alle …» e «Il cliente ha detto no»", (await yesBtn.count()) === 1 && (await sy.getByRole("button", { name: "Il cliente ha detto no" }).count()) === 1);
+  await shot(A, "proposta-in-attesa");
+  await yesBtn.click();
+  await sy.getByText(`✓ Confermata alle ${yesTime}`).waitFor();
+  check("«Il cliente ha detto sì»: confermata al nuovo orario", DB(`select status||'|'||time||'|'||"handledBy" from "BookingRequest" where id='${R.yes.id}'`) === `CONFIRMED|${yesTime}|${ADMIN_NAME}`);
+  check("…con il messaggio di conferma pronto su WhatsApp", decodeURIComponent((await sy.getByRole("link", { name: "Manda la risposta su WhatsApp" }).getAttribute("href")) ?? "").includes("ti aspettiamo"));
+  await A.keyboard.press("Escape");
+  await goList(A);
+  await tab(A, "Prossimi giorni");
+  const sy2 = await openCard(A, R.yes.name);
+  await sy2.getByText("Cronologia").click();
+  check(`cronologia: «Confermata da ${ADMIN_NAME} per il cliente (alle ${yesTime})»`, (await sy2.innerText()).includes(`Confermata da ${ADMIN_NAME} per il cliente (alle ${yesTime})`), (await sy2.innerText()).match(/Confermata da[^\n]*/g)?.join(" | "));
+  await A.keyboard.press("Escape");
+
+  await proposeOn(R.no);
+  await goList(A);
+  const sn = await openCard(A, R.no.name);
+  await sn.getByRole("button", { name: "Il cliente ha detto no" }).click();
+  await sn.getByText("✓ Segnato: il cliente ha detto no").waitFor();
+  check("«Il cliente ha detto no»: chiusa dal cliente, nessun messaggio «al completo» da mandare", status(R.no.id) === `DECLINED|${ADMIN_NAME}|cliente` && (await sn.getByRole("link", { name: "Manda la risposta su WhatsApp" }).count()) === 0);
+  await A.keyboard.press("Escape");
+
+  // ---------- «Ci ha avvisato il cliente»: annullata senza messaggi
+  await goList(A);
+  const st1 = await openCard(A, R.told.name);
+  await st1.getByRole("button", { name: "✓ Conferma" }).click();
+  await st1.getByText("✓ Confermata").waitFor();
+  await A.keyboard.press("Escape");
+  await goList(A);
+  await tab(A, "Prossimi giorni");
+  const st2 = await openCard(A, R.told.name);
+  await st2.getByRole("button", { name: "Annulla la prenotazione" }).click();
+  await st2.getByRole("button", { name: "Ci ha avvisato il cliente (nessun messaggio)" }).click();
+  await st2.getByText("✓ Annullata: il cliente non viene").waitFor();
+  check("«Ci ha avvisato il cliente»: annullata dal cliente, niente WhatsApp da mandare", status(R.told.id) === `CANCELLED|${ADMIN_NAME}|cliente` && (await st2.getByRole("link", { name: "Manda la risposta su WhatsApp" }).count()) === 0);
+  await A.keyboard.press("Escape");
+  await goList(A);
+  check("…e non entra nella lista «Da mandare su WhatsApp»", !(await A.getByRole("region", { name: /Da mandare su WhatsApp/ }).innerText().catch(() => "")).includes(R.told.name));
+
+  // ---------- «Il cliente non viene più» (richiesta ancora da confermare)
+  const sg = await openCard(A, R.gone.name);
+  await sg.getByRole("button", { name: "Il cliente non viene più" }).click();
+  const askGone = A.getByRole("alertdialog", { name: "Il cliente non viene più?" });
+  await askGone.getByRole("button", { name: "Sì, chiudi la richiesta" }).click();
+  check("«Il cliente non viene più»: annullata dal cliente, senza messaggi", await waitDb(() => status(R.gone.id) === `CANCELLED|${ADMIN_NAME}|cliente`), status(R.gone.id));
+  await A.keyboard.press("Escape");
+
+  // ---------- Il tocco sulla notifica apre il foglio della richiesta (?r=<id>)
+  await A.goto(`${BASE}/prenotazioni?r=${R.erase.id}`, { waitUntil: "networkidle", timeout: 180000 });
+  check("/prenotazioni?r=<id>: si apre il foglio di quella richiesta", (await sheet(A, R.erase.name).count()) === 1);
+  await A.waitForTimeout(300);
+  check("…e l'indirizzo torna /prenotazioni (ricaricando non si riapre)", new URL(A.url()).search === "", A.url());
+
+  // ---------- «Cancella i dati di questa richiesta» (solo titolare)
+  const se = sheet(A, R.erase.name);
+  await se.getByRole("button", { name: "Cancella i dati di questa richiesta" }).click();
+  await A.getByRole("alertdialog", { name: "Cancellare i dati di questa richiesta?" }).getByRole("button", { name: "Cancella i dati" }).click();
+  check("«Cancella i dati»: richiesta e cronologia sparite", await waitDb(() => DB(`select count(*) from "BookingRequest" where id='${R.erase.id}'`) === "0" && DB(`select count(*) from "BookingLog" where "requestId"='${R.erase.id}'`) === "0"));
+
+  // ---------- Lista «Da mandare su WhatsApp»: righe compatte, dopo l'apertura «Aperto alle… · Riapri»
+  await goList(A);
+  const waList = A.getByRole("region", { name: /Da mandare su WhatsApp/ });
+  const waRound = waList.getByRole("link", { name: `Manda su WhatsApp a ${R.decl.name}` });
+  check("lista WhatsApp (titolare): riga «nome · Al completo · giorno e ora» con il pulsante tondo", (await waRound.count()) === 1 && /Prova C Completo\s+· Al completo · /.test(await waList.innerText()));
+  const box = await waRound.boundingBox();
+  check("…pulsante tondo di 44 px", box && Math.round(box.width) === 44 && Math.round(box.height) === 44, JSON.stringify(box));
+  await shot(A, "lista-whatsapp");
+  const [waPop] = await Promise.all([admin.ctx.waitForEvent("page"), waRound.click()]);
+  await waPop.close();
+  check("…aperta: segnata nella cronologia", await waitDb(() => DB(`select count(*) from "BookingLog" where "requestId"='${R.decl.id}' and kind='WHATSAPP_OPENED'`) === "1"));
+  await A.waitForTimeout(1200);
+  check("…e la riga resta con «Aperto alle …» e «Riapri»", /Prova C Completo\s+· Aperto alle \d{2}:\d{2}/.test(await waList.innerText()) && (await waList.getByRole("link", { name: "Riapri" }).count()) >= 1);
+
+  // ---------- 1024 px: la barra in alto non scorre e «Esci» si vede tutto
+  {
+    const narrow = await newContext(browser, "desktop", { viewport: { width: 1024, height: 768 } });
+    const np = await narrow.newPage();
+    await login(np, "andrea", ADMIN_PW);
+    await np.goto(`${BASE}/prenotazioni`, { waitUntil: "networkidle", timeout: 180000 });
+    const bar = await np.evaluate(() => {
+      const out = [...document.querySelectorAll("header button")].find((b) => b.textContent.trim() === "Esci")?.getBoundingClientRect();
+      return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, esciRight: out ? Math.round(out.right) : null, width: window.innerWidth };
+    });
+    check("1024 px: niente scorrimento orizzontale, «Esci» dentro lo schermo", bar.overflow <= 0 && bar.esciRight !== null && bar.esciRight <= bar.width, JSON.stringify(bar));
+    await shot(np, "1024");
+    await narrow.close();
+  }
 
   // ================= Due dipendenti confermano insieme =================
   const marta = await session("marta", EMP_PW);
@@ -265,6 +386,18 @@ try {
   check("insieme: chi ha vinto legge «✓ Confermata»", /✓ Confermata/.test(await bodyText(win)));
   check(`insieme: l'altro legge «Già confermata da ${winner}.»`, (await bodyText(lose)).includes(`Già confermata da ${winner}.`), (await bodyText(lose)).match(/Già[^\n]*/)?.[0] ?? "nessun messaggio");
   check("dipendente (non dal telefono del locale): «la risposta su WhatsApp la manda il telefono del locale»", /La risposta su WhatsApp la manda il telefono del locale/.test(await bodyText(win)));
+  check("dipendente (non dal telefono del locale): nel foglio «Chiama» sì, «Scrivi» no", (await win.getByRole("dialog").getByRole("link", { name: "Chiama" }).count()) === 1 && (await win.getByRole("dialog").getByRole("link", { name: "Scrivi" }).count()) === 0);
+  await win.keyboard.press("Escape");
+  await goList(win);
+  const waN = Number((await win.getByRole("heading", { name: /Da mandare su WhatsApp/ }).innerText()).match(/\((\d+)\)/)?.[1] ?? 0);
+  check("dipendente: la lista WhatsApp è una riga sola «N risposte aspettano il telefono del locale»", waN > 0 && new RegExp(`${waN === 1 ? "1 risposta aspetta" : `${waN} risposte aspettano`} il telefono del locale`).test(await win.getByRole("region", { name: /Da mandare su WhatsApp/ }).innerText()) && (await win.getByRole("region", { name: /Da mandare su WhatsApp/ }).getByRole("link").count()) === 0, String(waN));
+  // «Segna come già mandata» dal foglio, con «Annulla» nel messaggio
+  await tab(win, "Prossimi giorni");
+  const ws = await openCard(win, "Prova C Insieme");
+  await ws.getByRole("button", { name: "Segna come già mandata" }).click();
+  check("«Segna come già mandata» (nel foglio): segnata", await waitDb(() => DB(`select count(*) from "BookingLog" where "requestId"='${R.race.id}' and kind='WHATSAPP_DONE'`) === "1"));
+  await win.getByRole("button", { name: "Annulla", exact: true }).click();
+  check("…«Annulla» nel messaggio: tolta", await waitDb(() => DB(`select count(*) from "BookingLog" where "requestId"='${R.race.id}' and kind='WHATSAPP_DONE'`) === "0"));
   await shot(lose, "gia-confermata");
   await marta.ctx.close();
   await giulia.ctx.close();
@@ -307,9 +440,14 @@ try {
   const t2 = await make("Prova C Tavolo dopo", { people: 4 });
   moveToToday(t2.id, 90, "CONFIRMED");
   await goList(A);
-  const closeBtn = A.getByRole("button", { name: "Siamo pieni stasera" });
+  const closeBtn = A.getByRole("button", { name: "Stasera siamo al completo" });
+  // La fascia c'è solo finché oggi si può ancora chiedere un tavolo online.
   const todayHasHours = (await closeBtn.count()) === 1;
-  if (todayHasHours) {
+  if (!todayHasHours) {
+    // Senza fascia: deve essere perché oggi non ci sono più orari prenotabili online (si ricontrolla adesso).
+    check("oggi niente più orari prenotabili: niente fascia «Stasera siamo al completo»", bookableDays().days[0].state !== "open", days[0].state);
+  } else {
+    check("fascia di stasera: «Stasera · … · si accettano richieste online»", /Stasera · .* · si accettano richieste online/.test(await bodyText(A)));
     await closeBtn.click();
     const ask = A.getByRole("alertdialog", { name: "Siamo pieni stasera?" });
     // Contando anche richieste di altri (il database di prova è condiviso).
@@ -319,7 +457,7 @@ try {
     await ask.getByRole("button", { name: "Chiudi le richieste" }).click();
     check("stasera chiusa: salvata", await waitDb(() => DB(`select count(*) from "BookingClosedDay" where day='${TODAY}'`) === "1"));
     await A.waitForTimeout(800);
-    check("stasera chiusa: «Stasera siete pieni» e «Riapri le richieste»", /Stasera siete pieni/.test(await bodyText(A)) && (await A.getByRole("button", { name: "Riapri le richieste" }).count()) === 1);
+    check("stasera chiusa: «Stasera al completo: niente più richieste online.» e «Riapri le richieste»", /Stasera al completo: niente più richieste online\./.test(await bodyText(A)) && (await A.getByRole("button", { name: "Riapri le richieste" }).count()) === 1);
     check("la richiesta in attesa resta da gestire (non si chiude da sola)", status(late.id) === "PENDING||");
     const pub = await (await newContext(browser, "phone")).newPage();
     await pub.goto(`${BASE}/menu/prenota`, { waitUntil: "networkidle" });
@@ -327,7 +465,7 @@ try {
     await pub.context().close();
     await A.getByRole("button", { name: "Riapri le richieste" }).click();
     check("«Riapri le richieste»: riaperta", await waitDb(() => DB(`select count(*) from "BookingClosedDay" where day='${TODAY}'`) === "0"));
-  } else check("oggi il locale è aperto (per provare «Siamo pieni stasera»)", false, "oggi chiuso negli orari: prova saltata");
+  }
 
   // Chiudi le richieste di un altro giorno
   await goList(A);
@@ -349,11 +487,16 @@ try {
   const tonight = A.getByRole("region", { name: "Stasera" });
   const tt = await tonight.innerText();
   const ppl = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where status='CONFIRMED' and day='${TODAY}'`).split("|");
-  check(`«Stasera»: le confermate di oggi, totale ${ppl[0]} persone · ${ppl[1]} tavoli`, tt.startsWith(`${ppl[0]} persone · ${ppl[1]} tavol`) && /Prova C Tavolo arrivato/.test(tt) && /Prova C Tavolo dopo/.test(tt), tt.split("\n")[0]);
+  check(`«Stasera»: le confermate di oggi, «Stasera · ${ppl[0]} persone prenotate online · ${ppl[1]} tavoli»`, tt.startsWith(`Stasera · ${ppl[0]} persone prenotate online · ${ppl[1]} tavol`) && /Prova C Tavolo arrivato/.test(tt) && /Prova C Tavolo dopo/.test(tt), tt.split("\n")[0]);
   const row1 = tonight.getByRole("listitem").filter({ hasText: "Prova C Tavolo arrivato" });
   const row2 = tonight.getByRole("listitem").filter({ hasText: "Prova C Tavolo dopo" });
   check("«Non venuti» solo dopo l'orario", (await row1.getByRole("button", { name: "Non venuti" }).count()) === 1 && (await row2.getByRole("button", { name: "Non venuti" }).count()) === 0);
-  check("telefono del cliente tocca-per-chiamare", /^tel:\+39/.test((await row1.getByRole("link").first().getAttribute("href")) ?? ""));
+  const callIcon = row1.getByRole("link", { name: /^Chiama Prova C Tavolo arrivato/ });
+  const callBox = await callIcon.boundingBox();
+  check("telefono del cliente tocca-per-chiamare: icona di 44 px accanto al nome", /^tel:\+39/.test((await callIcon.getAttribute("href")) ?? "") && Math.round(callBox?.width ?? 0) === 44, JSON.stringify(callBox));
+  const arrBox = await row1.getByRole("button", { name: "✓ Arrivati" }).boundingBox();
+  const noBox = await row1.getByRole("button", { name: "Non venuti" }).boundingBox();
+  check("«✓ Arrivati» e «Non venuti» affiancati, alti 44 px", arrBox && noBox && Math.round(arrBox.height) >= 44 && Math.abs(arrBox.y - noBox.y) < 2 && Math.abs(arrBox.width - noBox.width) < 2, JSON.stringify([arrBox, noBox]));
   await shot(A, "stasera");
   await row1.getByRole("button", { name: "✓ Arrivati" }).click();
   check("«✓ Arrivati»: segnato", await waitDb(() => DB(`select "arrivedAt" is not null from "BookingRequest" where id='${t1.id}'`) === "t"));
@@ -378,7 +521,7 @@ try {
   check("impostazioni: link per Google …/prenota?da=google", /\/prenota\?da=google/.test(await st.innerText()));
   await st.locator('input[name="maxPeople"]').fill("8");
   await st.getByRole("button", { name: "Salva" }).click();
-  check("impostazioni: «Persone al massimo» 8 salvato", await waitDb(() => /"maxPeople":8/.test(DB(`select value from "MenuSetting" where id='bookings'`))));
+  check("impostazioni: «Persone massime» 8 salvato", await waitDb(() => /"maxPeople":8/.test(DB(`select value from "MenuSetting" where id='bookings'`))));
   await shot(A, "impostazioni");
   const pub = await (await newContext(browser, "phone")).newPage();
   await pub.goto(`${BASE}/menu/prenota`, { waitUntil: "networkidle" });
@@ -400,7 +543,7 @@ try {
     check("widget «Da fare»: riga delle richieste di prenotazione, con il numero e il link", pend > 0 && row?.n === pend && row.link === "/prenotazioni" && /richieste? di prenotazione/.test(row.testo), JSON.stringify(row));
     check("widget «Da fare»: le prenotazioni per prime", df.righe?.[0]?.breve === "prenotazioni");
     const pan = await get("pannello");
-    check("widget «Pannello»: tra le cose da fare «Prenotazioni: N»", (pan.daFareVoci ?? []).some((v) => new RegExp(`Prenotazioni.*${pend}`).test(v)), JSON.stringify(pan.daFareVoci));
+    check("widget «Pannello»: tra le cose da fare «Tavoli da confermare: N» (o «Richieste da confermare: N»)", (pan.daFareVoci ?? []).some((v) => new RegExp(`(Tavoli|Richieste) da confermare: ${pend}`).test(v)), JSON.stringify(pan.daFareVoci));
     setBookingSetting({ enabled: false });
     const off = await get("dafare");
     check("widget «Da fare»: spente, niente riga delle prenotazioni", !(off.righe ?? []).some((x) => x.breve === "prenotazioni"));
