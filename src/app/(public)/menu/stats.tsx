@@ -17,13 +17,17 @@ function isStaffDevice(): boolean {
   }
 }
 
+// Le pagine delle prenotazioni (modulo, stato della richiesta, informativa) non sono il menù:
+// non contano come aperture né come tocchi.
+const isBookingPage = (path: string) => path === "/menu/prenota" || path.startsWith("/menu/prenota/");
+
 // Statistiche anonime del menù: niente cookie, niente dati personali. Ogni
 // evento è solo «cosa» (es. una parola cercata) e, lato server, giorno e ora.
 // Non parte dall'«Anteprima» della gestione (il menù è dentro un riquadro) né
 // per chi ha fatto l'accesso (lo esclude il server); se le statistiche sono
 // spente il server non salva nulla.
 export function track(k: StatKind, l?: string | null, t?: string | null) {
-  if (typeof window === "undefined" || window.self !== window.top || isStaffDevice()) return;
+  if (typeof window === "undefined" || window.self !== window.top || isStaffDevice() || isBookingPage(window.location.pathname)) return;
   const body = JSON.stringify({ k, l: l ?? undefined, t: t ?? undefined });
   try {
     if (navigator.sendBeacon?.("/menu/e", new Blob([body], { type: "application/json" }))) return;
@@ -71,7 +75,7 @@ export function MenuStats() {
     }
     // La pagina col QR la apre chi lo mostra (il personale), non un cliente: non conta. Neanche
     // «/menu/personale», la pagina che segna il telefono del personale.
-    if (isStaffDevice() || pathname === "/menu/qr" || pathname === "/menu/personale") return;
+    if (isStaffDevice() || pathname === "/menu/qr" || pathname === "/menu/personale" || isBookingPage(pathname)) return;
     if (firstTimeToday("menu-stat-open")) track("open", pathname);
     const event = pathname.match(/^\/menu\/p\/([^/]+)/);
     if (event && firstTimeToday(`menu-stat-event-${event[1]}`)) track("event", document.title.split(" — ")[0] || event[1], event[1]);

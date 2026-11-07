@@ -9,6 +9,22 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { InstallBanner, EmployeeInstallPrompt, InstalledMark } from "@/components/install-banner";
 import { VERSION_LABEL } from "@/lib/version";
 import { BrandMark } from "@/components/brand-mark";
+import { forgetPushOnSignOut } from "@/app/(app)/prenotazioni/actions";
+
+// Prima di uscire: gli avvisi delle prenotazioni smettono di arrivare su questo dispositivo
+// (il telefono può passare a un'altra persona). Mai più di un attimo, e senza bloccare l'uscita.
+async function forgetPushHere() {
+  try {
+    if (!("serviceWorker" in navigator)) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager?.getSubscription();
+    if (!sub) return;
+    await Promise.race([forgetPushOnSignOut(sub.endpoint).catch(() => {}), new Promise((r) => setTimeout(r, 2000))]);
+    await sub.unsubscribe().catch(() => {});
+  } catch {
+    /* si esce comunque */
+  }
+}
 
 const ADMIN_NAV_ITEMS = [
   { href: "/orari", label: "Orari", icon: CalendarIcon },
@@ -29,6 +45,12 @@ const EMPLOYEE_NAV_ITEMS = [{ href: "/mie-ore", label: "Le mie ore", icon: Calen
 // vetrina, il controllo vero resta lato server (vedi getMenuEditor).
 const EMPLOYEE_MENU_NAV_ITEM = { href: "/gestione-menu", label: "Menù", icon: MenuIcon };
 
+// «Prenotazioni»: solo con le prenotazioni online accese e per chi può gestirle (vedi layout.tsx).
+// Sul telefono, da sei voci in su, la parola intera non ci sta: «Tavoli».
+const BOOKINGS_NAV_ITEM = { href: "/prenotazioni", label: "Prenotazioni", short: "Tavoli", icon: BookingIcon };
+
+type NavItem = { href: string; label: string; short?: string; icon: (p: { active: boolean }) => React.ReactNode };
+
 export function AppShell({
   userName,
   role,
@@ -36,6 +58,7 @@ export function AppShell({
   appInstalled,
   showMail,
   showFerie,
+  bookings,
   children,
 }: {
   userName: string;
@@ -47,15 +70,29 @@ export function AppShell({
   showMail: boolean;
   // «Ferie» si accende da Impostazioni, come «Mail».
   showFerie: boolean;
+  // Voce «Prenotazioni» con le richieste da confermare; null = non si mostra.
+  bookings: { pending: number } | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const isAdmin = role === "ADMIN";
-  const navItems = isAdmin
+  const baseItems: NavItem[] = isAdmin
     ? ADMIN_NAV_ITEMS.filter((item) => (showMail || item.href !== "/mail") && (showFerie || item.href !== "/ferie"))
     : canEditMenu
       ? [...EMPLOYEE_NAV_ITEMS, EMPLOYEE_MENU_NAV_ITEM]
       : EMPLOYEE_NAV_ITEMS;
+  // Subito dopo «Orari» (o «Le mie ore»): è la cosa da guardare più spesso durante la serata.
+  const navItems: NavItem[] = bookings ? [baseItems[0], BOOKINGS_NAV_ITEM, ...baseItems.slice(1)] : baseItems;
+  const navLabel = (item: NavItem) => (item.href === "/prenotazioni" && bookings?.pending ? `${item.label}: ${bookings.pending} da confermare` : item.label);
+  const badge = (href: string) =>
+    href === "/prenotazioni" && bookings && bookings.pending > 0 ? (
+      <span
+        aria-hidden
+        className="absolute -right-1.5 -top-2 min-w-[1.125rem] rounded-full bg-brand-band-foreground px-1 text-center text-[10px] font-bold leading-[1.125rem] text-brand-band tabular-nums"
+      >
+        {bookings.pending > 99 ? "99+" : bookings.pending}
+      </span>
+    ) : null;
   // Il logo riporta alla prima sezione: per chi ha una sola sezione (dipendente senza il
   // menù) non c'è la barra di navigazione, e da /mie-ore/revisione, /installa o /widget
   // era l'unico modo di tornare indietro.
@@ -117,15 +154,18 @@ export function AppShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  aria-label={item.label}
-                  title={item.label}
+                  aria-label={navLabel(item)}
+                  title={navLabel(item)}
                   className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors lg:gap-2 lg:px-3.5 ${
                     active
                       ? "nav-mark-bottom bg-brand-band-active text-brand-band-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
                       : "text-brand-band-foreground-muted hover:bg-brand-band-hover/50 hover:text-brand-band-foreground"
                   }`}
                 >
-                  <Icon active={!!active} />
+                  <span className="relative">
+                    <Icon active={!!active} />
+                    {badge(item.href)}
+                  </span>
                   {/* Con 5 voci («Mail» o «Ferie» accese) sul tablet verticale le parole non starebbero, con 6
                       neanche sul computer piccolo: lì solo icone (il nome compare passandoci sopra). */}
                   <span className={navItems.length > 5 ? "md:max-xl:hidden" : navItems.length > 4 ? "md:max-lg:hidden" : ""}>{item.label}</span>
@@ -152,10 +192,13 @@ export function AppShell({
             <WideToggle />
             <ThemeToggle />
             {/* Il nome solo dove c'è spazio: sul tablet la barra ha già le voci del menù. */}
-            <span className="hidden text-sm text-brand-band-foreground-muted sm:block md:hidden lg:block">{userName}</span>
+            <span className="hidden text-sm text-brand-band-foreground-muted sm:block md:hidden xl:block">{userName}</span>
             <button
               type="button"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={async () => {
+                await forgetPushHere();
+                signOut({ callbackUrl: "/login" });
+              }}
               className="min-h-11 rounded-full border border-brand-band-border px-4 text-xs font-medium text-brand-band-foreground-muted transition-colors hover:text-brand-band-foreground"
             >
               Esci
@@ -191,12 +234,17 @@ export function AppShell({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-1 flex-col items-center gap-1 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] text-[11px] font-medium transition-colors ${
+                aria-label={navLabel(item)}
+                className={`flex min-w-0 flex-1 flex-col items-center gap-1 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] text-[11px] font-medium transition-colors ${
                   active ? "nav-mark-top text-brand-band-foreground" : "text-brand-band-foreground-muted"
                 }`}
               >
-                <Icon active={!!active} />
-                {item.label}
+                <span className="relative">
+                  <Icon active={!!active} />
+                  {badge(item.href)}
+                </span>
+                {/* Da 6 voci «Prenotazioni» non ci sta: «Tavoli». Con 7 (Ferie e Mail accese) anche più piccole. */}
+                <span className={`max-w-full truncate px-0.5 ${navItems.length > 6 ? "text-[10px] tracking-tight" : ""}`}>{item.short && navItems.length > 5 ? item.short : item.label}</span>
               </Link>
             );
           })}
@@ -299,6 +347,16 @@ function GearIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.35a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.65 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.65 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.65a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.35 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.96z" />
+    </svg>
+  );
+}
+
+function BookingIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+      <path d="m9 15 2 2 4-4" />
     </svg>
   );
 }

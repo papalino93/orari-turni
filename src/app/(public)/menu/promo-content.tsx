@@ -13,6 +13,7 @@ import {
 } from "@/lib/menu-format";
 import type { loadPromoBySlug } from "@/lib/menu";
 import { whatsappHref, type Contacts } from "@/lib/menu-venue";
+import { loadBookingSettings } from "@/lib/booking/service";
 import { EventActions } from "./event-actions";
 import { AllergenLegend, AllergenMarks } from "./allergen-marks";
 import { FormatHeader, FormatPrices, Variants } from "./item-prices";
@@ -25,7 +26,7 @@ export type PromoWithSection = NonNullable<Awaited<ReturnType<typeof loadPromoBy
 // evento in corso, il menù speciale. Usato sia nella pagina dedicata
 // (/menu/p/<slug>) sia, già aperto, subito dopo la copertina di /menu nei
 // giorni dell'evento (inline).
-export function PromoContent({
+export async function PromoContent({
   promo,
   blocks,
   dayKey,
@@ -56,9 +57,12 @@ export function PromoContent({
   // Con la locandina cambia la disposizione: vedi sotto.
   const poster = Boolean(promo.imageUpdatedAt);
   const times = formatPromoTimes(promo.startTime, promo.endTime);
-  // Prenota, calendario e condividi: solo per gli eventi non ancora conclusi.
-  const bookHref =
-    promo.kind === "EVENT" && contacts?.phone
+  // Prenota, calendario e condividi: solo per gli eventi non ancora conclusi. Con le prenotazioni
+  // online accese «Prenota» apre il modulo con il giorno dell'evento già scelto; altrimenti WhatsApp.
+  const bookingsOn = promo.kind === "EVENT" && status !== "past" && (await loadBookingSettings()).enabled;
+  const bookHref = bookingsOn
+    ? `/menu/prenota?evento=${encodeURIComponent(promo.slug)}&da=evento`
+    : promo.kind === "EVENT" && contacts?.phone
       ? whatsappHref(contacts.phone, `Buonasera, vorrei prenotare per «${promo.title}» (${dates}${promo.startTime ? `, dalle ${promo.startTime}` : ""}). Siamo in`)
       : null;
 

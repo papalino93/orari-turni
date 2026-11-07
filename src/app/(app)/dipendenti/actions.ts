@@ -177,6 +177,21 @@ export async function setEmployeeMenuAccess(idInput: string, allowedInput: boole
   });
 }
 
+// Stesso schema di setEmployeeMenuAccess: «Può gestire le prenotazioni» (vede le richieste dei
+// clienti, risponde e riceve gli avvisi sul telefono). Letto dal database a ogni richiesta.
+export async function setEmployeeBookingsAccess(idInput: string, allowedInput: boolean): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireUser();
+    const id = parseId(idInput, "dipendente");
+    const employee = await prisma.employee.findUnique({ where: { id } });
+    assert(employee, "Dipendente non trovato.");
+    assert(employee.role === "EMPLOYEE", "Solo un dipendente con accesso può avere questo permesso.");
+
+    await prisma.employee.update({ where: { id }, data: { canManageBookings: Boolean(allowedInput) } });
+    revalidateEmployees();
+  });
+}
+
 // --- Credenziali Area Dipendenti --------------------------------------------
 
 export async function updateEmployeeUsername(idInput: string, usernameInput: string): Promise<ActionResult> {

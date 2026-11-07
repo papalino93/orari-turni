@@ -21,7 +21,8 @@ import { NextResponse } from "next/server";
 // altrove dalla pagina stessa, e ogni Server Action lo ricontrolla.
 // "/widget": la guida per mettere i widget sul telefono (la pagina mostra solo quelli permessi).
 // "/api/employee-photo": la propria foto (la route rifiuta quella degli altri).
-const EMPLOYEE_ALLOWED_PREFIXES = ["/mie-ore", "/installa", "/gestione-menu", "/widget", "/api/employee-photo"];
+// "/prenotazioni": come "/gestione-menu", il permesso («Può gestire le prenotazioni») lo controlla la pagina.
+const EMPLOYEE_ALLOWED_PREFIXES = ["/mie-ore", "/installa", "/gestione-menu", "/prenotazioni", "/widget", "/api/employee-photo"];
 
 // Pagine di partenza: "/" e "/orari" (l'app installata sul telefono si apre su /orari,
 // vedi manifest.ts). Un dipendente che arriva qui va alla sua area senza avvisi; da ogni

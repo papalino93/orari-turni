@@ -6,12 +6,18 @@ import { PasswordForm } from "./password-form";
 import { ThemeSetting } from "./theme-setting";
 import { FeatureSetting } from "./feature-setting";
 import { loadFeatures } from "@/lib/app-features";
+import { loadBookingSettings, pendingCount } from "@/lib/booking/service";
 
 export const metadata = { title: "Impostazioni" };
 
 export default async function AccountPage() {
   const session = await getServerSession(authOptions);
-  const [users, features] = await Promise.all([prisma.user.findMany({ orderBy: { createdAt: "asc" } }), loadFeatures()]);
+  const [users, features, bookings, bookingsPending] = await Promise.all([
+    prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
+    loadFeatures(),
+    loadBookingSettings(),
+    pendingCount(),
+  ]);
   const me = users.find((u) => u.username === session?.user?.username);
 
   return (
@@ -32,6 +38,31 @@ export default async function AccountPage() {
         <FeatureSetting feature="ferie" visible={features.ferie} title="«Ferie»" hint="Ferie e permessi dei dipendenti. Spenta, non compare tra le sezioni; quello che c'è dentro resta." />
         <FeatureSetting feature="mail" visible={features.mail} title="«Mail»" hint="Invii di email ai clienti. Spenta, non compare tra le sezioni." />
       </div>
+
+      {/* Le prenotazioni online: da spente non sono nel menù in alto, si raggiungono da qui. */}
+      <Link
+        href="/prenotazioni"
+        className="mb-6 flex min-h-11 items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 transition-colors hover:border-accent"
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">
+            {bookings.enabled ? "Prenotazioni online" : "Prenotazioni online (in prova)"}
+            <span
+              className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium ${bookings.enabled ? "bg-success-bg text-success" : "bg-surface-2 text-foreground-muted ring-1 ring-inset ring-border"}`}
+            >
+              {bookings.enabled ? "Accese" : "Spente"}
+            </span>
+          </p>
+          <p className="mt-0.5 text-xs text-foreground-muted">
+            {bookings.enabled
+              ? bookingsPending > 0
+                ? `${bookingsPending} ${bookingsPending === 1 ? "richiesta da confermare" : "richieste da confermare"}`
+                : "I clienti chiedono un tavolo dal sito, voi confermate"
+              : "Provale e accendile quando vuoi: i clienti non le vedono"}
+          </p>
+        </div>
+        <span className="text-foreground-muted">›</span>
+      </Link>
 
       {me?.appInstalledAt ? (
         <div className="mb-6 flex items-center justify-between rounded-2xl border border-border bg-surface px-5 py-4">

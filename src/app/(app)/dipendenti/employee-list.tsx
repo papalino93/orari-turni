@@ -14,6 +14,7 @@ import {
   deleteEmployee,
   getEmployeeDeletionImpact,
   moveEmployee,
+  setEmployeeBookingsAccess,
   setEmployeeMenuAccess,
   toggleEmployeeActive,
   updateEmployee,
@@ -35,6 +36,7 @@ type EmployeeRow = {
   username: string | null;
   password: string | null;
   canEditMenu: boolean;
+  canManageBookings: boolean;
   pendingSubmissions: PendingMonth[];
   reopenedSubmissions: ReopenedMonth[];
   approvedSubmissions: ApprovedMonth[];
@@ -211,6 +213,17 @@ function EmployeeCard({
         toast,
         () => setEmployeeMenuAccess(employee.id, !employee.canEditMenu),
         employee.canEditMenu ? "Non può più modificare il menù" : "Ora può modificare il menù",
+      );
+      if (result !== null) router.refresh();
+    });
+  }
+
+  function toggleBookingsAccess() {
+    startTransition(async () => {
+      const result = await runWithToast(
+        toast,
+        () => setEmployeeBookingsAccess(employee.id, !employee.canManageBookings),
+        employee.canManageBookings ? "Non può più gestire le prenotazioni" : "Ora può gestire le prenotazioni",
       );
       if (result !== null) router.refresh();
     });
@@ -408,6 +421,33 @@ function EmployeeCard({
               aria-hidden
               className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
                 employee.canEditMenu ? "left-[1.375rem]" : "left-0.5"
+              }`}
+            />
+          </button>
+        </div>
+      )}
+
+      {employee.role === "EMPLOYEE" && employee.active && (
+        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-2.5">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-foreground">Può gestire le prenotazioni</p>
+            <p className="text-[11px] text-foreground-muted">Vede le richieste di tavolo, risponde e riceve gli avvisi</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={employee.canManageBookings}
+            aria-label={`Può gestire le prenotazioni: ${employee.name}`}
+            disabled={pending}
+            onClick={toggleBookingsAccess}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
+              employee.canManageBookings ? "bg-accent" : "bg-surface-2 ring-1 ring-inset ring-border"
+            }`}
+          >
+            <span
+              aria-hidden
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                employee.canManageBookings ? "left-[1.375rem]" : "left-0.5"
               }`}
             />
           </button>

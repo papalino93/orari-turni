@@ -5,7 +5,8 @@ import { useState } from "react";
 const pill =
   "menu-sans flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#6B1020] px-5 text-[11px] font-medium uppercase tracking-[0.18em] no-underline";
 
-// Sotto il titolo di un evento: «Prenota» (WhatsApp con il messaggio già scritto),
+// Sotto il titolo di un evento: «Prenota» (il modulo «Chiedi un tavolo» con il giorno dell'evento
+// se le prenotazioni online sono accese, altrimenti WhatsApp con il messaggio già scritto),
 // «Aggiungi al calendario» (file .ics che il telefono apre nel suo calendario) e
 // «Condividi» (la condivisione del telefono; dove non c'è, il link si copia).
 export function EventActions({ slug, title, bookHref }: { slug: string; title: string; bookHref: string | null }) {
