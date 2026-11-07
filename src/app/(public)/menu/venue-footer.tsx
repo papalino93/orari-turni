@@ -2,15 +2,18 @@ import { Ornament } from "./ornament";
 import { mapsHref, telHref, whatsappHref, type Contacts, type Hours } from "@/lib/menu-venue";
 import { businessDayKey } from "@/lib/menu-format";
 import { VenueHours } from "./venue-hours";
+import { loadBookingSettings } from "@/lib/booking/service";
 
 // Orari e contatti a piè di pagina: ogni pulsante compare solo se il dato c'è.
 // Si aprono nella stessa scheda: con «indietro» il cliente torna sempre al menù (in una
 // scheda nuova, ad esempio dopo la recensione su Google, «indietro» non porta da nessuna parte).
-export function VenueInfo({ hours, contacts }: { hours: Hours; contacts: Contacts }) {
+// «Prenota un tavolo» (il modulo online) compare per primo, solo se le prenotazioni sono accese.
+export function VenueInfo({ hours, contacts, bookHref = null }: { hours: Hours; contacts: Contacts; bookHref?: string | null }) {
   const tel = contacts.phone ? telHref(contacts.phone) : null;
   const wa = contacts.phone ? whatsappHref(contacts.phone, contacts.whatsappMessage) : null;
   const maps = mapsHref(contacts.address);
   const buttons = [
+    bookHref && { href: bookHref, label: "Prenota un tavolo" },
     tel && { href: tel, label: "Chiama" },
     wa && { href: wa, label: "WhatsApp" },
     maps && { href: maps, label: "Come arrivare" },
@@ -45,14 +48,26 @@ export function VenueInfo({ hours, contacts }: { hours: Hours; contacts: Contact
 
 // Piè di pagina bordeaux, uguale nel menù, negli allergeni e nelle pagine degli eventi:
 // logo, orari e contatti (prima le altre pagine avevano solo l'ornamento e sembravano rotte).
-export function MenuFooter({ hours, contacts, children }: { hours: Hours; contacts: Contacts; children?: React.ReactNode }) {
+// hideBooking: nelle pagine della prenotazione stessa il collegamento non serve.
+export async function MenuFooter({
+  hours,
+  contacts,
+  children,
+  hideBooking = false,
+}: {
+  hours: Hours;
+  contacts: Contacts;
+  children?: React.ReactNode;
+  hideBooking?: boolean;
+}) {
+  const bookHref = !hideBooking && (await loadBookingSettings()).enabled ? "/menu/prenota?da=menu" : null;
   return (
     <footer className="flex flex-col items-center gap-[18px] bg-[#6B1020] px-5 pb-[60px] pt-14 text-[#F4EEE3]">
       {/* eslint-disable-next-line @next/next/no-img-element -- logo statico con filtri CSS */}
       <img src="/menu/logo.png" alt="L’Angolo del Vino" className="h-auto w-[200px] [filter:invert(1)_sepia(0.25)]" />
       <Ornament color="#C9A96E" />
       <div className="menu-sans text-[10px] uppercase tracking-[0.4em] text-[#E9DCC4]">Enoteca</div>
-      <VenueInfo hours={hours} contacts={contacts} />
+      <VenueInfo hours={hours} contacts={contacts} bookHref={bookHref} />
       {children}
     </footer>
   );

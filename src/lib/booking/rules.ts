@@ -27,7 +27,7 @@ export type BookingSettings = {
 
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   enabled: false,
-  firstTime: "12:00",
+  firstTime: "17:00",
   lastBeforeClose: 60,
   step: 30,
   maxPeople: 10,

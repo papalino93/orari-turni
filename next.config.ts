@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
     "/gestione-menu/guida": ["./docs/guida/Guida-gestione-menu.pdf"],
     "/gestione-menu/guida/video": ["./docs/guida/Guida-gestione-menu.mp4"],
   },
+  // Link breve delle prenotazioni (es. nella scheda Google: /prenota?da=google). La query resta.
+  async redirects() {
+    return [{ source: "/prenota", destination: "/menu/prenota", permanent: true }];
+  },
   async headers() {
     // Pagine dell'area riservata: mai conservate dal browser, così dopo «Esci» il tasto
     // Indietro non rimostra orari, ore o dati dei dipendenti. Non il menù pubblico, i
@@ -46,6 +50,9 @@ const nextConfig: NextConfig = {
       { source: "/gestione-menu", headers: noStore },
       { source: "/gestione-menu/stampa", headers: noStore },
       { source: "/login", headers: noStore },
+      // Pagina di stato della prenotazione: il link è la chiave (mai in cache, mai passato ad altri siti).
+      // Dopo la regola generale qui sopra: per la stessa intestazione vale l'ultima.
+      { source: "/menu/prenota/r/:path*", headers: [...noStore, { key: "Referrer-Policy", value: "no-referrer" }] },
     ];
   },
 };
