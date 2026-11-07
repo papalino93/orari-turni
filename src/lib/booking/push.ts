@@ -35,16 +35,27 @@ async function recipients() {
   return subs.filter((s) => (s.employeeId ? s.employee?.active && s.employee.canManageBookings && s.employee.username : s.username));
 }
 
-export async function sendPushToStaff(payload: PushPayload): Promise<{ sent: number; failed: number }> {
+// Chiave pubblica da dare al browser per iscriversi. In prova (PUSH_PROVIDER=log, in locale)
+// senza chiavi se ne genera una finta per questo avvio del server: le notifiche non partono comunque.
+let testKey: string | null = null;
+export function pushPublicKey(): string | null {
+  if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (process.env.PUSH_PROVIDER === "log") return (testKey ??= webpush.generateVAPIDKeys().publicKey);
+  return null;
+}
+
+// only.endpoint: solo quel dispositivo («Prova una notifica»).
+export async function sendPushToStaff(payload: PushPayload, only?: { endpoint: string }): Promise<{ sent: number; failed: number }> {
+  const pick = async () => (await recipients()).filter((s) => !only || s.endpoint === only.endpoint);
   // Modalità di prova (MAIL_PROVIDER=log in locale): non spedisce, conta solo gli iscritti.
   if (process.env.PUSH_PROVIDER === "log") {
-    const subs = await recipients();
+    const subs = await pick();
     for (const s of subs) console.log(`[notifica di prova] a ${s.username ?? s.employeeId}: ${payload.title} · ${payload.body}`);
     if (subs.length) await prisma.pushSubscription.updateMany({ where: { id: { in: subs.map((s) => s.id) } }, data: { lastOkAt: new Date() } });
     return { sent: subs.length, failed: 0 };
   }
   if (!setup()) return { sent: 0, failed: 0 };
-  const subs = await recipients();
+  const subs = await pick();
   let sent = 0;
   let failed = 0;
   await Promise.all(

@@ -44,8 +44,8 @@ const nextConfig: NextConfig = {
       // Tutto tranne il menù pubblico, che qualcuno potrebbe voler mostrare nel proprio sito.
       { source: "/((?!menu(?:/|$)).*)", headers: noFraming },
       { source: "/", headers: noStore },
-      { source: "/:area(orari|dipendenti|statistiche|account|ferie|mail|mie-ore|installa)", headers: noStore },
-      { source: "/:area(orari|dipendenti|statistiche|account|ferie|mail|mie-ore|installa)/:rest*", headers: noStore },
+      { source: "/:area(orari|dipendenti|statistiche|account|ferie|mail|mie-ore|installa|prenotazioni)", headers: noStore },
+      { source: "/:area(orari|dipendenti|statistiche|account|ferie|mail|mie-ore|installa|prenotazioni)/:rest*", headers: noStore },
       { source: "/widget", headers: noStore },
       { source: "/gestione-menu", headers: noStore },
       { source: "/gestione-menu/stampa", headers: noStore },
