@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { loadVenue } from "@/lib/menu";
+import { loadBookingSettings } from "@/lib/booking/service";
+import { isOwner } from "../server-utils";
+import { LargeText } from "../large-text";
 import { MenuFooter } from "../../venue-footer";
 import { Ornament } from "../../ornament";
 import { PrenotaHeader } from "../ui";
 import { PrivacyText } from "../privacy-text";
 
-// Informativa: sempre raggiungibile (anche a funzione spenta: chi ha già una richiesta deve poterla leggere).
-export const revalidate = 60;
+// Come il modulo: a funzione spenta non c'è per i clienti (404); il titolare la vede in anteprima.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Privacy delle prenotazioni — L'Angolo del Vino",
@@ -16,11 +20,13 @@ export const metadata: Metadata = {
 };
 
 export default async function PrivacyPage() {
-  const venue = await loadVenue();
+  const [venue, settings, owner] = await Promise.all([loadVenue(), loadBookingSettings(), isOwner()]);
+  if (!settings.enabled && !owner) notFound();
   return (
     <>
       <PrenotaHeader />
-      <main className="mx-auto max-w-[620px] px-6 pb-[72px] pt-10">
+      <LargeText />
+      <main className="menu-prenota mx-auto max-w-[620px] px-6 pb-[72px] pt-10">
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="menu-sans text-[11px] uppercase tracking-[0.34em] text-[#5B605A]">Prenotazioni</div>
           <h1 className="menu-serif m-0 mb-2 text-balance text-[40px] font-medium leading-[1.05] text-[#6B1020]">I tuoi dati</h1>

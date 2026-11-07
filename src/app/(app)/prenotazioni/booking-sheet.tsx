@@ -2,19 +2,23 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmSheet } from "@/components/confirm-sheet";
 import { showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
-import { availability, dayLong, peopleText, SOURCE_LABEL, type BookingSettings } from "@/lib/booking/rules";
+import { availability, dayLong, peopleText, type BookingSettings } from "@/lib/booking/rules";
 import { customerMessage, type MessageKind } from "@/lib/booking/messages";
 import { whatsappPending } from "@/lib/booking/whatsapp-queue";
 import type { Hours } from "@/lib/menu-venue";
-import { markWhatsapp, replyToRequest, setArrival, type ReplyOutcome } from "./actions";
-import { chatLink, clock, dayLabel, duration, logText, phoneDisplay, REPLY_LABEL, replyHref, statusLabel, telLink, viewOf, whenText } from "./format";
+import { eraseRequest, markWhatsapp, replyToRequest, setArrival, type ReplyOutcome } from "./actions";
+import { chatLink, clock, dayLabel, duration, logText, phoneDisplay, REPLY_LABEL, replyHref, sourceText, statusLabel, telLink, viewOf, whenText } from "./format";
 import { WhatsappIcon } from "./device";
 import type { BookingItem } from "./types";
 
 type Reply = "confirm" | "propose" | "decline" | "cancel";
+// Risposte senza pannello: il cliente ha detto sì/no all'orario proposto, oppure non viene più.
+type Action = Reply | "accept" | "refuse" | "customerCancel";
 const KIND: Record<Reply, MessageKind> = { confirm: "confirmed", propose: "proposed", decline: "declined", cancel: "cancelledByVenue" };
+export const ALLERGY_TEXT = "⚠ Allergie: chiedere al tavolo";
 
 // Messaggi rapidi: un tocco li aggiunge al testo, che resta modificabile prima dell'invio.
 const QUICK: Record<Reply, string[]> = {
@@ -87,9 +91,11 @@ export function BookingSheet({
   hours,
   fullDays,
   canWhatsapp,
+  isOwner,
   next,
   onOpen,
   onClose,
+  onWaOpened,
 }: {
   booking: BookingItem | null;
   rows: BookingItem[];
@@ -99,18 +105,25 @@ export function BookingSheet({
   hours: Hours;
   fullDays: string[];
   canWhatsapp: boolean;
+  isOwner: boolean;
   // La prossima richiesta da gestire (per passare dall'una all'altra senza tornare all'elenco).
   next: BookingItem | null;
   onOpen: (id: string) => void;
   onClose: () => void;
+  // WhatsApp aperto da qui: la riga resta nella lista «Da mandare» con «Aperto alle…».
+  onWaOpened: (id: string, kind: MessageKind) => void;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [panel, setPanel] = useState<Reply | null>(null);
+  // Annullo di una confermata: prima si sceglie chi annulla (il cliente o il locale).
+  const [cancelBy, setCancelBy] = useState<"venue" | null>(null);
+  const [askGone, setAskGone] = useState(false);
+  const [askErase, setAskErase] = useState(false);
   const [message, setMessage] = useState("");
   const [time, setTime] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ reply: Reply; out: ReplyOutcome; time: string } | null>(null);
+  const [result, setResult] = useState<{ reply: Action; out: ReplyOutcome; time: string } | null>(null);
   const [waOpened, setWaOpened] = useState(false);
 
   const slots = useMemo(() => {
@@ -135,11 +148,12 @@ export function BookingSheet({
 
   function openPanel(p: Reply | null) {
     setPanel(p);
+    setCancelBy(null);
     setMessage("");
     setTime("");
   }
 
-  async function send(reply: Reply) {
+  async function send(reply: Action) {
     if (!b) return;
     if (reply === "propose" && !time) {
       toast.showError("Scegli l'orario da proporre.");
@@ -147,15 +161,60 @@ export function BookingSheet({
     }
     setBusy(true);
     try {
-      const res = await replyToRequest(b.id, reply, message, reply === "propose" ? time : undefined);
+      const withMessage = reply === "confirm" || reply === "propose" || reply === "decline" || reply === "cancel";
+      const res = await replyToRequest(b.id, reply, withMessage ? message : "", reply === "propose" ? time : undefined);
       if (res.ok) {
-        setResult({ reply, out: res.data, time });
-        setPanel(null);
+        setResult({ reply, out: res.data, time: reply === "accept" ? (b.proposedTime ?? "") : time });
       } else {
         // «Già confermata da Marta»: si legge il motivo e la vista si aggiorna.
         toast.showError(res.error);
-        setPanel(null);
       }
+      setPanel(null);
+      setCancelBy(null);
+      setAskGone(false);
+      router.refresh();
+    } catch (e) {
+      showActionError(toast, e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // «Segna come già mandata» (per esempio se un collega l'ha già scritta a mano), con «Annulla».
+  async function markSent() {
+    if (!b) return;
+    const id = b.id;
+    setBusy(true);
+    try {
+      const res = await markWhatsapp(id, "done");
+      if (!res.ok) toast.showError(res.error);
+      else
+        toast.showSuccess("Segnata come mandata", {
+          label: "Annulla",
+          onClick: () => {
+            markWhatsapp(id, "undo")
+              .then(() => router.refresh())
+              .catch((e) => showActionError(toast, e));
+          },
+        });
+      router.refresh();
+    } catch (e) {
+      showActionError(toast, e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function erase() {
+    if (!b) return;
+    setBusy(true);
+    try {
+      const res = await eraseRequest(b.id);
+      if (res.ok) {
+        toast.showSuccess("Dati della richiesta cancellati");
+        setAskErase(false);
+        onClose();
+      } else toast.showError(res.error);
       router.refresh();
     } catch (e) {
       showActionError(toast, e);
@@ -223,22 +282,24 @@ export function BookingSheet({
       </label>
       <details className="rounded-lg bg-surface-2 px-3 py-2 text-xs text-foreground-muted">
         <summary className="cursor-pointer select-none font-medium">Vedi il messaggio che riceve</summary>
-        <p className="mt-2 whitespace-pre-line text-foreground">{preview(reply)}</p>
+        <p className="mt-2 whitespace-pre-line text-foreground [overflow-wrap:anywhere]">{preview(reply)}</p>
       </details>
     </div>
   );
 
   // Dopo la risposta: come arriva al cliente.
   const needsWa = (out: ReplyOutcome) => Boolean(out.whatsappHref) && (b.contact !== "email" || !out.mailSent);
-  const resultTitle = result
-    ? result.reply === "confirm"
-      ? "✓ Confermata"
-      : result.reply === "propose"
-        ? `✓ Proposte le ${result.time}`
-        : result.reply === "decline"
-          ? "✓ Risposto: siamo al completo"
-          : "✓ Prenotazione annullata"
-    : "";
+  const RESULT_TITLE: Record<Action, string> = {
+    confirm: "✓ Confermata",
+    propose: `✓ Proposte le ${result?.time ?? ""}`,
+    decline: "✓ Risposto: siamo al completo",
+    cancel: "✓ Prenotazione annullata",
+    accept: `✓ Confermata alle ${result?.time ?? ""}`,
+    refuse: "✓ Segnato: il cliente ha detto no",
+    customerCancel: "✓ Annullata: il cliente non viene",
+  };
+  const resultTitle = result ? RESULT_TITLE[result.reply] : "";
+  const resultKind = (r: Action): MessageKind => (r === "propose" ? "proposed" : r === "decline" ? "declined" : r === "cancel" ? "cancelledByVenue" : "confirmed");
 
   // Risposta ancora da mandare su WhatsApp (anche riaprendo la scheda più tardi).
   const pendingWa = whatsappPending(b, now);
@@ -247,15 +308,18 @@ export function BookingSheet({
   return (
     <Sheet title={b.name} onClose={onClose} dirty={Boolean(message.trim()) && !result}>
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <StatusChip b={b} now={now} />
-          {b.isTest && <TestChip />}
-          {v === "PENDING" && (
-            <span className={`text-xs ${waiting >= 30 ? "font-semibold text-danger" : "text-foreground-muted"}`}>
-              {waiting >= 30 ? `in attesa da ${duration(waiting)}` : `arrivata ${duration(waiting)} fa`}
-            </span>
-          )}
-        </div>
+        {/* Dopo una risposta l'etichetta di prima («Da confermare · arrivata…») non vale più. */}
+        {!result && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <StatusChip b={b} now={now} />
+            {b.isTest && <TestChip />}
+            {v === "PENDING" && (
+              <span className={`text-xs ${waiting >= 30 ? "font-semibold text-danger" : "text-foreground-muted"}`}>
+                {waiting >= 30 ? `in attesa da ${duration(waiting)}` : `arrivata ${duration(waiting)} fa`}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="rounded-xl border border-border bg-surface-2/60 px-4 py-3">
           <p className="text-sm font-medium text-foreground-muted first-letter:uppercase">
@@ -273,14 +337,14 @@ export function BookingSheet({
             <span className="font-normal text-foreground-muted"> · </span>
             {peopleText(b.people)}
           </p>
-          {b.status === "PROPOSED" && <p className="mt-1 text-sm text-foreground-muted">Proposto alle {b.proposedTime}: aspettiamo la risposta del cliente.</p>}
+          {b.status === "PROPOSED" && !result && <p className="mt-1 text-sm text-foreground-muted">Proposto alle {b.proposedTime}: aspettiamo la risposta del cliente.</p>}
           {b.arrivedAt && <p className="mt-1 text-sm font-medium text-success">✓ Arrivati alle {clock(b.arrivedAt)}</p>}
           {b.noShowAt && <p className="mt-1 text-sm font-medium text-danger">Non venuti</p>}
         </div>
 
         {b.allergies && (
           <p className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger-bg px-3 py-2.5 text-sm font-medium text-danger">
-            <span aria-hidden>⚠</span> Qualcuno ha allergie o intolleranze: ne parliamo al tavolo.
+            {ALLERGY_TEXT}
           </p>
         )}
         {b.note && (
@@ -299,7 +363,14 @@ export function BookingSheet({
               (canWhatsapp && result.out.whatsappHref ? (
                 <>
                   {b.contact === "email" && !result.out.mailSent && <p className="text-sm text-foreground">L&apos;email non è partita: mandala su WhatsApp.</p>}
-                  <WhatsappButton href={result.out.whatsappHref} bookingId={b.id} onOpened={() => setWaOpened(true)} />
+                  <WhatsappButton
+                    href={result.out.whatsappHref}
+                    bookingId={b.id}
+                    onOpened={() => {
+                      setWaOpened(true);
+                      onWaOpened(b.id, resultKind(result.reply));
+                    }}
+                  />
                   <p className="text-xs text-foreground-muted">
                     {waOpened ? "WhatsApp aperto: se non hai toccato Invia, tocca di nuovo il pulsante." : "Si apre WhatsApp con il messaggio già scritto: controlla e tocca Invia."}
                   </p>
@@ -331,12 +402,12 @@ export function BookingSheet({
             <button type="button" disabled={busy} onClick={() => send("confirm")} className={`${bigBtn} bg-accent text-accent-foreground hover:bg-accent-hover`}>
               {busy ? "Un attimo…" : "✓ Conferma"}
             </button>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               <button type="button" disabled={busy} onClick={() => openPanel("propose")} className={`${bigBtn} border border-border text-foreground hover:border-accent`}>
                 Proponi un altro orario
               </button>
               <button type="button" disabled={busy} onClick={() => openPanel("decline")} className={`${bigBtn} border border-border text-foreground hover:border-danger hover:text-danger`}>
-                Siamo al completo
+                Rispondi: siamo al completo
               </button>
             </div>
             <button type="button" onClick={() => openPanel("confirm")} className="min-h-10 w-full text-center text-xs font-medium text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground">
@@ -345,12 +416,39 @@ export function BookingSheet({
           </div>
         )}
 
+        {/* Il cliente ha risposto all'orario proposto fuori dal sito (WhatsApp, telefono): lo segna chi lavora. */}
+        {!result && v === "PROPOSED" && panel === null && (
+          <div className="space-y-2">
+            <button type="button" disabled={busy} onClick={() => send("accept")} className={`${bigBtn} bg-accent text-accent-foreground hover:bg-accent-hover`}>
+              {busy ? "Un attimo…" : `Il cliente ha detto sì: conferma alle ${b.proposedTime}`}
+            </button>
+            <button type="button" disabled={busy} onClick={() => send("refuse")} className={`${bigBtn} border border-border text-foreground hover:border-danger hover:text-danger`}>
+              Il cliente ha detto no
+            </button>
+            <p className="text-xs text-foreground-muted">Se il cliente risponde dalla sua pagina, la richiesta si aggiorna da sola.</p>
+          </div>
+        )}
+
         {!result && panel && (
           <div className="space-y-3 rounded-xl border border-border p-3">
             <p className="text-sm font-semibold text-foreground">
               {panel === "confirm" ? "Conferma con un messaggio" : panel === "propose" ? "Proponi un altro orario, stesso giorno" : panel === "decline" ? "Rispondi: siamo al completo" : "Annulla la prenotazione"}
             </p>
-            {panel === "cancel" && <p className="text-sm text-foreground-muted">Il cliente riceve un messaggio di scuse. Non si può tornare indietro.</p>}
+            {panel === "cancel" && cancelBy === null && (
+              <div className="space-y-2">
+                <p className="text-sm text-foreground-muted">Chi annulla?</p>
+                <button type="button" disabled={busy} onClick={() => send("customerCancel")} className={`${bigBtn} border border-border text-foreground hover:border-accent`}>
+                  Ci ha avvisato il cliente (nessun messaggio)
+                </button>
+                <button type="button" disabled={busy} onClick={() => setCancelBy("venue")} className={`${bigBtn} border border-danger/40 text-danger hover:bg-danger-bg`}>
+                  Annulliamo noi (il cliente riceve le scuse)
+                </button>
+                <button type="button" disabled={busy} onClick={() => openPanel(null)} className="min-h-11 w-full rounded-full text-sm font-medium text-foreground-muted hover:text-foreground">
+                  Indietro
+                </button>
+              </div>
+            )}
+            {panel === "cancel" && cancelBy === "venue" && <p className="text-sm text-foreground-muted">Il cliente riceve un messaggio di scuse. Non si può tornare indietro.</p>}
             {panel === "propose" && (
               <div className="space-y-2" data-unsaved-ignore>
                 {slots.length ? (
@@ -371,15 +469,20 @@ export function BookingSheet({
                 ) : (
                   <p className="text-sm text-foreground-muted">Quel giorno non ci sono altri orari tra quelli prenotabili: scrivine uno qui sotto.</p>
                 )}
-                <label className="flex items-center gap-2 text-xs text-foreground-muted">
-                  Un altro orario:
-                  <input type="time" value={slots.includes(time) ? "" : time} onChange={(e) => setTime(e.target.value)} className={`${inputClass} w-32`} aria-label="Un altro orario" />
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-foreground-muted">Un altro orario</span>
+                  <input type="time" value={slots.includes(time) ? "" : time} onChange={(e) => setTime(e.target.value)} className={`${inputClass} w-36!`} />
                 </label>
               </div>
             )}
-            {messageBox(panel)}
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" disabled={busy} onClick={() => openPanel(null)} className="min-h-11 rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:text-foreground">
+            {(panel !== "cancel" || cancelBy === "venue") && messageBox(panel)}
+            <div className={`flex flex-col-reverse gap-2 sm:flex-row sm:justify-end ${panel === "cancel" && cancelBy === null ? "hidden" : ""}`}>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => (panel === "cancel" ? setCancelBy(null) : openPanel(null))}
+                className="min-h-11 rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:text-foreground"
+              >
                 Indietro
               </button>
               <button
@@ -397,7 +500,7 @@ export function BookingSheet({
                         ? `Proponi le ${time}`
                         : "Scegli un orario"
                       : panel === "decline"
-                        ? "Rispondi: al completo"
+                        ? "Rispondi: siamo al completo"
                         : "Sì, annulla e avvisa"}
               </button>
             </div>
@@ -416,15 +519,26 @@ export function BookingSheet({
             {v === "CANCELLED" && b.cancelledBy === "cliente" && <p className="text-sm text-foreground-muted">Il cliente ha annullato dalla sua pagina.</p>}
             {v === "EXPIRED" && <p className="text-sm text-foreground-muted">Nessuno ha risposto in tempo. Se vuoi, scrivi al cliente o chiamalo.</p>}
 
-            {pendingWa &&
-              (canWhatsapp ? (
-                <>
-                  <p className="text-sm font-medium text-foreground">La risposta su WhatsApp non è ancora partita.</p>
-                  {resendHref(pendingWa) && <WhatsappButton href={resendHref(pendingWa)!} bookingId={b.id} />}
-                </>
-              ) : (
-                <p className="rounded-lg bg-surface-2 px-3 py-2 text-sm text-foreground-muted">La risposta su WhatsApp la manda il telefono del locale.</p>
-              ))}
+            {pendingWa && (
+              <div className="space-y-2 rounded-xl border border-[#137a43]/30 bg-[#137a43]/[0.06] p-3">
+                {canWhatsapp ? (
+                  <>
+                    <p className="text-sm font-medium text-foreground">{REPLY_LABEL[pendingWa]}: non è ancora partito su WhatsApp.</p>
+                    {resendHref(pendingWa) && <WhatsappButton href={resendHref(pendingWa)!} bookingId={b.id} onOpened={() => onWaOpened(b.id, pendingWa)} />}
+                  </>
+                ) : (
+                  <p className="text-sm text-foreground-muted">La risposta su WhatsApp la manda il telefono del locale.</p>
+                )}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={markSent}
+                  className="min-h-10 w-full rounded-full text-center text-xs font-medium text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground disabled:opacity-60"
+                >
+                  Segna come già mandata
+                </button>
+              </div>
+            )}
 
             {v === "CONFIRMED" && b.day <= today && (
               <div className="grid grid-cols-2 gap-2">
@@ -454,15 +568,10 @@ export function BookingSheet({
                 rel="noopener noreferrer"
                 className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-medium text-foreground hover:border-accent"
               >
-                <WhatsappIcon className="text-[#137a43] dark:text-[#3fae74]" /> Manda di nuovo il messaggio ({REPLY_LABEL[v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined"].toLowerCase()})
+                <WhatsappIcon className="text-[#137a43] dark:text-[#3fae74]" /> Manda di nuovo: {REPLY_LABEL[v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined"].toLowerCase()}
               </a>
             )}
 
-            {v === "PROPOSED" && panel === null && (
-              <button type="button" disabled={busy} onClick={() => openPanel("decline")} className={`${bigBtn} border border-border text-foreground hover:border-danger hover:text-danger`}>
-                Siamo al completo
-              </button>
-            )}
             {v === "CONFIRMED" && panel === null && b.startsAt > now - 3 * 3600000 && (
               <button type="button" disabled={busy} onClick={() => openPanel("cancel")} className="min-h-11 w-full rounded-xl text-sm font-medium text-danger hover:bg-danger-bg">
                 Annulla la prenotazione
@@ -476,15 +585,18 @@ export function BookingSheet({
           <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
             <div className="min-w-0">
               <dt className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Telefono</dt>
-              <dd className="font-medium tabular-nums text-foreground">{phoneDisplay(b.phone)}</dd>
+              <dd className="whitespace-nowrap font-medium tabular-nums text-foreground">{phoneDisplay(b.phone)}</dd>
             </div>
             <div className="flex gap-2">
               <a href={telLink(b.phone)} className="flex min-h-10 items-center rounded-full border border-border px-3.5 text-xs font-semibold text-foreground hover:border-accent">
                 Chiama
               </a>
-              <a href={chatLink(b.phone)} target="_blank" rel="noopener noreferrer" className="flex min-h-10 items-center gap-1.5 rounded-full border border-border px-3.5 text-xs font-semibold text-foreground hover:border-accent">
-                <WhatsappIcon className="h-4 w-4 text-[#137a43] dark:text-[#3fae74]" /> Scrivi
-              </a>
+              {/* WhatsApp al cliente solo dal telefono del locale o dal titolare (decisione del titolare). */}
+              {canWhatsapp && (
+                <a href={chatLink(b.phone)} target="_blank" rel="noopener noreferrer" className="flex min-h-10 items-center gap-1.5 rounded-full border border-border px-3.5 text-xs font-semibold text-foreground hover:border-accent">
+                  <WhatsappIcon className="h-4 w-4 text-[#137a43] dark:text-[#3fae74]" /> Scrivi
+                </a>
+              )}
             </div>
           </div>
           {b.email && (
@@ -503,16 +615,13 @@ export function BookingSheet({
           </div>
           <div className="px-3 py-2.5">
             <dt className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Da dove arriva</dt>
-            <dd className="text-foreground">
-              {SOURCE_LABEL[b.source ?? "altro"] ?? "Link diretto"}
-              {b.promoTitle ? ` · «${b.promoTitle}»` : ""}
-            </dd>
+            <dd className="text-foreground first-letter:uppercase">{sourceText(b.source, b.promoTitle)}</dd>
           </div>
           <div className="px-3 py-2.5">
             <dt className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Quel giorno</dt>
             <dd className="text-foreground">
               {sameDay.length ? `Già confermate ${peopleText(sameDayPeople)} (${sameDay.length} ${sameDay.length === 1 ? "tavolo" : "tavoli"})` : "Nessun'altra prenotazione confermata"}
-              {settings.capacityHint > 0 && <span className="text-foreground-muted"> · di solito pieni oltre {settings.capacityHint}</span>}
+              {settings.capacityHint > 0 && <span className="text-foreground-muted"> · di solito pieni oltre {peopleText(settings.capacityHint)}</span>}
               {dayFull && <span className="text-foreground-muted"> · richieste chiuse</span>}
             </dd>
           </div>
@@ -545,7 +654,29 @@ export function BookingSheet({
             })}
           </ol>
         </details>
+
+        {!result && (v === "PENDING" || v === "PROPOSED") && panel === null && (
+          <button type="button" disabled={busy} onClick={() => setAskGone(true)} className="min-h-10 w-full text-center text-xs font-medium text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground">
+            Il cliente non viene più
+          </button>
+        )}
+        {/* Per chi chiede di cancellare i suoi dati (informativa): solo il titolare. */}
+        {isOwner && (
+          <button type="button" disabled={busy} onClick={() => setAskErase(true)} className="min-h-10 w-full text-center text-xs font-medium text-danger underline decoration-dotted underline-offset-2 hover:opacity-80">
+            Cancella i dati di questa richiesta
+          </button>
+        )}
       </div>
+      {askGone && (
+        <ConfirmSheet title="Il cliente non viene più?" confirmLabel="Sì, chiudi la richiesta" busy={busy} onConfirm={() => send("customerCancel")} onCancel={() => setAskGone(false)}>
+          <p>La richiesta si chiude come annullata dal cliente. Non gli mandiamo nessun messaggio.</p>
+        </ConfirmSheet>
+      )}
+      {askErase && (
+        <ConfirmSheet title="Cancellare i dati di questa richiesta?" confirmLabel="Cancella i dati" danger busy={busy} onConfirm={erase} onCancel={() => setAskErase(false)}>
+          <p>Nome, telefono, nota e cronologia di {b.name} spariscono per sempre. Serve quando il cliente chiede di cancellare i suoi dati. Non gli mandiamo nessun messaggio.</p>
+        </ConfirmSheet>
+      )}
     </Sheet>
   );
 }

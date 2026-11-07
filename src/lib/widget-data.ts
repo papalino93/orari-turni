@@ -803,7 +803,7 @@ const TODO_SHORT: Record<string, (n: number, mese?: string) => string> = {
   "da confermare": () => "Orari settimana prossima da confermare",
   "da approvare": (n) => `Ore da approvare: ${n}`,
   "ore da mandare": (n, mese) => `Ore di ${mese ?? "questo mese"}: ne mancano ${n}`,
-  prenotazioni: (n) => `Prenotazioni da confermare: ${n}`,
+  prenotazioni: (n) => `Richieste da confermare: ${n}`,
   whatsapp: (n) => `Risposte WhatsApp da mandare: ${n}`,
 };
 const todoShort = (r: { n: number; breve: string; mese?: string }) => TODO_SHORT[r.breve]?.(r.n, r.mese) ?? todoText(r);
@@ -814,7 +814,7 @@ const TODO_TILE: Record<string, (n: number) => string> = {
   "da confermare": () => "Orari da confermare",
   "da approvare": (n) => `Ore da approvare: ${n}`,
   "ore da mandare": (n) => `Ore da mandare: ${n}`,
-  prenotazioni: (n) => `Prenotazioni: ${n}`,
+  prenotazioni: (n) => `Tavoli da confermare: ${n}`,
   whatsapp: (n) => `WhatsApp da mandare: ${n}`,
 };
 

@@ -13,7 +13,7 @@ export const metadata = { title: "Prenotazioni" };
 
 // Richieste di tavolo dal sito. Il Proxy lascia arrivare qui ogni login (non conosce i permessi):
 // decide la pagina, con il permesso letto dal database a ogni apertura.
-export default async function PrenotazioniPage() {
+export default async function PrenotazioniPage({ searchParams }: { searchParams: Promise<{ r?: string | string[] }> }) {
   const manager = await getBookingManager();
   if (!manager) {
     return (
@@ -36,6 +36,7 @@ export default async function PrenotazioniPage() {
   }
 
   const now = new Date();
+  const { r } = await searchParams;
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const origin = siteOrigin(host ? `${h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}` : null);
@@ -93,6 +94,7 @@ export default async function PrenotazioniPage() {
       mailReady={mailConfigured()}
       push={{ publicKey: pushPublicKey(), myEndpoints: subs.map((s) => s.endpoint) }}
       googleLink={`${origin}/prenota?da=google`}
+      openRequest={typeof r === "string" && /^[a-z0-9]{10,40}$/i.test(r) ? r : null}
     />
   );
 }

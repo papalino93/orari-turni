@@ -7,13 +7,13 @@ import { loadBookingSettings } from "@/lib/booking/service";
 // Orari e contatti a piè di pagina: ogni pulsante compare solo se il dato c'è.
 // Si aprono nella stessa scheda: con «indietro» il cliente torna sempre al menù (in una
 // scheda nuova, ad esempio dopo la recensione su Google, «indietro» non porta da nessuna parte).
-// «Prenota un tavolo» (il modulo online) compare per primo, solo se le prenotazioni sono accese.
+// «Chiedi un tavolo» (il modulo online) compare per primo, solo se le prenotazioni sono accese.
 export function VenueInfo({ hours, contacts, bookHref = null }: { hours: Hours; contacts: Contacts; bookHref?: string | null }) {
   const tel = contacts.phone ? telHref(contacts.phone) : null;
   const wa = contacts.phone ? whatsappHref(contacts.phone, contacts.whatsappMessage) : null;
   const maps = mapsHref(contacts.address);
   const buttons = [
-    bookHref && { href: bookHref, label: "Prenota un tavolo" },
+    bookHref && { href: bookHref, label: "Chiedi un tavolo" },
     tel && { href: tel, label: "Chiama" },
     wa && { href: wa, label: "WhatsApp" },
     maps && { href: maps, label: "Come arrivare" },

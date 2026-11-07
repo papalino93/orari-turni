@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { runWithToast, showActionError, useToast } from "@/components/toast";
@@ -10,14 +11,23 @@ import { whatsappPending } from "@/lib/booking/whatsapp-queue";
 import type { MessageKind } from "@/lib/booking/messages";
 import type { Hours } from "@/lib/menu-venue";
 import { markWhatsapp, setArrival, setBookingsEnabled, setDayClosed } from "./actions";
-import { BookingSheet, StatusChip, TestChip, WhatsappButton } from "./booking-sheet";
+import { ALLERGY_TEXT, BookingSheet, StatusChip, TestChip } from "./booking-sheet";
 import { SettingsSheet } from "./settings-sheet";
 import { BellIcon, LocalPhoneBox, PushBox, useLocalPhone, usePush, WhatsappIcon } from "./device";
-import { clock, dayLabel, duration, phoneDisplay, REPLY_LABEL, replyHref, telLink, viewOf } from "./format";
+import { clock, dayLabel, duration, phoneDisplay, REPLY_SHORT, replyHref, sourceText, telLink, viewOf } from "./format";
 import type { BookingItem, BookingStatsData } from "./types";
 
 type Tab = "todo" | "tonight" | "next" | "archive" | "numbers";
 const PUSH_LATER_KEY = "prenotazioni-avvisi-non-ora";
+const IOS_LATER_KEY = "prenotazioni-iphone-non-ora";
+
+function remember(key: string) {
+  try {
+    localStorage.setItem(key, "1");
+  } catch {
+    /* solo per questa volta */
+  }
+}
 
 export function BookingsView({
   now: serverNow,
@@ -31,6 +41,7 @@ export function BookingsView({
   mailReady,
   push: pushConfig,
   googleLink,
+  openRequest,
 }: {
   now: number;
   today: string;
@@ -43,12 +54,32 @@ export function BookingsView({
   mailReady: boolean;
   push: { publicKey: string | null; myEndpoints: string[] };
   googleLink: string;
+  // ?r=<id> nell'indirizzo (tocco sulla notifica): si apre subito quella richiesta.
+  openRequest: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [now, setNow] = useState(serverNow);
-  const [openId, setOpenId] = useState<string | null>(null);
+  // Dalla notifica: /prenotazioni?r=<id> apre subito il foglio di quella richiesta.
+  const [openId, setOpenId] = useState<string | null>(openRequest);
   const [sheetKey, setSheetKey] = useState(0);
+  const [askedFor, setAskedFor] = useState(openRequest);
+  if (openRequest !== askedFor) {
+    setAskedFor(openRequest);
+    if (openRequest) {
+      setOpenId(openRequest);
+      setSheetKey((k) => k + 1);
+    }
+  }
+  // Poi l'indirizzo torna pulito, così ricaricando la pagina il foglio non si riapre.
+  useEffect(() => {
+    if (!openRequest) return;
+    try {
+      window.history.replaceState(window.history.state, "", "/prenotazioni");
+    } catch {
+      /* resta l'indirizzo con ?r= */
+    }
+  }, [openRequest]);
   const [showSettings, setShowSettings] = useState(false);
   const [showDevice, setShowDevice] = useState(false);
   const [askEnable, setAskEnable] = useState(false);
@@ -59,14 +90,20 @@ export function BookingsView({
   const [localPhone, setLocalPhone] = useLocalPhone();
   const push = usePush(pushConfig.publicKey, pushConfig.myEndpoints);
   const [pushLater, setPushLater] = useState(true);
+  const [iosLater, setIosLater] = useState(true);
   const canWhatsapp = isOwner || localPhone;
+  // Risposte aperte in WhatsApp da questa pagina: restano nella lista con «Aperto alle…» finché la pagina resta aperta.
+  const [waOpened, setWaOpened] = useState<Record<string, { at: number; kind: MessageKind }>>({});
+  const noteWaOpened = useCallback((id: string, kind: MessageKind) => setWaOpened((m) => ({ ...m, [id]: { at: Date.now(), kind } })), []);
 
   useEffect(() => {
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage non c'è al primo disegno sul server
       setPushLater(localStorage.getItem(PUSH_LATER_KEY) === "1");
+      setIosLater(localStorage.getItem(IOS_LATER_KEY) === "1");
     } catch {
       setPushLater(false);
+      setIosLater(false);
     }
   }, []);
 
@@ -97,8 +134,14 @@ export function BookingsView({
     const pending = live.filter((x) => x.v === "PENDING").map((x) => x.b);
     const proposed = live.filter((x) => x.v === "PROPOSED").map((x) => x.b);
     const wa = rows
-      .map((b) => ({ b, kind: whatsappPending(b, now) }))
-      .filter((x): x is { b: BookingItem; kind: MessageKind } => x.kind !== null)
+      .map((b) => ({ b, kind: whatsappPending(b, now), openedAt: null as number | null }))
+      .filter((x): x is { b: BookingItem; kind: MessageKind; openedAt: number | null } => x.kind !== null)
+      .sort((a, b) => a.b.startsAt - b.b.startsAt);
+    // Quelle appena aperte in WhatsApp da qui: restano visibili, con «Aperto alle…» e «Riapri».
+    const waIds = new Set(wa.map((x) => x.b.id));
+    const waDone = rows
+      .filter((b) => waOpened[b.id] && !waIds.has(b.id))
+      .map((b) => ({ b, kind: waOpened[b.id].kind, openedAt: waOpened[b.id].at }))
       .sort((a, b) => a.b.startsAt - b.b.startsAt);
     const tonight = live.filter((x) => x.v === "CONFIRMED" && x.b.day === today).map((x) => x.b);
     const upcoming = live.filter((x) => x.v === "CONFIRMED" && x.b.day > today).map((x) => x.b);
@@ -106,8 +149,8 @@ export function BookingsView({
       .filter((x) => x.v === "DECLINED" || x.v === "CANCELLED" || x.v === "EXPIRED" || (x.v === "CONFIRMED" && x.b.day < today))
       .map((x) => x.b)
       .sort((a, b) => b.startsAt - a.startsAt);
-    return { pending, proposed, wa, tonight, upcoming, archive };
-  }, [rows, now, today]);
+    return { pending, proposed, wa, waDone, tonight, upcoming, archive };
+  }, [rows, now, today, waOpened]);
 
   // Una nuova richiesta arrivata con la pagina aperta: un messaggio, oltre al numero.
   const seen = useRef<Set<string> | null>(null);
@@ -131,7 +174,8 @@ export function BookingsView({
   const next = lists.pending.find((b) => b.id !== openId) ?? null;
 
   const todayClosed = fullDays.includes(today);
-  const todayOpen = availability(today, hours, settings, null, new Date(now)).state !== "closed";
+  // La fascia di stasera solo finché oggi si può ancora chiedere un tavolo online: dopo, non serve più.
+  const todayOpen = availability(today, hours, settings, null, new Date(now)).state === "open";
 
   async function closeDay(day: string, full: boolean) {
     setBusy(true);
@@ -161,9 +205,9 @@ export function BookingsView({
         .sort((a, b) => b.startsAt - a.startsAt)
     : [];
 
-  const todoCount = lists.pending.length + lists.wa.length;
+  // Come il pallino del menù in alto e Impostazioni: solo le richieste da confermare.
   const TABS: { id: Tab; label: string; count?: number }[] = [
-    { id: "todo", label: "Da gestire", count: todoCount },
+    { id: "todo", label: "Da gestire", count: lists.pending.length },
     { id: "tonight", label: "Stasera", count: lists.tonight.length },
     { id: "next", label: "Prossimi giorni" },
     { id: "archive", label: "Archivio" },
@@ -175,7 +219,7 @@ export function BookingsView({
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight">Prenotazioni</h1>
-          <p className="mt-1 text-sm text-foreground-muted">Le richieste di tavolo dal sito: rispondi a ognuna, il cliente riceve il messaggio.</p>
+          <p className="mt-1 text-sm text-foreground-muted">Le richieste di tavolo dal sito. Rispondi a ognuna: il cliente riceve la risposta.</p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <IconButton label="Cerca" active={searching} onClick={() => (searching ? (setSearching(false), setQuery("")) : setSearching(true))}>
@@ -184,7 +228,7 @@ export function BookingsView({
               <path d="M20 20l-3.5-3.5" />
             </svg>
           </IconButton>
-          <IconButton label="Questo telefono" onClick={() => setShowDevice(true)} dot={push.state === "on"}>
+          <IconButton label="Avvisi e WhatsApp su questo telefono" onClick={() => setShowDevice(true)} dot={push.state === "on"}>
             <BellIcon />
           </IconButton>
           {isOwner && (
@@ -224,6 +268,29 @@ export function BookingsView({
         </div>
       )}
 
+      {push.state === "ios-install" && !iosLater && (
+        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center">
+          <p className="flex flex-1 items-start gap-2 text-sm text-foreground">
+            <BellIcon className="mt-0.5 shrink-0 text-gold" /> Su iPhone gli avvisi arrivano solo con l&apos;app sulla schermata Home.
+          </p>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIosLater(true);
+                remember(IOS_LATER_KEY);
+              }}
+              className="min-h-11 rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:text-foreground"
+            >
+              Non ora
+            </button>
+            <Link href="/installa" className="flex min-h-11 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover">
+              Come si fa
+            </Link>
+          </div>
+        </div>
+      )}
+
       {push.state === "off" && !pushLater && (
         <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center">
           <p className="flex flex-1 items-start gap-2 text-sm text-foreground">
@@ -234,18 +301,14 @@ export function BookingsView({
               type="button"
               onClick={() => {
                 setPushLater(true);
-                try {
-                  localStorage.setItem(PUSH_LATER_KEY, "1");
-                } catch {
-                  /* solo per questa volta */
-                }
+                remember(PUSH_LATER_KEY);
               }}
               className="min-h-11 rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:text-foreground"
             >
               Non ora
             </button>
             <button type="button" disabled={push.busy} onClick={push.activate} className="min-h-11 rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-60">
-              {push.busy ? "Un attimo…" : "Attiva le notifiche"}
+              {push.busy ? "Un attimo…" : "Attiva gli avvisi"}
             </button>
           </div>
         </div>
@@ -258,14 +321,12 @@ export function BookingsView({
         >
           <p className="min-w-0 text-sm text-foreground">
             {todayClosed ? (
-              <>
-                <span className="font-semibold text-danger">Stasera siete pieni:</span> niente più richieste online per oggi.
-              </>
+              <span className="font-semibold text-danger">Stasera al completo: niente più richieste online.</span>
             ) : (
               <>
                 <span className="font-semibold">Stasera</span>{" "}
                 <span className="text-foreground-muted">
-                  · {lists.tonight.length ? `${peopleText(lists.tonight.reduce((s, b) => s + b.people, 0))} confermate` : "nessuna prenotazione confermata"} · richieste aperte
+                  · {lists.tonight.length ? `${peopleText(lists.tonight.reduce((s, b) => s + b.people, 0))} prenotate online` : "nessuna prenotazione online"} · si accettano richieste online
                 </span>
               </>
             )}
@@ -278,7 +339,7 @@ export function BookingsView({
               todayClosed ? "border border-border bg-surface text-foreground hover:border-accent" : "border border-danger/40 text-danger hover:bg-danger-bg"
             }`}
           >
-            {todayClosed ? "Riapri le richieste" : "Siamo pieni stasera"}
+            {todayClosed ? "Riapri le richieste" : "Stasera siamo al completo"}
           </button>
         </div>
       )}
@@ -339,28 +400,41 @@ export function BookingsView({
           <div id="prenotazioni-scheda" role="tabpanel" aria-labelledby={`scheda-${tab}`}>
             {tab === "todo" && (
               <div className="space-y-6">
-                {lists.wa.length > 0 && (
+                {(lists.wa.length > 0 || lists.waDone.length > 0) && (
                   <section aria-labelledby="wa-titolo" className="rounded-2xl border border-[#137a43]/30 bg-[#137a43]/[0.06] p-4">
                     <h2 id="wa-titolo" className="flex items-center gap-2 text-sm font-semibold text-foreground">
                       <WhatsappIcon className="text-[#137a43] dark:text-[#3fae74]" /> Da mandare su WhatsApp ({lists.wa.length})
                     </h2>
-                    <p className="mt-0.5 text-xs text-foreground-muted">
-                      {canWhatsapp ? "Un tocco apre WhatsApp con il messaggio già scritto: controlla e tocca Invia." : "Le risposte su WhatsApp partono dal telefono del locale."}
-                    </p>
-                    <ul className="mt-3 space-y-2">
-                      {lists.wa.map(({ b, kind }) => (
-                        <WaRow key={b.id} b={b} kind={kind} today={today} canWhatsapp={canWhatsapp} onOpen={open} />
-                      ))}
-                    </ul>
-                    {!isOwner && !localPhone && (
-                      <button type="button" onClick={() => setShowDevice(true)} className="mt-3 text-xs font-medium text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground">
-                        Questo è il telefono del locale?
-                      </button>
+                    {canWhatsapp ? (
+                      <>
+                        <p className="mt-0.5 text-xs text-foreground-muted">Un tocco sul pulsante verde apre WhatsApp con il messaggio già scritto: controlla e tocca Invia.</p>
+                        <ul className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
+                          {lists.wa.map(({ b, kind }) => (
+                            <WaRow key={b.id} b={b} kind={kind} today={today} openedAt={null} onOpen={open} onWaOpened={noteWaOpened} />
+                          ))}
+                          {lists.waDone.map(({ b, kind, openedAt }) => (
+                            <WaRow key={b.id} b={b} kind={kind} today={today} openedAt={openedAt} onOpen={open} onWaOpened={noteWaOpened} />
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      // Da un telefono che non manda WhatsApp basta sapere che ci sono: i dettagli sono nel foglio di ognuna.
+                      <p className="mt-1 text-sm text-foreground-muted">
+                        {lists.wa.length === 1 ? "1 risposta aspetta" : `${lists.wa.length} risposte aspettano`} il telefono del locale.{" "}
+                        {!isOwner && (
+                          <button type="button" onClick={() => setShowDevice(true)} className="font-medium text-foreground underline decoration-dotted underline-offset-2">
+                            È questo?
+                          </button>
+                        )}
+                      </p>
                     )}
                   </section>
                 )}
 
-                <section aria-label="Richieste da confermare">
+                <section aria-labelledby="da-confermare-titolo">
+                  <h2 id="da-confermare-titolo" className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+                    Da confermare ({lists.pending.length})
+                  </h2>
                   {lists.pending.length === 0 ? (
                     <Empty
                       title="Nessuna richiesta da confermare"
@@ -399,7 +473,7 @@ export function BookingsView({
             {tab === "archive" &&
               (lists.archive.length ? (
                 <>
-                  <p className="mb-2 px-1 text-xs text-foreground-muted">Non c&apos;era posto, annullate, scadute e passate degli ultimi 30 giorni.</p>
+                  <p className="mb-2 px-1 text-xs text-foreground-muted">Al completo, annullate, scadute e passate degli ultimi 30 giorni.</p>
                   <CardList>
                     {lists.archive.map((b) => (
                       <RequestCard key={b.id} b={b} now={now} today={today} onOpen={open} showStatus />
@@ -407,7 +481,7 @@ export function BookingsView({
                   </CardList>
                 </>
               ) : (
-                <Empty title="L'archivio è vuoto" text="Qui finiscono le richieste rifiutate, annullate, scadute e passate degli ultimi 30 giorni." />
+                <Empty title="L'archivio è vuoto" text="Qui finiscono le richieste al completo, annullate, scadute e passate degli ultimi 30 giorni." />
               ))}
 
             {tab === "numbers" && <Numbers stats={stats} />}
@@ -426,9 +500,11 @@ export function BookingsView({
           hours={hours}
           fullDays={fullDays}
           canWhatsapp={canWhatsapp}
+          isOwner={isOwner}
           next={next}
           onOpen={open}
           onClose={() => setOpenId(null)}
+          onWaOpened={noteWaOpened}
         />
       )}
 
@@ -437,7 +513,7 @@ export function BookingsView({
       )}
 
       {showDevice && (
-        <Sheet title="Questo telefono" onClose={() => setShowDevice(false)}>
+        <Sheet title="Avvisi e WhatsApp su questo telefono" onClose={() => setShowDevice(false)}>
           <div className="space-y-3" data-unsaved-ignore>
             <PushBox push={push} />
             <LocalPhoneBox isOwner={isOwner} localPhone={localPhone} setLocalPhone={setLocalPhone} />
@@ -529,8 +605,8 @@ function RequestCard({ b, now, today, onOpen, showStatus = false }: { b: Booking
           v === "PENDING" && waiting >= 30 ? "border-danger/40" : "border-border"
         }`}
       >
-        <span className={`flex w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-xl py-2 ${day === "Oggi" ? "bg-accent/15" : "bg-surface-2"}`}>
-          <span className={`text-[11px] font-semibold uppercase tracking-wide ${day === "Oggi" ? "text-accent-ink" : "text-foreground-muted"}`}>{day}</span>
+        <span className={`flex w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-xl px-1 py-2 sm:w-24 ${day === "Oggi" ? "bg-accent/15" : "bg-surface-2"}`}>
+          <span className={`text-center text-[11px] font-semibold uppercase leading-tight tracking-wide ${day === "Oggi" ? "text-accent-ink" : "text-foreground-muted"}`}>{day}</span>
           <span className="text-lg font-semibold tabular-nums leading-tight text-foreground">{v === "PROPOSED" && b.proposedTime ? b.proposedTime : b.time}</span>
         </span>
         <span className="min-w-0 flex-1 py-0.5">
@@ -542,7 +618,7 @@ function RequestCard({ b, now, today, onOpen, showStatus = false }: { b: Booking
           <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             {(showStatus || v === "PROPOSED") && <StatusChip b={b} now={now} />}
             {b.isTest && <TestChip />}
-            {b.allergies && <span className="rounded-full bg-danger-bg px-2 py-0.5 font-semibold text-danger">⚠ Allergie</span>}
+            {b.allergies && <span className="rounded-full bg-danger-bg px-2 py-0.5 font-semibold text-danger">{ALLERGY_TEXT}</span>}
             {v === "PENDING" &&
               (waiting >= 30 ? (
                 <span className="font-semibold text-danger">in attesa da {duration(waiting)}</span>
@@ -550,7 +626,7 @@ function RequestCard({ b, now, today, onOpen, showStatus = false }: { b: Booking
                 <span className="text-foreground-muted">arrivata {duration(waiting)} fa</span>
               ))}
             {v === "PROPOSED" && <span className="text-foreground-muted">aveva chiesto le {b.time}</span>}
-            {b.source && b.source !== "altro" && <span className="text-foreground-muted">{SOURCE_LABEL[b.source]}</span>}
+            {b.source && b.source !== "altro" && <span className="text-foreground-muted">{sourceText(b.source, b.promoTitle)}</span>}
           </span>
         </span>
         <span aria-hidden className="self-center text-foreground-muted">
@@ -561,43 +637,65 @@ function RequestCard({ b, now, today, onOpen, showStatus = false }: { b: Booking
   );
 }
 
-function WaRow({ b, kind, today, canWhatsapp, onOpen }: { b: BookingItem; kind: MessageKind; today: string; canWhatsapp: boolean; onOpen: (id: string) => void }) {
+// Una riga della lista «Da mandare su WhatsApp»: nome · tipo di risposta · giorno e ora, e il pulsante verde.
+function WaRow({
+  b,
+  kind,
+  today,
+  openedAt,
+  onOpen,
+  onWaOpened,
+}: {
+  b: BookingItem;
+  kind: MessageKind;
+  today: string;
+  // Già aperta in WhatsApp da qui (ora): resta in lista con «Riapri».
+  openedAt: number | null;
+  onOpen: (id: string) => void;
+  onWaOpened: (id: string, kind: MessageKind) => void;
+}) {
   const router = useRouter();
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
   const href = replyHref(b, kind);
-  async function done() {
-    setBusy(true);
-    await runWithToast(toast, () => markWhatsapp(b.id, "done"), "Segnata come mandata");
-    setBusy(false);
-    router.refresh();
-  }
   return (
-    <li className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3 sm:flex-row sm:items-center">
-      <button type="button" onClick={() => onOpen(b.id)} className="block min-w-0 flex-1 text-left">
-        <span className="flex items-baseline justify-between gap-2 sm:justify-start">
-          <span className="truncate text-sm font-semibold text-foreground">{b.name}</span>
-          <span className="shrink-0 text-xs font-medium text-foreground-muted">{REPLY_LABEL[kind]}</span>
-        </span>
-        <span className="block text-xs text-foreground-muted">
-          {dayLabel(b.day, today)} alle {kind === "proposed" ? b.proposedTime : b.time} · {peopleText(b.people)} · {phoneDisplay(b.phone)}
+    <li className="flex items-center gap-2 py-1 pl-3 pr-1.5">
+      <button type="button" onClick={() => onOpen(b.id)} className="flex min-h-11 min-w-0 flex-1 items-center text-left">
+        {/* Si accorcia solo il nome: tipo di risposta, giorno e ora restano sempre interi. */}
+        <span className="flex min-w-0 items-baseline text-sm">
+          <span className="min-w-0 truncate font-semibold text-foreground">{b.name}</span>
+          <span className="shrink-0 whitespace-nowrap text-foreground-muted">
+            &nbsp;· {openedAt ? `Aperto alle ${clock(openedAt)}` : REPLY_SHORT[kind]} · {dayLabel(b.day, today)} {kind === "proposed" ? b.proposedTime : b.time}
+          </span>
         </span>
       </button>
-      {canWhatsapp && href ? (
-        <div className="flex shrink-0 flex-col gap-2 sm:flex-row-reverse sm:items-center">
-          <WhatsappButton href={href} bookingId={b.id} label="Manda su WhatsApp" compact />
-          <button type="button" disabled={busy} onClick={done} className="min-h-11 rounded-xl px-3 text-xs font-medium text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground disabled:opacity-60">
-            Segna come già mandata
-          </button>
-        </div>
-      ) : (
-        // Da un telefono qualsiasi si può solo segnare (es. il collega ha già scritto dal telefono del locale).
-        <div className="flex shrink-0 justify-end">
-          <button type="button" disabled={busy} onClick={done} className="min-h-10 rounded-full px-3 text-xs font-medium text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground disabled:opacity-60">
-            Segna come già mandata
-          </button>
-        </div>
-      )}
+      {href &&
+        (openedAt ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => onWaOpened(b.id, kind)}
+            className="flex min-h-11 shrink-0 items-center rounded-full px-3 text-xs font-semibold text-[#137a43] underline decoration-dotted underline-offset-2 dark:text-[#3fae74]"
+          >
+            Riapri
+          </a>
+        ) : (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Manda su WhatsApp a ${b.name}`}
+            title="Manda su WhatsApp"
+            onClick={() => {
+              onWaOpened(b.id, kind);
+              markWhatsapp(b.id, "opened")
+                .then(() => router.refresh())
+                .catch(() => {});
+            }}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#137a43] text-white hover:bg-[#0f6837]"
+          >
+            <WhatsappIcon />
+          </a>
+        ))}
     </li>
   );
 }
@@ -609,7 +707,7 @@ function Tonight({ rows, now, today, onOpen }: { rows: BookingItem[]; now: numbe
   return (
     <section aria-label="Stasera">
       <p className="mb-3 px-1 text-sm text-foreground">
-        <span className="font-semibold">{peopleText(people)}</span>
+        <span className="font-semibold">Stasera · {peopleText(people)} prenotate online</span>
         <span className="text-foreground-muted">
           {" "}
           · {rows.length} {rows.length === 1 ? "tavolo" : "tavoli"} · arrivati {arrived} su {rows.length}
@@ -643,38 +741,50 @@ function TonightRow({ b, now, onOpen }: { b: BookingItem; now: number; today: st
   const late = !b.arrivedAt && !b.noShowAt && b.startsAt < now;
   return (
     <li className={`rounded-2xl border bg-surface p-3 shadow-sm ${b.arrivedAt ? "border-success/30 opacity-80" : b.noShowAt ? "border-border opacity-60" : "border-border"}`}>
-      <button type="button" onClick={() => onOpen(b.id)} className="flex w-full items-start gap-3 text-left">
-        <span className="w-14 shrink-0 text-xl font-semibold tabular-nums text-foreground">{b.time}</span>
-        <span className="min-w-0 flex-1">
-          <span className="flex items-baseline justify-between gap-2">
-            <span className="truncate text-[15px] font-semibold text-foreground">{b.name}</span>
-            <span className="shrink-0 text-sm font-semibold tabular-nums">{peopleText(b.people)}</span>
+      <div className="flex items-start gap-2">
+        <button type="button" onClick={() => onOpen(b.id)} className="flex min-w-0 flex-1 items-start gap-3 text-left">
+          <span className="w-14 shrink-0 text-xl font-semibold tabular-nums text-foreground">{b.time}</span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="truncate text-[15px] font-semibold text-foreground">{b.name}</span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums">{peopleText(b.people)}</span>
+            </span>
+            {b.note && <span className="mt-0.5 block text-sm text-foreground-muted">«{b.note}»</span>}
+            <span className="mt-1 flex flex-wrap gap-1.5 text-xs">
+              {b.isTest && <TestChip />}
+              {b.allergies && <span className="rounded-full bg-danger-bg px-2 py-0.5 font-semibold text-danger">{ALLERGY_TEXT}</span>}
+              {b.arrivedAt && <span className="font-semibold text-success">✓ Arrivati alle {clock(b.arrivedAt)}</span>}
+              {b.noShowAt && <span className="font-semibold text-danger">Non venuti</span>}
+              {late && <span className="font-medium text-gold">in ritardo di {duration((now - b.startsAt) / 60000)}</span>}
+            </span>
           </span>
-          {b.note && <span className="mt-0.5 block text-sm text-foreground-muted">«{b.note}»</span>}
-          <span className="mt-1 flex flex-wrap gap-1.5 text-xs">
-            {b.isTest && <TestChip />}
-            {b.allergies && <span className="rounded-full bg-danger-bg px-2 py-0.5 font-semibold text-danger">⚠ Allergie: chiedere al tavolo</span>}
-            {b.arrivedAt && <span className="font-semibold text-success">✓ Arrivati alle {clock(b.arrivedAt)}</span>}
-            {b.noShowAt && <span className="font-semibold text-danger">Non venuti</span>}
-            {late && <span className="font-medium text-gold">in ritardo di {duration((now - b.startsAt) / 60000)}</span>}
-          </span>
-        </span>
-      </button>
-      <div className="mt-2 flex flex-wrap items-center gap-2 pl-[4.25rem]">
-        <a href={telLink(b.phone)} className="flex min-h-10 items-center rounded-full border border-border px-3 text-xs font-medium tabular-nums text-foreground hover:border-accent">
-          📞 {phoneDisplay(b.phone)}
+        </button>
+        <a
+          href={telLink(b.phone)}
+          aria-label={`Chiama ${b.name}: ${phoneDisplay(b.phone)}`}
+          title={`Chiama ${phoneDisplay(b.phone)}`}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border text-foreground hover:border-accent"
+        >
+          <PhoneIcon />
         </a>
+      </div>
+      <div className="mt-2.5 grid grid-cols-2 gap-2">
         {b.arrivedAt || b.noShowAt ? (
-          <button type="button" disabled={busy} onClick={() => mark(null)} className="min-h-10 rounded-full px-3 text-xs font-medium text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground disabled:opacity-60">
+          <button type="button" disabled={busy} onClick={() => mark(null)} className="col-span-2 min-h-11 rounded-xl text-sm font-medium text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground disabled:opacity-60">
             Togli il segno
           </button>
         ) : (
           <>
-            <button type="button" disabled={busy} onClick={() => mark(true)} className="min-h-10 rounded-full border border-success/40 px-4 text-xs font-semibold text-success hover:bg-success-bg disabled:opacity-60">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => mark(true)}
+              className={`min-h-11 rounded-xl border border-success/40 text-sm font-semibold text-success hover:bg-success-bg disabled:opacity-60 ${b.startsAt <= now ? "" : "col-span-2"}`}
+            >
               ✓ Arrivati
             </button>
             {b.startsAt <= now && (
-              <button type="button" disabled={busy} onClick={() => mark(false)} className="min-h-10 rounded-full border border-border px-3 text-xs font-medium text-foreground-muted hover:border-danger hover:text-danger disabled:opacity-60">
+              <button type="button" disabled={busy} onClick={() => mark(false)} className="min-h-11 rounded-xl border border-border text-sm font-medium text-foreground-muted hover:border-danger hover:text-danger disabled:opacity-60">
                 Non venuti
               </button>
             )}
@@ -682,6 +792,14 @@ function TonightRow({ b, now, onOpen }: { b: BookingItem; now: number; today: st
         )}
       </div>
     </li>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" />
+    </svg>
   );
 }
 
@@ -730,7 +848,7 @@ function Upcoming({
                 </h2>
                 <p className="text-xs text-foreground-muted">
                   {list.length ? `${peopleText(people)} · ${list.length} ${list.length === 1 ? "tavolo" : "tavoli"}` : "Nessuna prenotazione confermata"}
-                  {settings.capacityHint > 0 && <span className={overHint ? "font-semibold text-danger" : ""}> · di solito pieni oltre {settings.capacityHint}</span>}
+                  {settings.capacityHint > 0 && <span className={overHint ? "font-semibold text-danger" : ""}> · di solito pieni oltre {peopleText(settings.capacityHint)}</span>}
                   {waiting > 0 && <span className="font-semibold text-gold"> · {waiting} da confermare</span>}
                 </p>
               </div>

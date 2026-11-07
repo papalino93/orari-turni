@@ -296,7 +296,7 @@ export async function afterCreate(id: string, origin: string | null): Promise<vo
   if (b.isTest || isPreview()) return;
   await purgeOldBookings().catch(() => {});
   const alert = staffAlert(b);
-  await notifyStaff(b.id, alert.title, alert.body, "/prenotazioni");
+  await notifyStaff(b.id, alert.title, alert.body, `/prenotazioni?r=${b.id}`);
   if (b.contact === "email" && b.email) await sendCustomerMail(b, "received", origin);
 }
 
@@ -310,8 +310,8 @@ async function notifyStaff(requestId: string, title: string, body: string, url: 
   if (isPreview()) return;
   const settings = await loadBookingSettings();
   const push = await sendPushToStaff({ title, body, url, tag: `booking-${requestId}` }).catch((e: unknown) => ({ sent: 0, failed: 1, error: String(e) }));
-  if (push.sent) await log(requestId, "sistema", "PUSH_OK", `Notifica a ${push.sent} ${push.sent === 1 ? "telefono" : "telefoni"}`);
-  if (push.failed) await log(requestId, "sistema", "PUSH_FAIL", `${push.failed} notifiche non partite`);
+  if (push.sent) await log(requestId, "sistema", "PUSH_OK", `Avviso a ${push.sent} ${push.sent === 1 ? "telefono" : "telefoni"}`);
+  if (push.failed) await log(requestId, "sistema", "PUSH_FAIL", `${push.failed} ${push.failed === 1 ? "avviso non partito" : "avvisi non partiti"}`);
   if (settings.notifyEmail && isValidEmail(settings.notifyEmail) && mailConfigured()) {
     try {
       await getProvider().sendBatch([
@@ -494,6 +494,21 @@ export function declineBooking(id: string, actor: StaffActor, message: unknown, 
   return respond(id, actor, ["PENDING", "PROPOSED"], { status: "DECLINED", staffMessage: msg(message) }, "DECLINED", msg(message), "declined", origin);
 }
 
+// Il cliente ha risposto «no» all'orario proposto (per esempio su WhatsApp): lo segna chi lavora.
+// Nessun messaggio al cliente (ce l'ha appena detto lui) e niente nella lista di WhatsApp.
+export async function refuseProposalForCustomer(id: string, actor: StaffActor, origin: string | null): Promise<StaffResult> {
+  const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { status: true, proposedTime: true } });
+  if (!b) return { ok: false, error: "Questa richiesta non c'è più." };
+  if (b.status !== "PROPOSED") return { ok: false, error: await alreadyHandled(id) };
+  return respond(id, actor, ["PROPOSED"], { status: "DECLINED", cancelledBy: "cliente" }, "REFUSED", `Il cliente ha detto no alle ${b.proposedTime ?? "orario proposto"} (segnato da ${actor.name})`, null, origin);
+}
+
+// «Ci ha avvisato il cliente»: non viene più (ha chiamato o scritto). Nessun messaggio al cliente.
+export function cancelForCustomer(id: string, actor: StaffActor, origin: string | null) {
+  return respond(id, actor, ["PENDING", "PROPOSED", "CONFIRMED"], { status: "CANCELLED", cancelledBy: "cliente" }, "CANCELLED", CUSTOMER_TOLD_US, null, origin);
+}
+export const CUSTOMER_TOLD_US = "Ci ha avvisato il cliente";
+
 export function cancelByVenue(id: string, actor: StaffActor, message: unknown, origin: string | null) {
   return respond(id, actor, ["CONFIRMED"], { status: "CANCELLED", cancelledBy: "locale", staffMessage: msg(message) }, "CANCELLED", msg(message), "cancelledByVenue", origin);
 }
@@ -556,7 +571,7 @@ export async function customerAction(token: string, action: unknown, origin: str
     await log(b.id, "cliente", "CANCELLED", null);
     const after = await prisma.bookingRequest.findUniqueOrThrow({ where: { id: b.id } });
     if (!after.isTest) {
-      await notifyStaff(b.id, "Prenotazione annullata dal cliente", `${after.name} · ${dayLong(after.day)} alle ${after.time} · ${peopleText(after.people)}`, "/prenotazioni");
+      await notifyStaff(b.id, "Prenotazione annullata dal cliente", `${after.name} · ${dayLong(after.day)} alle ${after.time} · ${peopleText(after.people)}`, `/prenotazioni?r=${b.id}`);
       if (after.contact === "email") await sendCustomerMail(after, "cancelledByCustomer", origin, b.status === "CONFIRMED");
     }
     return { ok: true, booking: after };
@@ -579,7 +594,7 @@ export async function customerAction(token: string, action: unknown, origin: str
         b.id,
         accept ? "Il cliente ha accettato il nuovo orario" : "Il cliente ha detto no al nuovo orario",
         `${after.name} · ${dayLong(after.day)} alle ${accept ? after.time : b.proposedTime} · ${peopleText(after.people)}`,
-        "/prenotazioni",
+        `/prenotazioni?r=${b.id}`,
       );
       if (accept && after.contact === "email") await sendCustomerMail(after, "confirmed", origin);
     }

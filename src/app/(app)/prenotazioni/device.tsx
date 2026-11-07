@@ -7,7 +7,7 @@ import { showActionError, useToast } from "@/components/toast";
 import { isStandalone } from "@/components/install-banner";
 import { removePushSubscription, savePushSubscription, sendTestPush } from "./actions";
 
-// «Questo telefono»: avvisi (notifiche) e «telefono del locale», da cui partono le risposte su WhatsApp.
+// «Avvisi e WhatsApp su questo telefono»: avvisi (notifiche) e «telefono del locale», da cui partono le risposte su WhatsApp.
 // Tutto vale per il dispositivo: il permesso delle notifiche e la scelta salvata nel browser.
 
 const LOCAL_PHONE_KEY = "prenotazioni-telefono-locale";
@@ -163,7 +163,7 @@ export function usePush(publicKey: string | null, myEndpoints: string[]): PushCo
     setBusy(true);
     try {
       const res = await sendTestPush(endpoint);
-      if (res.ok) toast.showSuccess("Notifica di prova mandata: arriva tra pochi secondi");
+      if (res.ok) toast.showSuccess("Avviso di prova mandato: arriva tra pochi secondi");
       else toast.showError(res.error);
     } catch (e) {
       showActionError(toast, e);
@@ -186,13 +186,13 @@ export function PushBox({ push }: { push: PushControl }) {
         <BellIcon /> Avvisi su questo telefono
       </h3>
       {state === "checking" && <p className="mt-1 text-sm text-foreground-muted">Controllo…</p>}
-      {state === "server-off" && <p className="mt-1 text-sm text-foreground-muted">Le notifiche non sono ancora collegate (manca una chiave sul server).</p>}
+      {state === "server-off" && <p className="mt-1 text-sm text-foreground-muted">Gli avvisi non sono ancora collegati: chiedi a chi ha preparato il sito.</p>}
       {state === "unsupported" && (
-        <p className="mt-1 text-sm text-foreground-muted">Questo browser non riceve notifiche. Sul telefono apri il sito con Chrome (Android) o installa l&apos;app (iPhone).</p>
+        <p className="mt-1 text-sm text-foreground-muted">Questo browser non riceve avvisi. Sul telefono apri il sito con Chrome (Android) o installa l&apos;app (iPhone).</p>
       )}
       {state === "ios-install" && (
         <div className="mt-1 text-sm text-foreground-muted">
-          <p>Su iPhone le notifiche arrivano solo se il sito è sulla schermata Home.</p>
+          <p>Su iPhone gli avvisi arrivano solo con l&apos;app sulla schermata Home.</p>
           <Link href="/installa" className={`${btn} mt-3 inline-flex items-center bg-accent text-accent-foreground hover:bg-accent-hover`}>
             Installa l&apos;app
           </Link>
@@ -200,14 +200,14 @@ export function PushBox({ push }: { push: PushControl }) {
       )}
       {state === "denied" && (
         <p className="mt-1 text-sm text-foreground-muted">
-          Le notifiche per questo sito sono bloccate. Riattivale dalle impostazioni del telefono (Notifiche) o del browser, poi torna qui.
+          Gli avvisi per questo sito sono bloccati. Riattivali dalle impostazioni del telefono (Notifiche) o del browser, poi torna qui.
         </p>
       )}
       {state === "off" && (
         <>
           <p className="mt-1 text-sm text-foreground-muted">Ricevi un avviso quando arriva una richiesta, anche con il telefono in tasca.</p>
           <button type="button" disabled={busy} onClick={push.activate} className={`${btn} mt-3 bg-accent text-accent-foreground hover:bg-accent-hover`}>
-            {busy ? "Un attimo…" : "Attiva le notifiche"}
+            {busy ? "Un attimo…" : "Attiva gli avvisi"}
           </button>
         </>
       )}
@@ -216,7 +216,7 @@ export function PushBox({ push }: { push: PushControl }) {
           <p className="mt-1 text-sm text-success">✓ Su questo telefono arrivano gli avvisi delle nuove richieste.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" disabled={busy} onClick={push.test} className={`${btn} border border-border text-foreground hover:border-accent`}>
-              Prova una notifica
+              Prova un avviso
             </button>
             <button type="button" disabled={busy} onClick={push.deactivate} className={`${btn} border border-border font-medium text-foreground-muted hover:border-danger hover:text-danger`}>
               Disattiva

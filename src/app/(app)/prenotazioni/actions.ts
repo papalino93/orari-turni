@@ -2,15 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireBookingManager, AuthError, type BookingManager } from "@/lib/guard";
 import { runAction, ValidationError, type ActionResult } from "@/lib/validation";
 import { isValidEmail } from "@/lib/mail";
 import { parseBookingSettings, type BookingSettings } from "@/lib/booking/rules";
 import {
+  acceptProposalForCustomer,
   cancelByVenue,
+  cancelForCustomer,
   confirmBooking,
   declineBooking,
+  eraseBooking,
+  refuseProposalForCustomer,
   loadBookingSettings,
   markArrival,
   markWhatsappOpened,
@@ -59,7 +65,9 @@ function outcome(r: StaffResult): ReplyOutcome {
 // Errori «già gestita da…»: si mostra il testo e la pagina si aggiorna comunque (vedi la vista).
 export async function replyToRequest(
   idInput: string,
-  kind: "confirm" | "propose" | "decline" | "cancel",
+  // accept/refuse: il cliente ha detto sì/no all'orario proposto (su WhatsApp o al telefono);
+  // customerCancel: ci ha avvisato il cliente che non viene (nessun messaggio).
+  kind: "confirm" | "propose" | "decline" | "cancel" | "accept" | "refuse" | "customerCancel",
   message: string,
   time?: string,
 ): Promise<ActionResult<ReplyOutcome>> {
@@ -73,6 +81,9 @@ export async function replyToRequest(
       if (kind === "propose") return outcome(await proposeTime(id, actor, time, message, origin));
       if (kind === "decline") return outcome(await declineBooking(id, actor, message, origin));
       if (kind === "cancel") return outcome(await cancelByVenue(id, actor, message, origin));
+      if (kind === "accept") return outcome(await acceptProposalForCustomer(id, actor, origin));
+      if (kind === "refuse") return outcome(await refuseProposalForCustomer(id, actor, origin));
+      if (kind === "customerCancel") return outcome(await cancelForCustomer(id, actor, origin));
       throw new ValidationError("Azione non valida.");
     } finally {
       refresh();
@@ -91,16 +102,31 @@ export async function setArrival(idInput: string, arrived: boolean | null): Prom
   });
 }
 
-// «Manda la risposta su WhatsApp» (aperto) oppure «Segna come già mandata».
-export async function markWhatsapp(idInput: string, how: "opened" | "done"): Promise<ActionResult> {
+// «Manda la risposta su WhatsApp» (aperto), «Segna come già mandata» e il suo «Annulla».
+export async function markWhatsapp(idInput: string, how: "opened" | "done" | "undo"): Promise<ActionResult> {
   return runAction(async () => {
     const m = await requireBookingManager();
     const id = parseBookingId(idInput);
     const exists = await prisma.bookingRequest.findUnique({ where: { id }, select: { id: true } });
     if (!exists) throw new ValidationError("Questa richiesta non c'è più.");
     if (how === "opened") await markWhatsappOpened(id, { name: m.name });
-    else await prisma.bookingLog.create({ data: { requestId: id, actor: m.name, kind: "WHATSAPP_DONE", message: null } });
+    else if (how === "done") await prisma.bookingLog.create({ data: { requestId: id, actor: m.name, kind: "WHATSAPP_DONE", message: null } });
+    else if (how === "undo") {
+      const last = await prisma.bookingLog.findFirst({ where: { requestId: id, kind: "WHATSAPP_DONE", actor: m.name }, orderBy: { at: "desc" }, select: { id: true } });
+      if (last) await prisma.bookingLog.delete({ where: { id: last.id } });
+    } else throw new ValidationError("Azione non valida.");
     refresh();
+  });
+}
+
+// Il cliente chiede di cancellare i suoi dati: solo il titolare, e non si torna indietro.
+export async function eraseRequest(idInput: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireOwner();
+    const id = parseBookingId(idInput);
+    const r = await eraseBooking(id);
+    refresh();
+    if (!r.ok) throw new ValidationError(r.error);
   });
 }
 
@@ -148,11 +174,11 @@ export async function saveSettings(input: SettingsInput): Promise<ActionResult> 
       firstTime: input.firstTime,
       lastBeforeClose: int(input.lastBeforeClose, 0, 240, "Ultima richiesta prima della chiusura"),
       step: Number(input.step),
-      maxPeople: int(input.maxPeople, 1, 40, "Persone al massimo"),
+      maxPeople: int(input.maxPeople, 1, 40, "Persone massime"),
       leadMinutes: int(input.leadMinutes, 0, 24 * 60, "Anticipo minimo"),
       daysAhead: int(input.daysAhead, 1, 180, "Giorni in avanti"),
       notifyEmail: email,
-      capacityHint: int(input.capacityHint, 0, 500, "Di solito pieni oltre"),
+      capacityHint: int(input.capacityHint, 0, 500, "Quante persone ci stanno"),
     };
     // Stesso controllo di chi legge le impostazioni: quello che si salva è quello che vale.
     await saveBookingSettings(parseBookingSettings(JSON.stringify(next)));
@@ -218,9 +244,22 @@ export async function sendTestPush(endpointInput: string): Promise<ActionResult<
       where: { endpoint: endpointInput, ...(m.employeeId ? { employeeId: m.employeeId } : { username: m.username }) },
       select: { id: true },
     });
-    if (!mine) throw new ValidationError("Gli avvisi non sono attivi su questo telefono: tocca «Attiva le notifiche».");
+    if (!mine) throw new ValidationError("Gli avvisi non sono attivi su questo telefono: tocca «Attiva gli avvisi».");
     const r = await sendPushToStaff({ title: "Prova riuscita", body: "Così arriva l'avviso di una nuova richiesta di prenotazione.", url: "/prenotazioni", tag: "booking-test" }, { endpoint: endpointInput });
-    if (!r.sent) throw new ValidationError("La notifica non è partita: disattiva e riattiva le notifiche, poi riprova.");
+    if (!r.sent) throw new ValidationError("L'avviso non è partito: disattiva e riattiva gli avvisi, poi riprova.");
     return r.sent;
+  });
+}
+
+// All'uscita: questo dispositivo non riceve più gli avvisi (il telefono può passare a un'altra persona).
+// Basta l'accesso, non il permesso: chi l'ha perso deve poter togliere lo stesso la sua iscrizione.
+export async function forgetPushOnSignOut(endpointInput: string): Promise<ActionResult> {
+  return runAction(async () => {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return;
+    if (typeof endpointInput !== "string" || endpointInput.length > 1000) throw new ValidationError("Dati non validi.");
+    const who = session.user.role === "EMPLOYEE" ? (session.user.employeeId ? { employeeId: session.user.employeeId } : null) : { username: session.user.username };
+    if (!who) return;
+    await prisma.pushSubscription.deleteMany({ where: { endpoint: endpointInput, ...who } });
   });
 }

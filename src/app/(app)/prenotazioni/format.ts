@@ -5,6 +5,10 @@ import { customerMessage, type MessageKind } from "@/lib/booking/messages";
 import { whatsappHref } from "@/lib/menu-venue";
 import type { BookingItem } from "./types";
 
+// Lo stesso testo che il servizio scrive nella cronologia (service.ts, CUSTOMER_TOLD_US): qui non si
+// può importare il servizio, che usa il database.
+const CUSTOMER_TOLD_US = "Ci ha avvisato il cliente";
+
 export function viewOf(b: BookingItem, now: number): BookingView {
   return viewStatus({ status: b.status, startsAt: new Date(b.startsAt), proposedStartsAt: b.proposedStartsAt ? new Date(b.proposedStartsAt) : null }, new Date(now));
 }
@@ -69,13 +73,31 @@ export function replyHref(b: BookingItem, kind: MessageKind): string | null {
 }
 
 export const REPLY_LABEL: Record<MessageKind, string> = {
+  received: "Messaggio: richiesta ricevuta",
+  confirmed: "Messaggio di conferma",
+  proposed: "Messaggio: un altro orario",
+  declined: "Messaggio: siamo al completo",
+  cancelledByVenue: "Messaggio di annullamento",
+  cancelledByCustomer: "Messaggio di annullamento",
+};
+
+// Più corte, per le righe della lista «Da mandare su WhatsApp».
+export const REPLY_SHORT: Record<MessageKind, string> = {
   received: "Richiesta ricevuta",
   confirmed: "Conferma",
-  proposed: "Proposta di un altro orario",
-  declined: "Siamo al completo",
+  proposed: "Altro orario",
+  declined: "Al completo",
   cancelledByVenue: "Annullamento",
   cancelledByCustomer: "Annullamento",
 };
+
+// Da dove arriva la richiesta, detto come una frase: «da Google», «dal menù», «dall'evento «…»».
+export function sourceText(source: string | null, promoTitle: string | null): string {
+  if (source === "evento" || promoTitle) return promoTitle ? `dall'evento «${promoTitle}»` : "da un evento";
+  if (source === "google") return "da Google";
+  if (source === "menu") return "dal menù";
+  return "dal link diretto";
+}
 
 // Una riga della cronologia in italiano: titolo e, se c'è, un dettaglio sotto.
 export function logText(l: BookingItem["log"][number]): { text: string; detail: string | null; tone: "normal" | "ok" | "warn" } {
@@ -91,11 +113,19 @@ export function logText(l: BookingItem["log"][number]): { text: string; detail: 
     case "DECLINED":
       return { text: `${who} ha risposto: siamo al completo`, detail: msg ? `«${msg}»` : null, tone: "normal" };
     case "CANCELLED":
-      return who === "cliente" ? { text: "Annullata dal cliente", detail: null, tone: "warn" } : { text: `Annullata da ${who}`, detail: msg ? `«${msg}»` : null, tone: "warn" };
-    case "ACCEPTED":
-      return { text: "Il cliente ha accettato il nuovo orario", detail: msg, tone: "ok" };
-    case "REFUSED":
-      return { text: "Il cliente non può al nuovo orario", detail: msg, tone: "warn" };
+      if (who === "cliente") return { text: "Annullata dal cliente", detail: null, tone: "warn" };
+      if (msg === CUSTOMER_TOLD_US) return { text: `Annullata da ${who}: ci ha avvisato il cliente`, detail: null, tone: "warn" };
+      return { text: `Annullata da ${who}`, detail: msg ? `«${msg}»` : null, tone: "warn" };
+    case "ACCEPTED": {
+      if (who === "cliente") return { text: "Il cliente ha accettato il nuovo orario", detail: msg, tone: "ok" };
+      const t = msg?.match(/\d{2}:\d{2}/)?.[0];
+      return { text: `Confermata da ${who} per il cliente${t ? ` (alle ${t})` : ""}`, detail: null, tone: "ok" };
+    }
+    case "REFUSED": {
+      if (who === "cliente") return { text: "Il cliente non può al nuovo orario", detail: msg, tone: "warn" };
+      const t = msg?.match(/\d{2}:\d{2}/)?.[0];
+      return { text: `Il cliente ha detto no${t ? ` alle ${t}` : ""} (segnato da ${who})`, detail: null, tone: "warn" };
+    }
     case "ARRIVED":
       return { text: `${who} li ha segnati come arrivati`, detail: null, tone: "ok" };
     case "NOSHOW":
@@ -110,9 +140,9 @@ export function logText(l: BookingItem["log"][number]): { text: string; detail: 
       // Il motivo tecnico resta nel database: qui basta sapere che non è partita.
       return { text: (msg ?? "Email non partita").split(":")[0], detail: null, tone: "warn" };
     case "PUSH_OK":
-      return { text: msg ?? "Notifica inviata", detail: null, tone: "normal" };
+      return { text: (msg ?? "Avviso inviato").replace(/^Notifica a/, "Avviso a"), detail: null, tone: "normal" };
     case "PUSH_FAIL":
-      return { text: msg ?? "Notifica non partita", detail: null, tone: "warn" };
+      return { text: (msg ?? "Avviso non partito").replace("notifiche non partite", "avvisi non partiti"), detail: null, tone: "warn" };
     case "WHATSAPP_OPENED":
       return { text: `${who} ha aperto WhatsApp per mandare la risposta`, detail: null, tone: "normal" };
     case "WHATSAPP_DONE":

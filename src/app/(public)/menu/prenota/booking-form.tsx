@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { internationalNumber } from "@/lib/menu-venue";
+import { phoneProblem } from "@/lib/booking/rules";
 import { ChatIcon, ContactButtons, pillFilled } from "./ui";
 import { PrivacyText } from "./privacy-text";
 
@@ -11,9 +11,12 @@ export type FormDay = {
   label: string; // «Sab 14 nov»
   relative: "Oggi" | "Domani" | null;
   long: string; // «oggi», «domani» o «sabato 14 novembre»
+  full: string; // «sabato 14 novembre»
   state: "open" | "past" | "tooFar" | "closed" | "full" | "noSlots";
   reason: string | null;
   slots: { time: string; at: number }[];
+  // Fine dell'ultima apertura del giorno (ms): dopo, il giorno è «Chiuso» e non più «Chiamaci».
+  closeAt: number | null;
   events: { title: string; slug: string; startTime: string | null }[];
 };
 
@@ -25,6 +28,23 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const NOTE_MAX = 300;
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+// Da tablet e computer i giorni stanno in una griglia: prima due settimane, poi «Altri giorni».
+const WIDE_DAYS = 14;
+
+// Gruppi di pulsanti-scelta: un solo Tab per gruppo, le frecce passano da una scelta all'altra
+// (e la scelgono, come i pulsanti radio veri).
+function rovingKeys(e: React.KeyboardEvent<HTMLElement>) {
+  const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+  const back = e.key === "ArrowLeft" || e.key === "ArrowUp";
+  if (!forward && !back && e.key !== "Home" && e.key !== "End") return;
+  const items = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]:not(:disabled)')].filter((el) => el.getClientRects().length > 0);
+  const i = items.indexOf(document.activeElement as HTMLButtonElement);
+  if (i < 0 || !items.length) return;
+  e.preventDefault();
+  const n = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : (i + (forward ? 1 : -1) + items.length) % items.length;
+  items[n].focus();
+  items[n].click();
+}
 
 export function BookingForm({
   days,
@@ -62,6 +82,8 @@ export function BookingForm({
   const visibleDays = useMemo(
     () =>
       days.map((d) => {
+        // Pagina aperta a lungo: dopo la chiusura di oggi, «Chiuso».
+        if ((d.state === "open" || d.state === "noSlots") && d.closeAt !== null && now >= d.closeAt) return { ...d, state: "closed" as const, reason: null, slots: [] };
         if (d.state !== "open") return d;
         const slots = d.slots.filter((s) => s.at >= now + leadMinutes * 60000);
         return slots.length ? { ...d, slots } : { ...d, state: "noSlots" as const, slots: [] };
@@ -94,6 +116,7 @@ export function BookingForm({
   const [sending, setSending] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [fakeDone, setFakeDone] = useState(false);
+  const [moreDays, setMoreDays] = useState(() => days.findIndex((d) => d.day === initial.day) >= WIDE_DAYS);
   const trap = useRef<HTMLInputElement>(null);
   const strip = useRef<HTMLDivElement>(null);
   // La bozza si salva solo dopo averla riletta (altrimenti la si cancellerebbe all'apertura).
@@ -134,6 +157,7 @@ export function BookingForm({
         if (!event && typeof d.day === "string" && days.some((x) => x.day === d.day && x.state === "open")) {
           setDay(d.day);
           if (typeof d.time === "string") setTime(d.time);
+          if (days.findIndex((x) => x.day === d.day) >= WIDE_DAYS) setMoreDays(true);
         }
       }
     } catch {
@@ -192,7 +216,9 @@ export function BookingForm({
     if (!selected) return ["day", "Scegli il giorno."];
     if (!validTime) return ["time", "Scegli l'ora."];
     if (name.trim().length < 2) return ["name", "Scrivi il tuo nome."];
-    if (!internationalNumber(phone)) return ["phone", phone.trim() ? "Il numero di telefono non sembra giusto: controllalo." : "Scrivi il tuo numero di telefono."];
+    // Gli stessi controlli (e gli stessi messaggi) del server: un numero sbagliato è una risposta che non arriva.
+    const phoneError = phoneProblem(phone.trim(), useEmail ? "email" : "whatsapp");
+    if (phoneError) return ["phone", phoneError];
     if (useEmail && !EMAIL.test(email.trim())) return ["email", email.trim() ? "L'indirizzo email non sembra giusto: controllalo." : "Scrivi la tua email."];
     if (!privacy) return ["privacy", "Per inviare la richiesta, spunta la casella qui sopra."];
     return null;
@@ -273,11 +299,12 @@ export function BookingForm({
   }
 
   const daysOpen = visibleDays.some((d) => d.state === "open");
+  const firstPickable = visibleDays.find((d) => d.state === "open" || d.state === "noSlots") ?? null;
   const eventNote =
     event && !eventDays.some((d) => d.state === "open")
       ? eventDays.length === 0
-        ? "Per questa serata non si può chiedere un tavolo da qui: chiamaci o scrivici."
-        : "Per questa serata non ci sono più tavoli da chiedere online: chiamaci o scrivici."
+        ? "Per questa serata non si può chiedere un tavolo da qui: chiamaci o scrivici. Oppure chiedi un tavolo per un altro giorno qui sotto."
+        : "Per questa serata non ci sono più tavoli da chiedere online: chiamaci o scrivici. Oppure chiedi un tavolo per un altro giorno qui sotto."
       : null;
 
   return (
@@ -298,11 +325,12 @@ export function BookingForm({
       </div>
 
       <Step n="I" id="campo-people" title="Quante persone?" error={errors.people}>
-        <div role="radiogroup" aria-label="Quante persone" className="grid grid-cols-5 gap-2">
+        <div role="radiogroup" aria-label="Quante persone" onKeyDown={rovingKeys} className="grid grid-cols-5 gap-2">
           {Array.from({ length: maxPeople }, (_, i) => i + 1).map((n) => (
             <Choice
               key={n}
               on={people === n}
+              tab={people === n || (people === null && n === 1)}
               onClick={() => {
                 setPeople(n);
                 clearError("people");
@@ -315,6 +343,7 @@ export function BookingForm({
           ))}
           <Choice
             on={people === "more"}
+            tab={people === "more"}
             onClick={() => {
               setPeople("more");
               clearError("people");
@@ -350,13 +379,17 @@ export function BookingForm({
                   ref={strip}
                   role="radiogroup"
                   aria-label="Giorno"
+                  onKeyDown={rovingKeys}
                   className="-mx-6 flex snap-x gap-2 overflow-x-auto scroll-px-6 px-6 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-7 sm:overflow-visible sm:px-0"
                 >
-                  {visibleDays.map((d) => (
+                  {visibleDays.map((d, i) => (
                     <DayCard
                       key={d.day}
                       d={d}
                       on={d.day === day}
+                      tab={d.day === day || (!selected && d === firstPickable)}
+                      // Da tablet e computer: le prime due settimane, il resto con «Altri giorni».
+                      wideHidden={!moreDays && i >= WIDE_DAYS}
                       eventSlug={event?.slug ?? null}
                       onPick={() => {
                         setDay(d.day);
@@ -366,10 +399,21 @@ export function BookingForm({
                     />
                   ))}
                 </div>
+                {!moreDays && visibleDays.length > WIDE_DAYS && (
+                  <div className="mt-3 hidden justify-center sm:flex">
+                    <button
+                      type="button"
+                      onClick={() => setMoreDays(true)}
+                      className="menu-sans flex min-h-11 items-center px-3 text-[12px] font-medium uppercase tracking-[0.18em] text-[#6B1020] underline underline-offset-4"
+                    >
+                      Altri giorni
+                    </button>
+                  </div>
+                )}
                 {selected && (
                   <div className="mt-3 text-center">
                     <div className="menu-serif text-[22px] font-medium leading-tight text-[#1F2621]">
-                      {selected.relative ? `${selected.relative}, ${selected.label.toLowerCase()}` : cap(selected.long)}
+                      {selected.relative ? `${selected.relative}, ${selected.full}` : cap(selected.full)}
                     </div>
                     {selected.events.map((e) => (
                       <div key={e.slug} className="menu-sans mt-1 flex items-center justify-center gap-1.5 text-[13px] text-[#7A5A22]">
@@ -401,11 +445,12 @@ export function BookingForm({
                   flat
                 />
               ) : (
-                <div role="radiogroup" aria-label="Ora" className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                  {selected.slots.map((s) => (
+                <div role="radiogroup" aria-label="Ora" onKeyDown={rovingKeys} className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                  {selected.slots.map((s, i) => (
                     <Choice
                       key={s.time}
                       on={validTime === s.time}
+                      tab={validTime === s.time || (!validTime && i === 0)}
                       onClick={() => {
                         setTime(s.time);
                         clearError("time");
@@ -457,12 +502,13 @@ export function BookingForm({
                   {mailOn && (
                     <fieldset className="m-0 border-0 p-0">
                       <legend className="menu-sans mb-2 p-0 text-[13px] font-medium text-[#3F4540]">Come preferisci la risposta?</legend>
-                      <div role="radiogroup" className="grid grid-cols-2 gap-2">
-                        <Choice on={contact === "whatsapp"} onClick={() => setContact("whatsapp")} className="h-12 gap-2 text-[15px]">
+                      <div role="radiogroup" aria-label="Come preferisci la risposta?" onKeyDown={rovingKeys} className="grid grid-cols-2 gap-2">
+                        <Choice on={contact === "whatsapp"} tab={contact === "whatsapp"} onClick={() => setContact("whatsapp")} className="h-12 gap-2 text-[15px]">
                           <ChatIcon /> WhatsApp
                         </Choice>
                         <Choice
                           on={contact === "email"}
+                          tab={contact === "email"}
                           onClick={() => {
                             setContact("email");
                             clearError("email");
@@ -519,7 +565,7 @@ export function BookingForm({
                           className="menu-sans block w-full resize-y rounded-xl border bg-[#FBF7EF] px-4 py-3 text-[16px] leading-snug text-[#1F2621] outline-none placeholder:text-[#8A8F88] focus:!border-[#6B1020]"
                         />
                         <div className="menu-sans mt-1 flex justify-between gap-3 text-[12px] text-[#5B605A]">
-                          <span>Le allergie non scriverle qui: c&apos;è la domanda qui sotto.</span>
+                          <span>Per le allergie usa la domanda qui sotto.</span>
                           <span className="flex-none tabular-nums">
                             {note.length}/{NOTE_MAX}
                           </span>
@@ -634,12 +680,15 @@ function Step({ n, id, title, error, children }: { n: string; id?: string; title
 
 function Choice({
   on,
+  tab,
   onClick,
   className = "",
   label,
   children,
 }: {
   on: boolean;
+  // L'unica scelta del gruppo raggiungibile con Tab (quella scelta, o la prima).
+  tab: boolean;
   onClick: () => void;
   className?: string;
   label?: string;
@@ -650,6 +699,7 @@ function Choice({
       type="button"
       role="radio"
       aria-checked={on}
+      tabIndex={tab ? 0 : -1}
       aria-label={label}
       onClick={onClick}
       className={`menu-sans inline-flex items-center justify-center rounded-full border font-medium tabular-nums transition-colors ${
@@ -661,7 +711,21 @@ function Choice({
   );
 }
 
-function DayCard({ d, on, eventSlug, onPick }: { d: FormDay; on: boolean; eventSlug: string | null; onPick: () => void }) {
+function DayCard({
+  d,
+  on,
+  tab,
+  wideHidden,
+  eventSlug,
+  onPick,
+}: {
+  d: FormDay;
+  on: boolean;
+  tab: boolean;
+  wideHidden: boolean;
+  eventSlug: string | null;
+  onPick: () => void;
+}) {
   // Si può scegliere un giorno aperto, oppure oggi anche se è tardi (si spiega di chiamare).
   const pickable = d.state === "open" || d.state === "noSlots";
   const [wd, num, mon] = d.label.split(" ");
@@ -674,11 +738,13 @@ function DayCard({ d, on, eventSlug, onPick }: { d: FormDay; on: boolean; eventS
       type="button"
       role="radio"
       aria-checked={on}
+      tabIndex={tab ? 0 : -1}
       data-day={d.day}
       disabled={!pickable}
       onClick={onPick}
       aria-label={`${d.long}${status ? `, ${status.toLowerCase()}` : ""}${ev ? `, ${ev.title}` : ""}`}
-      className={`flex min-h-[118px] w-[76px] flex-none snap-start flex-col items-center rounded-2xl border px-1 pb-2 pt-2.5 text-center transition-colors sm:w-auto ${
+      // Sotto i 380 px le carte sono un po' più strette: si vede metà della quinta e si capisce che si scorre.
+      className={`flex min-h-[118px] w-[76px] flex-none snap-start flex-col items-center rounded-2xl border px-0.5 pb-2 pt-2.5 text-center transition-colors max-[380px]:w-[66px] sm:w-auto ${wideHidden ? "sm:hidden" : ""} ${
         on
           ? "!border-[#6B1020] bg-[#6B1020] text-[#F4EEE3]"
           : pickable
@@ -686,19 +752,19 @@ function DayCard({ d, on, eventSlug, onPick }: { d: FormDay; on: boolean; eventS
             : "bg-transparent text-[#8A8F88] [border-style:dashed]"
       }`}
     >
-      <span className={`menu-sans text-[10.5px] font-medium uppercase tracking-[0.14em] ${on ? "text-[#E3D4BC]" : pickable ? "text-[#5B605A]" : ""}`}>
+      <span className={`menu-sans text-[12px] font-medium uppercase tracking-[0.06em] ${on ? "text-[#E3D4BC]" : pickable ? "text-[#5B605A]" : ""}`}>
         {d.relative ?? wd}
       </span>
       <span className="menu-serif text-[30px] font-medium leading-[1.05]">{num}</span>
-      <span className={`menu-sans text-[11px] ${on ? "text-[#E3D4BC]" : pickable ? "text-[#5B605A]" : ""}`}>{mon}</span>
+      <span className={`menu-sans text-[12px] ${on ? "text-[#E3D4BC]" : pickable ? "text-[#5B605A]" : ""}`}>{mon}</span>
       {status ? (
-        <span className={`menu-sans mt-1 line-clamp-2 px-0.5 text-[10px] font-medium leading-tight ${on ? "text-[#F4EEE3]" : d.state === "noSlots" ? "text-[#6B1020]" : ""}`}>
+        <span className={`menu-sans mt-1 line-clamp-2 px-0.5 text-[12px] font-medium leading-tight ${on ? "text-[#F4EEE3]" : d.state === "noSlots" ? "text-[#6B1020]" : ""}`}>
           {status}
         </span>
       ) : ev ? (
-        <span className={`menu-sans mt-1 flex w-full flex-col items-center gap-[3px] text-[10px] leading-tight ${on ? "text-[#F3E3B5]" : "text-[#7A5A22]"}`}>
+        <span className={`menu-sans mt-1 flex w-full flex-col items-center gap-[3px] text-[12px] leading-tight ${on ? "text-[#F3E3B5]" : "text-[#7A5A22]"}`}>
           <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-[#C9A96E]" />
-          <span lang="it" className="line-clamp-2 w-full break-words px-0.5 [hyphens:auto]">{ev.title}</span>
+          <span lang="it" className="line-clamp-2 w-full break-words tracking-[-0.02em] [hyphens:auto]">{ev.title}</span>
         </span>
       ) : null}
     </button>

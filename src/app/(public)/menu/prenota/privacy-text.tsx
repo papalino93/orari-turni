@@ -12,6 +12,7 @@ export function PrivacyText({ address, phone }: { address: string; phone: string
       </p>
 
       <h2 className={h}>Chi tratta i dati</h2>
+      {/* TODO(titolare): aggiungere ragione sociale e partita IVA del titolare del trattamento. */}
       <p className={p}>
         L&apos;Angolo del Vino{address ? `, ${address}` : ""}
         {phone ? ` (telefono ${phone})` : ""}.
@@ -19,8 +20,12 @@ export function PrivacyText({ address, phone }: { address: string; phone: string
 
       <h2 className={h}>Quali dati</h2>
       <p className={p}>
-        Nome, telefono, email (solo se scegli la risposta per email), giorno, ora, numero di persone e la nota, se la scrivi. Per le
-        allergie ci dici solo «sì» o «no»: i dettagli li chiediamo al tavolo e non li salviamo.
+        Nome, telefono, email (solo se scegli la risposta per email), giorno, ora, numero di persone e la nota, se la scrivi. Nome e
+        telefono servono: senza, non possiamo risponderti.
+      </p>
+      <p className={`${p} mt-2`}>
+        Per le allergie ci dici solo «sì» o «no»: i dettagli li chiediamo al tavolo e non li salviamo. Il «sì» sulle allergie è
+        un&apos;informazione generica: non dice chi né cosa.
       </p>
 
       <h2 className={h}>Perché</h2>
@@ -32,16 +37,15 @@ export function PrivacyText({ address, phone }: { address: string; phone: string
       <h2 className={h}>Per quanto tempo</h2>
       <p className={p}>Fino a 6 mesi dopo il giorno della prenotazione, poi li cancelliamo.</p>
 
-      <h2 className={h}>Cosa non facciamo</h2>
-      <p className={p}>
-        Non usiamo i tuoi dati per pubblicità e non li diamo ad altri. Su queste pagine non ci sono cookie di profilazione.
-      </p>
-
       <h2 className={h}>Chi ci aiuta</h2>
       <p className={p}>
-        I dati stanno sui servizi che fanno funzionare il sito: l&apos;hosting (Vercel), il database e il servizio che spedisce le
-        email. Li usano solo per conto nostro. Se scegli la risposta su WhatsApp, ti scriviamo con WhatsApp dal telefono del locale.
+        Non vendiamo i tuoi dati e non li usiamo per pubblicità. Li vedono solo i servizi che fanno funzionare il sito (hosting
+        Vercel, database, servizio email), che li trattano per nostro conto; alcuni hanno server fuori dall&apos;Unione europea, con
+        le garanzie previste dal GDPR. Se scegli WhatsApp, i messaggi passano da WhatsApp (Meta).
       </p>
+
+      <h2 className={h}>Cookie</h2>
+      <p className={p}>Su queste pagine non ci sono cookie di profilazione.</p>
 
       <h2 className={h}>I tuoi diritti</h2>
       <p className={p}>

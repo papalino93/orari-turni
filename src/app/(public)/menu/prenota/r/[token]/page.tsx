@@ -4,18 +4,19 @@ import { notFound } from "next/navigation";
 import { loadVenue } from "@/lib/menu";
 import { telHref, whatsappHref } from "@/lib/menu-venue";
 import { prisma } from "@/lib/prisma";
-import { businessDay, dayLong, dayRelative, peopleText, viewStatus, type BookingView } from "@/lib/booking/rules";
+import { businessDay, dayLong, dayRelative, peopleText, phoneReadable, viewStatus, type BookingView } from "@/lib/booking/rules";
 import { findByToken, loadBookingSettings } from "@/lib/booking/service";
 import { MenuFooter } from "../../../venue-footer";
 import { Ornament } from "../../../ornament";
 import { ContactButtons, PrenotaHeader, PreviewBand, phoneMasked, pillFilled, pillOutline } from "../../ui";
 import { AutoRefresh, CancelButton, ProposalButtons, SaveLink } from "./status-actions";
+import { LargeText } from "../../large-text";
 
 // Ogni volta dal database: lo stato cambia quando il locale risponde.
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "La tua prenotazione — L'Angolo del Vino",
+  title: "La tua richiesta — L'Angolo del Vino",
   robots: { index: false, follow: false },
   // Il link è la chiave della pagina: non lo si passa ad altri siti.
   referrer: "no-referrer",
@@ -37,8 +38,12 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
   const view: BookingView = viewStatus(b, now);
   const when = `${cap(dayRelative(b.day, now))} alle ${b.time}`;
   const started = b.startsAt.getTime() <= now.getTime();
-  // Per oggi, ancora senza risposta a meno di un'ora e mezza: meglio telefonare.
-  const late = view === "PENDING" && b.day === businessDay(now) && b.startsAt.getTime() - now.getTime() < 90 * 60000;
+  // Per oggi, ancora senza risposta: nei primi 15 minuti «ti rispondiamo appena possibile»; dopo,
+  // se manca meno di un'ora e mezza, meglio telefonare.
+  const forToday = view === "PENDING" && b.day === businessDay(now);
+  const fresh = now.getTime() - b.createdAt.getTime() < 15 * 60000;
+  const late = forToday && !fresh && b.startsAt.getTime() - now.getTime() < 90 * 60000;
+  const tonight = forToday && fresh;
 
   const { contacts } = venue;
   const tel = contacts.phone ? telHref(contacts.phone) : null;
@@ -46,7 +51,12 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
     ? whatsappHref(contacts.phone, `Ciao! Ho chiesto un tavolo per ${dayLong(b.day)} alle ${b.time}, ${peopleText(b.people)} (codice ${b.code}).`)
     : null;
   const again = settings.enabled ? "/menu/prenota" : null;
-  const replyBy = b.contact === "email" && b.email ? `per email a ${b.email}` : "su WhatsApp";
+  // Il recapito per intero: se è sbagliato, il cliente se ne accorge adesso.
+  const replyBy =
+    b.contact === "email" && b.email
+      ? `per email a ${b.email}. L'indirizzo è sbagliato?`
+      : // Spazi che non vanno a capo: il numero si legge tutto su una riga.
+        `su WhatsApp al ${phoneReadable(b.phone).replace(/ /g, "\u00a0")}. Il numero è sbagliato?`;
 
   const head = ((): { icon: IconKind; kicker: string; title: string; text: string } => {
     switch (view) {
@@ -55,38 +65,38 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
           icon: "wait",
           kicker: "Da confermare",
           title: "Richiesta inviata",
-          text: `Non è ancora confermata: ti rispondiamo ${replyBy}, di solito entro un'ora.`,
+          text: `Non è ancora confermata: ti rispondiamo ${replyBy} Annulla la richiesta qui sotto e rifalla.`,
         };
       case "PROPOSED":
         return {
           icon: "clock",
           kicker: "Ti proponiamo un altro orario",
           title: `Ti va bene alle ${b.proposedTime}?`,
-          text: `${cap(dayRelative(b.day, now))} alle ${b.time} siamo pieni, ma alle ${b.proposedTime} abbiamo un tavolo per te.`,
+          text: `${cap(dayRelative(b.day, now))} alle ${b.time} siamo al completo, ma alle ${b.proposedTime} abbiamo un tavolo per te.`,
         };
       case "CONFIRMED":
         return started
           ? { icon: "ok", kicker: "Confermata", title: "Grazie della visita", text: `Il tavolo era per ${dayLong(b.day)} alle ${b.time}. Speriamo di rivederti presto!` }
-          : { icon: "ok", kicker: "Confermata", title: "Ti aspettiamo", text: `${when}, tavolo per ${b.people}.` };
+          : { icon: "ok", kicker: "Confermata", title: "Ti aspettiamo", text: `${when}, tavolo per ${peopleText(b.people)}.` };
       case "DECLINED":
         return b.cancelledBy === "cliente"
           ? {
               icon: "no",
               kicker: "Richiesta chiusa",
               title: "Va bene, alla prossima",
-              text: `Ci hai detto che alle ${b.proposedTime ?? "ora proposta"} non va bene: la richiesta è chiusa.`,
+              text: `Ci hai detto che ${b.proposedTime ? `alle ${b.proposedTime}` : "l'orario proposto"} non va bene: la richiesta è chiusa.`,
             }
           : { icon: "no", kicker: "Non c'è posto", title: "Ci dispiace, siamo al completo", text: `${when} non abbiamo un tavolo libero.` };
       case "CANCELLED":
         return b.cancelledBy === "locale"
           ? { icon: "no", kicker: "Annullata", title: "Prenotazione annullata", text: "Ci dispiace: abbiamo dovuto annullare il tavolo. Ci scusiamo davvero." }
-          : { icon: "no", kicker: "Annullata", title: "Richiesta annullata", text: "L'hai annullata tu. Grazie per averci avvisato!" };
+          : { icon: "no", kicker: "Annullata", title: "Richiesta annullata", text: "Annullata come ci hai chiesto. Grazie per averci avvisato!" };
       case "EXPIRED":
         return {
-          icon: "wait",
+          icon: "expired",
           kicker: "Senza risposta",
           title: "Non siamo riusciti a risponderti in tempo",
-          text: "Ci dispiace. Chiamaci o scrivici: troviamo insieme una soluzione.",
+          text: "Ci dispiace davvero: la tua richiesta è rimasta senza risposta.",
         };
     }
   })();
@@ -97,7 +107,8 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
     <>
       {b.isTest && <PreviewBand>Richiesta di prova: non avvisa nessuno e non la vedono i clienti.</PreviewBand>}
       <PrenotaHeader />
-      <main className="mx-auto max-w-[560px] px-6 pb-[72px] pt-10 [color-scheme:light]">
+      <LargeText />
+      <main className="menu-prenota mx-auto max-w-[560px] px-6 pb-[72px] pt-10 [color-scheme:light]">
         <div className="flex flex-col items-center gap-2 text-center">
           <StatusIcon kind={head.icon} />
           <div className="menu-sans mt-2 text-[11px] uppercase tracking-[0.34em] text-[#5B605A]">{head.kicker}</div>
@@ -121,9 +132,26 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
           </div>
         )}
 
+        {tonight && (
+          <div className="mt-7 rounded-2xl border bg-[#FBF7EF] px-5 py-5 text-center">
+            <p className="menu-serif m-0 text-[24px] font-medium leading-tight text-[#6B1020]">È per stasera</p>
+            <p className="m-0 mt-1.5 text-balance text-[16.5px] text-[#3F4540]">Ti rispondiamo appena possibile. Se hai fretta, chiamaci: ti diciamo subito se c&apos;è posto.</p>
+            <ContactButtons tel={tel} wa={null} className="mt-4" />
+          </div>
+        )}
+
         {view === "PROPOSED" && b.proposedTime && <ProposalButtons token={token} proposedTime={b.proposedTime} />}
 
-        {view === "EXPIRED" && <ContactButtons tel={tel} wa={wa} className="mt-7" />}
+        {view === "EXPIRED" && (
+          <div className="mt-7 flex flex-col items-center gap-3">
+            {again && (
+              <Link href={again} className={`${pillFilled} min-w-[240px]`}>
+                Chiedi un altro giorno
+              </Link>
+            )}
+            <ContactButtons tel={tel} wa={wa} />
+          </div>
+        )}
 
         {(view === "DECLINED" || view === "CANCELLED") && (
           <div className="mt-7 flex flex-col items-center gap-2.5">
@@ -156,9 +184,17 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
           <Row label="Persone">{b.people}</Row>
           <Row label="Nome">{b.name}</Row>
           <Row label="Telefono">{phoneMasked(b.phone)}</Row>
-          {b.contact === "email" && b.email && <Row label="Email">{b.email}</Row>}
+          {b.contact === "email" && b.email && (
+            <Row label="Email" stacked>
+              {b.email}
+            </Row>
+          )}
           {promo && <Row label="Evento">{promo.title}</Row>}
-          {b.note && <Row label="Nota">{b.note}</Row>}
+          {b.note && (
+            <Row label="Nota" stacked>
+              {b.note}
+            </Row>
+          )}
           {b.allergies && <Row label="Allergie">Sì, ne parliamo al tavolo</Row>}
           <div className="flex items-center justify-between gap-4 bg-[#F1E8DA] px-5 py-3.5">
             <dt className="menu-sans text-[11px] font-medium uppercase tracking-[0.2em] text-[#5B605A]">
@@ -177,7 +213,7 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
         )}
 
         {(view === "PENDING" || (view === "CONFIRMED" && !started)) && (
-          <div className="mt-6">
+          <div className="mt-10">
             <CancelButton
               token={token}
               label={view === "CONFIRMED" ? "Annulla la prenotazione" : "Annulla la richiesta"}
@@ -186,7 +222,7 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
           </div>
         )}
 
-        {view !== "EXPIRED" && !late && (tel || wa) && (
+        {view !== "EXPIRED" && !late && !tonight && (tel || wa) && (
           <div className="mt-12 flex flex-col items-center gap-3.5 text-center">
             <Ornament color="#9C7A45" />
             <p className="m-0 text-[16px] italic text-[#5B605A]">Hai una domanda? Chiamaci o scrivici.</p>
@@ -200,7 +236,16 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+// stacked: testi lunghi (nota, email) a sinistra con l'etichetta sopra, invece che allineati a destra.
+function Row({ label, stacked = false, children }: { label: string; stacked?: boolean; children: React.ReactNode }) {
+  if (stacked) {
+    return (
+      <div className="menu-rule-soft border-b px-5 py-3">
+        <dt className="menu-sans text-[11px] font-medium uppercase tracking-[0.2em] text-[#5B605A]">{label}</dt>
+        <dd className="m-0 mt-1 text-left text-[17px] leading-snug text-[#1F2621] [overflow-wrap:anywhere]">{children}</dd>
+      </div>
+    );
+  }
   return (
     <div className="menu-rule-soft flex items-baseline justify-between gap-4 border-b px-5 py-3">
       <dt className="menu-sans flex-none text-[11px] font-medium uppercase tracking-[0.2em] text-[#5B605A]">{label}</dt>
@@ -209,7 +254,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-type IconKind = "wait" | "clock" | "ok" | "no";
+type IconKind = "wait" | "clock" | "ok" | "no" | "expired";
 
 function StatusIcon({ kind }: { kind: IconKind }) {
   const filled = kind === "ok";
@@ -217,7 +262,7 @@ function StatusIcon({ kind }: { kind: IconKind }) {
     <div
       aria-hidden
       className={`flex h-16 w-16 items-center justify-center rounded-full border-2 ${
-        filled ? "!border-[#6B1020] bg-[#6B1020] text-[#F4EEE3]" : kind === "no" ? "!border-[#9C9A92] text-[#7A7A72]" : "!border-[#C9A96E] text-[#9C7A45]"
+        filled ? "!border-[#6B1020] bg-[#6B1020] text-[#F4EEE3]" : kind === "no" || kind === "expired" ? "!border-[#9C9A92] text-[#7A7A72]" : "!border-[#C9A96E] text-[#9C7A45]"
       }`}
     >
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -230,6 +275,13 @@ function StatusIcon({ kind }: { kind: IconKind }) {
         )}
         {kind === "ok" && <path d="M5 12.5l4.5 4.5L19 7.5" strokeWidth="2.2" />}
         {kind === "no" && <path d="M7 7l10 10M17 7L7 17" />}
+        {/* Scaduta: un orologio con il segno «passato» (diverso da «annullata»). */}
+        {kind === "expired" && (
+          <>
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5V12l3 2M5.5 5.5l13 13" />
+          </>
+        )}
       </svg>
     </div>
   );

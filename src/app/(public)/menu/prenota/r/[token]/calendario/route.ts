@@ -1,6 +1,6 @@
 import { loadVenue } from "@/lib/menu";
 import { promoIcs } from "@/lib/menu-ics";
-import { addDays, peopleText } from "@/lib/booking/rules";
+import { addDays, fmtMin, peopleText } from "@/lib/booking/rules";
 import { findByToken } from "@/lib/booking/service";
 
 // «Aggiungi al calendario» di una prenotazione confermata: file .ics che il telefono apre nel suo calendario.
@@ -20,7 +20,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
       startDate: date,
       endDate: date,
       startTime: b.time,
-      endTime: null,
+      // Due ore di tavolo (senza, il calendario lo terrebbe occupato fino a mezzanotte).
+      endTime: fmtMin(Number(b.time.slice(0, 2)) * 60 + Number(b.time.slice(3, 5)) + 120),
     },
     { address: venue.contacts.address, url },
   );

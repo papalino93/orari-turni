@@ -2,15 +2,16 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { loadVenue } from "@/lib/menu";
 import { mailConfigured } from "@/lib/mail";
-import { telHref, whatsappHref } from "@/lib/menu-venue";
+import { rangesFor, telHref, whatsappHref } from "@/lib/menu-venue";
 import { prisma } from "@/lib/prisma";
 import { bookingDays, loadBookingSettings } from "@/lib/booking/service";
-import { businessDay, dayRelative, normalizeSource } from "@/lib/booking/rules";
+import { businessDay, dayLong, dayRelative, normalizeSource, romeInstant } from "@/lib/booking/rules";
 import { formatPromoDates } from "@/lib/menu-format";
 import { MenuFooter } from "../venue-footer";
 import { Ornament } from "../ornament";
 import { formStamp, isOwner } from "./server-utils";
 import { PrenotaHeader, PreviewBand } from "./ui";
+import { LargeText } from "./large-text";
 import { BookingForm, type FormDay } from "./booking-form";
 
 // Sempre fresca: giorni, orari e chiusure cambiano, e la funzione spenta va nascosta subito.
@@ -43,21 +44,40 @@ export default async function PrenotaPage({ searchParams }: { searchParams: Prom
   ]);
   const today = businessDay(now);
 
-  const formDays: FormDay[] = days.map((d) => ({
-    day: d.day,
-    label: d.label,
-    relative: d.day === today ? "Oggi" : dayRelative(d.day, now) === "domani" ? "Domani" : null,
-    long: dayRelative(d.day, now),
-    state: d.availability.state,
-    reason: d.availability.state === "open" ? null : d.availability.reason,
-    slots: d.availability.slots.map((s) => ({ time: s.time, at: s.startsAt.getTime() })),
-    events: d.events,
-  }));
+  // Fine dell'ultima apertura del giorno: dopo, «Oggi» è «Chiuso» (non più «Chiamaci»).
+  const closeAt = (day: string): number | null => {
+    const ends = rangesFor(venue.hours, day).map((r) => {
+      const [oh, om] = r.open.split(":").map(Number);
+      const [ch, cm] = r.close.split(":").map(Number);
+      const open = oh * 60 + om;
+      const close = ch * 60 + cm;
+      return romeInstant(day, close <= open ? close + 1440 : close).getTime();
+    });
+    return ends.length ? Math.max(...ends) : null;
+  };
+  const formDays: FormDay[] = days.map((d) => {
+    const end = d.availability.state === "open" || d.availability.state === "noSlots" ? closeAt(d.day) : null;
+    const over = d.availability.state === "noSlots" && end !== null && end <= now.getTime();
+    return {
+      day: d.day,
+      label: d.label,
+      relative: d.day === today ? "Oggi" : dayRelative(d.day, now) === "domani" ? "Domani" : null,
+      long: dayRelative(d.day, now),
+      full: dayLong(d.day),
+      state: over ? "closed" : d.availability.state,
+      reason: d.availability.state === "open" ? null : d.availability.reason,
+      slots: d.availability.slots.map((s) => ({ time: s.time, at: s.startsAt.getTime() })),
+      closeAt: end,
+      events: d.events,
+    };
+  });
 
   const { contacts } = venue;
   const tel = contacts.phone ? telHref(contacts.phone) : null;
   const wa = contacts.phone ? whatsappHref(contacts.phone, contacts.whatsappMessage) : null;
-  const groupWa = contacts.phone ? whatsappHref(contacts.phone, `Ciao! Vorrei prenotare un tavolo per un gruppo di più di ${settings.maxPeople} persone, per`) : null;
+  const groupWa = contacts.phone
+    ? whatsappHref(contacts.phone, `Ciao! Siamo un gruppo di più di ${settings.maxPeople} persone e vorremmo prenotare un tavolo. Siamo in`)
+    : null;
   const source = slug && event ? "evento" : normalizeSource(one(sp.da));
 
   return (
@@ -69,7 +89,8 @@ export default async function PrenotaPage({ searchParams }: { searchParams: Prom
         </PreviewBand>
       )}
       <PrenotaHeader />
-      <main className="mx-auto max-w-[600px] px-6 pb-[72px] pt-9 [color-scheme:light]">
+      <LargeText />
+      <main className="menu-prenota mx-auto max-w-[600px] px-6 pb-[72px] pt-9 [color-scheme:light]">
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="menu-sans text-[11px] uppercase tracking-[0.34em] text-[#5B605A]">{event ? "Evento" : "Prenotazioni"}</div>
           <h1 className="menu-serif m-0 mb-2 text-balance text-[40px] font-medium leading-[1.05] text-[#6B1020]">

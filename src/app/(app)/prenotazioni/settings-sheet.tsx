@@ -81,7 +81,7 @@ export function SettingsSheet({
             <Field label="Prima ora prenotabile" hint="Prima di quest'ora non si prenota.">
               <input name="firstTime" type="time" required defaultValue={settings.firstTime} className={inputClass} />
             </Field>
-            <Field label="Ultima richiesta" hint="Rispetto all'ora di chiusura.">
+            <Field label="Ultima richiesta" hint="L'ultimo orario prenotabile, prima della chiusura.">
               <select name="lastBeforeClose" defaultValue={String(settings.lastBeforeClose)} className={selectClass}>
                 {[...new Set([...closeOptions, settings.lastBeforeClose])].sort((a, b) => a - b).map((m) => (
                   <option key={m} value={m}>
@@ -111,13 +111,13 @@ export function SettingsSheet({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Persone al massimo" hint="Oltre: «chiamaci».">
+            <Field label="Persone massime" hint="Oltre, il cliente vede «chiamaci».">
               <input name="maxPeople" type="number" inputMode="numeric" min={1} max={40} required defaultValue={settings.maxPeople} className={inputClass} />
             </Field>
             <Field label="Giorni in avanti" hint="Fin quando si può chiedere.">
               <input name="daysAhead" type="number" inputMode="numeric" min={1} max={180} required defaultValue={settings.daysAhead} className={inputClass} />
             </Field>
-            <Field label="Anticipo minimo" hint="Rispetto a adesso.">
+            <Field label="Anticipo minimo" hint="Es. 1 ora: alle 19 si può chiedere un tavolo dalle 20 in poi.">
               <select name="leadMinutes" defaultValue={String(settings.leadMinutes)} className={selectClass}>
                 {[...new Set([...leadOptions, settings.leadMinutes])].sort((a, b) => a - b).map((m) => (
                   <option key={m} value={m}>
@@ -126,7 +126,7 @@ export function SettingsSheet({
                 ))}
               </select>
             </Field>
-            <Field label="Di solito pieni oltre" hint="Persone; 0 = non mostrare.">
+            <Field label="Di solito pieni oltre" hint="Quante persone ci stanno in una sera: lo vedi accanto a ogni giorno. Lascia 0 se non ti serve.">
               <input name="capacityHint" type="number" inputMode="numeric" min={0} max={500} defaultValue={settings.capacityHint} className={inputClass} />
             </Field>
           </div>
@@ -155,6 +155,7 @@ export function SettingsSheet({
             <li>Cerca «L&apos;Angolo del Vino» su Google con il tuo account e tocca «Modifica profilo».</li>
             <li>Apri «Prenotazioni» (a volte si chiama «Link per le prenotazioni»).</li>
             <li>Tocca «Aggiungi link», incolla questo link e salva.</li>
+            <li>Google può metterci qualche giorno. Poi cerca il locale dal telefono e prova «Prenota».</li>
           </ol>
           {!settings.enabled && <p className="text-xs text-foreground-muted">Prima accendi le prenotazioni online: da spente, chi tocca il link trova una pagina che non c&apos;è.</p>}
         </section>

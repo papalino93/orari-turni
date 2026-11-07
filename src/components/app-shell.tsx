@@ -9,6 +9,22 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { InstallBanner, EmployeeInstallPrompt, InstalledMark } from "@/components/install-banner";
 import { VERSION_LABEL } from "@/lib/version";
 import { BrandMark } from "@/components/brand-mark";
+import { forgetPushOnSignOut } from "@/app/(app)/prenotazioni/actions";
+
+// Prima di uscire: gli avvisi delle prenotazioni smettono di arrivare su questo dispositivo
+// (il telefono può passare a un'altra persona). Mai più di un attimo, e senza bloccare l'uscita.
+async function forgetPushHere() {
+  try {
+    if (!("serviceWorker" in navigator)) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager?.getSubscription();
+    if (!sub) return;
+    await Promise.race([forgetPushOnSignOut(sub.endpoint).catch(() => {}), new Promise((r) => setTimeout(r, 2000))]);
+    await sub.unsubscribe().catch(() => {});
+  } catch {
+    /* si esce comunque */
+  }
+}
 
 const ADMIN_NAV_ITEMS = [
   { href: "/orari", label: "Orari", icon: CalendarIcon },
@@ -30,7 +46,7 @@ const EMPLOYEE_NAV_ITEMS = [{ href: "/mie-ore", label: "Le mie ore", icon: Calen
 const EMPLOYEE_MENU_NAV_ITEM = { href: "/gestione-menu", label: "Menù", icon: MenuIcon };
 
 // «Prenotazioni»: solo con le prenotazioni online accese e per chi può gestirle (vedi layout.tsx).
-// Sul telefono, con tutte e sette le voci, la parola intera non ci sta: «Tavoli».
+// Sul telefono, da sei voci in su, la parola intera non ci sta: «Tavoli».
 const BOOKINGS_NAV_ITEM = { href: "/prenotazioni", label: "Prenotazioni", short: "Tavoli", icon: BookingIcon };
 
 type NavItem = { href: string; label: string; short?: string; icon: (p: { active: boolean }) => React.ReactNode };
@@ -176,10 +192,13 @@ export function AppShell({
             <WideToggle />
             <ThemeToggle />
             {/* Il nome solo dove c'è spazio: sul tablet la barra ha già le voci del menù. */}
-            <span className="hidden text-sm text-brand-band-foreground-muted sm:block md:hidden lg:block">{userName}</span>
+            <span className="hidden text-sm text-brand-band-foreground-muted sm:block md:hidden xl:block">{userName}</span>
             <button
               type="button"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={async () => {
+                await forgetPushHere();
+                signOut({ callbackUrl: "/login" });
+              }}
               className="min-h-11 rounded-full border border-brand-band-border px-4 text-xs font-medium text-brand-band-foreground-muted transition-colors hover:text-brand-band-foreground"
             >
               Esci
@@ -224,8 +243,8 @@ export function AppShell({
                   <Icon active={!!active} />
                   {badge(item.href)}
                 </span>
-                {/* Con 7 voci (Ferie e Mail accese) le parole intere non ci stanno: più piccole, e «Tavoli». */}
-                <span className={`max-w-full truncate px-0.5 ${navItems.length > 6 ? "text-[10px] tracking-tight" : ""}`}>{item.short && navItems.length > 6 ? item.short : item.label}</span>
+                {/* Da 6 voci «Prenotazioni» non ci sta: «Tavoli». Con 7 (Ferie e Mail accese) anche più piccole. */}
+                <span className={`max-w-full truncate px-0.5 ${navItems.length > 6 ? "text-[10px] tracking-tight" : ""}`}>{item.short && navItems.length > 5 ? item.short : item.label}</span>
               </Link>
             );
           })}

@@ -88,13 +88,14 @@ export function ProposalButtons({ token, proposedTime }: { token: string; propos
   );
 }
 
-// «Annulla»: prima chiede conferma, lì sul posto (niente finestre del browser).
+// «Annulla»: discreto (grigio, piccolo, staccato dal resto), e prima chiede conferma lì sul posto
+// (niente finestre del browser). Nella domanda il pulsante in evidenza è «No, tienila».
 export function CancelButton({ token, label, question }: { token: string; label: string; question: string }) {
   const { busy, error, run } = useCustomerAction(token);
   const [asking, setAsking] = useState(false);
-  const yes = useRef<HTMLButtonElement>(null);
+  const keep = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (asking) yes.current?.focus();
+    if (asking) keep.current?.focus();
   }, [asking]);
 
   return (
@@ -104,7 +105,7 @@ export function CancelButton({ token, label, question }: { token: string; label:
           <button
             type="button"
             onClick={() => setAsking(true)}
-            className="menu-sans flex min-h-11 items-center px-2 text-[12px] font-medium uppercase tracking-[0.18em] text-[#6B1020] underline underline-offset-4"
+            className="menu-sans flex min-h-11 items-center px-2 text-[13px] text-[#6E736C] underline decoration-[#B9B2A5] underline-offset-4"
           >
             {label}
           </button>
@@ -112,12 +113,12 @@ export function CancelButton({ token, label, question }: { token: string; label:
       ) : (
         <div className="rounded-2xl border bg-[#FBF7EF] px-5 py-5 text-center" role="group" aria-label={question}>
           <p className="menu-serif m-0 text-[23px] font-medium leading-tight text-[#1F2621]">{question}</p>
-          <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
-            <button ref={yes} type="button" disabled={busy !== null} onClick={() => run("cancel")} className={`${pillFilled} sm:min-w-[180px]`}>
-              {busy ? "Un attimo…" : "Sì, annulla"}
-            </button>
-            <button type="button" disabled={busy !== null} onClick={() => setAsking(false)} className={`${pillOutline} sm:min-w-[180px]`}>
+          <div className="mt-4 flex flex-col gap-2.5 sm:flex-row-reverse sm:justify-center">
+            <button ref={keep} type="button" disabled={busy !== null} onClick={() => setAsking(false)} className={`${pillFilled} sm:min-w-[180px]`}>
               No, tienila
+            </button>
+            <button type="button" disabled={busy !== null} onClick={() => run("cancel")} className={`${pillOutline} sm:min-w-[180px]`}>
+              {busy ? "Un attimo…" : "Sì, annulla"}
             </button>
           </div>
           <ErrorText text={error} />
@@ -127,11 +128,21 @@ export function CancelButton({ token, label, question }: { token: string; label:
   );
 }
 
-// Copia (o condivide) il link di questa pagina, per ritrovarla.
+// Salva o manda il link di questa pagina, per ritrovarla: con il menù «Condividi» del telefono
+// quando c'è (Note, WhatsApp a sé stessi, Promemoria…), altrimenti lo copia.
 export function SaveLink() {
   const [done, setDone] = useState(false);
   async function save() {
     const url = window.location.href;
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: "La mia richiesta all'Angolo del Vino", url });
+        return;
+      } catch (e) {
+        // Chiuso senza scegliere: va bene così. Altri errori: si prova a copiare.
+        if (e instanceof DOMException && e.name === "AbortError") return;
+      }
+    }
     try {
       await navigator.clipboard.writeText(url);
       setDone(true);
@@ -147,7 +158,7 @@ export function SaveLink() {
         onClick={save}
         className="menu-sans mt-2 inline-flex min-h-11 items-center px-2 text-[12px] font-medium uppercase tracking-[0.18em] text-[#6B1020] underline underline-offset-4"
       >
-        Copia il link
+        Salva o manda il link
       </button>
       <span aria-live="polite" className="menu-sans block min-h-4 text-[12.5px] text-[#5B605A]">
         {done ? "Link copiato: salvalo dove vuoi." : ""}

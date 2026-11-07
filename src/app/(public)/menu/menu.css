@@ -35,9 +35,10 @@ html:has(.menu-root) body {
 }
 /* Testo più grande (strumento «A+» nella barra): ingrandisce di un quarto tutto il menù (barra,
    in evidenza, carta, piè di pagina), non la copertina né le finestre e i pulsanti fissi.
-   Solo nelle pagine con la carta (.menu-main): la pagina di un evento non ha «A+» per tornare
-   indietro e, aperta dal menù, si ritroverebbe ingrandita. */
-html[data-menu-large] .menu-root:has(.menu-main) > :not(header):not(.fixed):not([role="dialog"]) {
+   Solo nelle pagine con la carta (.menu-main) e in quelle per chiedere un tavolo (.menu-prenota, che
+   leggono la stessa scelta): la pagina di un evento non ha «A+» per tornare indietro e, aperta dal
+   menù, si ritroverebbe ingrandita. */
+html[data-menu-large] .menu-root:has(.menu-main, .menu-prenota) > :not(header):not(.fixed):not([role="dialog"]) {
   zoom: 1.25;
 }
 /* Voce trovata con la ricerca: un breve alone dorato. */

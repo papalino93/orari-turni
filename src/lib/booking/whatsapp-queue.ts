@@ -18,6 +18,8 @@ type BookingLike = {
 
 const RESPONSES: Record<string, MessageKind> = {
   CONFIRMED: "confirmed",
+  // «Il cliente ha detto sì» segnato da chi lavora: gli si manda la conferma con il link della sua pagina.
+  ACCEPTED: "confirmed",
   PROPOSED: "proposed",
   DECLINED: "declined",
   CANCELLED: "cancelledByVenue",
@@ -37,7 +39,7 @@ export function whatsappPending(b: BookingLike, now: number): MessageKind | null
   if (!last) return null;
   // La risposta deve essere ancora quella valida: se poi il cliente ha accettato/annullato, il messaggio non serve più.
   const stillValid =
-    (last.logKind === "CONFIRMED" && b.status === "CONFIRMED") ||
+    ((last.logKind === "CONFIRMED" || last.logKind === "ACCEPTED") && b.status === "CONFIRMED") ||
     (last.logKind === "PROPOSED" && b.status === "PROPOSED") ||
     (last.logKind === "DECLINED" && b.status === "DECLINED" && b.cancelledBy !== "cliente") ||
     (last.logKind === "CANCELLED" && b.status === "CANCELLED" && b.cancelledBy === "locale");
