@@ -70,7 +70,10 @@ export default function LoginPage() {
     // il pulsante "Accedi" resterebbe irraggiungibile. Il gradiente è
     // `absolute inset-0`, quindi non esce comunque dai bordi del contenitore
     // anche senza overflow-hidden.
-    <div className="relative flex min-h-screen items-center justify-center bg-[#0c0b0d] px-4">
+    // [--border]: la regola globale «* { border-color: var(--border) }» batte i colori dei
+    // bordi scritti qui sotto; la pagina è sempre scura, quindi bordo scuro anche nel tema
+    // chiaro (prima i campi avevano un contorno quasi bianco).
+    <div className="relative flex min-h-screen items-center justify-center bg-[#0e0b0d] px-4 [--border:#362c32]">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -89,7 +92,7 @@ export default function LoginPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-brand-band-border bg-[#18161a] p-6 shadow-2xl shadow-black/40"
+          className="space-y-4 rounded-2xl border border-brand-band-border bg-[#1a1619] p-6 [box-shadow:inset_0_1px_0_rgb(255_236_240/0.05),0_24px_60px_-20px_rgb(0_0_0/0.8)]"
         >
           {/* Sotto: colori scuri fissi, non legati al tema chiaro/scuro —
               coerente con lo sfondo della pagina, che ora è sempre scuro
@@ -98,7 +101,7 @@ export default function LoginPage() {
               produrrebbe testo scuro su sfondo scuro se l'utente avesse il
               tema chiaro impostato. */}
           <div className="space-y-1.5">
-            <label htmlFor="username" className="text-sm font-medium text-[#a39d9a]">
+            <label htmlFor="username" className="text-sm font-medium text-[#ada5a2]">
               Nome utente
             </label>
             <input
@@ -110,12 +113,12 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="w-full rounded-lg border border-[#2f2a2f] bg-[#221f24] px-3 py-2.5 text-[#f3efe9] outline-none transition-colors focus:border-accent"
+              className="w-full rounded-lg border border-[#362c32] bg-[#251f23] px-3 py-2.5 text-[#f5f0ea] outline-none transition-colors focus:border-accent"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="password" className="text-sm font-medium text-[#a39d9a]">
+            <label htmlFor="password" className="text-sm font-medium text-[#ada5a2]">
               Password
             </label>
             <div className="relative">
@@ -126,14 +129,14 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full rounded-lg border border-[#2f2a2f] bg-[#221f24] py-2.5 pl-3 pr-12 text-[#f3efe9] outline-none transition-colors focus:border-accent"
+                className="w-full rounded-lg border border-[#362c32] bg-[#251f23] py-2.5 pl-3 pr-12 text-[#f5f0ea] outline-none transition-colors focus:border-accent"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? "Nascondi la password" : "Mostra la password"}
                 aria-pressed={showPassword}
-                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[#a39d9a] hover:text-[#f3efe9]"
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[#ada5a2] hover:text-[#f5f0ea]"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
@@ -158,7 +161,7 @@ export default function LoginPage() {
           >
             {loading ? "Accesso in corso…" : "Accedi"}
           </button>
-          <p className="text-center text-xs text-[#a39d9a]">Password dimenticata? Chiedi al titolare.</p>
+          <p className="text-center text-xs text-[#ada5a2]">Password dimenticata? Chiedi al titolare.</p>
         </form>
         <p className="mt-4 text-center text-[11px] text-brand-band-foreground-muted" aria-label="Versione dell'app">
           {VERSION_LABEL}

@@ -259,7 +259,7 @@ function RemoveTestOpens({ today }: { today: string }) {
                             return next;
                           })
                         }
-                        className="min-h-10 px-1 text-xs font-medium text-accent hover:underline"
+                        className="min-h-10 px-1 text-xs font-medium text-accent-ink hover:underline"
                       >
                         {g.rows.every((r) => chosen.has(r.id)) ? "Nessuna" : "Tutte"}
                       </button>

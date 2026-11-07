@@ -43,7 +43,7 @@ export function EmployeeAvatar({
   return (
     <span
       className={`flex ${box} shrink-0 items-center justify-center rounded-full font-medium ${text} ${
-        gold ? "bg-gold/20 text-gold" : "bg-surface-2 text-foreground-muted"
+        gold ? "bg-gold/20 text-gold ring-1 ring-inset ring-gold/30" : "bg-surface-2 text-foreground-muted ring-1 ring-inset ring-border"
       } ${className}`}
       aria-hidden
     >

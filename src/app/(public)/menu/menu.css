@@ -40,13 +40,16 @@ html:has(.menu-root) body {
 html[data-menu-large] .menu-root:has(.menu-main) > :not(header):not(.fixed):not([role="dialog"]) {
   zoom: 1.25;
 }
-/* Voce trovata con la ricerca: un breve alone dorato. */
+/* Voce trovata con la ricerca: un breve alone dorato, che si allarga appena oltre il
+   testo (l'ombra non occupa spazio: niente scorrimento di lato). */
 @keyframes menu-found {
   0% {
-    background-color: rgba(201, 169, 110, 0.55);
+    background-color: rgba(201, 169, 110, 0.5);
+    box-shadow: 0 0 0 12px rgba(201, 169, 110, 0.5);
   }
   100% {
-    background-color: transparent;
+    background-color: rgba(201, 169, 110, 0);
+    box-shadow: 0 0 0 12px rgba(201, 169, 110, 0);
   }
 }
 .menu-root .menu-found {
@@ -120,4 +123,161 @@ html[data-menu-large] .menu-root:has(.menu-main) > :not(header):not(.fixed):not(
 }
 @media (prefers-reduced-motion: reduce) {
   .festa-8, .festa-8-dopo { animation: none; }
+}
+
+/* ———————————————————————————————————————————————————————————————————————————
+   Ritocchi di finitura (0.35.x). Solo aspetto: niente testi, struttura o funzioni.
+   Queste regole stanno fuori dai layer di Tailwind e quindi vincono sulle sue
+   classi: ognuna è limitata al menù e a elementi precisi.
+   ——————————————————————————————————————————————————————————————————————————— */
+
+/* Il menù è sempre «carta chiara», anche con il telefono in modalità scura: campi,
+   cursore, barra di scorrimento e selettori nativi restano chiari sulla crema
+   (l'app altrove mette color-scheme: dark). */
+html:has(.menu-root) {
+  color-scheme: light;
+}
+
+/* Al tocco, una velatura bordeaux appena percettibile invece del grigio del telefono. */
+.menu-root {
+  -webkit-tap-highlight-color: rgba(107, 16, 32, 0.08);
+}
+/* Testo chiaro su fondo bordeaux (copertina, intestazioni, piè di pagina): sul Mac
+   sembrava più grosso del dovuto; così resta nitido e sottile come sulla carta. */
+.menu-root header,
+.menu-root footer {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: rgba(244, 238, 227, 0.12);
+}
+
+/* Selezione del testo nei colori della carta. */
+.menu-root ::selection {
+  background: #6b1020;
+  color: #f4eee3;
+}
+.menu-root footer ::selection,
+.menu-root header ::selection {
+  background: #e3d4bc;
+  color: #4a0c18;
+}
+
+/* Contorno da tastiera: bordeaux sulla crema, oro sul bordeaux (dove il bordeaux
+   dell'app spariva). */
+.menu-root :is(a, button):focus-visible {
+  outline-color: #6b1020;
+  outline-offset: 3px;
+}
+.menu-root :is(header, footer) :is(a, button):focus-visible {
+  outline-color: #d8b97a;
+}
+
+/* Copertina: il filo d'oro sotto il logo nasce sfumando, come un tratto di pennino. */
+.menu-root > header .h-9.w-px {
+  background: linear-gradient(180deg, rgba(184, 149, 94, 0) 0%, #b8955e 75%);
+}
+
+/* Barra delle sezioni: un'ombra calda appena accennata la stacca dalla carta che scorre sotto. */
+.menu-root div:has(> div > nav[aria-label="Sezioni del menù"]) {
+  box-shadow: 0 10px 18px -16px rgba(74, 12, 24, 0.45);
+}
+
+/* Profondità discreta: schede «In evidenza», annunci e locandine poggiano sulla carta. */
+.menu-root section[aria-label="In evidenza"] a.rounded-\[18px\],
+.menu-root section[aria-label="Annunci"] > a {
+  box-shadow:
+    0 1px 2px rgba(74, 12, 24, 0.04),
+    0 12px 28px -20px rgba(74, 12, 24, 0.3);
+}
+.menu-root section[aria-label="In evidenza"] img,
+.menu-root section[aria-label="In evidenza"] a > div.rounded-\[10px\] {
+  box-shadow: 0 6px 16px -10px rgba(40, 8, 14, 0.45);
+}
+/* Riquadri dorati (consigli della casa, abbinamenti): un filetto d'oro sottilissimo
+   dentro il bordo, come una carta stampata in rilievo. */
+.menu-root #v-consigli a,
+.menu-root a[data-stat-k="pair"] {
+  box-shadow: inset 0 0 0 1px rgba(156, 122, 69, 0.16);
+}
+
+/* Bottoni fissi («Torna su», «Torna a …»): ombra calda, non grigia. */
+.menu-root .fixed.shadow-lg {
+  box-shadow:
+    0 2px 4px rgba(40, 8, 14, 0.12),
+    0 10px 24px -8px rgba(40, 8, 14, 0.4);
+}
+
+/* Piè di pagina: un filo d'oro sul bordo, come la vetrina. */
+.menu-root footer {
+  box-shadow: inset 0 1px 0 rgba(201, 169, 110, 0.35);
+}
+
+/* Orari sui telefoni stretti (360 px): la riga di «oggi», in grassetto, andava a capo
+   dentro l'orario («16:30–» / «22:00»). Un po' meno spazio tra giorno e orario basta. */
+@media (max-width: 389px) {
+  .menu-root footer dl {
+    column-gap: 14px;
+  }
+}
+
+/* Stati di tocco e di passaggio del mouse: brevi, morbidi. */
+.menu-root :is(#v-consigli a, a[data-stat-k="pair"], a[data-pair-from], section[aria-label="In evidenza"] a, section[aria-label="Annunci"] > a, footer a[data-stat-k="contact"], a.rounded-full, button.rounded-full, [role="dialog"] li > button) {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.25s ease,
+    color 0.15s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+}
+.menu-root :is(#v-consigli a, a[data-stat-k="pair"], section[aria-label="In evidenza"] a, section[aria-label="Annunci"] > a):active {
+  transform: scale(0.985);
+}
+.menu-root :is(a.rounded-full, button.rounded-full):active {
+  transform: scale(0.97);
+}
+.menu-root footer a[data-stat-k="contact"]:active,
+.menu-root a[data-pair-from].rounded-full:active {
+  background-color: rgba(201, 169, 110, 0.22);
+}
+.menu-root [role="dialog"] li > button:active {
+  background-color: rgba(201, 169, 110, 0.12);
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu-root :is(section[aria-label="In evidenza"] a.rounded-\[18px\], section[aria-label="Annunci"] > a):hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 2px rgba(74, 12, 24, 0.05),
+      0 18px 34px -20px rgba(74, 12, 24, 0.38);
+  }
+  .menu-root :is(#v-consigli a, a[data-stat-k="pair"]):hover {
+    box-shadow:
+      inset 0 0 0 1px rgba(156, 122, 69, 0.32),
+      0 10px 24px -18px rgba(74, 12, 24, 0.35);
+  }
+  .menu-root footer a[data-stat-k="contact"]:hover,
+  .menu-root a[data-pair-from].rounded-full:hover {
+    background-color: rgba(201, 169, 110, 0.18);
+    border-color: #c9a96e;
+  }
+}
+
+/* Ricerca: il campo attivo ha il bordo bordeaux previsto e un alone dorato, al posto del
+   doppio contorno (bordo sabbia + contorno dell'app). */
+.menu-root [role="dialog"] input[type="search"] {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.menu-root [role="dialog"] input[type="search"]:focus {
+  border-color: #6b1020;
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(201, 169, 110, 0.24);
+}
+
+/* «Riduci animazioni»: niente schede che si spostano. */
+@media (prefers-reduced-motion: reduce) {
+  .menu-root :is(#v-consigli a, a[data-stat-k="pair"], section[aria-label="In evidenza"] a, section[aria-label="Annunci"] > a, a.rounded-full, button.rounded-full):is(:hover, :active) {
+    transform: none;
+  }
 }

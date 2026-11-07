@@ -85,7 +85,7 @@ export function AppShell({
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="app-backdrop flex min-h-screen flex-col">
       {/* La striscia di navigazione resta sempre bordeaux con logo/testo
           bianchi, indipendentemente dal tema chiaro/scuro scelto per il
           resto della pagina: è la fascia di marca fissa, non un elemento
@@ -98,7 +98,7 @@ export function AppShell({
           letteralmente sotto l'orologio e la batteria del telefono. Lo
           sfondo bordeaux resta esteso fin sotto la barra di stato (l'effetto
           voluto); solo il contenuto vero scende sotto di essa. */}
-      <header className="sticky top-0 z-30 bg-brand-band pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(0,0,0,0.18)] backdrop-blur">
+      <header className="brand-band-bar brand-band-bar-top sticky top-0 z-30 bg-brand-band pt-[env(safe-area-inset-top)]">
         <div className="app-wide mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link
             href={home.href}
@@ -121,8 +121,8 @@ export function AppShell({
                   title={item.label}
                   className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors lg:gap-2 lg:px-3.5 ${
                     active
-                      ? "bg-brand-band-active text-brand-band-foreground"
-                      : "text-brand-band-foreground-muted hover:text-brand-band-foreground"
+                      ? "nav-mark-bottom bg-brand-band-active text-brand-band-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
+                      : "text-brand-band-foreground-muted hover:bg-brand-band-hover/50 hover:text-brand-band-foreground"
                   }`}
                 >
                   <Icon active={!!active} />
@@ -183,7 +183,7 @@ export function AppShell({
           le etichette finiscono a ridosso dell'Home Indicator gestuale. */}
       {/* Con una voce sola (il dipendente senza il menù) la barra in basso non serve a niente. */}
       {navItems.length > 1 && (
-        <nav className="fixed inset-x-0 bottom-0 z-30 flex bg-brand-band shadow-[0_-1px_0_rgba(0,0,0,0.18)] backdrop-blur md:hidden">
+        <nav className="brand-band-bar brand-band-bar-bottom fixed inset-x-0 bottom-0 z-30 flex bg-brand-band md:hidden">
           {navItems.map((item) => {
             const active = pathname?.startsWith(item.href);
             const Icon = item.icon;
@@ -192,7 +192,7 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={`flex flex-1 flex-col items-center gap-1 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] text-[11px] font-medium transition-colors ${
-                  active ? "text-brand-band-foreground" : "text-brand-band-foreground-muted"
+                  active ? "nav-mark-top text-brand-band-foreground" : "text-brand-band-foreground-muted"
                 }`}
               >
                 <Icon active={!!active} />
