@@ -155,19 +155,70 @@ if (process.argv.includes("--servizio")) {
     check("servizio: cellulare francese +33 → wa.me/33612345678 (non +39 33…)", fr.ok && (fr.whatsappHref ?? "").startsWith("https://wa.me/33612345678?"), fr.ok ? fr.whatsappHref?.slice(0, 40) : JSON.stringify(fr));
     const qf = fx.ok ? await S.queueConfirmation(fx.booking.id, who) : { ok: true };
     check("servizio: numero fisso → non entra nella lista «Da mandare su WhatsApp»", !qf.ok, JSON.stringify(qf));
+    // (3) Fisso o senza telefono: nessuna voce «da mandare» anche se in cronologia c'è una risposta del locale.
+    const fakeQueued = [{ at: new Date(), actor: "Prova Agenda Marta", kind: "WA_QUEUED", message: null }];
+    const fakeCancel = [{ at: new Date(), actor: "Prova Agenda Marta", kind: "CANCELLED", message: null }];
+    check(
+      "servizio: (3) fisso o senza telefono → mai nella lista «Da mandare su WhatsApp» (conferma o annullo)",
+      fx.ok && e3.ok &&
+        whatsappPending({ ...fx.booking, log: fakeQueued }, Date.now()) === null &&
+        whatsappPending({ ...e3.booking, log: fakeQueued }, Date.now()) === null &&
+        whatsappPending({ ...fx.booking, status: "CANCELLED", cancelledBy: "locale", log: fakeCancel }, Date.now()) === null &&
+        whatsappPending({ ...ok.booking, log: fakeQueued }, Date.now()) === "confirmed",
+    );
+    // (10) «Da mandare dal telefono del locale» toccato due volte: una sola voce in cronologia.
+    const qd2 = await S.queueConfirmation(ok.booking.id, { name: "Prova Agenda Marta" });
+    const queuedN = await prisma.bookingLog.count({ where: { requestId: ok.booking.id, kind: "WA_QUEUED" } });
+    check("servizio: (10) conferma già in coda e non mandata → niente seconda voce in cronologia", qd2.ok && queuedN === 1, `${queuedN} voci`);
+
+    // (4) Orario già passato da più di mezz'ora: domanda come per i giorni chiusi (se adesso si può provare).
+    {
+      const nowD = new Date();
+      const pastAt = new Date(nowD.getTime() - 2 * 3600000);
+      const today = R.businessDay(nowD);
+      if (R.businessDay(pastAt) === today) {
+        const pp = R.romeParts(pastAt);
+        const t = `${String(Math.floor(pp.minutes / 60)).padStart(2, "0")}:${String(pp.minutes % 60).padStart(2, "0")}`;
+        const when = today === R.romeParts(nowD).dateKey ? "di oggi" : `di ${R.dayLong(today)}`;
+        const p1 = await S.createManualBooking(base({ day: today, time: t, name: "Prova Agenda S passata", phone: agendaPhone(9009) }), who, null);
+        check(`servizio: (4) ora già passata → «Le ${t} ${when} sono già passate: segnarla lo stesso?»`, !p1.ok && p1.ask === `Le ${t} ${when} sono già passate: segnarla lo stesso?`, JSON.stringify(p1));
+        const p2 = await S.createManualBooking(base({ day: today, time: t, name: "Prova Agenda S passata", phone: agendaPhone(9009), force: true }), who, null);
+        check("servizio: (4) …con «Segna lo stesso» si salva", p2.ok);
+        const p3 = p2.ok ? await S.updateBooking(p2.booking.id, base({ day: today, time: t, name: "Prova Agenda S passata", phone: agendaPhone(9009), table: "9" }), R.editVersion(p2.booking), who, null) : { ok: false };
+        check("servizio: (4) modificare il tavolo di una già passata (stessa ora) → nessuna domanda", p3.ok, JSON.stringify(p3).slice(0, 160));
+      } else {
+        check("servizio: (4) ora già passata (saltata: tra le 5 e le 7 del mattino non c'è un'ora passata di oggi)", true);
+      }
+    }
 
     // Modifica
     const before = await prisma.bookingRequest.findUniqueOrThrow({ where: { id: ok.booking.id } });
-    const u1 = await S.updateBooking(before.id, { ...base({ name: before.name, phone: agendaPhone(9005), people: 6, time: "21:00", table: "dehors", note: "nota", allergies: true }) }, before.updatedAt.getTime(), { name: "Prova Agenda Andrea" }, null);
+    const u1 = await S.updateBooking(before.id, { ...base({ name: before.name, phone: agendaPhone(9005), people: 6, time: "21:00", table: "dehors", note: "nota", allergies: true }) }, R.editVersion(before), { name: "Prova Agenda Andrea" }, null);
     const uLog = await prisma.bookingLog.findFirst({ where: { requestId: before.id, kind: "UPDATED" } });
     check("servizio: modifica ora, persone, tavolo → salvata", u1.ok && u1.booking.time === "21:00" && u1.booking.people === 6 && u1.booking.table === "dehors" && u1.booking.startsAt.getTime() === R.romeInstant(D1, 21 * 60).getTime());
     check("servizio: cronologia UPDATED «ora 20:00 → 21:00, persone 4 → 6, tavolo 5 → dehors»", uLog?.actor === "Prova Agenda Andrea" && uLog.message === "ora 20:00 → 21:00, persone 4 → 6, tavolo 5 → dehors", uLog?.message);
-    const u2 = await S.updateBooking(before.id, base({ name: before.name, phone: agendaPhone(9005), people: 3 }), before.updatedAt.getTime(), { name: "Prova Agenda Marta" }, null);
-    check("servizio: modifica con una versione vecchia → «Nel frattempo l'ha modificata Prova Agenda Andrea: ricontrolla e riprova.»", !u2.ok && u2.error === "Nel frattempo l'ha modificata Prova Agenda Andrea: ricontrolla e riprova.", JSON.stringify(u2));
+    const u2 = await S.updateBooking(before.id, base({ name: before.name, phone: agendaPhone(9005), people: 3 }), R.editVersion(before), { name: "Prova Agenda Marta" }, null);
+    check(
+      "servizio: (1) modifica con dati vecchi → «Nel frattempo l'ha modificata Prova Agenda Andrea: qui sotto ci sono i dati aggiornati. Rifai la tua modifica e salva.»",
+      !u2.ok && u2.error === "Nel frattempo l'ha modificata Prova Agenda Andrea: qui sotto ci sono i dati aggiornati. Rifai la tua modifica e salva.",
+      JSON.stringify(u2).slice(0, 200),
+    );
+    check("servizio: (1) …con i dati di adesso (6 persone alle 21:00, dehors) da ricaricare nel modulo", !u2.ok && u2.conflict?.people === 6 && u2.conflict?.time === "21:00" && u2.conflict?.table === "dehors");
+    const u2b = !u2.ok && u2.conflict ? await S.updateBooking(before.id, base({ name: before.name, phone: agendaPhone(9005), people: 3, time: "21:00", table: "dehors", note: "nota", allergies: true }), R.editVersion(u2.conflict), { name: "Prova Agenda Marta" }, null) : { ok: false };
+    check("servizio: (1) …rifatta sui dati nuovi → salvata", u2b.ok && u2b.booking.people === 3 && u2b.booking.table === "dehors", JSON.stringify(u2b).slice(0, 160));
+
+    // (2) «Arrivati»/«Non venuti» non fanno fallire una «Modifica» aperta
+    {
+      const open = await prisma.bookingRequest.findUniqueOrThrow({ where: { id: before.id } });
+      const vOpen = R.editVersion(open);
+      await S.markArrival(open.id, { name: "Prova Agenda Marta" }, null);
+      const ua = await S.updateBooking(open.id, base({ name: open.name, phone: agendaPhone(9005), people: 4, time: "21:00", table: "dehors", note: "nota", allergies: true }), vOpen, { name: "Prova Agenda Andrea" }, null);
+      check("servizio: (2) «Arrivati» segnato mentre un altro modifica → la modifica si salva lo stesso", ua.ok && ua.booking.people === 4, JSON.stringify(ua).slice(0, 160));
+    }
 
     // Due modifiche nello stesso istante, con la stessa versione: una sola passa, niente misto
     const fresh = await prisma.bookingRequest.findUniqueOrThrow({ where: { id: before.id } });
-    const v = fresh.updatedAt.getTime();
+    const v = R.editVersion(fresh);
     const [ra, rb] = await Promise.all([
       S.updateBooking(fresh.id, base({ name: fresh.name, phone: agendaPhone(9005), people: 5, time: "19:00", table: "A", note: "nota", allergies: true }), v, { name: "Prova Agenda A" }, null),
       S.updateBooking(fresh.id, base({ name: fresh.name, phone: agendaPhone(9005), people: 7, time: "19:30", table: "B", note: "nota", allergies: true }), v, { name: "Prova Agenda B" }, null),
@@ -177,7 +228,7 @@ if (process.argv.includes("--servizio")) {
     check("servizio: due modifiche insieme → una sola riuscita", [ra, rb].filter((r) => r.ok).length === 1, JSON.stringify([ra.ok || ra.error, rb.ok || rb.error]));
     check("servizio: …il database ha l'una o l'altra per intero", pair === "5|19:00|A" || pair === "7|19:30|B", pair);
     const loser = ra.ok ? rb : ra;
-    check("servizio: …l'altra riceve un messaggio chiaro «Nel frattempo …: ricontrolla e riprova.»", !loser.ok && /^Nel frattempo .*ricontrolla e riprova\.$/.test(loser.error), loser.error);
+    check("servizio: …l'altra riceve «Nel frattempo l'ha modificata Prova Agenda …: qui sotto ci sono i dati aggiornati…» con i dati del vincitore", !loser.ok && /^Nel frattempo l'ha modificata Prova Agenda [AB]: qui sotto ci sono i dati aggiornati\. Rifai la tua modifica e salva\.$/.test(loser.error) && loser.conflict?.people === after.people, loser.error);
     // Senza versione (null) l'ultima vince, ma sempre per intero
     const [na, nb] = await Promise.all([
       S.updateBooking(fresh.id, base({ name: fresh.name, phone: agendaPhone(9005), people: 2, time: "18:00", table: "C", note: "nota", allergies: true }), null, { name: "Prova Agenda A" }, null),
@@ -190,32 +241,37 @@ if (process.argv.includes("--servizio")) {
     // Annullata nel frattempo
     const cur = await prisma.bookingRequest.findUniqueOrThrow({ where: { id: fresh.id } });
     await S.cancelForCustomer(cur.id, { name: "Prova Agenda Marta" }, null);
-    const x = await S.updateBooking(cur.id, base({ name: cur.name, phone: agendaPhone(9005), people: 9 }), cur.updatedAt.getTime(), { name: "Prova Agenda A" }, null);
+    const x = await S.updateBooking(cur.id, base({ name: cur.name, phone: agendaPhone(9005), people: 9 }), R.editVersion(cur), { name: "Prova Agenda A" }, null);
     const x2 = await prisma.bookingRequest.findUniqueOrThrow({ where: { id: cur.id } });
-    check("servizio: modifica di una annullata nel frattempo → «Nel frattempo è stata annullata.» e niente cambia", !x.ok && x.error === "Nel frattempo è stata annullata." && x2.status === "CANCELLED" && x2.people === cur.people, JSON.stringify(x));
+    check("servizio: (5) modifica di una annullata nel frattempo → «Nel frattempo è stata annullata: non si può più modificare.» e niente cambia", !x.ok && x.gone === true && x.error === "Nel frattempo è stata annullata: non si può più modificare." && x2.status === "CANCELLED" && x2.people === cur.people, JSON.stringify(x));
 
     // Prenotazione online: si modifica allo stesso modo (il telefono resta obbligatorio)
     const onl = await prisma.bookingRequest.create({
       data: { code: "PAG" + Math.random().toString(36).slice(2, 8).toUpperCase(), tokenHash: "prova_agenda_" + Math.random(), status: "CONFIRMED", day: D2, time: "19:00", startsAt: R.romeInstant(D2, 19 * 60), people: 2, name: "Prova Agenda S online", phone: P(9006), source: "menu" },
     });
-    const ou = await S.updateBooking(onl.id, base({ day: D2, name: onl.name, phone: agendaPhone(9006), people: 3, time: "20:00", table: "7" }), onl.updatedAt.getTime(), who, null);
+    const ou = await S.updateBooking(onl.id, base({ day: D2, name: onl.name, phone: agendaPhone(9006), people: 3, time: "20:00", table: "7" }), R.editVersion(onl), who, null);
     check("servizio: modifica di una online → salvata, resta online (manual=false)", ou.ok && ou.booking.manual === false && ou.booking.people === 3 && ou.booking.table === "7");
     const ou2 = await S.updateBooking(onl.id, base({ day: D2, name: onl.name, phone: "", people: 3, time: "20:00", table: "7" }), null, who, null);
     check("servizio: a una online non si può togliere il telefono", !ou2.ok && ou2.field === "phone", JSON.stringify(ou2));
     const nothing = await S.updateBooking(onl.id, base({ day: D2, name: onl.name, phone: agendaPhone(9006), people: 3, time: "20:00", table: "7" }), null, who, null);
-    check("servizio: «Salva le modifiche» senza cambiare nulla → niente riga nuova in cronologia", nothing.ok && (await prisma.bookingLog.count({ where: { requestId: onl.id, kind: "UPDATED" } })) === 1);
+    check("servizio: (11) «Salva le modifiche» senza cambiare nulla → «Nessuna modifica» (unchanged), niente riga nuova in cronologia", nothing.ok && nothing.unchanged === true && (await prisma.bookingLog.count({ where: { requestId: onl.id, kind: "UPDATED" } })) === 1);
     const pend = await prisma.bookingRequest.create({
       data: { code: "PAG" + Math.random().toString(36).slice(2, 8).toUpperCase(), tokenHash: "prova_agenda_" + Math.random(), status: "PENDING", day: D2, time: "19:00", startsAt: R.romeInstant(D2, 19 * 60), people: 2, name: "Prova Agenda S in attesa", phone: P(9007), source: "menu" },
     });
     const pu = await S.updateBooking(pend.id, base({ day: D2, name: pend.name, phone: agendaPhone(9007), people: 4 }), null, who, null);
     check("servizio: una richiesta ancora da confermare non si modifica", !pu.ok && /solo le prenotazioni confermate/.test(pu.error));
 
-    // agendaDay: ordine per ora (00:30 dopo le 21:00), totali online + a mano
-    const ag = await S.agendaDay(D1);
-    const times = ag.rows.map((r) => r.time);
+    // L'agenda di un giorno (come la scheda): ordine per ora (00:30 dopo le 21:00), totali online + a mano
+    const agRows = await prisma.bookingRequest.findMany({ where: { day: D1, status: "CONFIRMED" }, orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }] });
+    const times = agRows.map((r) => r.time);
     const idx = (t) => times.indexOf(t);
-    check("servizio: agendaDay in ordine di ora (00:30 in fondo, dopo mezzanotte)", ag.rows.every((r, i) => i === 0 || r.startsAt >= ag.rows[i - 1].startsAt) && idx("00:30") === times.length - 1, times.join(","));
-    check("servizio: agendaDay totali = somma delle confermate (online + a mano)", ag.people === ag.rows.reduce((s, r) => s + r.people, 0) && ag.tables === ag.rows.length && ag.rows.every((r) => r.status === "CONFIRMED"));
+    check("servizio: agenda del giorno in ordine di ora (00:30 in fondo, dopo mezzanotte)", idx("00:30") === times.length - 1, times.join(","));
+    const agT = R.agendaTotals(agRows);
+    check("servizio: totali dell'agenda = somma delle confermate (online + a mano)", agT.people === agRows.reduce((s, r) => s + r.people, 0) && agT.tables === agRows.length);
+    check("servizio: (13) «Tavolo 5» davanti solo ai numeri («dehors», «Sala grande» così)", R.tableText("5") === "Tavolo 5" && R.tableText("dehors") === "dehors" && R.tableText("Sala grande") === "Sala grande");
+    check("servizio: (4) etichette dei giorni di notte: «Sab 7 nov (stanotte)» / «Dom 8 nov»; di sera «Oggi»/«Domani»",
+      JSON.stringify(R.quickDayLabels("2026-11-07", R.romeInstant("2026-11-07", 24 * 60 + 30))) === JSON.stringify({ today: "Sab 7 nov (stanotte)", tomorrow: "Dom 8 nov" }) &&
+        JSON.stringify(R.quickDayLabels("2026-11-07", R.romeInstant("2026-11-07", 21 * 60))) === JSON.stringify({ today: "Oggi", tomorrow: "Domani" }));
     check("servizio: agendaTotals «1 persona · 1 tavolo» / «5 persone · 2 tavoli»", R.agendaTotals([{ people: 1 }]).text === "1 persona · 1 tavolo" && R.agendaTotals([{ people: 2 }, { people: 3 }]).text === "5 persone · 2 tavoli", R.agendaTotals([{ people: 1 }]).text);
 
     // Numeri: online e a mano separate
@@ -305,6 +361,7 @@ let phoneN = 0;
 const nextPhone = () => agendaPhone(++phoneN); // «300 005 00xx»
 const intl = (p) => "39" + p.replace(/\D/g, "");
 const dmy = (day) => day; // i campi data accettano YYYY-MM-DD con fill()
+const peopleWord = (n) => `${n} ${String(n) === "1" ? "persona" : "persone"}`;
 
 // Una richiesta online vera (dalla route pubblica), poi confermata come farebbe il locale.
 async function online(name, day, time, people = 2) {
@@ -562,9 +619,10 @@ try {
   check("Agenda: in ordine di ora", pos.every((x, i) => i === 0 || x > pos[i - 1]), pos.join(","));
   // Il database è condiviso con altre prove che girano insieme: il totale deve tornare con le righe
   // mostrate (somma delle persone, una riga = un tavolo) e con il database di quel momento.
-  const uiRows = await agenda(A).getByRole("list").first().getByRole("listitem").allInnerTexts();
+  // Le annullate (barrate) e le prove non contano nei totali.
+  const uiRows = (await agenda(A).getByRole("list").first().getByRole("listitem").allInnerTexts()).filter((t) => !/Annullata|Di prova/.test(t));
   const uiPeople = uiRows.reduce((sum, t) => sum + Number(t.match(/(\d+)\s*pers\./)?.[1] ?? 0), 0);
-  const [ppl, tables] = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED'`).split("|");
+  const [ppl, tables] = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and not "isTest"`).split("|");
   const totTxt = agTxt.match(/\d+ person[ae] · \d+ tavol[io]/)?.[0] ?? "";
   check(`Agenda: totale del giorno = somma delle righe (${uiPeople} persone · ${uiRows.length} tavoli)`, totTxt === `${uiPeople} persone · ${uiRows.length} tavoli`, totTxt);
   check(`Agenda: …e uguale al database (${ppl} persone · ${tables} tavoli, online + a mano)`, totTxt === `${ppl} persone · ${tables} tavoli` || DB(`select count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`) !== "0", `${totTxt} (altre prove in corso: ${DB(`select count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`)})`);
@@ -575,7 +633,13 @@ try {
   await shot(A, "agenda-giorno");
 
   // Frecce, «Oggi», titolo del giorno
-  const title = async () => (await agenda(A).innerText()).split("\n").find((l) => /(lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica) \d+/i.test(l)) ?? "";
+  // Titolo su due righe: «Oggi» piccolo sopra, la data sotto → «Oggi · sabato 7 novembre».
+  const title = async () => {
+    const lines = (await agenda(A).innerText()).split("\n").map((l) => l.trim());
+    const i = lines.findIndex((l) => /(lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica) \d+/i.test(l));
+    if (i < 0) return "";
+    return /^(Oggi|Domani|Ieri)$/.test(lines[i - 1] ?? "") ? `${lines[i - 1]} · ${lines[i]}` : lines[i];
+  };
   const t0 = await title();
   await agenda(A).getByRole("button", { name: L.nextDay }).click();
   await A.waitForTimeout(600);
@@ -639,7 +703,7 @@ try {
   await goList(A);
   await tab(A, "Stasera");
   const tonight = await panel(A).innerText();
-  const [tp, tt] = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where day='${TODAY}' and status='CONFIRMED'`).split("|");
+  const [tp, tt] = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where day='${TODAY}' and status='CONFIRMED' and not "isTest"`).split("|");
   check("«Stasera»: c'è la prenotazione a mano di oggi", tonight.includes(n5));
   check(`«Stasera»: «Stasera · ${tp} persone prenotate · ${tt} tavol…» (contano anche quelle a mano)`, tonight.includes(`Stasera · ${tp} persone prenotate · ${tt} tavol`), tonight.split("\n").slice(0, 2).join(" ") + ` [db ${tp}|${tt} oggi=${TODAY}: ${DB(`select day||' '||time||' '||people from "BookingRequest" where name=${q(n5)}`)}]`);
   check("«Stasera»: niente più «online» nel totale", !/persone prenotate online/.test(tonight));
@@ -760,21 +824,106 @@ try {
     const [winP, loseP, winner] = winA ? [A, M, ADMIN_NAME] : [M, A, MARTA.name];
     check("insieme: chi ha vinto legge «✓ Modifiche salvate»", (await bodyText(winP)).includes(L.editSaved));
     const lt = await bodyText(loseP);
-    check(`insieme: l'altro legge «Nel frattempo l'ha modificata ${winner}: ricontrolla e riprova.»`, lt.includes(`Nel frattempo l'ha modificata ${winner}: ricontrolla e riprova.`) || lt.includes("Nel frattempo qualcuno l'ha cambiata: ricontrolla e riprova."), lt.match(/Nel frattempo[^\n]*/)?.[0] ?? "nessun messaggio");
+    const conflictText = `Nel frattempo l'ha modificata ${winner}: qui sotto ci sono i dati aggiornati. Rifai la tua modifica e salva.`;
+    check(`(1) insieme: l'altro legge «${conflictText}»`, lt.includes(conflictText), lt.match(/Nel frattempo[^\n]*/)?.[0] ?? "nessun messaggio");
     check("insieme: una sola modifica in cronologia", logs(id).filter((l) => l.startsWith("UPDATED")).length === 1, logs(id).join(" / "));
+    // (1) Il modulo dell'altro ora ha i dati di chi ha vinto (persone e tavolo), non i suoi.
+    const eLose = loseP.getByRole("dialog", { name: L.editTitle });
+    const [wPeople, wTable] = winA ? ["5", "A"] : ["7", "M"];
+    const loseChecked = await eLose.getByRole("radio", { name: wPeople, exact: true }).getAttribute("aria-checked").catch(() => null);
+    const loseTable = await eLose.getByRole("textbox", { name: /^Tavolo/ }).inputValue().catch(() => "");
+    check(`(1) …nel suo modulo ora ci sono i dati aggiornati (${wPeople} persone, tavolo ${wTable})`, loseChecked === "true" && loseTable === wTable, `${loseChecked} ${loseTable}`);
     await shot(loseP, "insieme-perso");
+    // …rifà la sua modifica sui dati nuovi e salva: ora passa.
+    await eLose.getByRole("textbox", { name: /^Tavolo/ }).fill("R");
+    const again = await saveIn(loseP, eLose, L.editSave, L.editSaved);
+    check("(1) …rifatta e salvata: «✓ Modifiche salvate» e tavolo R nel database", again.outcome === "saved" && (await waitDb(() => row(id).split("|")[3] === "R")), `${again.outcome} ${row(id)}`);
     await closeAll(A);
     await closeAll(M);
 
     // Annullata nel frattempo (dal cliente): la modifica si rifiuta con un messaggio chiaro
+    // (2) Prima: «Arrivati» segnato da un altro mentre la modifica è aperta (cambia updatedAt): si salva lo stesso.
+    const eA1 = await openEdit(A, n7, D2.day, { people: 6 });
+    DB(`update "BookingRequest" set "arrivedAt"=now(), "updatedAt"=now() where id='${id}'`);
+    const ar = await saveIn(A, eA1, L.editSave, L.editSaved);
+    check("(2) «Arrivati» segnato da un altro mentre la modifica è aperta → «✓ Modifiche salvate» lo stesso", ar.outcome === "saved" && (await waitDb(() => row(id).split("|")[2] === "6")), `${ar.outcome} ${row(id)}`);
+    DB(`update "BookingRequest" set "arrivedAt"=null where id='${id}'`);
+    await closeAll(A);
     const before = row(id);
     const eA2 = await openEdit(A, n7, D2.day, { people: 9 });
     DB(`update "BookingRequest" set status='CANCELLED', "cancelledBy"='cliente', "updatedAt"=now() where id='${id}'`);
     await eA2.getByRole("button", { name: L.editSave, exact: true }).click();
     await A.waitForTimeout(2000);
     check("modifica di una annullata nel frattempo: rifiutata (database invariato)", row(id) === before.replace(/^CONFIRMED/, "CANCELLED"), row(id));
-    check("…con «Nel frattempo è stata annullata.»", (await bodyText(A)).includes("Nel frattempo è stata annullata."), (await bodyText(A)).match(/Nel frattempo[^\n]*/)?.[0]);
+    const goneTxt = await bodyText(A);
+    const goneMsg = "Nel frattempo è stata annullata: non si può più modificare.";
+    check(`(5) …al posto del modulo «${goneMsg}», una volta sola`, goneTxt.split(goneMsg).length === 2, goneTxt.match(/Nel frattempo[^\n]*/g)?.join(" | "));
+    const eGone = A.getByRole("dialog", { name: L.editTitle });
+    check("(5) …e solo «Chiudi» (niente campi né «Salva le modifiche»)", (await eGone.getByRole("button", { name: "Chiudi", exact: true }).count()) >= 1 && (await eGone.getByRole("button", { name: L.editSave }).count()) === 0 && (await eGone.getByRole("textbox").count()) === 0);
     await shot(A, "modifica-annullata");
+    await closeAll(A);
+  }
+
+  // ================= (3) Fisso / senza telefono: annullo senza messaggi, niente «da mandare» =================
+  ensure();
+  {
+    const n9 = "Prova Agenda Fisso";
+    const d = await fillNew(A, { source: L.srcPhone, name: n9, phone: "02 1234567", people: 2, day: D2.day, time: D2.slots[1] });
+    const r = await saveNew(A, d);
+    check("(3) prenotazione a mano con un fisso: salvata", r.outcome === "saved", r.outcome + " " + r.warnText);
+    await closeSheet(A, d);
+    const id = byName(n9);
+    const s9 = await openBooking(A, n9, D2.day);
+    await s9.getByRole("button", { name: "Annulla la prenotazione" }).click();
+    const us = s9.getByRole("button", { name: "Annulliamo noi (avvisa tu il cliente)" });
+    check("(3) fisso: «Annulliamo noi (avvisa tu il cliente)» (non «il cliente riceve le scuse»)", (await us.count()) === 1 && (await s9.getByRole("button", { name: /il cliente riceve le scuse/ }).count()) === 0);
+    await us.click();
+    check("(3) …sotto «Il cliente non riceve messaggi: chiamalo tu.» e niente messaggio da scrivere", (await s9.innerText()).includes("Il cliente non riceve messaggi: chiamalo tu.") && (await s9.getByRole("textbox").count()) === 0);
+    const yes = s9.getByRole("button", { name: "Sì, annulla", exact: true });
+    check("(3) …conferma «Sì, annulla»", (await yes.count()) === 1);
+    await yes.click();
+    check("(3) …annullata nel database", await waitDb(() => DB(`select status from "BookingRequest" where id=${q(id)}`) === "CANCELLED"));
+    await shot(A, "fisso-annullata");
+    await closeAll(A);
+    await goList(A);
+    await tab(A, "Da gestire");
+    check("(3) …e non compare tra «Da mandare su WhatsApp»", !(await panel(A).innerText()).includes(n9));
+    // (16) In agenda resta in fondo al giorno, barrata, con «Annullata», fuori dai totali.
+    await goAgenda(A, D2.day);
+    const items = await agenda(A).getByRole("list").first().getByRole("listitem").allInnerTexts();
+    const k = items.findIndex((t) => t.includes(n9));
+    check("(16) agenda: l'annullata è in fondo al giorno con «Annullata»", k === items.length - 1 && /Annullata/.test(items[k] ?? ""), items.map((t) => t.split("\n")[0]).join(" | "));
+    const deco = await agendaRow(A, n9).evaluate((el) => [...el.querySelectorAll("*")].some((x) => getComputedStyle(x).textDecorationLine.includes("line-through")));
+    check("(16) …barrata", deco);
+    const tot = (await agenda(A).innerText()).match(/\d+ person[ae] · \d+ tavol[io]/)?.[0] ?? "";
+    const [p2, t2] = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where day='${D2.day}' and status='CONFIRMED' and not "isTest"`).split("|");
+    check(`(16) …fuori dai totali (${p2} persone · ${t2} tavoli)`, tot === `${peopleWord(p2)} · ${t2} ${t2 === "1" ? "tavolo" : "tavoli"}` || DB(`select count(*) from "BookingRequest" where day='${D2.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`) !== "0", tot);
+  }
+
+  // ================= (4) Ora già passata e giorni di notte =================
+  ensure();
+  {
+    const romeNow = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+    const nowMin = Number(romeNow.slice(0, 2)) * 60 + Number(romeNow.slice(3));
+    const night = nowMin < 5 * 60;
+    const d = await fillNew(A, { source: L.srcPhone, name: "Prova Agenda Passata", phone: nextPhone(), people: 2 });
+    const btns = await d.getByRole("button", { pressed: true }).or(d.getByRole("button", { pressed: false })).allInnerTexts();
+    if (night) check("(4) di notte: niente «Oggi»/«Domani» ma la data («… (stanotte)» e il giorno dopo)", btns.some((t) => /^\w{3} \d+ \w{3} \(stanotte\)$/.test(t)) && !btns.includes("Oggi") && !btns.includes("Domani"), btns.join(" | "));
+    else check("(4) di giorno: «Oggi» e «Domani»", btns.includes("Oggi") && btns.includes("Domani"), btns.join(" | "));
+    // Un'ora di due ore fa, se è ancora «oggi» (dalle 7 in poi, o di notte dopo le 2).
+    const pastMin = nowMin - 120;
+    const sameDay = night ? pastMin >= 0 || pastMin + 1440 >= 5 * 60 : pastMin >= 5 * 60;
+    if (sameDay) {
+      const m = (pastMin + 1440) % 1440;
+      const t = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+      await d.getByLabel("Giorno", { exact: true }).fill(TODAY);
+      await d.getByLabel("Un altro orario").fill(t);
+      const r = await saveNew(A, d, { confirm: false });
+      check(`(4) ora già passata (${t}): domanda «Le ${t} … sono già passate: segnarla lo stesso?»`, r.outcome === "warn" && new RegExp(`Le ${t} di (oggi|[^ ]+ \\d+ [^ ]+) sono già passate: segnarla lo stesso\\?`).test(r.warnText), r.warnText);
+      await A.getByRole("alertdialog").getByRole("button", { name: "Annulla" }).click().catch(() => {});
+      check("(4) …con «Annulla» non si salva", DB(`select count(*) from "BookingRequest" where name='Prova Agenda Passata'`) === "0");
+      await shot(A, "ora-passata");
+    } else check("(4) ora già passata: saltata (prima delle 7 non c'è un'ora di due ore fa nello stesso giorno)", true);
     await closeAll(A);
   }
 

@@ -5,11 +5,13 @@
 // apre in WhatsApp (WHATSAPP_OPENED) o lo segna come già mandato (WHATSAPP_DONE).
 
 import type { MessageKind } from "@/lib/booking/messages";
+import { whatsappReachable } from "@/lib/booking/rules";
 
 type LogLike = { at: Date | number | string; actor: string; kind: string; message: string | null };
 type BookingLike = {
   status: string;
   contact: string;
+  phone: string | null;
   cancelledBy: string | null;
   startsAt: Date | number | string;
   proposedStartsAt?: Date | number | string | null;
@@ -32,6 +34,8 @@ const ms = (v: Date | number | string) => (v instanceof Date ? v.getTime() : typ
 // Il messaggio da mandare per l'ultima risposta del locale, oppure null se non serve (già aperto in
 // WhatsApp o segnato, email partita a chi l'aveva scelta, risposta superata, orario già passato).
 export function whatsappPending(b: BookingLike, now: number): MessageKind | null {
+  // Fisso o senza telefono: su WhatsApp non arriva niente, non c'è nulla da mandare (si chiama il cliente).
+  if (!whatsappReachable(b.phone)) return null;
   const log = [...b.log].sort((x, y) => ms(x.at) - ms(y.at));
   let last: { at: number; kind: MessageKind; logKind: string } | null = null;
   for (const l of log) {

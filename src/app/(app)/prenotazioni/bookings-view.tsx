@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { runWithToast, showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
-import { addDays, availability, dayLong, peopleText, SOURCE_LABEL, type BookingSettings } from "@/lib/booking/rules";
+import { addDays, availability, dayLong, peopleText, SOURCE_LABEL, tableText, type BookingSettings } from "@/lib/booking/rules";
 import { whatsappPending } from "@/lib/booking/whatsapp-queue";
 import type { MessageKind } from "@/lib/booking/messages";
 import type { Hours } from "@/lib/menu-venue";
@@ -149,12 +149,14 @@ export function BookingsView({
       .sort((a, b) => a.b.startsAt - b.b.startsAt);
     const tonight = live.filter((x) => x.v === "CONFIRMED" && x.b.day === today).map((x) => x.b);
     const confirmed = live.filter((x) => x.v === "CONFIRMED").map((x) => x.b);
+    // Annullate che erano in agenda (segnate a mano o confermate): restano barrate in fondo al giorno.
+    const cancelled = rows.filter((b) => b.status === "CANCELLED" && (b.manual || b.log.some((l) => l.kind === "CONFIRMED" || l.kind === "ACCEPTED")));
     const upcoming = live.filter((x) => x.v === "CONFIRMED" && x.b.day > today).map((x) => x.b);
     const archive = live
       .filter((x) => x.v === "DECLINED" || x.v === "CANCELLED" || x.v === "EXPIRED" || (x.v === "CONFIRMED" && x.b.day < today))
       .map((x) => x.b)
       .sort((a, b) => b.startsAt - a.startsAt);
-    return { pending, proposed, wa, waDone, tonight, confirmed, upcoming, archive };
+    return { pending, proposed, wa, waDone, tonight, confirmed, cancelled, upcoming, archive };
   }, [rows, now, today, waOpened]);
 
   // Una nuova richiesta arrivata con la pagina aperta: un messaggio, oltre al numero.
@@ -479,9 +481,9 @@ export function BookingsView({
               </div>
             )}
 
-            {tab === "tonight" && <Tonight rows={lists.tonight} now={now} today={today} onOpen={open} />}
+            {tab === "tonight" && <Tonight rows={lists.tonight} countTests={!settings.enabled} now={now} today={today} onOpen={open} />}
 
-            {tab === "agenda" && <Agenda rows={lists.confirmed} day={agendaDay} setDay={setAgendaDay} today={today} now={now} onOpen={open} onNew={newBooking} />}
+            {tab === "agenda" && <Agenda rows={lists.confirmed} cancelled={lists.cancelled} countTests={!settings.enabled} day={agendaDay} setDay={setAgendaDay} today={today} now={now} onOpen={open} onNew={newBooking} />}
 
             {tab === "next" && (
               <Upcoming rows={lists.upcoming} pending={lists.pending} fullDays={fullDays} today={today} settings={settings} now={now} busy={busy} onOpen={open} onClose={requestClose} onReopen={(d) => closeDay(d, false)} />
@@ -664,7 +666,7 @@ function RequestCard({ b, now, today, onOpen, showStatus = false }: { b: Booking
                 <span className="text-foreground-muted">arrivata {duration(waiting)} fa</span>
               ))}
             {v === "PROPOSED" && <span className="text-foreground-muted">aveva chiesto le {b.time}</span>}
-            {b.table && <span className="rounded-md bg-accent/10 px-1.5 py-0.5 font-semibold text-accent-ink">Tavolo {b.table}</span>}
+            {b.table && <span className="rounded-md bg-accent/10 px-1.5 py-0.5 font-semibold text-accent-ink">{tableText(b.table)}</span>}
             {b.manual ? (
               <span className="text-foreground-muted">{originShort(b)}</span>
             ) : (
@@ -743,17 +745,19 @@ function WaRow({
   );
 }
 
-function Tonight({ rows, now, today, onOpen }: { rows: BookingItem[]; now: number; today: string; onOpen: (id: string) => void }) {
+function Tonight({ rows, countTests, now, today, onOpen }: { rows: BookingItem[]; countTests: boolean; now: number; today: string; onOpen: (id: string) => void }) {
   if (!rows.length) return <Empty title="Nessuna prenotazione per stasera" text="Le prenotazioni confermate per oggi compaiono qui, in ordine di orario." />;
-  const people = rows.reduce((s, b) => s + b.people, 0);
-  const arrived = rows.filter((b) => b.arrivedAt).length;
+  // Con la funzione accesa le prenotazioni di prova restano visibili («Di prova») ma non contano.
+  const counted = rows.filter((b) => countTests || !b.isTest);
+  const people = counted.reduce((s, b) => s + b.people, 0);
+  const arrived = counted.filter((b) => b.arrivedAt).length;
   return (
     <section aria-label="Stasera">
       <p className="mb-3 px-1 text-sm text-foreground">
         <span className="font-semibold">Stasera · {peopleText(people)} prenotate</span>
         <span className="text-foreground-muted">
           {" "}
-          · {rows.length} {rows.length === 1 ? "tavolo" : "tavoli"} · arrivati {arrived} su {rows.length}
+          · {counted.length} {counted.length === 1 ? "tavolo" : "tavoli"} · arrivati {arrived} su {counted.length}
         </span>
       </p>
       <ul className="grid grid-cols-[minmax(0,1fr)] gap-2 lg:grid-cols-[repeat(2,minmax(0,1fr))]">
@@ -794,7 +798,7 @@ function TonightRow({ b, now, onOpen }: { b: BookingItem; now: number; today: st
             </span>
             {b.note && <span className="mt-0.5 block text-sm text-foreground-muted">«{b.note}»</span>}
             <span className="mt-1 flex flex-wrap gap-1.5 text-xs">
-              {b.table && <span className="rounded-md bg-accent/10 px-1.5 py-0.5 font-semibold text-accent-ink">Tavolo {b.table}</span>}
+              {b.table && <span className="rounded-md bg-accent/10 px-1.5 py-0.5 font-semibold text-accent-ink">{tableText(b.table)}</span>}
               {b.isTest && <TestChip />}
               {b.allergies && <span className="rounded-full bg-danger-bg px-2 py-0.5 font-semibold text-danger">{ALLERGY_TEXT}</span>}
               {b.arrivedAt && <span className="font-semibold text-success">✓ Arrivati alle {clock(b.arrivedAt)}</span>}
@@ -879,7 +883,9 @@ function Upcoming({
     <div className="space-y-5">
       {days.length === 0 && <Empty title="Nessuna prenotazione nei prossimi giorni" text="Le prenotazioni confermate da domani in poi compaiono qui, giorno per giorno." />}
       {days.map((day) => {
-        const list = rows.filter((b) => b.day === day);
+        const all = rows.filter((b) => b.day === day);
+        // Con la funzione accesa le prenotazioni di prova non contano nei totali.
+        const list = settings.enabled ? all.filter((b) => !b.isTest) : all;
         const people = list.reduce((s, b) => s + b.people, 0);
         const waiting = pending.filter((b) => b.day === day).length;
         const closed = fullDays.includes(day);
@@ -911,9 +917,9 @@ function Upcoming({
                 </button>
               )}
             </div>
-            {list.length > 0 && (
+            {all.length > 0 && (
               <CardList>
-                {list.map((b) => (
+                {all.map((b) => (
                   <RequestCard key={b.id} b={b} now={now} today={today} onOpen={onOpen} />
                 ))}
               </CardList>

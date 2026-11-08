@@ -286,6 +286,26 @@ export function agendaTotals(rows: { people: number }[]): { people: number; tabl
   return { people, tables, text: `${peopleText(people)} · ${tables} ${tables === 1 ? "tavolo" : "tavoli"}` };
 }
 
+// «Tavolo 5», ma «dehors» e «Sala grande» così come sono.
+export function tableText(table: string): string {
+  return /^\d+[a-z]?$/i.test(table.trim()) ? `Tavolo ${table.trim()}` : table.trim();
+}
+
+// Impronta dei campi che si modificano dal foglio «Modifica»: chi salva dice quali dati aveva
+// davanti, e se nel frattempo qualcuno li ha cambiati non si sovrascrive. «Arrivati»/«Non venuti»
+// e le altre azioni non toccano questi campi, quindi non fanno fallire una modifica aperta.
+export function editVersion(b: { day: string; time: string; people: number; name: string; phone: string | null; table: string | null; note: string | null; allergies: boolean }): string {
+  return JSON.stringify([b.day, b.time, b.people, b.name, b.phone ?? "", b.table ?? "", b.note ?? "", b.allergies]);
+}
+
+// Le etichette dei giorni nel foglio: tra mezzanotte e le 5 il giorno commerciale («oggi»)
+// è ancora quello di ieri sul calendario, e «Domani» sarebbe il giorno che è già cominciato.
+// Allora si scrive la data: «Sab 7 nov (stanotte)» e «Dom 8 nov».
+export function quickDayLabels(today: string, now: Date): { today: string; tomorrow: string } {
+  if (romeParts(now).dateKey === today) return { today: "Oggi", tomorrow: "Domani" };
+  return { today: `${dayShort(today)} (stanotte)`, tomorrow: dayShort(addDays(today, 1)) };
+}
+
 // ---------- Telefono del cliente
 //
 // Un numero sbagliato vuol dire una risposta che non arriva mai: si controlla prima dell'invio

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireBookingManager, AuthError, type BookingManager } from "@/lib/guard";
 import { runAction, ValidationError, type ActionResult } from "@/lib/validation";
 import { isValidEmail } from "@/lib/mail";
-import { parseBookingSettings, type BookingSettings } from "@/lib/booking/rules";
+import { editVersion, parseBookingSettings, type BookingSettings } from "@/lib/booking/rules";
 import {
   acceptProposalForCustomer,
   cancelByVenue,
@@ -32,8 +32,16 @@ import {
 } from "@/lib/booking/service";
 import { sendPushToStaff } from "@/lib/booking/push";
 
-// Ogni azione è un indirizzo pubblico: la prima cosa è sempre requireBookingManager()
-// (titolare/consulente, o dipendente con «Può gestire le prenotazioni», letto dal database).
+// Ogni azione è un indirizzo pubblico: la prima cosa è sempre requireAgendaManager()
+// (titolare/consulente, o dipendente con «Può gestire le prenotazioni», letto dal database;
+// con la funzione spenta solo il titolare, come la pagina).
+
+// Con la funzione spenta prenotazioni e agenda sono solo per le prove del titolare (come la pagina).
+async function requireAgendaManager(): Promise<BookingManager> {
+  const m = await requireBookingManager();
+  if (m.role !== "ADMIN" && !(await loadBookingSettings()).enabled) throw new AuthError("Le prenotazioni non sono ancora attive: per ora le prova solo il titolare.");
+  return m;
+}
 
 const ID = /^[a-z0-9]{10,40}$/i;
 function parseBookingId(v: unknown): string {
@@ -77,7 +85,7 @@ export async function replyToRequest(
   time?: string,
 ): Promise<ActionResult<ReplyOutcome>> {
   return runAction(async () => {
-    const m = await requireBookingManager();
+    const m = await requireAgendaManager();
     const id = parseBookingId(idInput);
     const origin = await requestOrigin();
     const actor = { name: m.name };
@@ -98,7 +106,7 @@ export async function replyToRequest(
 
 export async function setArrival(idInput: string, arrived: boolean | null): Promise<ActionResult> {
   return runAction(async () => {
-    const m = await requireBookingManager();
+    const m = await requireAgendaManager();
     const id = parseBookingId(idInput);
     if (arrived !== true && arrived !== false && arrived !== null) throw new ValidationError("Azione non valida.");
     const r = await markArrival(id, { name: m.name }, arrived);
@@ -111,14 +119,26 @@ export async function setArrival(idInput: string, arrived: boolean | null): Prom
 
 // Esito del salvataggio: salvata (con il messaggio WhatsApp già pronto, se c'è il telefono)
 // oppure una domanda da confermare («Quel giorno risulta chiuso: segnarla lo stesso?»).
+// I campi del foglio «Modifica» come li ha adesso il database (dopo un conflitto si ricaricano).
+export type AgendaFields = { name: string; phone: string; people: number; day: string; time: string; table: string; note: string; allergies: boolean; version: string };
+
 export type AgendaOutcome =
-  | { saved: true; id: string; whatsappHref: string | null; hasPhone: boolean }
+  | { saved: true; id: string; whatsappHref: string | null; hasPhone: boolean; unchanged: boolean }
   | { saved: false; ask: string; field?: undefined }
-  | { saved: false; ask?: undefined; error: string; field?: string };
+  | { saved: false; ask?: undefined; error: string; field?: string; conflict?: AgendaFields; gone?: boolean };
 
 function agendaOutcome(r: ManualResult): AgendaOutcome {
-  if (r.ok) return { saved: true, id: r.booking.id, whatsappHref: r.whatsappHref, hasPhone: Boolean(r.booking.phone) };
+  if (r.ok) return { saved: true, id: r.booking.id, whatsappHref: r.whatsappHref, hasPhone: Boolean(r.booking.phone), unchanged: r.unchanged === true };
   if ("ask" in r) return { saved: false, ask: r.ask };
+  if ("conflict" in r) {
+    const c = r.conflict;
+    return {
+      saved: false,
+      error: r.error,
+      conflict: { name: c.name, phone: c.phone, people: c.people, day: c.day, time: c.time, table: c.table ?? "", note: c.note ?? "", allergies: c.allergies, version: editVersion(c) },
+    };
+  }
+  if ("gone" in r) return { saved: false, error: r.error, gone: true };
   return { saved: false, error: r.error, field: r.field };
 }
 
@@ -127,13 +147,6 @@ const manualFields = (input: ManualInput): ManualInput => {
   const { day, time, people, name, phone, table, note, allergies, source, force } = input;
   return { day, time, people, name, phone, table, note, allergies, source, force };
 };
-
-// Con la funzione spenta l'agenda è solo per le prove del titolare (come la pagina).
-async function requireAgendaManager(): Promise<BookingManager> {
-  const m = await requireBookingManager();
-  if (m.role !== "ADMIN" && !(await loadBookingSettings()).enabled) throw new AuthError("Le prenotazioni non sono ancora attive: per ora le prova solo il titolare.");
-  return m;
-}
 
 export async function addManualBooking(input: ManualInput): Promise<ActionResult<AgendaOutcome>> {
   return runAction(async () => {
@@ -144,12 +157,12 @@ export async function addManualBooking(input: ManualInput): Promise<ActionResult
   });
 }
 
-export async function editBooking(idInput: string, input: ManualInput, version: number): Promise<ActionResult<AgendaOutcome>> {
+export async function editBooking(idInput: string, input: ManualInput, version: string): Promise<ActionResult<AgendaOutcome>> {
   return runAction(async () => {
     const m = await requireAgendaManager();
     const id = parseBookingId(idInput);
     const fields = { ...manualFields(input), source: undefined };
-    const r = await updateBooking(id, fields, typeof version === "number" ? version : null, { name: m.name }, await requestOrigin());
+    const r = await updateBooking(id, fields, typeof version === "string" ? version : null, { name: m.name }, await requestOrigin());
     refresh();
     return agendaOutcome(r);
   });
@@ -159,7 +172,7 @@ export async function editBooking(idInput: string, input: ManualInput, version: 
 // «queue»: la conferma di una prenotazione dell'agenda la manda il telefono del locale.
 export async function markWhatsapp(idInput: string, how: "opened" | "done" | "undo" | "queue"): Promise<ActionResult> {
   return runAction(async () => {
-    const m = await requireBookingManager();
+    const m = await requireAgendaManager();
     const id = parseBookingId(idInput);
     const exists = await prisma.bookingRequest.findUnique({ where: { id }, select: { id: true } });
     if (!exists) throw new ValidationError("Questa richiesta non c'è più.");
@@ -193,7 +206,7 @@ export async function eraseRequest(idInput: string): Promise<ActionResult> {
 // «Siamo pieni stasera» / «Chiudi le richieste» di un giorno, e «Riapri».
 export async function setDayClosed(dayInput: string, full: boolean): Promise<ActionResult> {
   return runAction(async () => {
-    const m = await requireBookingManager();
+    const m = await requireAgendaManager();
     if (typeof dayInput !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dayInput) || Number.isNaN(Date.parse(`${dayInput}T00:00:00Z`))) {
       throw new ValidationError("Giorno non valido.");
     }
@@ -274,7 +287,7 @@ const owner = (m: BookingManager) => (m.employeeId ? { employeeId: m.employeeId,
 
 export async function savePushSubscription(sub: SubscriptionInput, userAgent: string): Promise<ActionResult> {
   return runAction(async () => {
-    const m = await requireBookingManager();
+    const m = await requireAgendaManager();
     const { endpoint, p256dh, auth } = parseSubscription(sub);
     const ua = typeof userAgent === "string" ? userAgent.slice(0, 300) : null;
     // Stesso telefono, altra persona che ha fatto l'accesso: l'iscrizione passa a chi c'è adesso.
@@ -298,7 +311,7 @@ export async function removePushSubscription(endpointInput: string): Promise<Act
 
 export async function sendTestPush(endpointInput: string): Promise<ActionResult<number>> {
   return runAction(async () => {
-    const m = await requireBookingManager();
+    const m = await requireAgendaManager();
     if (typeof endpointInput !== "string" || endpointInput.length > 1000) throw new ValidationError("Dati non validi.");
     const mine = await prisma.pushSubscription.findFirst({
       where: { endpoint: endpointInput, ...(m.employeeId ? { employeeId: m.employeeId } : { username: m.username }) },

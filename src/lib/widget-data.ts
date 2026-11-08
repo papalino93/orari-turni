@@ -255,8 +255,14 @@ async function bookingsToDo(): Promise<{ richieste: number; whatsapp: number }> 
   const [richieste, risposte] = await Promise.all([
     prisma.bookingRequest.count({ where: { isTest: false, status: "PENDING", startsAt: { gte: now } } }),
     prisma.bookingRequest.findMany({
-      where: { isTest: false, handledAt: { not: null }, status: { in: ["CONFIRMED", "PROPOSED", "DECLINED", "CANCELLED"] }, startsAt: { gte: new Date(now.getTime() - 86400000) } },
-      select: { status: true, contact: true, cancelledBy: true, startsAt: true, proposedStartsAt: true, log: { select: { at: true, actor: true, kind: true, message: true } } },
+      // Anche le conferme in coda delle prenotazioni segnate a mano (non hanno handledAt).
+      where: {
+        isTest: false,
+        OR: [{ handledAt: { not: null } }, { manual: true }],
+        status: { in: ["CONFIRMED", "PROPOSED", "DECLINED", "CANCELLED"] },
+        startsAt: { gte: new Date(now.getTime() - 86400000) },
+      },
+      select: { status: true, contact: true, phone: true, cancelledBy: true, startsAt: true, proposedStartsAt: true, log: { select: { at: true, actor: true, kind: true, message: true } } },
     }),
   ]);
   return { richieste, whatsapp: risposte.filter((b) => whatsappPending(b, now.getTime()) !== null).length };

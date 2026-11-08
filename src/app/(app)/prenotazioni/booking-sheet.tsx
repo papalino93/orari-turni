@@ -320,6 +320,9 @@ export function BookingSheet({
   const resultTitle = result ? RESULT_TITLE[result.reply] : "";
   const resultKind = (r: Action): MessageKind => (r === "propose" ? "proposed" : r === "decline" ? "declined" : r === "cancel" ? "cancelledByVenue" : "confirmed");
 
+  // Fisso o senza telefono, e niente email: annullando, nessun messaggio arriva al cliente.
+  const unreachable = !whatsappReachable(b.phone) && !(b.contact === "email" && b.email);
+
   // Risposta ancora da mandare su WhatsApp (anche riaprendo la scheda più tardi).
   const pendingWa = whatsappPending(b, now);
   const resendHref = (kind: MessageKind) => replyHref(b, kind);
@@ -460,14 +463,16 @@ export function BookingSheet({
                   Ci ha avvisato il cliente (nessun messaggio)
                 </button>
                 <button type="button" disabled={busy} onClick={() => setCancelBy("venue")} className={`${bigBtn} border border-danger/40 text-danger hover:bg-danger-bg`}>
-                  Annulliamo noi (il cliente riceve le scuse)
+                  {unreachable ? "Annulliamo noi (avvisa tu il cliente)" : "Annulliamo noi (il cliente riceve le scuse)"}
                 </button>
                 <button type="button" disabled={busy} onClick={() => openPanel(null)} className="min-h-11 w-full rounded-full text-sm font-medium text-foreground-muted hover:text-foreground">
                   Indietro
                 </button>
               </div>
             )}
-            {panel === "cancel" && cancelBy === "venue" && <p className="text-sm text-foreground-muted">Il cliente riceve un messaggio di scuse. Non si può tornare indietro.</p>}
+            {panel === "cancel" && cancelBy === "venue" && (
+              <p className="text-sm text-foreground-muted">{unreachable ? "Il cliente non riceve messaggi: chiamalo tu." : "Il cliente riceve un messaggio di scuse. Non si può tornare indietro."}</p>
+            )}
             {panel === "propose" && (
               <div className="space-y-2" data-unsaved-ignore>
                 {slots.length ? (
@@ -494,7 +499,7 @@ export function BookingSheet({
                 </label>
               </div>
             )}
-            {(panel !== "cancel" || cancelBy === "venue") && messageBox(panel)}
+            {(panel !== "cancel" || (cancelBy === "venue" && !unreachable)) && messageBox(panel)}
             <div className={`flex flex-col-reverse gap-2 sm:flex-row sm:justify-end ${panel === "cancel" && cancelBy === null ? "hidden" : ""}`}>
               <button
                 type="button"
@@ -520,7 +525,9 @@ export function BookingSheet({
                         : "Scegli un orario"
                       : panel === "decline"
                         ? "Rispondi: siamo al completo"
-                        : "Sì, annulla e avvisa"}
+                        : unreachable
+                          ? "Sì, annulla"
+                          : "Sì, annulla e avvisa"}
               </button>
             </div>
           </div>

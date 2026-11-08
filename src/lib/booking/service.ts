@@ -25,6 +25,8 @@ import {
   timeToDayMinutes,
   withinOpening,
   whatsappReachable,
+  editVersion,
+  romeParts,
   MANUAL_SOURCES,
   type ManualSource,
   type BookingSettings,
@@ -33,6 +35,7 @@ import {
 } from "@/lib/booking/rules";
 import { customerMessage, customerSubject, staffAlert, VENUE_NAME, type MessageKind } from "@/lib/booking/messages";
 import { sendPushToStaff } from "@/lib/booking/push";
+import { whatsappPending } from "@/lib/booking/whatsapp-queue";
 
 export type BookingRow = Awaited<ReturnType<typeof prisma.bookingRequest.findFirstOrThrow>>;
 
@@ -324,16 +327,23 @@ export type ManualInput = {
 };
 
 export type ManualResult =
-  | { ok: true; booking: BookingRow; whatsappHref: string | null }
+  // unchanged: «Salva le modifiche» senza aver cambiato niente.
+  | { ok: true; booking: BookingRow; whatsappHref: string | null; unchanged?: boolean }
   | { ok: false; error: string; field?: string }
-  // Da confermare: giorno chiuso o ora fuori apertura.
-  | { ok: false; error: string; ask: string };
+  // Da confermare: giorno chiuso, ora fuori apertura o già passata.
+  | { ok: false; error: string; ask: string }
+  // Modifica: nel frattempo un altro l'ha cambiata (con i dati di adesso) o è stata annullata.
+  | { ok: false; error: string; conflict: BookingRow }
+  | { ok: false; error: string; gone: true };
 
 type CleanManual = { day: string; time: string; startsAt: Date; people: number; name: string; phone: string; table: string | null; note: string | null; allergies: boolean };
 
 const SOURCE_LOG: Record<ManualSource, string> = { telefono: "telefono", whatsapp: "WhatsApp", persona: "di persona" };
 
-async function cleanManual(input: ManualInput, source: string | null, now: Date, keepDay?: string): Promise<{ ok: true; v: CleanManual } | { ok: false; error: string; field?: string } | { ok: false; error: string; ask: string }> {
+// keep: giorno e ora della prenotazione che si modifica (un giorno o un'ora già passati si possono
+// tenere senza domande, per esempio per segnare il tavolo di ieri sera).
+async function cleanManual(input: ManualInput, source: string | null, now: Date, keep?: { day: string; time: string }): Promise<{ ok: true; v: CleanManual } | { ok: false; error: string; field?: string } | { ok: false; error: string; ask: string }> {
+  const keepDay = keep?.day;
   const day = str(input.day, 10);
   const time = str(input.time, 5);
   const people = Number(input.people);
@@ -359,7 +369,16 @@ async function cleanManual(input: ManualInput, source: string | null, now: Date,
   } else if (source && source !== "persona") {
     return { ok: false, error: "Scrivi il telefono: serve per la conferma e per avvisare se cambia qualcosa.", field: "phone" };
   }
-  if (input.force !== true) {
+  // Giorno e ora non cambiati (si modifica altro): nessuna domanda, era già stata fatta.
+  const kept = keep && keep.day === day && keep.time === time;
+  if (input.force !== true && !kept) {
+    // Orario già passato da più di mezz'ora (per esempio «Oggi» toccato al posto di «Domani»):
+    // è lo sbaglio più probabile, quindi la prima domanda.
+    const startsAt = romeInstant(day, timeToDayMinutes(time));
+    if (startsAt.getTime() < now.getTime() - 30 * 60000) {
+      const when = day === romeParts(now).dateKey ? "di oggi" : `di ${dayLong(day)}`;
+      return { ok: false, error: "Orario già passato.", ask: `Le ${time} ${when} sono già passate: segnarla lo stesso?` };
+    }
     const { hours } = await loadVenue();
     const closed = (await closuresBetween(day, day)).get(day);
     const open = closed?.kind === "closed" ? "closedDay" : withinOpening(day, time, hours);
@@ -428,18 +447,18 @@ export async function createManualBooking(input: ManualInput, actor: StaffActor,
   return { ok: true, booking: created, whatsappHref: await confirmationHref(created, origin) };
 }
 
-// Modifica di una prenotazione confermata (online o a mano). `version` è l'updatedAt letto da chi
-// modifica: se nel frattempo qualcun altro l'ha cambiata, non si sovrascrive.
+// Modifica di una prenotazione confermata (online o a mano). `version` è editVersion() dei dati che
+// chi modifica aveva davanti: se nel frattempo qualcun altro li ha cambiati, non si sovrascrive e
+// si rimandano i dati di adesso, da far vedere nel modulo. «Arrivati» e simili non contano.
 export async function updateBooking(id: string, input: ManualInput, version: unknown, actor: StaffActor, origin: string | null, now: Date = new Date()): Promise<ManualResult> {
   const b = await prisma.bookingRequest.findUnique({ where: { id } });
-  if (!b) return { ok: false, error: "Questa prenotazione non c'è più." };
-  if (b.status !== "CONFIRMED") return { ok: false, error: b.status === "CANCELLED" ? "Nel frattempo è stata annullata." : "Si possono modificare solo le prenotazioni confermate." };
-  if (typeof version === "number" && b.updatedAt.getTime() !== version) {
-    const last = await prisma.bookingLog.findFirst({ where: { requestId: id, kind: "UPDATED" }, orderBy: { at: "desc" }, select: { actor: true } });
-    return { ok: false, error: `Nel frattempo l'ha modificata ${last?.actor ?? "qualcun altro"}: ricontrolla e riprova.` };
+  if (!b) return { ok: false, error: "Questa prenotazione non c'è più.", gone: true };
+  if (b.status !== "CONFIRMED") {
+    return { ok: false, error: b.status === "CANCELLED" ? "Nel frattempo è stata annullata: non si può più modificare." : "Si possono modificare solo le prenotazioni confermate.", gone: true };
   }
+  if (typeof version === "string" && editVersion(b) !== version) return conflictResult(b);
   // Telefono obbligatorio solo se c'era: una prenotazione online ha sempre il numero del cliente.
-  const c = await cleanManual(input, b.phone ? "telefono" : null, now, b.day);
+  const c = await cleanManual(input, b.phone ? "telefono" : null, now, { day: b.day, time: b.time });
   if (!c.ok) return c;
   const v = c.v;
   const changes: string[] = [];
@@ -454,9 +473,10 @@ export async function updateBooking(id: string, input: ManualInput, version: unk
   diff("tavolo", b.table, v.table);
   if ((b.note ?? "") !== (v.note ?? "")) changes.push(v.note ? "nota cambiata" : "nota tolta");
   if (b.allergies !== v.allergies) changes.push(v.allergies ? "allergie: sì" : "allergie: no");
-  if (!changes.length) return { ok: true, booking: b, whatsappHref: await confirmationHref(b, origin) };
+  if (!changes.length) return { ok: true, booking: b, whatsappHref: await confirmationHref(b, origin), unchanged: true };
+  // Si salva solo se i campi sono ancora quelli letti qui sopra (due «Salva» insieme: vince il primo).
   const r = await prisma.bookingRequest.updateMany({
-    where: { id, status: "CONFIRMED", updatedAt: b.updatedAt },
+    where: { id, status: "CONFIRMED", day: b.day, time: b.time, people: b.people, name: b.name, phone: b.phone, table: b.table, note: b.note, allergies: b.allergies },
     data: {
       day: v.day,
       time: v.time,
@@ -471,28 +491,39 @@ export async function updateBooking(id: string, input: ManualInput, version: unk
       ...(b.day !== v.day ? { arrivedAt: null, noShowAt: null } : {}),
     },
   });
-  if (!r.count) return { ok: false, error: "Nel frattempo qualcuno l'ha cambiata: ricontrolla e riprova." };
+  if (!r.count) {
+    const now2 = await prisma.bookingRequest.findUnique({ where: { id } });
+    if (!now2 || now2.status !== "CONFIRMED") return { ok: false, error: "Nel frattempo è stata annullata: non si può più modificare.", gone: true };
+    return conflictResult(now2);
+  }
   await log(id, actor.name, "UPDATED", changes.join(", "));
   const after = await prisma.bookingRequest.findUniqueOrThrow({ where: { id } });
   return { ok: true, booking: after, whatsappHref: await confirmationHref(after, origin) };
 }
 
+// «Nel frattempo l'ha modificata Marta»: il nome dall'ultima modifica in cronologia.
+async function conflictResult(current: BookingRow): Promise<ManualResult> {
+  const last = await prisma.bookingLog.findFirst({ where: { requestId: current.id, kind: "UPDATED" }, orderBy: { at: "desc" }, select: { actor: true } });
+  return {
+    ok: false,
+    error: `Nel frattempo l'ha modificata ${last?.actor ?? "qualcun altro"}: qui sotto ci sono i dati aggiornati. Rifai la tua modifica e salva.`,
+    conflict: current,
+  };
+}
+
 // «Da mandare dal telefono del locale»: la conferma entra nella lista «Da mandare su WhatsApp».
 export async function queueConfirmation(id: string, actor: StaffActor): Promise<{ ok: true } | { ok: false; error: string }> {
-  const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { status: true, phone: true } });
+  const b = await prisma.bookingRequest.findUnique({
+    where: { id },
+    select: { status: true, phone: true, contact: true, cancelledBy: true, startsAt: true, proposedStartsAt: true, log: { select: { at: true, actor: true, kind: true, message: true } } },
+  });
   if (!b || b.status !== "CONFIRMED") return { ok: false, error: "Si può mandare solo la conferma di una prenotazione confermata." };
   if (!b.phone) return { ok: false, error: "Manca il telefono: aggiungilo con «Modifica»." };
   if (!whatsappReachable(b.phone)) return { ok: false, error: "È un numero fisso: su WhatsApp non arriva. Se serve, chiama il cliente." };
+  // Già in lista e non ancora mandata (doppio tocco, o due persone): niente seconda voce in cronologia.
+  if (whatsappPending(b, Date.now()) === "confirmed") return { ok: true };
   await log(id, actor.name, "WA_QUEUED", null);
   return { ok: true };
-}
-
-// L'agenda di un giorno: confermate (online e a mano) in ordine di ora, con i totali.
-export async function agendaDay(day: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("Giorno non valido.");
-  const rows = await prisma.bookingRequest.findMany({ where: { day, status: "CONFIRMED" }, orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }] });
-  const people = rows.reduce((s, b) => s + b.people, 0);
-  return { day, rows, people, tables: rows.length };
 }
 
 // ---------- Avvisi

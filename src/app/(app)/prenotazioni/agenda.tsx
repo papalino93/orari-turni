@@ -3,15 +3,15 @@
 // Agenda delle prenotazioni: il «librone» digitale. Tutte le prenotazioni confermate di un giorno
 // (online e segnate a mano), il foglio per segnarne una nuova o modificarla, e la stampa del giorno.
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
-import { addDays, agendaTotals, availability, dayLong, MANUAL_SOURCES, peopleText, romeInstant, SOURCE_LABEL, type BookingSettings, type ManualSource } from "@/lib/booking/rules";
+import { addDays, agendaTotals, availability, dayLong, editVersion, MANUAL_SOURCES, peopleText, quickDayLabels, romeInstant, romeParts, SOURCE_LABEL, tableText, timeToDayMinutes, type BookingSettings, type ManualSource } from "@/lib/booking/rules";
 import type { Hours } from "@/lib/menu-venue";
-import { addManualBooking, editBooking, markWhatsapp, type AgendaOutcome } from "./actions";
+import { addManualBooking, editBooking, markWhatsapp, type AgendaFields, type AgendaOutcome } from "./actions";
 import { TestChip, WhatsappButton } from "./booking-sheet";
 import { clock, dayLabel, originShort, phoneDisplay } from "./format";
 import type { BookingItem } from "./types";
@@ -19,10 +19,11 @@ import type { BookingItem } from "./types";
 const ALLERGY_SHORT = "⚠ Allergie";
 const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-// Gli orari del giorno come pulsanti (passo e prima ora delle impostazioni, senza anticipo:
-// chi è al telefono può segnare anche un tavolo tra dieci minuti, o chi è appena entrato).
+// Gli orari del giorno come pulsanti: tutta l'apertura (non solo dalla prima ora prenotabile online),
+// con il passo delle impostazioni e senza anticipo: chi è al telefono può segnare anche un tavolo
+// tra dieci minuti, o chi è appena entrato.
 export function daySlots(day: string, hours: Hours, settings: BookingSettings): string[] {
-  const a = availability(day, hours, { ...settings, leadMinutes: 0, daysAhead: 400, lastBeforeClose: Math.min(settings.lastBeforeClose, 60) }, null, romeInstant(day, 5 * 60));
+  const a = availability(day, hours, { ...settings, firstTime: "00:00", leadMinutes: 0, daysAhead: 400, lastBeforeClose: Math.min(settings.lastBeforeClose, 60) }, null, romeInstant(day, 5 * 60));
   return a.slots.map((s) => s.time);
 }
 
@@ -72,24 +73,27 @@ export function BookingForm({
     booking
       ? {
           source: (MANUAL_SOURCES as readonly string[]).includes(booking.source ?? "") ? (booking.source as ManualSource) : "telefono",
-          name: booking.name,
-          phone: booking.phone ? phoneDisplay(booking.phone) : "",
-          people: String(booking.people),
-          day: booking.day,
-          time: booking.time,
-          table: booking.table ?? "",
-          note: booking.note ?? "",
-          allergies: booking.allergies,
+          ...fieldsOf(booking),
         }
       : { source: "telefono", name: "", phone: "", people: "", day: initialDay, time: "", table: "", note: "", allergies: false },
   );
-  const [initial] = useState(() => JSON.stringify(f));
+  const [initial, setInitial] = useState(() => JSON.stringify(f));
+  // I dati che chi modifica ha davanti (vedi editVersion): dopo un conflitto, quelli nuovi.
+  const [version, setVersion] = useState(() => (booking ? editVersion(booking) : ""));
+  const [conflict, setConflict] = useState<string | null>(null);
+  const [gone, setGone] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ field: string | null; text: string } | null>(null);
   const [ask, setAsk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<Extract<AgendaOutcome, { saved: true }> | null>(null);
   const [queued, setQueued] = useState(false);
   const [waOpened, setWaOpened] = useState(false);
+  // Tra mezzanotte e le 5 «Oggi»/«Domani» confondono: si scrive la data («Sab 7 nov (stanotte)»).
+  const [quick] = useState(() => quickDayLabels(today, new Date()));
+  const conflictRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (conflict) conflictRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [conflict]);
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
     setF((x) => ({ ...x, [k]: v }));
     if (errors?.field === k) setErrors(null);
@@ -97,15 +101,25 @@ export function BookingForm({
 
   const slots = useMemo(() => (/^\d{4}-\d{2}-\d{2}$/.test(f.day) ? daySlots(f.day, hours, settings) : []), [f.day, hours, settings]);
   // Chiudendo con dati scritti e non salvati, il foglio chiede conferma (come le altre finestre).
-  const dirty = !saved && (editing ? JSON.stringify(f) !== initial : Boolean(f.name.trim() || f.phone.trim() || f.note.trim() || f.table.trim()));
+  const dirty = !saved && !gone && (editing ? JSON.stringify(f) !== initial : Boolean(f.name.trim() || f.phone.trim() || f.note.trim() || f.table.trim()));
   const peopleQuick = [1, 2, 3, 4, 5, 6, 7, 8];
+  const dayText = (d: string) => (d === today ? quick.today : d === addDays(today, 1) ? quick.tomorrow : capital(dayLong(d)));
+
+  // Nel frattempo un altro l'ha modificata: nel modulo i dati di adesso, da rifare e salvare.
+  function reload(c: AgendaFields, text: string) {
+    const next: FormState = { source: f.source, ...fieldsOf(c) };
+    setF(next);
+    setInitial(JSON.stringify(next));
+    setVersion(c.version);
+    setConflict(text);
+  }
 
   async function save(force = false) {
     setBusy(true);
     setErrors(null);
     const input = { ...f, people: Number(f.people), force };
     try {
-      const res = booking ? await editBooking(booking.id, input, booking.updatedAt) : await addManualBooking(input);
+      const res = booking ? await editBooking(booking.id, input, version) : await addManualBooking(input);
       if (!res.ok) {
         toast.showError(res.error);
         return;
@@ -113,14 +127,22 @@ export function BookingForm({
       const out = res.data;
       if (out.saved) {
         setAsk(null);
+        setConflict(null);
         setSaved(out);
         router.refresh();
       } else if (out.ask) {
         setAsk(out.ask);
       } else if ("error" in out) {
         setAsk(null);
-        setErrors({ field: out.field ?? null, text: out.error });
-        if (!out.field) toast.showError(out.error);
+        if (out.gone) {
+          // Annullata (o sparita) nel frattempo: niente più modulo, un solo messaggio.
+          setGone(out.error);
+        } else if (out.conflict) {
+          reload(out.conflict, out.error);
+        } else {
+          setErrors({ field: out.field ?? null, text: out.error });
+          if (!out.field) toast.showError(out.error);
+        }
         router.refresh();
       }
     } catch (e) {
@@ -152,17 +174,34 @@ export function BookingForm({
       </p>
     ) : null;
 
+  const title = editing ? "Modifica la prenotazione" : "Nuova prenotazione";
+
+  if (gone) {
+    return (
+      <Sheet title={title} onClose={onClose}>
+        <div role="alert" className="space-y-3 rounded-xl border border-danger/30 bg-danger-bg p-4">
+          <p className="text-base font-semibold text-danger">{gone}</p>
+          <button type="button" onClick={onClose} className="min-h-11 w-full rounded-full border border-border bg-surface px-4 text-sm font-semibold text-foreground hover:border-accent">
+            Chiudi
+          </button>
+        </div>
+      </Sheet>
+    );
+  }
+
   if (saved) {
     const people = Number(f.people);
     return (
-      <Sheet title={editing ? "Modifica la prenotazione" : "Nuova prenotazione"} onClose={onClose}>
+      <Sheet title={title} onClose={onClose}>
         <div className="space-y-3 rounded-xl border border-success/30 bg-success-bg/60 p-4">
-          <p className="text-base font-semibold text-success">{editing ? "✓ Modifiche salvate" : "✓ Segnata in agenda"}</p>
+          <p className="text-base font-semibold text-success">{saved.unchanged ? "Nessuna modifica" : editing ? "✓ Modifiche salvate" : "✓ Segnata in agenda"}</p>
           <p className="text-sm text-foreground">
-            {f.day === today ? "Oggi" : f.day === addDays(today, 1) ? "Domani" : capital(dayLong(f.day))} alle {f.time} · {peopleText(people)} · {f.name.trim()}
-            {f.table.trim() ? ` · tavolo ${f.table.trim()}` : ""}
+            {dayText(f.day)} alle {f.time} · {peopleText(people)} · {f.name.trim()}
+            {f.table.trim() ? ` · ${tableText(f.table).replace(/^Tavolo /, "tavolo ")}` : ""}
           </p>
-          {saved.hasPhone && saved.whatsappHref ? (
+          {saved.unchanged ? (
+            <p className="text-xs text-foreground-muted">Non hai cambiato niente: la prenotazione resta com&apos;era.</p>
+          ) : saved.hasPhone && saved.whatsappHref ? (
             canWhatsapp ? (
               <>
                 <WhatsappButton
@@ -202,7 +241,7 @@ export function BookingForm({
   }
 
   return (
-    <Sheet title={editing ? "Modifica la prenotazione" : "Nuova prenotazione"} onClose={onClose} dirty={dirty}>
+    <Sheet title={title} onClose={onClose} dirty={dirty}>
       <form
         className="space-y-4"
         noValidate
@@ -211,6 +250,11 @@ export function BookingForm({
           save(false);
         }}
       >
+        {conflict && (
+          <p ref={conflictRef} role="alert" className="rounded-xl border border-gold/40 bg-gold/[0.08] px-3 py-2.5 text-sm font-medium text-foreground">
+            {conflict}
+          </p>
+        )}
         {!editing && (
           <div>
             <span id="nuova-da-dove" className={fieldLabel}>
@@ -276,7 +320,7 @@ export function BookingForm({
           <div className="flex flex-wrap items-center gap-1.5">
             {[today, addDays(today, 1)].map((d) => (
               <button key={d} type="button" aria-pressed={f.day === d} onClick={() => set("day", d)} className={`${choice(f.day === d)} px-4`}>
-                {d === today ? "Oggi" : "Domani"}
+                {d === today ? quick.today : quick.tomorrow}
               </button>
             ))}
             <input
@@ -318,7 +362,7 @@ export function BookingForm({
         <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
           <label className="block">
             <span className={fieldLabel}>Tavolo</span>
-            <input value={f.table} onChange={(e) => set("table", e.target.value)} maxLength={20} autoComplete="off" placeholder="es. 5, dehors" className={inputClass} />
+            <input value={f.table} onChange={(e) => set("table", e.target.value)} maxLength={20} autoComplete="off" placeholder="es. 5, dehors" aria-label="Tavolo" className={inputClass} />
           </label>
           <label className="block">
             <span className={fieldLabel}>Nota</span>
@@ -340,28 +384,45 @@ export function BookingForm({
           </p>
         )}
 
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className="min-h-11 rounded-full border border-border px-5 text-sm font-medium text-foreground-muted hover:text-foreground">
+        {/* Su telefono il pulsante per salvare resta sempre in vista, in una barra in fondo al foglio. */}
+        <div className="sticky bottom-0 z-10 -mx-5 flex gap-2 border-t border-border bg-surface px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
+          <button type="button" onClick={onClose} className="min-h-12 shrink-0 rounded-full border border-border px-5 text-sm font-medium text-foreground-muted hover:text-foreground sm:min-h-11">
             Annulla
           </button>
-          <button type="submit" disabled={busy} className="min-h-12 rounded-full bg-accent px-6 text-[15px] font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-60">
+          <button type="submit" disabled={busy} className="min-h-12 flex-1 rounded-full bg-accent px-6 text-[15px] font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-60 sm:flex-none">
             {busy ? "Un attimo…" : editing ? "Salva le modifiche" : "Segna in agenda"}
           </button>
         </div>
       </form>
       {ask && (
         <ConfirmSheet title={ask} confirmLabel="Segna lo stesso" busy={busy} onConfirm={() => save(true)} onCancel={() => setAsk(null)}>
-          <p>Controlla giorno e ora. Se sono giusti (per esempio una serata privata), si segna lo stesso.</p>
+          <p>{/già passate/.test(ask) ? "Controlla giorno e ora: forse volevi un altro giorno. Se sono giusti (per esempio la segni dopo), si segna lo stesso." : "Controlla giorno e ora. Se sono giusti (per esempio una serata privata), si segna lo stesso."}</p>
         </ConfirmSheet>
       )}
     </Sheet>
   );
 }
 
+// I campi del modulo da una prenotazione (o dai dati arrivati dopo un conflitto).
+function fieldsOf(b: Pick<BookingItem, "name" | "phone" | "people" | "day" | "time" | "table" | "note" | "allergies"> | AgendaFields): Omit<FormState, "source"> {
+  return {
+    name: b.name,
+    phone: b.phone ? phoneDisplay(b.phone) : "",
+    people: String(b.people),
+    day: b.day,
+    time: b.time,
+    table: b.table ?? "",
+    note: b.note ?? "",
+    allergies: b.allergies,
+  };
+}
+
 // ---------- Scheda «Agenda»
 
 export function Agenda({
   rows,
+  cancelled,
+  countTests,
   day,
   setDay,
   today,
@@ -371,6 +432,10 @@ export function Agenda({
 }: {
   // Le confermate di tutti i giorni caricati (dagli ultimi 30 giorni in poi).
   rows: BookingItem[];
+  // Le annullate che erano in agenda: in fondo al giorno, barrate (come sul librone).
+  cancelled: BookingItem[];
+  // Con la funzione spenta tutto è di prova e si conta; accesa, le prove non contano nei totali.
+  countTests: boolean;
   day: string;
   setDay: (d: string) => void;
   today: string;
@@ -379,12 +444,16 @@ export function Agenda({
   onNew: (day: string) => void;
 }) {
   const list = useMemo(() => rows.filter((b) => b.day === day).sort((a, b) => a.startsAt - b.startsAt || a.createdAt - b.createdAt), [rows, day]);
-  const totals = agendaTotals(list);
-  const arrived = list.filter((b) => b.arrivedAt).length;
+  const gone = useMemo(() => cancelled.filter((b) => b.day === day).sort((a, b) => a.startsAt - b.startsAt), [cancelled, day]);
+  const counted = list.filter((b) => countTests || !b.isTest);
+  const totals = agendaTotals(counted);
+  const arrived = counted.filter((b) => b.arrivedAt).length;
   const min = addDays(today, -30);
   const max = addDays(today, 365);
   const label = dayLabel(day, today);
-  const title = `${label === "Oggi" || label === "Domani" || label === "Ieri" ? `${label} · ` : ""}${dayLong(day)}`;
+  // Tra mezzanotte e le 5 il giorno dopo è già cominciato: niente «Domani», solo la data.
+  const night = romeParts(new Date(now)).dateKey !== today;
+  const near = label === "Oggi" || label === "Ieri" || (label === "Domani" && !night) ? label : null;
 
   return (
     <section aria-label="Agenda" className="space-y-3">
@@ -393,7 +462,11 @@ export function Agenda({
           ‹
         </button>
         <label className="relative min-w-0 flex-1">
-          <span className="block truncate rounded-full border border-border bg-surface px-4 py-2.5 text-center text-sm font-semibold text-foreground first-letter:uppercase">{title}</span>
+          {/* Due righe: «Domani» piccolo sopra, la data intera sotto (niente puntini su telefono). */}
+          <span className="flex min-h-11 flex-col items-center justify-center rounded-full border border-border bg-surface px-4 py-1 text-center leading-tight">
+            {near && <span className="text-xs font-medium text-foreground-muted">{near}</span>}
+            <span className="text-sm font-semibold text-foreground first-letter:uppercase">{dayLong(day)}</span>
+          </span>
           {/* Il campo data copre l'etichetta: un tocco apre il calendario del telefono. */}
           <input
             type="date"
@@ -412,8 +485,8 @@ export function Agenda({
 
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <p className="text-sm text-foreground">
-          <span className="font-semibold">{list.length ? totals.text : "Nessuna prenotazione"}</span>
-          {day === today && list.length > 0 && <span className="text-foreground-muted"> · arrivati {arrived} su {list.length}</span>}
+          <span className="font-semibold">{counted.length ? totals.text : "Nessuna prenotazione"}</span>
+          {day === today && counted.length > 0 && <span className="text-foreground-muted"> · arrivati {arrived} su {counted.length}</span>}
         </p>
         <div className="flex flex-wrap gap-2">
           {day !== today && (
@@ -427,7 +500,7 @@ export function Agenda({
         </div>
       </div>
 
-      {list.length === 0 ? (
+      {list.length === 0 && gone.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
           <p className="text-sm font-semibold text-foreground">Nessuna prenotazione {day === today ? "per oggi" : "per questo giorno"}</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-foreground-muted">Qui c&apos;è tutto il giorno, come sul librone: le prenotazioni dal sito e quelle segnate a mano.</p>
@@ -436,6 +509,9 @@ export function Agenda({
         <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
           {list.map((b) => (
             <AgendaRow key={b.id} b={b} now={now} onOpen={onOpen} />
+          ))}
+          {gone.map((b) => (
+            <AgendaRow key={b.id} b={b} now={now} onOpen={onOpen} cancelled />
           ))}
         </ul>
       )}
@@ -446,29 +522,34 @@ export function Agenda({
         </button>
       )}
 
-      <AgendaPrint day={day} list={list} totals={totals.text} />
+      <AgendaPrint day={day} list={list} totals={counted.length ? totals.text : "Nessuna prenotazione"} countTests={countTests} />
     </section>
   );
 }
 
-function AgendaRow({ b, now, onOpen }: { b: BookingItem; now: number; onOpen: (id: string) => void }) {
-  const late = !b.arrivedAt && !b.noShowAt && b.startsAt < now && b.startsAt > now - 3 * 3600000;
+function AgendaRow({ b, now, onOpen, cancelled = false }: { b: BookingItem; now: number; onOpen: (id: string) => void; cancelled?: boolean }) {
+  const late = !cancelled && !b.arrivedAt && !b.noShowAt && b.startsAt < now && b.startsAt > now - 3 * 3600000;
   return (
     <li>
-      <button type="button" onClick={() => onOpen(b.id)} className={`flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-surface-2/60 ${b.noShowAt ? "opacity-60" : ""}`}>
-        <span className="w-12 shrink-0 pt-0.5 text-base font-semibold tabular-nums text-foreground">{b.time}</span>
-        <span className="w-12 shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-foreground">
+      <button
+        type="button"
+        onClick={() => onOpen(b.id)}
+        className={`flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-surface-2/60 ${cancelled ? "opacity-55" : b.noShowAt ? "opacity-60" : ""}`}
+      >
+        <span className={`w-12 shrink-0 pt-0.5 text-base font-semibold tabular-nums text-foreground ${cancelled ? "line-through" : ""}`}>{b.time}</span>
+        <span className={`w-12 shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-foreground ${cancelled ? "line-through" : ""}`}>
           {b.people} <span className="text-xs font-normal text-foreground-muted">pers.</span>
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-semibold text-foreground">{b.name}</span>
-          {b.note && <span className="mt-0.5 block text-sm text-foreground-muted [overflow-wrap:anywhere]">«{b.note}»</span>}
+          <span className={`block truncate text-[15px] font-semibold text-foreground ${cancelled ? "line-through" : ""}`}>{b.name}</span>
+          {b.note && !cancelled && <span className="mt-0.5 block text-sm text-foreground-muted [overflow-wrap:anywhere]">«{b.note}»</span>}
           <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            {b.table && <span className="rounded-md bg-accent/10 px-1.5 py-0.5 font-semibold text-accent-ink">Tavolo {b.table}</span>}
-            {b.allergies && <span className="rounded-full bg-danger-bg px-2 py-0.5 font-semibold text-danger">{ALLERGY_SHORT}</span>}
+            {cancelled && <span className="rounded-full bg-surface-2 px-2 py-0.5 font-semibold text-foreground-muted ring-1 ring-inset ring-border">Annullata</span>}
+            {b.table && !cancelled && <span className="rounded-md bg-accent/10 px-1.5 py-0.5 font-semibold text-accent-ink">{tableText(b.table)}</span>}
+            {b.allergies && !cancelled && <span className="rounded-full bg-danger-bg px-2 py-0.5 font-semibold text-danger">{ALLERGY_SHORT}</span>}
             {b.isTest && <TestChip />}
-            {b.arrivedAt && <span className="font-semibold text-success">✓ Arrivati alle {clock(b.arrivedAt)}</span>}
-            {b.noShowAt && <span className="font-semibold text-danger">Non venuti</span>}
+            {b.arrivedAt && !cancelled && <span className="font-semibold text-success">✓ Arrivati alle {clock(b.arrivedAt)}</span>}
+            {b.noShowAt && !cancelled && <span className="font-semibold text-danger">Non venuti</span>}
             {late && <span className="font-medium text-gold">non ancora arrivati</span>}
             <span className="text-foreground-muted">{originShort(b)}</span>
           </span>
@@ -492,7 +573,10 @@ function useMounted() {
   );
 }
 
-function AgendaPrint({ day, list, totals }: { day: string; list: BookingItem[]; totals: string }) {
+// «00:30 (notte)»: sul foglio stampato un orario dopo mezzanotte non si confonde con il pranzo.
+const printTime = (t: string) => (timeToDayMinutes(t) >= 1440 ? `${t} (notte)` : t);
+
+function AgendaPrint({ day, list, totals, countTests }: { day: string; list: BookingItem[]; totals: string; countTests: boolean }) {
   const mounted = useMounted();
   if (!mounted) return null;
   return createPortal(
@@ -501,22 +585,28 @@ function AgendaPrint({ day, list, totals }: { day: string; list: BookingItem[]; 
         #agenda-stampa { display: none; }
         @media print {
           @page { size: A4 portrait; margin: 12mm; }
+          /* Anche con il tema scuro: foglio bianco e testo nero. */
+          :root { color-scheme: light !important; }
           html, body { background: #fff !important; color: #000 !important; }
           body > *:not(#agenda-stampa) { display: none !important; }
-          #agenda-stampa { display: block; font: 11pt/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; color: #000; }
+          #agenda-stampa { display: block; background: #fff; font: 11pt/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; color: #000; }
+          #agenda-stampa * { background: transparent !important; color: #000 !important; }
           #agenda-stampa h1 { font-size: 16pt; margin: 0 0 1mm; }
           #agenda-stampa .tot { margin: 0 0 4mm; font-size: 10pt; }
-          #agenda-stampa table { width: 100%; border-collapse: collapse; }
-          #agenda-stampa th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1.5pt solid #000; padding: 1.5mm 1.5mm; }
+          #agenda-stampa table { width: 100%; border-collapse: collapse; table-layout: auto; }
+          #agenda-stampa th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1.5pt solid #000; padding: 1.5mm 1.5mm; white-space: nowrap; }
           #agenda-stampa td { border-bottom: .5pt solid #999; padding: 1.8mm 1.5mm; vertical-align: top; }
           #agenda-stampa tr { break-inside: avoid; }
           #agenda-stampa .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+          #agenda-stampa .nome { white-space: nowrap; }
+          #agenda-stampa .nota { width: 40%; min-width: 55mm; overflow-wrap: break-word; }
+          #agenda-stampa .presa { font-size: 9pt; min-width: 22mm; }
           #agenda-stampa .b { font-weight: 700; }
-          #agenda-stampa .foot { margin-top: 3mm; font-size: 8pt; color: #444; }
+          #agenda-stampa .foot { margin-top: 3mm; font-size: 8pt; color: #444 !important; }
         }
       `}</style>
       <h1>{capital(dayLong(day))}</h1>
-      <p className="tot">{list.length ? totals : "Nessuna prenotazione"}</p>
+      <p className="tot">{totals}</p>
       <table>
         <thead>
           <tr>
@@ -532,16 +622,19 @@ function AgendaPrint({ day, list, totals }: { day: string; list: BookingItem[]; 
         <tbody>
           {list.map((b) => (
             <tr key={b.id}>
-              <td className="num b">{b.time}</td>
+              <td className="num b">{printTime(b.time)}</td>
               <td className="num b">{b.people}</td>
-              <td className="b">{b.name}</td>
+              <td className="b nome">{b.name}</td>
               <td>{b.table ?? ""}</td>
               <td className="num">{b.phone ? phoneDisplay(b.phone) : ""}</td>
-              <td>
+              <td className="nota">
                 {b.allergies ? <strong>⚠ Allergie. </strong> : null}
                 {b.note ?? ""}
               </td>
-              <td>{originShort(b)}</td>
+              <td className="presa">
+                {originShort(b)}
+                {b.isTest && !countTests ? " · di prova" : ""}
+              </td>
             </tr>
           ))}
         </tbody>
