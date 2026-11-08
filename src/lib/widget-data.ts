@@ -11,6 +11,8 @@ import { employeeVisibleDates } from "@/lib/week-visibility";
 import { endOfMonth, lastCompletedMonth, parseDateKey, shiftEndMinutes } from "@/lib/week";
 import { MENU_QR_URL } from "@/lib/widgets";
 import { opensAtSameTime } from "@/lib/opens-same-time";
+import { loadBookingSettings } from "@/lib/booking/service";
+import { whatsappPending } from "@/lib/booking/whatsapp-queue";
 
 const DAYS = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 const DAYS_SHORT = ["L", "M", "M", "G", "V", "S", "D"];
@@ -244,14 +246,35 @@ async function allergensToDo(day: string) {
 // - piatti senza allergeni (sempre);
 // - dal giovedì, gli orari della settimana prossima ancora da scrivere; scritti ma non confermati, da confermare;
 // - dal primo del mese, i dipendenti che non hanno ancora mandato le ore del mese finito;
-// - le ore mandate che aspettano l'approvazione.
+// - le ore mandate che aspettano l'approvazione;
+// - con le prenotazioni online accese, le richieste da confermare e le risposte da mandare su WhatsApp.
+async function bookingsToDo(): Promise<{ richieste: number; whatsapp: number }> {
+  const settings = await loadBookingSettings();
+  if (!settings.enabled) return { richieste: 0, whatsapp: 0 };
+  const now = new Date();
+  const [richieste, risposte] = await Promise.all([
+    prisma.bookingRequest.count({ where: { isTest: false, status: "PENDING", startsAt: { gte: now } } }),
+    prisma.bookingRequest.findMany({
+      // Anche le conferme in coda delle prenotazioni segnate a mano (non hanno handledAt).
+      where: {
+        isTest: false,
+        OR: [{ handledAt: { not: null } }, { manual: true }],
+        status: { in: ["CONFIRMED", "PROPOSED", "DECLINED", "CANCELLED"] },
+        startsAt: { gte: new Date(now.getTime() - 86400000) },
+      },
+      select: { status: true, contact: true, phone: true, cancelledBy: true, startsAt: true, proposedStartsAt: true, log: { select: { at: true, actor: true, kind: true, message: true } } },
+    }),
+  ]);
+  return { richieste, whatsapp: risposte.filter((b) => whatsappPending(b, now.getTime()) !== null).length };
+}
+
 export async function dataDaFare() {
   const day = businessDayKey(new Date());
   const today = romeParts().day;
   const nextMon = addDays(monday(today), 7);
   const mese = lastCompletedMonth(parseDateKey(today));
   const fineMese = endOfMonth(new Date(Date.UTC(mese.year, mese.month - 1, 1)));
-  const [allergeni, esauriti, nextBlocks, nextPlan, inAttesa, dipendenti, inviati] = await Promise.all([
+  const [allergeni, esauriti, nextBlocks, nextPlan, inAttesa, dipendenti, inviati, prenotazioni] = await Promise.all([
     allergensToDo(day),
     prisma.menuItem.count({ where: { deletedAt: null, soldOutDay: day } }),
     prisma.shiftBlock.count({ where: { date: { gte: parseDateKey(nextMon), lte: parseDateKey(addDays(nextMon, 6)) } } }),
@@ -260,6 +283,7 @@ export async function dataDaFare() {
     // Come l'avviso in «Dipendenti»: chi ha l'accesso, è attivo ed era già assunto in quel mese.
     prisma.employee.findMany({ where: { role: "EMPLOYEE", active: true, username: { not: null }, createdAt: { lte: fineMese } }, select: { id: true } }),
     prisma.monthlySubmission.findMany({ where: { year: mese.year, month: mese.month, status: { in: ["SUBMITTED", "APPROVED"] } }, select: { employeeId: true } }),
+    bookingsToDo(),
   ]);
   const daPreparare = weekday(today) >= 3 && nextBlocks === 0 ? 1 : 0;
   const daConfermare = nextBlocks > 0 && !nextPlan?.publishedAt ? 1 : 0;
@@ -268,6 +292,13 @@ export async function dataDaFare() {
   const daApprovare = new Set(inAttesa.map((x) => x.employeeId)).size;
   const nomeMese = MONTHS[mese.month - 1];
   const righe = [
+    // Le prenotazioni per prime (un cliente aspetta la risposta), e solo quando ce ne sono.
+    ...(prenotazioni.richieste > 0
+      ? [{ n: prenotazioni.richieste, testo: prenotazioni.richieste === 1 ? "richiesta di prenotazione" : "richieste di prenotazione", breve: "prenotazioni", livello: "rosso", link: "/prenotazioni" }]
+      : []),
+    ...(prenotazioni.whatsapp > 0
+      ? [{ n: prenotazioni.whatsapp, testo: prenotazioni.whatsapp === 1 ? "risposta da mandare su WhatsApp" : "risposte da mandare su WhatsApp", breve: "whatsapp", livello: "ambra", link: "/prenotazioni" }]
+      : []),
     { n: allergeni, testo: "allergeni da compilare", breve: "allergeni", livello: allergeni > 0 ? "rosso" : "verde", link: "/gestione-menu" },
     { n: daPreparare, testo: "orari della settimana prossima da fare", breve: "da preparare", livello: daPreparare > 0 ? "ambra" : "verde", link: `/orari?date=${nextMon}` },
     { n: daConfermare, testo: "settimana da confermare", breve: "da confermare", livello: daConfermare > 0 ? "ambra" : "verde", link: `/orari?date=${nextMon}` },
@@ -768,6 +799,8 @@ const TODO_TEXT: Record<string, (n: number, mese?: string) => string> = {
   "da confermare": () => "Orari della settimana prossima da confermare",
   "da approvare": (n) => `${n} ${n === 1 ? "dipendente" : "dipendenti"}: ore da approvare`,
   "ore da mandare": (n, mese) => `${n} ${n === 1 ? "dipendente deve" : "dipendenti devono"} mandarti le ore di ${mese ?? "questo mese"}`,
+  prenotazioni: (n) => `${n} ${n === 1 ? "richiesta" : "richieste"} di prenotazione`,
+  whatsapp: (n) => `${n} ${n === 1 ? "risposta" : "risposte"} da mandare su WhatsApp`,
 };
 const todoText = (r: { n: number; breve: string; mese?: string }) => TODO_TEXT[r.breve]?.(r.n, r.mese) ?? `${r.n} ${r.breve}`;
 // Più corte, per l'elenco di «Prima di aprire» (una riga sola accanto al pallino).
@@ -776,6 +809,8 @@ const TODO_SHORT: Record<string, (n: number, mese?: string) => string> = {
   "da confermare": () => "Orari settimana prossima da confermare",
   "da approvare": (n) => `Ore da approvare: ${n}`,
   "ore da mandare": (n, mese) => `Ore di ${mese ?? "questo mese"}: ne mancano ${n}`,
+  prenotazioni: (n) => `Richieste da confermare: ${n}`,
+  whatsapp: (n) => `Risposte WhatsApp da mandare: ${n}`,
 };
 const todoShort = (r: { n: number; breve: string; mese?: string }) => TODO_SHORT[r.breve]?.(r.n, r.mese) ?? todoText(r);
 // Cortissime, per il riquadro «Da fare» del Pannello (metà larghezza, due righe).
@@ -785,6 +820,8 @@ const TODO_TILE: Record<string, (n: number) => string> = {
   "da confermare": () => "Orari da confermare",
   "da approvare": (n) => `Ore da approvare: ${n}`,
   "ore da mandare": (n) => `Ore da mandare: ${n}`,
+  prenotazioni: (n) => `Tavoli da confermare: ${n}`,
+  whatsapp: (n) => `WhatsApp da mandare: ${n}`,
 };
 
 // ---------- Pannello: sei scorciatoie, ognuna con il suo dato

@@ -24,8 +24,10 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
     const fixed = info.sections.filter((id) => id !== "oggi");
     check("7 sezioni nel menù", fixed.join(",") === "bollicine,bianchi,rossi,rose,taglieri,tartare,bevande" && info.sections.indexOf("oggi") <= 0, info.sections.join(","));
     check("nessun form/campo nella pagina pubblica", info.forms === 0, String(info.forms));
-    // Interni ammessi: ancore, pagine pubbliche del menù. Esterni ammessi: i contatti (tel:, https:).
-    const ok = (h) => h?.startsWith("#") || h === "/menu/allergeni" || h?.startsWith("/menu/p/") || h?.startsWith("tel:") || h?.startsWith("https://");
+    // Interni ammessi: ancore, pagine pubbliche del menù (anche «Chiedi un tavolo», con le prenotazioni
+    // online accese). Esterni ammessi: i contatti (tel:, https:).
+    const ok = (h) =>
+      h?.startsWith("#") || h === "/menu/allergeni" || h?.startsWith("/menu/p/") || h === "/menu/prenota?da=menu" || h?.startsWith("/menu/prenota?evento=") || h?.startsWith("tel:") || h?.startsWith("https://");
     check("nessun link verso aree interne", info.links.every(ok), JSON.stringify(info.links.filter((h) => !ok(h))));
     check("meta robots noindex", /noindex/.test(info.robots ?? ""), info.robots);
     check("sfondo chiaro del menù (non tema scuro)", info.bg === "rgb(244, 238, 227)", info.bg);

@@ -133,3 +133,28 @@ export async function requireEmployee(): Promise<CurrentEmployee> {
     createdAt: employee.createdAt,
   };
 }
+
+// Chi può vedere e gestire le prenotazioni: titolare/consulente sempre, un dipendente solo se
+// il titolare gli ha dato il permesso (Employee.canManageBookings), letto dal database ogni volta.
+export type BookingManager = { name: string; role: "ADMIN" | "EMPLOYEE"; username: string | null; employeeId: string | null };
+
+export async function getBookingManager(): Promise<BookingManager | null> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return null;
+  if (session.user.role !== "EMPLOYEE") {
+    const user = await findUserByUsername(session.user.username);
+    return user ? { name: user.name, role: "ADMIN", username: user.username, employeeId: null } : null;
+  }
+  if (!session.user.employeeId) return null;
+  const employee = await findEmployeeById(session.user.employeeId);
+  if (!employee || !employee.username || !employee.active || !employee.canManageBookings) return null;
+  return { name: employee.name, role: "EMPLOYEE", username: null, employeeId: employee.id };
+}
+
+export async function requireBookingManager(): Promise<BookingManager> {
+  const m = await getBookingManager();
+  if (m) return m;
+  const session = await getServerSession(authOptions);
+  if (!session?.user) throw new AuthError(SESSION_LOST);
+  throw new AuthError("Non hai più il permesso di gestire le prenotazioni: chiedi al titolare.");
+}

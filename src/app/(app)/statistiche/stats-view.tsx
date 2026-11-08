@@ -7,6 +7,7 @@ import { useToast } from "@/components/toast";
 import { MONTH_NAMES, WEEKDAY_LABELS, WEEKDAY_NAMES } from "@/lib/menu-stats";
 import { PERIODS, type Period, type StatsData } from "@/lib/stats-queries";
 import type { StatsSetting } from "@/lib/menu";
+import { edgeFade } from "@/lib/edge-fade";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { listRecentOpens, removeOpens, setStatsEnabled, type RecentOpen } from "./actions";
 import QRCode from "qrcode";
@@ -359,24 +360,6 @@ function DayByDay({ data, exportHref }: { data: StatsData; exportHref: string })
       )}
     </Card>
   );
-}
-
-// Righe di pulsanti che scorrono di lato: dice al CSS (scroll-fade-x in globals.css) da che
-// parte c'è ancora altro da vedere, per sfumare solo quel bordo. Si usa come ref (React 19:
-// la funzione restituita toglie gli ascoltatori quando la riga sparisce).
-function edgeFade(el: HTMLElement | null) {
-  if (!el) return;
-  const update = () => {
-    el.toggleAttribute("data-more-left", el.scrollLeft > 2);
-    el.toggleAttribute("data-more-right", el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
-  };
-  update();
-  el.addEventListener("scroll", update, { passive: true });
-  window.addEventListener("resize", update);
-  return () => {
-    el.removeEventListener("scroll", update);
-    window.removeEventListener("resize", update);
-  };
 }
 
 export function StatsView({

@@ -168,6 +168,7 @@ export default async function DipendentiPage() {
     // (derivata da NEXTAUTH_SECRET) non deve mai lasciare il server.
     password: e.password ? safeDecrypt(e.password) : null,
     canEditMenu: e.canEditMenu,
+    canManageBookings: e.canManageBookings,
     pendingSubmissions: pendingSubmissions
       .filter((s) => s.employeeId === e.id)
       .map((s) => ({

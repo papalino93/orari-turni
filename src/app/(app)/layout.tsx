@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/app-shell";
 import { StaffDeviceMark } from "@/components/staff-device-mark";
 import { loadFeatures } from "@/lib/app-features";
+import { loadBookingSettings, pendingCount } from "@/lib/booking/service";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -18,23 +19,30 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Titolare/consulente gestiscono sempre il menù; un dipendente solo se il
   // titolare gli ha dato il permesso (letto dal database, non dal token).
   let canEditMenu = role === "ADMIN";
+  // Prenotazioni: titolare/consulente sempre, un dipendente solo con il permesso (dal database).
+  let canManageBookings = role === "ADMIN";
   // App già installata (aperta almeno una volta dall'icona sulla Home): niente più inviti a installarla.
   let appInstalled = false;
   if (role === "EMPLOYEE" && session.user.employeeId) {
     const employee = await prisma.employee.findUnique({
       where: { id: session.user.employeeId },
-      select: { canEditMenu: true, active: true, appInstalledAt: true },
+      select: { canEditMenu: true, canManageBookings: true, active: true, appInstalledAt: true },
     });
     canEditMenu = Boolean(employee?.active && employee.canEditMenu);
+    canManageBookings = Boolean(employee?.active && employee.canManageBookings);
     appInstalled = Boolean(employee?.appInstalledAt);
   } else if (role === "ADMIN") {
     const user = await prisma.user.findUnique({ where: { username: session.user.username }, select: { appInstalledAt: true } });
     appInstalled = Boolean(user?.appInstalledAt);
   }
   const features = role === "ADMIN" ? await loadFeatures() : { mail: false, ferie: false };
+  // La voce «Prenotazioni» compare solo con le prenotazioni online accese (spente, il titolare
+  // la raggiunge da Impostazioni), con il numero delle richieste da confermare.
+  let bookings: { pending: number } | null = null;
+  if (canManageBookings && (await loadBookingSettings()).enabled) bookings = { pending: await pendingCount() };
 
   return (
-    <AppShell userName={session.user.name} role={role} canEditMenu={canEditMenu} appInstalled={appInstalled} showMail={features.mail} showFerie={features.ferie}>
+    <AppShell userName={session.user.name} role={role} canEditMenu={canEditMenu} appInstalled={appInstalled} showMail={features.mail} showFerie={features.ferie} bookings={bookings}>
       <StaffDeviceMark />
       {children}
     </AppShell>
