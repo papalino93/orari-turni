@@ -280,13 +280,13 @@ export function BookingSheet({
   const messageBox = (reply: Reply) => (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5" data-unsaved-ignore>
-        {QUICK[reply].map((q) => {
-          const text = q.replace("{ora}", time || "…");
+        {/* «Alle … si libera un tavolo» con i puntini non si capiva: compare appena si sceglie l'orario. */}
+        {QUICK[reply].filter((q) => !(q.includes("{ora}") && !time)).map((q) => {
+          const text = q.replace("{ora}", time);
           return (
             <button
               key={q}
               type="button"
-              disabled={reply === "propose" && q.includes("{ora}") && !time}
               onClick={() => setMessage((m) => (m.trim() ? `${m.trim()} ${text}` : text))}
               className="min-h-9 rounded-full border border-border px-3 text-left text-xs text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
             >
@@ -513,7 +513,13 @@ export function BookingSheet({
                 type="button"
                 disabled={busy || (panel === "propose" && !time)}
                 onClick={() => send(panel)}
-                className={`min-h-11 rounded-full px-5 text-sm font-semibold disabled:opacity-60 ${panel === "cancel" || panel === "decline" ? "bg-danger text-white hover:bg-danger/90" : "bg-accent text-accent-foreground hover:bg-accent-hover"}`}
+                // Disattivato («Scegli un orario»): grigio leggibile come gli altri pulsanti spenti dell'app,
+                // non bordeaux sbiadito (nel tema scuro il testo rosa sul bordeaux non si leggeva).
+                className={`min-h-11 rounded-full px-5 text-sm font-semibold ${
+                  panel === "cancel" || panel === "decline"
+                    ? "bg-danger text-white hover:bg-danger/90 disabled:opacity-60"
+                    : "bg-accent text-accent-foreground hover:bg-accent-hover disabled:bg-surface-2 disabled:text-foreground-muted disabled:ring-1 disabled:ring-border"
+                }`}
               >
                 {busy
                   ? "Un attimo…"

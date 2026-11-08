@@ -16,6 +16,7 @@ import { SettingsSheet } from "./settings-sheet";
 import { BellIcon, LocalPhoneBox, PushBox, useLocalPhone, usePush, WhatsappIcon } from "./device";
 import { clock, dayLabel, duration, originShort, phoneDisplay, REPLY_SHORT, replyHref, sourceText, telLink, viewOf } from "./format";
 import { Agenda, BookingForm } from "./agenda";
+import { centerInRow, edgeFade } from "@/lib/edge-fade";
 import type { BookingItem, BookingStatsData } from "./types";
 
 type Tab = "todo" | "tonight" | "agenda" | "next" | "archive" | "numbers";
@@ -172,6 +173,21 @@ export function BookingsView({
   }, [lists.pending, toast]);
 
   const [tab, setTab] = useState<Tab>(() => (lists.pending.length || lists.wa.length || !lists.tonight.length ? "todo" : "tonight"));
+  // Sul telefono la riga delle schede scorre di lato: bordi sfumati da dove c'è altro
+  // e la scheda scelta sempre in vista (niente «enda» o pallino tagliati a metà).
+  const tabRow = useRef<HTMLDivElement | null>(null);
+  const tabRowRef = useCallback((el: HTMLDivElement | null) => {
+    tabRow.current = el;
+    const stop = edgeFade(el);
+    return () => {
+      stop?.();
+      tabRow.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    const row = tabRow.current;
+    centerInRow(row, row?.querySelector<HTMLElement>('[aria-selected="true"]') ?? null, true);
+  }, [tab, searching]);
 
   const open = useCallback((id: string) => {
     setOpenId(id);
@@ -386,7 +402,7 @@ export function BookingsView({
         </section>
       ) : (
         <>
-          <div role="tablist" aria-label="Prenotazioni" className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0">
+          <div ref={tabRowRef} role="tablist" aria-label="Prenotazioni" className="relative -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] max-sm:scroll-fade-x sm:mx-0 sm:px-0">
             {TABS.map((t) => (
               <button
                 key={t.id}
@@ -618,8 +634,25 @@ function IconButton({ label, onClick, children, active = false, dot = false }: {
   );
 }
 
-function CardList({ children }: { children: React.ReactNode }) {
-  return <ul className="grid grid-cols-[minmax(0,1fr)] gap-2 lg:grid-cols-[repeat(2,minmax(0,1fr))]">{children}</ul>;
+function CardList({ children, single = false }: { children: React.ReactNode; single?: boolean }) {
+  return <ul className={`grid grid-cols-[minmax(0,1fr)] gap-2 ${single ? "" : "lg:grid-cols-[repeat(2,minmax(0,1fr))]"}`}>{children}</ul>;
+}
+
+// Numero di persone accanto al nome: sul telefono compatto («4» con l'omino), così il nome
+// ha spazio; da tablet in su per esteso («4 persone»).
+function People({ n }: { n: number }) {
+  return (
+    <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
+      <span className="inline-flex items-center gap-1 sm:hidden" aria-hidden>
+        {n}
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground-muted">
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21a8 8 0 0 1 16 0" />
+        </svg>
+      </span>
+      <span className="max-sm:sr-only">{peopleText(n)}</span>
+    </span>
+  );
 }
 
 function Empty({ title, text }: { title: string; text: string }) {
@@ -651,8 +684,8 @@ function RequestCard({ b, now, today, onOpen, showStatus = false }: { b: Booking
         </span>
         <span className="min-w-0 flex-1 py-0.5">
           <span className="flex items-baseline justify-between gap-2">
-            <span className="truncate text-[15px] font-semibold text-foreground">{b.name}</span>
-            <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">{peopleText(b.people)}</span>
+            <span className="line-clamp-2 min-w-0 text-[15px] font-semibold leading-snug text-foreground [overflow-wrap:anywhere] sm:truncate">{b.name}</span>
+            <People n={b.people} />
           </span>
           {b.note && <span className="mt-0.5 block truncate text-sm text-foreground-muted">«{b.note}»</span>}
           <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -793,8 +826,8 @@ function TonightRow({ b, now, onOpen }: { b: BookingItem; now: number; today: st
           <span className="w-14 shrink-0 text-xl font-semibold tabular-nums text-foreground">{b.time}</span>
           <span className="min-w-0 flex-1">
             <span className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-[15px] font-semibold text-foreground">{b.name}</span>
-              <span className="shrink-0 text-sm font-semibold tabular-nums">{peopleText(b.people)}</span>
+              <span className="line-clamp-2 min-w-0 text-[15px] font-semibold leading-snug text-foreground [overflow-wrap:anywhere] sm:truncate">{b.name}</span>
+              <People n={b.people} />
             </span>
             {b.note && <span className="mt-0.5 block text-sm text-foreground-muted">«{b.note}»</span>}
             <span className="mt-1 flex flex-wrap gap-1.5 text-xs">
@@ -876,11 +909,19 @@ function Upcoming({
   onClose: (day: string) => void;
   onReopen: (day: string) => void;
 }) {
-  const [pick, setPick] = useState("");
-  const days = [...new Set([...rows.map((b) => b.day), ...fullDays.filter((d) => d > today)])].sort();
   const last = addDays(today, settings.daysAhead);
+  // Il campo parte dal primo giorno ancora aperto da domani in poi (non «gg/mm/2026» a metà).
+  function firstOpen() {
+    for (let d = addDays(today, 1); d <= last; d = addDays(d, 1)) if (!fullDays.includes(d)) return d;
+    return addDays(today, 1);
+  }
+  const [picked, setPick] = useState<string | null>(null);
+  const pick = picked ?? firstOpen();
+  const days = [...new Set([...rows.map((b) => b.day), ...fullDays.filter((d) => d > today)])].sort();
   return (
-    <div className="space-y-5">
+    // Una sola colonna, larga quanto le schede: il «Chiudi le richieste» di ogni giorno resta
+    // vicino al suo giorno e il riquadro sotto non è più largo dell'elenco.
+    <div className="max-w-3xl space-y-5">
       {days.length === 0 && <Empty title="Nessuna prenotazione nei prossimi giorni" text="Le prenotazioni confermate da domani in poi compaiono qui, giorno per giorno." />}
       {days.map((day) => {
         const all = rows.filter((b) => b.day === day);
@@ -918,7 +959,7 @@ function Upcoming({
               )}
             </div>
             {all.length > 0 && (
-              <CardList>
+              <CardList single>
                 {all.map((b) => (
                   <RequestCard key={b.id} b={b} now={now} today={today} onOpen={onOpen} />
                 ))}
@@ -931,16 +972,19 @@ function Upcoming({
       <section className="rounded-2xl border border-border bg-surface p-4">
         <h2 className="text-sm font-semibold text-foreground">Chiudi le richieste di un altro giorno</h2>
         <p className="mt-0.5 text-xs text-foreground-muted">Per una serata già piena o un evento privato: i clienti vedono quel giorno come «Completo».</p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input type="date" value={pick} min={addDays(today, 1)} max={last} onChange={(e) => setPick(e.target.value)} aria-label="Giorno da chiudere" className={`${inputClass} w-auto`} />
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-foreground-muted">Giorno da chiudere</span>
+            <input type="date" value={pick} min={addDays(today, 1)} max={last} onChange={(e) => setPick(e.target.value)} className={`${inputClass} w-auto`} />
+          </label>
           <button
             type="button"
             disabled={busy || !pick || pick <= today || fullDays.includes(pick)}
             onClick={() => {
               onClose(pick);
-              setPick("");
+              setPick(null);
             }}
-            className="min-h-11 rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+            className="min-h-11 rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:bg-surface-2 disabled:text-foreground-muted disabled:ring-1 disabled:ring-border"
           >
             Chiudi le richieste
           </button>
@@ -956,14 +1000,15 @@ function Numbers({ stats }: { stats: BookingStatsData }) {
     return <Empty title="Ancora nessun numero" text="Qui vedrai quante richieste arrivano dal sito, quante prenotazioni segnate a mano e da dove arrivano (ultimi 90 giorni, senza le prove)." />;
   }
   const pct = (n: number) => (stats.total ? `${Math.round((n / stats.total) * 100)}%` : "—");
-  const tiles: { label: string; value: string; note?: string }[] = [
-    { label: "Richieste online", value: String(stats.total), note: "dal sito · ultimi 90 giorni" },
-    { label: "Confermate online", value: String(stats.confirmed), note: `${pct(stats.confirmed)} · ${peopleText(stats.people)}` },
-    { label: "Al completo", value: String(stats.declined), note: pct(stats.declined) },
-    { label: "Segnate a mano", value: String(stats.manual.total), note: `telefono, WhatsApp, di persona · ${peopleText(stats.manual.people)}` },
-    { label: "Annullate", value: String(stats.cancelled + stats.manual.cancelled), note: stats.manual.cancelled ? `${stats.cancelled} online · ${stats.manual.cancelled} a mano` : pct(stats.cancelled) },
-    { label: "Non venuti", value: String(stats.noShow) },
-    { label: "Risposta tipica", value: stats.medianResponseMinutes === null ? "—" : duration(stats.medianResponseMinutes), note: "alle richieste dal sito" },
+  // Le note si spezzano solo ai «·»: niente «di persona · 0» con «persone» a capo da solo.
+  const tiles: { label: string; value: string; note: string[] }[] = [
+    { label: "Richieste online", value: String(stats.total), note: ["dal sito", "ultimi 90 giorni"] },
+    { label: "Confermate online", value: String(stats.confirmed), note: [pct(stats.confirmed), peopleText(stats.people)] },
+    { label: "Al completo", value: String(stats.declined), note: [pct(stats.declined)] },
+    { label: "Segnate a mano", value: String(stats.manual.total), note: [peopleText(stats.manual.people), "non dal sito"] },
+    { label: "Annullate", value: String(stats.cancelled + stats.manual.cancelled), note: stats.manual.cancelled ? [`${stats.cancelled} online`, `${stats.manual.cancelled} a mano`] : [pct(stats.cancelled)] },
+    { label: "Non venuti", value: String(stats.noShow), note: ["prenotati, mai arrivati"] },
+    { label: "Risposta tipica", value: stats.medianResponseMinutes === null ? "—" : duration(stats.medianResponseMinutes), note: ["alle richieste dal sito"] },
   ];
   const max = Math.max(...stats.bySource.map(([, n]) => n), 1);
   return (
@@ -973,7 +1018,16 @@ function Numbers({ stats }: { stats: BookingStatsData }) {
           <div key={t.label} className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">{t.label}</p>
             <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">{t.value}</p>
-            {t.note && <p className="mt-0.5 text-xs text-foreground-muted">{t.note}</p>}
+            <p className="mt-0.5 text-xs text-foreground-muted">
+              {t.note.map((part, i) => (
+                <span key={i}>
+                  <span className="whitespace-nowrap">
+                    {part}
+                    {i < t.note.length - 1 && " ·"}
+                  </span>{" "}
+                </span>
+              ))}
+            </p>
           </div>
         ))}
       </div>

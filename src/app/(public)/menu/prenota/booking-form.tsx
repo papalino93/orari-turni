@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { phoneProblem } from "@/lib/booking/rules";
 import { ChatIcon, ContactButtons, pillFilled } from "./ui";
 import { PrivacyText } from "./privacy-text";
+import { edgeFade } from "@/lib/edge-fade";
 
 export type FormDay = {
   day: string;
@@ -118,7 +119,15 @@ export function BookingForm({
   const [fakeDone, setFakeDone] = useState(false);
   const [moreDays, setMoreDays] = useState(() => days.findIndex((d) => d.day === initial.day) >= WIDE_DAYS);
   const trap = useRef<HTMLInputElement>(null);
-  const strip = useRef<HTMLDivElement>(null);
+  const strip = useRef<HTMLDivElement | null>(null);
+  const stripRef = useCallback((el: HTMLDivElement | null) => {
+    strip.current = el;
+    const stop = edgeFade(el);
+    return () => {
+      stop?.();
+      strip.current = null;
+    };
+  }, []);
   // La bozza si salva solo dopo averla riletta (altrimenti la si cancellerebbe all'apertura).
   const [restored, setRestored] = useState(false);
 
@@ -376,11 +385,13 @@ export function BookingForm({
             ) : (
               <>
                 <div
-                  ref={strip}
+                  ref={stripRef}
                   role="radiogroup"
                   aria-label="Giorno"
                   onKeyDown={rovingKeys}
-                  className="-mx-6 flex snap-x gap-2 overflow-x-auto scroll-px-6 px-6 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-7 sm:overflow-visible sm:px-0"
+                  // Sul telefono i giorni scorrono di lato: il bordo da cui ce ne sono altri sfuma
+                  // (come le schede di /prenotazioni), così si capisce che si può scorrere.
+                  className="-mx-6 flex snap-x gap-2 overflow-x-auto scroll-px-6 px-6 pb-1 [scrollbar-width:none] max-sm:scroll-fade-x sm:mx-0 sm:grid sm:grid-cols-7 sm:overflow-visible sm:px-0"
                 >
                   {visibleDays.map((d, i) => (
                     <DayCard

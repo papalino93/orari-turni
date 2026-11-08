@@ -145,9 +145,10 @@ export function SettingsSheet({
 
         <section className="space-y-3 rounded-xl border border-border p-4">
           <h3 className="text-sm font-semibold text-foreground">Il pulsante «Prenota» su Google</h3>
-          <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-lg bg-surface-2 px-3 py-2.5 text-xs text-foreground">{googleLink}</code>
-            <button type="button" onClick={copy} className="min-h-11 shrink-0 rounded-full border border-border px-4 text-sm font-medium text-foreground hover:border-accent">
+          {/* Sul telefono il link va a capo dentro il riquadro (prima usciva dal bordo), «Copia» sotto. */}
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+            <code className="min-w-0 flex-1 rounded-lg bg-surface-2 px-3 py-2.5 text-xs text-foreground [overflow-wrap:anywhere] select-all">{googleLink}</code>
+            <button type="button" onClick={copy} className="min-h-11 shrink-0 self-end rounded-full border border-border px-4 text-sm font-medium text-foreground hover:border-accent sm:self-auto">
               Copia
             </button>
           </div>
