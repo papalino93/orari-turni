@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { monthLabel } from "@/lib/week";
 import { useToast, runWithToast } from "@/components/toast";
-import { approveMonth, reopenMonth } from "./actions";
+import { approveMonth, reopenMonth, undoReopenMonth } from "./actions";
 
 export type PendingMonth = {
   year: number;
@@ -54,15 +54,61 @@ export function PendingMonths({
       {reopened.length > 0 && (
         <div className={`space-y-1.5 ${submissions.length > 0 ? "mt-3" : ""}`}>
           {reopened.map((r) => (
-            <p key={`${r.year}-${r.month}`} className="rounded-lg bg-surface px-3 py-2 text-xs text-foreground-muted">
-              <span className="font-medium text-foreground">
-                {monthLabel(r.month - 1)} {r.year}
-              </span>
-              : rimandato{r.reopenedAt ? ` il ${formatDate(r.reopenedAt)}` : ""}, in attesa di correzione
-              {r.note && <span className="mt-0.5 block italic">«{r.note}»</span>}
-            </p>
+            <ReopenedMonthRow key={`${r.year}-${r.month}`} employeeId={employeeId} {...r} />
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// Mese rimandato al dipendente: si può annullare il rimando se è stato un errore.
+function ReopenedMonthRow({ employeeId, year, month, reopenedAt, note }: ReopenedMonth & { employeeId: string }) {
+  const [ask, setAsk] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const toast = useToast();
+  const label = `${monthLabel(month - 1)} ${year}`;
+
+  function undo() {
+    startTransition(async () => {
+      const result = await runWithToast(toast, () => undoReopenMonth(employeeId, year, month), `${label}: rimando annullato`);
+      if (result !== null) {
+        setAsk(false);
+        router.refresh();
+      }
+    });
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-2 rounded-lg bg-surface px-3 py-2 text-xs text-foreground-muted">
+      <p>
+        <span className="font-medium text-foreground">{label}</span>
+        : rimandato{reopenedAt ? ` il ${formatDate(reopenedAt)}` : ""}, in attesa di correzione
+        {note && <span className="mt-0.5 block italic">«{note}»</span>}
+      </p>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => setAsk(true)}
+        className="-my-1 min-h-10 shrink-0 rounded-full border border-border px-3 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
+      >
+        Annulla il rimando
+      </button>
+      {ask && (
+        <ConfirmSheet
+          title={`Annullare il rimando di ${label.toLowerCase()}?`}
+          confirmLabel="Sì, annulla il rimando"
+          busyLabel="Annullo…"
+          busy={pending}
+          onConfirm={undo}
+          onCancel={() => setAsk(false)}
+        >
+          <p>
+            Il mese torna com&apos;era prima di rimandarlo: approvato, se l&apos;avevi già approvato, oppure di nuovo tra le ore da controllare. Il
+            dipendente non potrà più modificarlo.
+          </p>
+        </ConfirmSheet>
       )}
     </div>
   );

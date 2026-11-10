@@ -308,6 +308,30 @@ export async function reopenMonth(idInput: string, year: number, month: number, 
   });
 }
 
+// Riaperto per errore → com'era prima: approvato se era già stato approvato (approvedAt resta
+// salvato quando si riapre), altrimenti di nuovo «inviato, da controllare». Le eventuali
+// correzioni fatte nel frattempo dal dipendente restano.
+export async function undoReopenMonth(idInput: string, year: number, month: number): Promise<ActionResult<{ status: "APPROVED" | "SUBMITTED" }>> {
+  return runAction(async () => {
+    await requireUser();
+    const employeeId = parseId(idInput, "dipendente");
+    const submission = await prisma.monthlySubmission.findUnique({
+      where: { employeeId_year_month: { employeeId, year, month } },
+    });
+    assert(submission, "Nessun invio trovato per questo mese.");
+    assert(submission.status === "REOPENED", "Questo mese non è più riaperto: ricarica la pagina.");
+    const status = submission.approvedAt ? "APPROVED" : "SUBMITTED";
+    const r = await prisma.monthlySubmission.updateMany({
+      where: { id: submission.id, status: "REOPENED" },
+      data: { status, reopenedAt: null, reopenNote: null },
+    });
+    assert(r.count === 1, "Questo mese non è più riaperto: ricarica la pagina.");
+    revalidateEmployees();
+    revalidatePath("/mie-ore");
+    return { status };
+  });
+}
+
 // Eliminazione definitiva: porta con sé turni, assenze e saldi del
 // dipendente (relazioni onDelete: Cascade). Per chi ha smesso di lavorare qui
 // la strada giusta è la disattivazione, che conserva lo storico.
