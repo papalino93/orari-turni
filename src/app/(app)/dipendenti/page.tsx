@@ -181,7 +181,7 @@ export default async function DipendentiPage() {
     // dipendente non li inviava di nuovo.
     reopenedSubmissions: reviewSubmissions
       .filter((s) => s.employeeId === e.id && s.status === "REOPENED")
-      .map((s) => ({ year: s.year, month: s.month, reopenedAt: s.reopenedAt?.toISOString() ?? null, note: s.reopenNote })),
+      .map((s) => ({ year: s.year, month: s.month, reopenedAt: s.reopenedAt?.toISOString() ?? null, note: s.reopenNote, wasApproved: Boolean(s.approvedAt) })),
     // Gli ultimi tre mesi approvati, per poterli riaprire.
     approvedSubmissions: reviewSubmissions
       .filter((s) => s.employeeId === e.id && s.status === "APPROVED")

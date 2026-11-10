@@ -14,7 +14,7 @@ export type PendingMonth = {
   /** Cosa ha cambiato il dipendente rispetto agli orari del titolare (turni corretti, aggiunti, tolti; permessi). */
   changes: string[];
 };
-export type ReopenedMonth = { year: number; month: number; reopenedAt: string | null; note: string | null };
+export type ReopenedMonth = { year: number; month: number; reopenedAt: string | null; note: string | null; wasApproved: boolean };
 export type ApprovedMonth = { year: number; month: number; approvedAt: string | null };
 
 // Date nel fuso del locale: senza, un invio fatto dopo mezzanotte (ora
@@ -54,7 +54,7 @@ export function PendingMonths({
       {reopened.length > 0 && (
         <div className={`space-y-1.5 ${submissions.length > 0 ? "mt-3" : ""}`}>
           {reopened.map((r) => (
-            <ReopenedMonthRow key={`${r.year}-${r.month}`} employeeId={employeeId} {...r} />
+            <ReopenedMonthRow key={`${r.year}-${r.month}`} employeeId={employeeId} employeeName={employeeName} {...r} />
           ))}
         </div>
       )}
@@ -62,8 +62,9 @@ export function PendingMonths({
   );
 }
 
-// Mese rimandato al dipendente: si può annullare il rimando se è stato un errore.
-function ReopenedMonthRow({ employeeId, year, month, reopenedAt, note }: ReopenedMonth & { employeeId: string }) {
+// Mese rimandato al dipendente: se è stato un errore, il titolare lo rimette com'era con un tocco
+// («Approva di nuovo» se era approvato, «Torna da controllare» se era solo inviato).
+function ReopenedMonthRow({ employeeId, employeeName, year, month, reopenedAt, note, wasApproved }: ReopenedMonth & { employeeId: string; employeeName: string }) {
   const [ask, setAsk] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -72,7 +73,7 @@ function ReopenedMonthRow({ employeeId, year, month, reopenedAt, note }: Reopene
 
   function undo() {
     startTransition(async () => {
-      const result = await runWithToast(toast, () => undoReopenMonth(employeeId, year, month), `${label}: rimando annullato`);
+      const result = await runWithToast(toast, () => undoReopenMonth(employeeId, year, month), wasApproved ? `${label} approvato di nuovo` : `${label} di nuovo tra le ore da controllare`);
       if (result !== null) {
         setAsk(false);
         router.refresh();
@@ -93,20 +94,21 @@ function ReopenedMonthRow({ employeeId, year, month, reopenedAt, note }: Reopene
         onClick={() => setAsk(true)}
         className="-my-1 min-h-10 shrink-0 rounded-full border border-border px-3 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50"
       >
-        Annulla il rimando
+        {wasApproved ? "Approva di nuovo" : "Torna da controllare"}
       </button>
       {ask && (
         <ConfirmSheet
-          title={`Annullare il rimando di ${label.toLowerCase()}?`}
-          confirmLabel="Sì, annulla il rimando"
-          busyLabel="Annullo…"
+          title={wasApproved ? `Approvare di nuovo ${label.toLowerCase()}?` : `Rimettere ${label.toLowerCase()} tra le ore da controllare?`}
+          confirmLabel={wasApproved ? "Sì, approva" : "Sì, rimetti"}
+          busyLabel={wasApproved ? "Approvo…" : "Rimetto…"}
           busy={pending}
           onConfirm={undo}
           onCancel={() => setAsk(false)}
         >
           <p>
-            Il mese torna com&apos;era prima di rimandarlo: approvato, se l&apos;avevi già approvato, oppure di nuovo tra le ore da controllare. Il
-            dipendente non potrà più modificarlo.
+            {wasApproved
+              ? `Torna approvato com'era, senza aspettare che ${employeeName} lo rimandi. Non potrà più modificarlo.`
+              : `Torna tra le ore inviate da controllare, com'era prima di rimandarlo.`}
           </p>
         </ConfirmSheet>
       )}
