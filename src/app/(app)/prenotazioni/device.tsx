@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { showActionError, useToast } from "@/components/toast";
@@ -49,21 +49,38 @@ function keyBytes(base64: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
+// L'iscrizione è stata fatta con questa chiave pubblica? (Se le chiavi del sito cambiano, quella
+// vecchia non riceve più niente: va tolta e rifatta.)
+function sameKey(sub: PushSubscription, publicKey: string): boolean {
+  const k = sub.options?.applicationServerKey;
+  if (!k) return true; // il browser non lo dice: si tiene
+  const a = new Uint8Array(k);
+  const b = keyBytes(publicKey);
+  return a.length === b.length && a.every((x, i) => x === b[i]);
+}
+
 export type PushControl = {
   state: PushState;
+  // L'iscrizione di questo dispositivo (per «telefono del locale» e «Prova un avviso»).
+  endpoint: string | null;
   busy: boolean;
   activate: () => Promise<void>;
   deactivate: () => Promise<void>;
   test: () => Promise<void>;
 };
 
-export function usePush(publicKey: string | null, myEndpoints: string[]): PushControl {
+export function usePush(publicKey: string | null, myEndpoints: string[], localPhone = false): PushControl {
   const router = useRouter();
   const toast = useToast();
   const [state, setState] = useState<PushState>("checking");
   const [endpoint, setEndpoint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const mine = myEndpoints.join("\n");
+  // «Telefono del locale» di adesso, letto quando si salva l'iscrizione (senza rifare il controllo).
+  const localRef = useRef(localPhone);
+  useEffect(() => {
+    localRef.current = localPhone;
+  }, [localPhone]);
 
   useEffect(() => {
     let alive = true;
@@ -77,9 +94,24 @@ export function usePush(publicKey: string | null, myEndpoints: string[]): PushCo
       else {
         try {
           const reg = await navigator.serviceWorker.getRegistration();
-          const sub = await reg?.pushManager.getSubscription();
+          let sub = (await reg?.pushManager.getSubscription()) ?? null;
+          let renewed = false;
+          // Iscrizione fatta con una chiave vecchia: non riceverebbe più niente. Si toglie e, se gli avvisi
+          // erano attivi qui, si rifà da sola con la chiave di adesso.
+          if (reg && sub && !sameKey(sub, publicKey)) {
+            const wasOn = mine.split("\n").includes(sub.endpoint);
+            await removePushSubscription(sub.endpoint).catch(() => {});
+            await sub.unsubscribe().catch(() => {});
+            sub = null;
+            if (wasOn && Notification.permission === "granted") {
+              sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) });
+              const res = await savePushSubscription(sub.toJSON() as Parameters<typeof savePushSubscription>[0], navigator.userAgent, localRef.current);
+              if (!res.ok) sub = null;
+              else renewed = true;
+            }
+          }
           ep = sub?.endpoint ?? null;
-          next = sub && Notification.permission === "granted" && mine.split("\n").includes(sub.endpoint) ? "on" : "off";
+          next = sub && Notification.permission === "granted" && (mine.split("\n").includes(sub.endpoint) || renewed) ? "on" : "off";
         } catch {
           next = "off";
         }
@@ -109,6 +141,11 @@ export function usePush(publicKey: string | null, myEndpoints: string[]): PushCo
       const reg = await navigator.serviceWorker.ready;
       let sub = await reg.pushManager.getSubscription();
       const options = { userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) };
+      // Con una chiave vecchia non riceverebbe niente: si toglie prima di rifarla.
+      if (sub && !sameKey(sub, publicKey)) {
+        await sub.unsubscribe().catch(() => {});
+        sub = null;
+      }
       try {
         sub ??= await reg.pushManager.subscribe(options);
       } catch {
@@ -116,7 +153,7 @@ export function usePush(publicKey: string | null, myEndpoints: string[]): PushCo
         await sub?.unsubscribe().catch(() => {});
         sub = await reg.pushManager.subscribe(options);
       }
-      const res = await savePushSubscription(sub.toJSON() as Parameters<typeof savePushSubscription>[0], navigator.userAgent);
+      const res = await savePushSubscription(sub.toJSON() as Parameters<typeof savePushSubscription>[0], navigator.userAgent, localRef.current);
       if (!res.ok) {
         toast.showError(res.error);
         return;
@@ -172,7 +209,7 @@ export function usePush(publicKey: string | null, myEndpoints: string[]): PushCo
     }
   }, [endpoint, toast]);
 
-  return { state, busy, activate, deactivate, test };
+  return { state, endpoint, busy, activate, deactivate, test };
 }
 
 const btn = "min-h-11 rounded-full px-4 text-sm font-semibold disabled:opacity-60";

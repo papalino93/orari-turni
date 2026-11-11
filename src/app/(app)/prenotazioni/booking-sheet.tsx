@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
-import { availability, dayLong, peopleText, whatsappReachable, type BookingSettings } from "@/lib/booking/rules";
+import { aroundTime, availability, bookingsText, dayLong, peopleText, whatsappReachable, type BookingSettings } from "@/lib/booking/rules";
 import { customerMessage, type MessageKind } from "@/lib/booking/messages";
 import { whatsappPending } from "@/lib/booking/whatsapp-queue";
 import type { Hours } from "@/lib/menu-venue";
@@ -39,6 +39,11 @@ export function StatusChip({ b, now }: { b: BookingItem; now: number }) {
           ? "bg-accent/10 text-accent-ink ring-accent/30"
           : "bg-surface-2 text-foreground-muted ring-border";
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${tone}`}>{statusLabel(v)}</span>;
+}
+
+// Prenotazione segnata al telefono senza il numero: si aggiunge dopo con «Modifica».
+export function NoPhoneChip() {
+  return <span className="inline-flex items-center rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold text-gold ring-1 ring-inset ring-gold/30">Manca il numero</span>;
 }
 
 export function TestChip() {
@@ -85,6 +90,7 @@ export function WhatsappButton({
 export function BookingSheet({
   booking: b,
   rows,
+  countTests,
   now,
   today,
   settings,
@@ -100,6 +106,8 @@ export function BookingSheet({
 }: {
   booking: BookingItem | null;
   rows: BookingItem[];
+  // Con l'agenda spenta tutto è di prova e si conta; accesa, le prove non contano.
+  countTests: boolean;
   now: number;
   today: string;
   settings: BookingSettings;
@@ -126,7 +134,9 @@ export function BookingSheet({
   const [message, setMessage] = useState("");
   const [time, setTime] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ reply: Action; out: ReplyOutcome; time: string } | null>(null);
+  const [result, setResult] = useState<{ reply: Action; out: Extract<ReplyOutcome, { mailSent: boolean }>; time: string } | null>(null);
+  // «C'è già Rossi sabato alle 20:30 (4 persone): è la stessa?» prima di confermare.
+  const [dupAsk, setDupAsk] = useState<{ reply: Action; text: string } | null>(null);
   const [waOpened, setWaOpened] = useState(false);
 
   const slots = useMemo(() => {
@@ -144,8 +154,10 @@ export function BookingSheet({
   }
 
   const v = viewOf(b, now);
-  const sameDay = rows.filter((r) => r.day === b.day && r.status === "CONFIRMED" && r.id !== b.id);
+  const sameDay = rows.filter((r) => r.day === b.day && r.status === "CONFIRMED" && r.id !== b.id && (countTests || !r.isTest));
   const sameDayPeople = sameDay.reduce((s, r) => s + r.people, 0);
+  // Per decidere: quanta gente c'è già intorno all'ora chiesta (±1 ora) e in tutta la serata.
+  const around = aroundTime(sameDay, b.day, b.startsAt);
   const waiting = (now - b.createdAt) / 60000;
   const dayFull = fullDays.includes(b.day);
 
@@ -156,7 +168,7 @@ export function BookingSheet({
     setTime("");
   }
 
-  async function send(reply: Action) {
+  async function send(reply: Action, dupOk = false) {
     if (!b) return;
     if (reply === "propose" && !time) {
       toast.showError("Scegli l'orario da proporre.");
@@ -165,9 +177,15 @@ export function BookingSheet({
     setBusy(true);
     try {
       const withMessage = reply === "confirm" || reply === "propose" || reply === "decline" || reply === "cancel";
-      const res = await replyToRequest(b.id, reply, withMessage ? message : "", reply === "propose" ? time : undefined);
+      const res = await replyToRequest(b.id, reply, withMessage ? message : "", reply === "propose" ? time : undefined, { dupOk, selfWa: canWhatsapp });
+      if (res.ok && "ask" in res.data && res.data.ask) {
+        setDupAsk({ reply, text: res.data.ask });
+        return;
+      }
+      setDupAsk(null);
       if (res.ok) {
-        setResult({ reply, out: res.data, time: reply === "accept" ? (b.proposedTime ?? "") : time });
+        const out = res.data;
+        if ("mailSent" in out) setResult({ reply, out, time: reply === "accept" ? (b.proposedTime ?? "") : time });
       } else {
         // «Già confermata da Marta»: si legge il motivo e la vista si aggiorna.
         toast.showError(res.error);
@@ -307,7 +325,7 @@ export function BookingSheet({
   );
 
   // Dopo la risposta: come arriva al cliente.
-  const needsWa = (out: ReplyOutcome) => Boolean(out.whatsappHref) && (b.contact !== "email" || !out.mailSent);
+  const needsWa = (out: Extract<ReplyOutcome, { mailSent: boolean }>) => Boolean(out.whatsappHref) && (b.contact !== "email" || !out.mailSent);
   const RESULT_TITLE: Record<Action, string> = {
     confirm: "✓ Confermata",
     propose: `✓ Proposte le ${result?.time ?? ""}`,
@@ -335,6 +353,7 @@ export function BookingSheet({
           <div className="flex flex-wrap items-center gap-1.5">
             <StatusChip b={b} now={now} />
             {b.isTest && <TestChip />}
+            {b.manual && !b.phone && v === "CONFIRMED" && <NoPhoneChip />}
             {v === "PENDING" && (
               <span className={`text-xs ${waiting >= 30 ? "font-semibold text-danger" : "text-foreground-muted"}`}>
                 {waiting >= 30 ? `in attesa da ${duration(waiting)}` : `arrivata ${duration(waiting)} fa`}
@@ -417,9 +436,18 @@ export function BookingSheet({
           </div>
         )}
 
-        {/* Risposte: richiesta in attesa */}
+        {/* Risposte: richiesta in attesa. Sopra i pulsanti, quanta gente c'è già (senza le prove). */}
         {!result && v === "PENDING" && panel === null && (
           <div className="space-y-2">
+            <p data-testid="contesto" className="rounded-xl bg-surface-2 px-3 py-2 text-sm text-foreground">
+              <span className="font-semibold">
+                Alle {b.time} (±1 ora): {around.near && around.near.count ? `${peopleText(around.near.people)} · ${bookingsText(around.near.count)}` : "nessuna prenotazione"}
+              </span>
+              <span className="block text-xs text-foreground-muted">
+                In tutta la serata: {around.day.count ? `${peopleText(around.day.people)} · ${bookingsText(around.day.count)}` : "nessuna prenotazione"}
+                {settings.capacityHint > 0 && ` · di solito pieni oltre ${peopleText(settings.capacityHint)}`}
+              </span>
+            </p>
             {dayFull && <p className="text-xs text-foreground-muted">Per questo giorno hai chiuso le richieste: puoi comunque rispondere.</p>}
             <button type="button" disabled={busy} onClick={() => send("confirm")} className={`${bigBtn} bg-accent text-accent-foreground hover:bg-accent-hover`}>
               {busy ? "Un attimo…" : "✓ Conferma"}
@@ -537,6 +565,13 @@ export function BookingSheet({
               </button>
             </div>
           </div>
+        )}
+
+        {/* Segnata al telefono senza numero: si aggiunge con un tocco. */}
+        {!result && b.manual && !b.phone && v === "CONFIRMED" && panel === null && b.day >= today && (
+          <button type="button" disabled={busy} onClick={() => onEdit(b)} className={`${bigBtn} border border-gold/40 bg-gold/10 text-foreground hover:border-accent`}>
+            Aggiungi il numero
+          </button>
         )}
 
         {/* Già gestita: rimandare il messaggio, arrivi, annullare */}
@@ -684,7 +719,7 @@ export function BookingSheet({
           <div className="px-3 py-2.5">
             <dt className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Quel giorno</dt>
             <dd className="text-foreground">
-              {sameDay.length ? `Già confermate ${peopleText(sameDayPeople)} (${sameDay.length} ${sameDay.length === 1 ? "tavolo" : "tavoli"})` : "Nessun'altra prenotazione confermata"}
+              {sameDay.length ? `Già confermate: ${bookingsText(sameDay.length)} · ${peopleText(sameDayPeople)}` : "Nessun'altra prenotazione confermata"}
               {settings.capacityHint > 0 && <span className="text-foreground-muted"> · di solito pieni oltre {peopleText(settings.capacityHint)}</span>}
               {dayFull && <span className="text-foreground-muted"> · richieste chiuse</span>}
             </dd>
@@ -734,6 +769,11 @@ export function BookingSheet({
       {askGone && (
         <ConfirmSheet title="Il cliente non viene più?" confirmLabel="Sì, chiudi la richiesta" busy={busy} onConfirm={() => send("customerCancel")} onCancel={() => setAskGone(false)}>
           <p>La richiesta si chiude come annullata dal cliente. Non gli mandiamo nessun messaggio.</p>
+        </ConfirmSheet>
+      )}
+      {dupAsk && (
+        <ConfirmSheet title={dupAsk.text} confirmLabel="È un'altra, segna lo stesso" busy={busy} onConfirm={() => send(dupAsk.reply, true)} onCancel={() => setDupAsk(null)}>
+          <p>Se è la stessa persona, tocca Annulla: rispondi alla richiesta con «Il cliente non viene più» o dopo averla sentita.</p>
         </ConfirmSheet>
       )}
       {askErase && (

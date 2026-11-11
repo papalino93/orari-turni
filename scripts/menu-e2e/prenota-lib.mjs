@@ -51,7 +51,7 @@ export function restoreBookingSetting(saved) {
   if (saved === null) DB(`delete from "MenuSetting" where id='bookings'`);
   else DB(`insert into "MenuSetting" (id, value) values ('bookings', ${q(saved)}) on conflict (id) do update set value=excluded.value`);
 }
-export const DEFAULTS = { enabled: false, firstTime: "12:00", lastBeforeClose: 60, step: 30, maxPeople: 10, leadMinutes: 60, daysAhead: 30, notifyEmail: "", capacityHint: 0 };
+export const DEFAULTS = { agendaEnabled: false, enabled: false, firstTime: "12:00", lastBeforeClose: 60, step: 30, maxPeople: 10, leadMinutes: 60, daysAhead: 30, notifyEmail: "", capacityHint: 0 };
 export function setBookingSetting(over) {
   const value = JSON.stringify({ ...DEFAULTS, ...over });
   DB(`insert into "MenuSetting" (id, value) values ('bookings', ${q(value)}) on conflict (id) do update set value=excluded.value`);
@@ -98,8 +98,22 @@ export async function formStamp(ago = 5000) {
   const mac = createHmac("sha256", process.env.NEXTAUTH_SECRET).update(`prenota-form:${ts}`).digest("base64url").slice(0, 32);
   return `${ts}.${mac}`;
 }
+// Freno anti-spam complessivo (15 richieste online in 10 minuti → pausa da sola): le prove ne mandano
+// tante. Prima di ogni invio le richieste degli ultimi 10 minuti si spostano a 11 minuti fa (il limite
+// per IP, un'ora, conta ancora) e si toglie un'eventuale pausa. Il freno ha la sua prova (prenota-regole).
+export function coolDown() {
+  DB(`update "BookingRequest" set "createdAt" = now() - interval '11 minutes' where "createdAt" > now() - interval '11 minutes' and manual = false`);
+  const row = DB(`select value from "MenuSetting" where id='bookings'`);
+  if (row && /"pausedUntil":"[^"]/.test(row)) {
+    const v = JSON.parse(row);
+    v.pausedUntil = "";
+    DB(`update "MenuSetting" set value=${q(JSON.stringify(v))} where id='bookings'`);
+  }
+}
+
 // Invio diretto del modulo, come farebbe la pagina (Origin del sito, IP a scelta).
 export async function postRequest(body, { ip = randomIp(), headers = {} } = {}) {
+  if (!headers["x-no-cooldown"]) coolDown();
   const r = await fetch(`${BASE}/menu/prenota/invia`, {
     method: "POST",
     headers: { "content-type": "application/json", origin: BASE, "x-forwarded-for": ip, ...headers },

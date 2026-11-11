@@ -11,8 +11,7 @@ import { employeeVisibleDates } from "@/lib/week-visibility";
 import { endOfMonth, lastCompletedMonth, parseDateKey, shiftEndMinutes } from "@/lib/week";
 import { MENU_QR_URL } from "@/lib/widgets";
 import { opensAtSameTime } from "@/lib/opens-same-time";
-import { loadBookingSettings } from "@/lib/booking/service";
-import { whatsappPending } from "@/lib/booking/whatsapp-queue";
+import { bookingsToDo as countBookingsToDo, loadBookingSettings } from "@/lib/booking/service";
 
 const DAYS = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 const DAYS_SHORT = ["L", "M", "M", "G", "V", "S", "D"];
@@ -247,25 +246,13 @@ async function allergensToDo(day: string) {
 // - dal giovedì, gli orari della settimana prossima ancora da scrivere; scritti ma non confermati, da confermare;
 // - dal primo del mese, i dipendenti che non hanno ancora mandato le ore del mese finito;
 // - le ore mandate che aspettano l'approvazione;
-// - con le prenotazioni online accese, le richieste da confermare e le risposte da mandare su WhatsApp.
+// - con l'agenda delle prenotazioni accesa, le richieste da confermare e le risposte da mandare su WhatsApp.
 async function bookingsToDo(): Promise<{ richieste: number; whatsapp: number }> {
+  // Con l'agenda accesa (anche le conferme segnate a mano possono aspettare il telefono del locale).
   const settings = await loadBookingSettings();
-  if (!settings.enabled) return { richieste: 0, whatsapp: 0 };
-  const now = new Date();
-  const [richieste, risposte] = await Promise.all([
-    prisma.bookingRequest.count({ where: { isTest: false, status: "PENDING", startsAt: { gte: now } } }),
-    prisma.bookingRequest.findMany({
-      // Anche le conferme in coda delle prenotazioni segnate a mano (non hanno handledAt).
-      where: {
-        isTest: false,
-        OR: [{ handledAt: { not: null } }, { manual: true }],
-        status: { in: ["CONFIRMED", "PROPOSED", "DECLINED", "CANCELLED"] },
-        startsAt: { gte: new Date(now.getTime() - 86400000) },
-      },
-      select: { status: true, contact: true, phone: true, cancelledBy: true, startsAt: true, proposedStartsAt: true, log: { select: { at: true, actor: true, kind: true, message: true } } },
-    }),
-  ]);
-  return { richieste, whatsapp: risposte.filter((b) => whatsappPending(b, now.getTime()) !== null).length };
+  if (!settings.agendaEnabled) return { richieste: 0, whatsapp: 0 };
+  const r = await countBookingsToDo();
+  return { richieste: r.pending, whatsapp: r.whatsapp };
 }
 
 export async function dataDaFare() {

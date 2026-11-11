@@ -18,6 +18,8 @@ export type FormDay = {
   slots: { time: string; at: number }[];
   // Fine dell'ultima apertura del giorno (ms): dopo, il giorno è «Chiuso» e non più «Chiamaci».
   closeAt: number | null;
+  // «Per stasera online fino alle…» (solo oggi, ms): dopo, «Per stasera chiamaci».
+  onlineUntil: number | null;
   events: { title: string; slug: string; startTime: string | null }[];
 };
 
@@ -61,7 +63,10 @@ export function BookingForm({
   groupWa,
   address,
   phone: venuePhone,
+  paused = false,
 }: {
+  // Pausa automatica (troppe richieste in poco tempo): niente modulo, solo «chiamaci».
+  paused?: boolean;
   days: FormDay[];
   maxPeople: number;
   leadMinutes: number;
@@ -86,6 +91,8 @@ export function BookingForm({
         // Pagina aperta a lungo: dopo la chiusura di oggi, «Chiuso».
         if ((d.state === "open" || d.state === "noSlots") && d.closeAt !== null && now >= d.closeAt) return { ...d, state: "closed" as const, reason: null, slots: [] };
         if (d.state !== "open") return d;
+        // Dopo «Per stasera online fino alle…» (pagina aperta da prima): per oggi si chiama.
+        if (d.onlineUntil !== null && now >= d.onlineUntil) return { ...d, state: "noSlots" as const, slots: [] };
         const slots = d.slots.filter((s) => s.at >= now + leadMinutes * 60000);
         return slots.length ? { ...d, slots } : { ...d, state: "noSlots" as const, slots: [] };
       }),
@@ -303,6 +310,14 @@ export function BookingForm({
       <div className="mt-10 rounded-2xl border bg-[#FBF7EF] p-6 text-center">
         <p className="menu-serif m-0 text-[28px] text-[#6B1020]">Richiesta inviata</p>
         <p className="m-0 mt-2 text-[16.5px] text-[#3F4540]">Ti rispondiamo noi appena possibile.</p>
+      </div>
+    );
+  }
+
+  if (paused) {
+    return (
+      <div className="mt-8">
+        <CallBox title="Richieste online chiuse" text="In questo momento le richieste online sono chiuse: chiamaci." tel={tel} wa={wa} />
       </div>
     );
   }

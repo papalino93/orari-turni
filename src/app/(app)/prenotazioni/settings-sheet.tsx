@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { runWithToast, useToast } from "@/components/toast";
 import { Field, Sheet, inputClass } from "../gestione-menu/sheet";
-import type { BookingSettings } from "@/lib/booking/rules";
+import { pausedNow, type BookingSettings } from "@/lib/booking/rules";
 import { saveSettings } from "./actions";
+import { clock } from "./format";
 import { Switch } from "./device";
 
 const selectClass = `${inputClass} appearance-none`;
@@ -15,15 +16,22 @@ export function SettingsSheet({
   settings,
   mailReady,
   googleLink,
-  onToggleEnabled,
+  onToggle,
+  onReopen,
+  busy = false,
   onClose,
 }: {
   settings: BookingSettings;
   mailReady: boolean;
   googleLink: string;
-  onToggleEnabled: () => void;
+  // Tocco su uno dei due interruttori: la conferma (e la domanda sulle prove) la fa la pagina.
+  onToggle: (which: "agenda" | "online") => void;
+  // «Riapri ora» dopo la pausa automatica.
+  onReopen: () => void;
+  busy?: boolean;
   onClose: () => void;
 }) {
+  const paused = pausedNow(settings);
   const router = useRouter();
   const toast = useToast();
   const [saving, setSaving] = useState(false);
@@ -45,6 +53,7 @@ export function SettingsSheet({
           daysAhead: Number(f.get("daysAhead")),
           notifyEmail: String(f.get("notifyEmail") ?? ""),
           capacityHint: Number(f.get("capacityHint") || 0),
+          todayUntil: String(f.get("todayUntil") ?? ""),
         }),
       "Impostazioni salvate",
     );
@@ -68,12 +77,40 @@ export function SettingsSheet({
   return (
     <Sheet title="Impostazioni delle prenotazioni" onClose={onClose}>
       <div className="space-y-5">
-        <div data-unsaved-ignore className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">Prenotazioni online {settings.enabled ? "accese" : "spente"}</p>
-            <p className="text-xs text-foreground-muted">{settings.enabled ? "I clienti possono chiedere un tavolo dal sito." : "I clienti non vedono la pagina: puoi provarla solo tu."}</p>
+        <div data-unsaved-ignore className="divide-y divide-border rounded-xl border border-border">
+          <div className="flex items-center justify-between gap-3 px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Agenda {settings.agendaEnabled ? "accesa" : "spenta"}</p>
+              <p className="text-xs text-foreground-muted">
+                {settings.agendaEnabled
+                  ? "Chi ha il permesso segna le prenotazioni al telefono e vede Agenda, Stasera e Prossimi giorni. Sono prenotazioni vere."
+                  : "Solo tu la vedi, per provarla: quello che segni è «di prova» e non conta."}
+              </p>
+            </div>
+            <Switch on={settings.agendaEnabled} disabled={busy} label="Agenda accesa" onToggle={() => onToggle("agenda")} />
           </div>
-          <Switch on={settings.enabled} label="Prenotazioni online accese" onToggle={onToggleEnabled} />
+          <div className="flex items-center justify-between gap-3 px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Richieste online dai clienti {settings.enabled ? "accese" : "spente"}</p>
+              <p className="text-xs text-foreground-muted">
+                {settings.enabled
+                  ? "I clienti chiedono un tavolo dal menù, dagli eventi e dal link per Google. Spegnendole l'agenda resta com'è."
+                  : "I clienti non vedono la pagina per chiedere un tavolo: puoi provarla solo tu."}
+              </p>
+            </div>
+            <Switch on={settings.enabled} disabled={busy} label="Richieste online dai clienti accese" onToggle={() => onToggle("online")} />
+          </div>
+          {paused && (
+            <div role="status" className="flex flex-wrap items-center justify-between gap-2 bg-gold/10 px-4 py-3">
+              <p className="min-w-0 text-sm text-foreground">
+                <span className="font-semibold">Pausa automatica fino alle {clock(paused.getTime())}</span>
+                <span className="block text-xs text-foreground-muted">Sono arrivate troppe richieste in pochi minuti: il modulo dice ai clienti di chiamare.</span>
+              </p>
+              <button type="button" disabled={busy} onClick={onReopen} className="min-h-10 rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-60">
+                Riapri ora
+              </button>
+            </div>
+          )}
         </div>
 
         <form onSubmit={submit} className="space-y-4">
@@ -130,6 +167,10 @@ export function SettingsSheet({
               <input name="capacityHint" type="number" inputMode="numeric" min={0} max={500} defaultValue={settings.capacityHint} className={inputClass} />
             </Field>
           </div>
+
+          <Field label="Per stasera online fino alle" hint="Es. 19:00: dopo, chi vuole un tavolo per la sera stessa trova «Per stasera chiamaci». Lascia vuoto per nessun limite.">
+            <input name="todayUntil" type="time" defaultValue={settings.todayUntil} className={`${inputClass} w-40!`} />
+          </Field>
 
           <Field label="Email per gli avvisi (facoltativa)" hint="Ti arriva un'email per ogni nuova richiesta.">
             <input name="notifyEmail" type="email" autoComplete="email" defaultValue={settings.notifyEmail} placeholder="nome@esempio.it" className={inputClass} />

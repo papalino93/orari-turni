@@ -679,6 +679,8 @@ model PushSubscription {
   createdAt  DateTime  @default(now())
   lastOkAt   DateTime?
   failCount  Int       @default(0)
+  // «Questo è il telefono del locale» acceso su questo dispositivo: riceve gli avvisi «da mandare su WhatsApp».
+  localPhone Boolean   @default(false)
 
   @@index([username])
   @@index([employeeId])

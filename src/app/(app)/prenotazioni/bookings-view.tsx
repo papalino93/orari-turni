@@ -6,16 +6,16 @@ import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { runWithToast, showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
-import { addDays, availability, dayLong, peopleText, SOURCE_LABEL, tableText, type BookingSettings } from "@/lib/booking/rules";
+import { addDays, agendaTotals, availability, dayLong, pausedNow, peopleText, SOURCE_LABEL, switchesText, tableText, type BookingSettings } from "@/lib/booking/rules";
 import { whatsappPending } from "@/lib/booking/whatsapp-queue";
 import type { MessageKind } from "@/lib/booking/messages";
 import type { Hours } from "@/lib/menu-venue";
-import { markWhatsapp, setArrival, setBookingsEnabled, setDayClosed } from "./actions";
+import { markWhatsapp, reopenOnline, setArrival, setBookingSwitch, setDayClosed, setPushLocalPhone, undoNewBooking } from "./actions";
 import { ALLERGY_TEXT, BookingSheet, StatusChip, TestChip } from "./booking-sheet";
 import { SettingsSheet } from "./settings-sheet";
 import { BellIcon, LocalPhoneBox, PushBox, useLocalPhone, usePush, WhatsappIcon } from "./device";
 import { clock, dayLabel, duration, originShort, phoneDisplay, REPLY_SHORT, replyHref, sourceText, telLink, viewOf } from "./format";
-import { Agenda, BookingForm } from "./agenda";
+import { Agenda, BookingForm, type SavedInfo } from "./agenda";
 import { centerInRow, edgeFade } from "@/lib/edge-fade";
 import type { BookingItem, BookingStatsData } from "./types";
 
@@ -44,6 +44,7 @@ export function BookingsView({
   push: pushConfig,
   googleLink,
   openRequest,
+  preview = false,
 }: {
   now: number;
   today: string;
@@ -54,8 +55,10 @@ export function BookingsView({
   stats: BookingStatsData;
   isOwner: boolean;
   mailReady: boolean;
-  push: { publicKey: string | null; myEndpoints: string[] };
+  push: { publicKey: string | null; myEndpoints: string[]; localPhoneEndpoints?: string[] };
   googleLink: string;
+  // Anteprima di Vercel: si lavora solo con le prove.
+  preview?: boolean;
   // ?r=<id> nell'indirizzo (tocco sulla notifica): si apre subito quella richiesta.
   openRequest: string | null;
 }) {
@@ -87,13 +90,26 @@ export function BookingsView({
   const [agendaDay, setAgendaDay] = useState(today);
   const [form, setForm] = useState<{ booking: BookingItem | null; day: string; key: number } | null>(null);
   const [showDevice, setShowDevice] = useState(false);
-  const [askEnable, setAskEnable] = useState(false);
+  // Un interruttore toccato (da confermare) e, dopo, la domanda sulle prenotazioni di prova.
+  const [askSwitch, setAskSwitch] = useState<{ which: "agenda" | "online"; on: boolean } | null>(null);
+  const [askTests, setAskTests] = useState<{ which: "agenda" | "online"; on: boolean; tests: number; keepable: number } | null>(null);
+  // Appena segnata dal foglio «Nuova prenotazione»: «✓ Segnata: Rossi, sab 20:30, 4 persone» con «Annulla».
+  const [justSaved, setJustSaved] = useState<SavedInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [askClose, setAskClose] = useState<{ day: string; pending: number } | null>(null);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [localPhone, setLocalPhone] = useLocalPhone();
-  const push = usePush(pushConfig.publicKey, pushConfig.myEndpoints);
+  const push = usePush(pushConfig.publicKey, pushConfig.myEndpoints, localPhone);
+  // Il server deve sapere se questo dispositivo è il telefono del locale (avvisi «da mandare su WhatsApp»):
+  // la scelta sta nel browser, si copia sull'iscrizione agli avvisi quando cambia o se non coincide.
+  const serverLocal = push.endpoint ? (pushConfig.localPhoneEndpoints ?? []).includes(push.endpoint) : null;
+  useEffect(() => {
+    if (push.state !== "on" || !push.endpoint || serverLocal === null || serverLocal === localPhone) return;
+    setPushLocalPhone(push.endpoint, localPhone)
+      .then(() => router.refresh())
+      .catch(() => {});
+  }, [push.state, push.endpoint, serverLocal, localPhone, router]);
   const [pushLater, setPushLater] = useState(true);
   const [iosLater, setIosLater] = useState(true);
   const canWhatsapp = isOwner || localPhone;
@@ -112,14 +128,15 @@ export function BookingsView({
     }
   }, []);
 
-  // Si aggiorna da sola ogni 30 secondi mentre la pagina è in vista, e quando torna in primo piano.
+  // Si aggiorna da sola ogni 75 secondi mentre la pagina è in vista (non di più: i limiti del piano
+  // gratuito), e quando torna in primo piano.
   useEffect(() => {
     const tick = () => {
       if (document.visibilityState !== "visible") return;
       setNow(Date.now());
       router.refresh();
     };
-    const id = setInterval(tick, 30000);
+    const id = setInterval(tick, 75000);
     document.addEventListener("visibilitychange", tick);
     window.addEventListener("focus", tick);
     return () => {
@@ -149,6 +166,7 @@ export function BookingsView({
       .map((b) => ({ b, kind: waOpened[b.id].kind, openedAt: waOpened[b.id].at }))
       .sort((a, b) => a.b.startsAt - b.b.startsAt);
     const tonight = live.filter((x) => x.v === "CONFIRMED" && x.b.day === today).map((x) => x.b);
+    const tonightPending = live.filter((x) => x.v === "PENDING" && x.b.day === today).map((x) => x.b);
     const confirmed = live.filter((x) => x.v === "CONFIRMED").map((x) => x.b);
     // Annullate che erano in agenda (segnate a mano o confermate): restano barrate in fondo al giorno.
     const cancelled = rows.filter((b) => b.status === "CANCELLED" && (b.manual || b.log.some((l) => l.kind === "CONFIRMED" || l.kind === "ACCEPTED")));
@@ -157,7 +175,7 @@ export function BookingsView({
       .filter((x) => x.v === "DECLINED" || x.v === "CANCELLED" || x.v === "EXPIRED" || (x.v === "CONFIRMED" && x.b.day < today))
       .map((x) => x.b)
       .sort((a, b) => b.startsAt - a.startsAt);
-    return { pending, proposed, wa, waDone, tonight, confirmed, cancelled, upcoming, archive };
+    return { pending, proposed, wa, waDone, tonight, tonightPending, confirmed, cancelled, upcoming, archive };
   }, [rows, now, today, waOpened]);
 
   // Una nuova richiesta arrivata con la pagina aperta: un messaggio, oltre al numero.
@@ -214,12 +232,69 @@ export function BookingsView({
     else closeDay(day, true);
   }
 
-  async function toggleEnabled() {
+  // Interruttori: si accende/spegne; se ci sono prove, prima si chiede che cosa farne.
+  const SWITCH_DONE: Record<string, string> = {
+    "agenda-on": "Agenda accesa",
+    "agenda-off": "Agenda spenta",
+    "online-on": "Richieste online accese",
+    "online-off": "Richieste online spente",
+  };
+  async function applySwitch(which: "agenda" | "online", on: boolean, tests?: "delete" | "keep") {
     setBusy(true);
-    const ok = await runWithToast(toast, () => setBookingsEnabled(!settings.enabled), settings.enabled ? "Prenotazioni online spente" : "Prenotazioni online accese");
+    try {
+      const res = await setBookingSwitch(which, on, tests);
+      if (!res.ok) {
+        toast.showError(res.error);
+        return;
+      }
+      if (!res.data.done) {
+        setAskSwitch(null);
+        setAskTests({ which, on, tests: res.data.tests, keepable: res.data.keepable });
+        return;
+      }
+      const d = res.data;
+      const extra = d.deleted || d.kept ? ` · ${[d.kept ? `${d.kept} rese vere` : "", d.deleted ? `${d.deleted} prove cancellate` : ""].filter(Boolean).join(", ")}` : "";
+      toast.showSuccess(`${SWITCH_DONE[`${which}-${on ? "on" : "off"}`]}${extra}`);
+      setAskSwitch(null);
+      setAskTests(null);
+      router.refresh();
+    } catch (e) {
+      showActionError(toast, e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const askToggle = (which: "agenda" | "online") => setAskSwitch({ which, on: which === "agenda" ? !settings.agendaEnabled : !settings.enabled });
+  const paused = pausedNow(settings, new Date(now));
+  async function reopen() {
+    setBusy(true);
+    await runWithToast(toast, () => reopenOnline(), "Richieste online riaperte");
     setBusy(false);
-    if (ok !== null) setAskEnable(false);
     router.refresh();
+  }
+
+  // «Annulla» nel messaggio «✓ Segnata…»: la prenotazione appena segnata sparisce.
+  async function undoSaved(info: SavedInfo) {
+    setJustSaved(null);
+    try {
+      const res = await undoNewBooking(info.id);
+      if (res.ok) toast.showSuccess(`Tolta: ${info.name}`);
+      else toast.showError(res.error);
+      router.refresh();
+    } catch (e) {
+      showActionError(toast, e);
+    }
+  }
+  async function queueSaved(info: SavedInfo) {
+    setJustSaved(null);
+    try {
+      const res = await markWhatsapp(info.id, "queue");
+      if (res.ok) toast.showSuccess("La conferma la manda il telefono del locale");
+      else toast.showError(res.error);
+      router.refresh();
+    } catch (e) {
+      showActionError(toast, e);
+    }
   }
 
   const q = query.trim().toLowerCase();
@@ -277,26 +352,66 @@ export function BookingsView({
         + Nuova prenotazione
       </button>
 
-      {!settings.enabled && (
-        <div role="status" className="mb-4 flex flex-col gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 sm:flex-row sm:items-center">
+      {preview && (
+        <p role="status" className="mb-4 rounded-2xl border border-danger/30 bg-danger-bg px-4 py-3 text-sm text-foreground">
+          <span className="font-semibold text-danger">Anteprima di prova del sito.</span> Le prenotazioni vere si guardano ma si cambiano solo dal sito vero.
+        </p>
+      )}
+
+      {/* I due interruttori in una riga: chi guarda sa subito se l'agenda conta e se i clienti possono chiedere. */}
+      {(!settings.agendaEnabled || !settings.enabled || isOwner) && (
+        <div
+          role="status"
+          className={`mb-4 flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center ${settings.agendaEnabled ? "border-border bg-surface" : "border-gold/40 bg-gold/10"}`}
+        >
           <p className="flex-1 text-sm text-foreground">
-            <span className="font-semibold">Le prenotazioni online sono spente:</span> i clienti non le vedono.
-            {isOwner && " Puoi provarle tu: le tue richieste sono di prova e non avvisano nessuno."}
+            <span className="font-semibold">{switchesText(settings)}</span>
+            <span className="block text-foreground-muted">
+              {!settings.agendaEnabled
+                ? isOwner
+                  ? "Solo tu vedi le prenotazioni: quello che segni e le richieste che provi sono di prova e non avvisano nessuno."
+                  : "Quello che segni è di prova."
+                : !settings.enabled
+                  ? "Le prenotazioni segnate qui sono vere. I clienti non possono chiedere un tavolo dal sito."
+                  : "Le prenotazioni segnate qui sono vere e i clienti possono chiedere un tavolo dal sito."}
+            </span>
           </p>
           {isOwner && (
-            <div className="flex shrink-0 gap-2">
-              <a
-                href="/menu/prenota"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex min-h-11 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground hover:border-accent"
-              >
-                Prova la pagina ↗
-              </a>
-              <button type="button" onClick={() => setAskEnable(true)} className="min-h-11 rounded-full bg-accent px-5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover">
-                Accendi
-              </button>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {!settings.enabled && (
+                <a
+                  href="/menu/prenota"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-h-11 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground hover:border-accent"
+                >
+                  Prova la pagina ↗
+                </a>
+              )}
+              {!settings.agendaEnabled ? (
+                <button type="button" disabled={busy} onClick={() => askToggle("agenda")} className="min-h-11 rounded-full bg-accent px-5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-60">
+                  Accendi l&apos;agenda
+                </button>
+              ) : (
+                <button type="button" disabled={busy} onClick={() => setShowSettings(true)} className="min-h-11 rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground hover:border-accent">
+                  Interruttori
+                </button>
+              )}
             </div>
+          )}
+        </div>
+      )}
+
+      {settings.enabled && paused && (
+        <div role="status" className="mb-4 flex flex-col gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 sm:flex-row sm:items-center">
+          <p className="flex-1 text-sm text-foreground">
+            <span className="font-semibold">Richieste online in pausa automatica fino alle {clock(paused.getTime())}.</span>{" "}
+            <span className="text-foreground-muted">Sono arrivate troppe richieste in pochi minuti: i clienti vedono «chiamaci».</span>
+          </p>
+          {isOwner && (
+            <button type="button" disabled={busy} onClick={reopen} className="min-h-11 shrink-0 rounded-full bg-accent px-5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-60">
+              Riapri ora
+            </button>
           )}
         </div>
       )}
@@ -348,7 +463,7 @@ export function BookingsView({
       )}
 
       {/* Stasera: chiudere le richieste con un tocco quando il locale è pieno. */}
-      {todayOpen && (
+      {todayOpen && settings.enabled && !paused && (
         <div
           className={`mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-2xl border px-4 py-2.5 ${todayClosed ? "border-danger/30 bg-danger-bg" : "border-border bg-surface"}`}
         >
@@ -359,7 +474,7 @@ export function BookingsView({
               <>
                 <span className="font-semibold">Stasera</span>{" "}
                 <span className="text-foreground-muted">
-                  · {lists.tonight.length ? `${peopleText(lists.tonight.reduce((s, b) => s + b.people, 0))} prenotate` : "nessuna prenotazione"} · si accettano richieste online
+                  · {lists.tonight.length ? agendaTotals(lists.tonight.filter((b) => !settings.agendaEnabled || !b.isTest)).text : "nessuna prenotazione"} · si accettano richieste online
                 </span>
               </>
             )}
@@ -497,9 +612,9 @@ export function BookingsView({
               </div>
             )}
 
-            {tab === "tonight" && <Tonight rows={lists.tonight} countTests={!settings.enabled} now={now} today={today} onOpen={open} />}
+            {tab === "tonight" && <Tonight rows={lists.tonight} pending={lists.tonightPending} countTests={!settings.agendaEnabled} now={now} today={today} onOpen={open} />}
 
-            {tab === "agenda" && <Agenda rows={lists.confirmed} cancelled={lists.cancelled} countTests={!settings.enabled} day={agendaDay} setDay={setAgendaDay} today={today} now={now} onOpen={open} onNew={newBooking} />}
+            {tab === "agenda" && <Agenda rows={lists.confirmed} cancelled={lists.cancelled} countTests={!settings.agendaEnabled} day={agendaDay} setDay={setAgendaDay} today={today} now={now} onOpen={open} onNew={newBooking} />}
 
             {tab === "next" && (
               <Upcoming rows={lists.upcoming} pending={lists.pending} fullDays={fullDays} today={today} settings={settings} now={now} busy={busy} onOpen={open} onClose={requestClose} onReopen={(d) => closeDay(d, false)} />
@@ -529,6 +644,7 @@ export function BookingsView({
           key={sheetKey}
           booking={opened}
           rows={rows}
+          countTests={!settings.agendaEnabled}
           now={now}
           today={today}
           settings={settings}
@@ -556,16 +672,37 @@ export function BookingsView({
           settings={settings}
           hours={hours}
           canWhatsapp={canWhatsapp}
+          confirmed={lists.confirmed}
+          countTests={!settings.agendaEnabled}
           onClose={() => setForm(null)}
           onShow={(id) => {
             setForm(null);
             open(id);
           }}
+          onSaved={(info) => {
+            setForm(null);
+            setJustSaved(info);
+          }}
+        />
+      )}
+
+      {justSaved && (
+        <SavedBar
+          key={justSaved.id}
+          info={justSaved}
+          canWhatsapp={canWhatsapp}
+          onUndo={() => undoSaved(justSaved)}
+          onQueue={() => queueSaved(justSaved)}
+          onOpen={() => {
+            setJustSaved(null);
+            open(justSaved.id);
+          }}
+          onClose={() => setJustSaved(null)}
         />
       )}
 
       {showSettings && isOwner && (
-        <SettingsSheet settings={settings} mailReady={mailReady} googleLink={googleLink} onToggleEnabled={() => setAskEnable(true)} onClose={() => setShowSettings(false)} />
+        <SettingsSheet settings={settings} mailReady={mailReady} googleLink={googleLink} busy={busy} onToggle={askToggle} onReopen={reopen} onClose={() => setShowSettings(false)} />
       )}
 
       {showDevice && (
@@ -577,24 +714,53 @@ export function BookingsView({
         </Sheet>
       )}
 
-      {askEnable && (
+      {askSwitch && (
         <ConfirmSheet
-          title={settings.enabled ? "Spegnere le prenotazioni online?" : "Accendere le prenotazioni online?"}
-          confirmLabel={settings.enabled ? "Spegni" : "Accendi"}
-          danger={settings.enabled}
+          title={
+            askSwitch.which === "agenda"
+              ? askSwitch.on
+                ? "Accendere l'agenda?"
+                : "Spegnere l'agenda?"
+              : askSwitch.on
+                ? "Accendere le richieste online?"
+                : "Spegnere le richieste online?"
+          }
+          confirmLabel={askSwitch.on ? "Accendi" : "Spegni"}
+          danger={!askSwitch.on}
           busy={busy}
-          onConfirm={toggleEnabled}
-          onCancel={() => setAskEnable(false)}
+          onConfirm={() => applySwitch(askSwitch.which, askSwitch.on)}
+          onCancel={() => setAskSwitch(null)}
         >
-          {settings.enabled ? (
-            <p>I clienti non vedranno più la pagina per chiedere un tavolo. Le richieste già arrivate restano qui e puoi ancora rispondere.</p>
-          ) : (
+          {askSwitch.which === "agenda" ? (
+            askSwitch.on ? (
+              <p>I dipendenti con il permesso vedono «Prenotazioni» nel menù e segnano le prenotazioni al telefono. Da adesso sono prenotazioni vere. I clienti non possono ancora chiedere un tavolo dal sito.</p>
+            ) : (
+              <>
+                <p>I dipendenti non vedranno più le prenotazioni e quello che segni tornerà «di prova».</p>
+                {settings.enabled && <p>Si spengono anche le richieste online dai clienti.</p>}
+              </>
+            )
+          ) : askSwitch.on ? (
             <>
-              <p>I clienti potranno chiedere un tavolo dal menù e dal link per Google. Le richieste arrivano qui e vanno confermate una per una.</p>
+              <p>I clienti potranno chiedere un tavolo dal menù, dagli eventi e dal link per Google. Le richieste arrivano qui e vanno confermate una per una.</p>
+              {!settings.agendaEnabled && <p>Si accende anche l&apos;agenda per i dipendenti con il permesso.</p>}
               {push.state !== "on" && <p>Consiglio: attiva anche gli avvisi sul telefono (campanella in alto).</p>}
             </>
+          ) : (
+            <p>I clienti non vedranno più la pagina per chiedere un tavolo. L&apos;agenda resta accesa: le prenotazioni al telefono si segnano come sempre, e alle richieste già arrivate puoi ancora rispondere.</p>
           )}
         </ConfirmSheet>
+      )}
+
+      {askTests && (
+        <TestsDialog
+          tests={askTests.tests}
+          keepable={askTests.keepable}
+          busy={busy}
+          onDelete={() => applySwitch(askTests.which, askTests.on, "delete")}
+          onKeep={() => applySwitch(askTests.which, askTests.on, "keep")}
+          onCancel={() => setAskTests(null)}
+        />
       )}
 
       {askClose && (
@@ -778,20 +944,51 @@ function WaRow({
   );
 }
 
-function Tonight({ rows, countTests, now, today, onOpen }: { rows: BookingItem[]; countTests: boolean; now: number; today: string; onOpen: (id: string) => void }) {
-  if (!rows.length) return <Empty title="Nessuna prenotazione per stasera" text="Le prenotazioni confermate per oggi compaiono qui, in ordine di orario." />;
-  // Con la funzione accesa le prenotazioni di prova restano visibili («Di prova») ma non contano.
+function Tonight({
+  rows,
+  pending,
+  countTests,
+  now,
+  today,
+  onOpen,
+}: {
+  rows: BookingItem[];
+  // Richieste di stasera ancora da confermare: in cima, in giallo, per chi guarda solo «Stasera».
+  pending: BookingItem[];
+  countTests: boolean;
+  now: number;
+  today: string;
+  onOpen: (id: string) => void;
+}) {
+  const waiting =
+    pending.length > 0 ? (
+      <section aria-labelledby="stasera-da-confermare" className="mb-4 rounded-2xl border border-gold/40 bg-gold/10 p-3">
+        <h2 id="stasera-da-confermare" className="mb-2 px-1 text-sm font-semibold text-foreground">
+          Da confermare per stasera ({pending.length})
+        </h2>
+        <CardList>
+          {pending.map((b) => (
+            <RequestCard key={b.id} b={b} now={now} today={today} onOpen={onOpen} />
+          ))}
+        </CardList>
+      </section>
+    ) : null;
+  if (!rows.length)
+    return (
+      <>
+        {waiting}
+        <Empty title="Nessuna prenotazione per stasera" text="Le prenotazioni confermate per oggi compaiono qui, in ordine di orario." />
+      </>
+    );
+  // Con l'agenda accesa le prenotazioni di prova restano visibili («Di prova») ma non contano.
   const counted = rows.filter((b) => countTests || !b.isTest);
-  const people = counted.reduce((s, b) => s + b.people, 0);
   const arrived = counted.filter((b) => b.arrivedAt).length;
   return (
     <section aria-label="Stasera">
+      {waiting}
       <p className="mb-3 px-1 text-sm text-foreground">
-        <span className="font-semibold">Stasera · {peopleText(people)} prenotate</span>
-        <span className="text-foreground-muted">
-          {" "}
-          · {counted.length} {counted.length === 1 ? "tavolo" : "tavoli"} · arrivati {arrived} su {counted.length}
-        </span>
+        <span className="font-semibold">Stasera · {agendaTotals(counted).text}</span>
+        <span className="text-foreground-muted"> · arrivati {arrived} su {counted.length}</span>
       </p>
       <ul className="grid grid-cols-[minmax(0,1fr)] gap-2 lg:grid-cols-[repeat(2,minmax(0,1fr))]">
         {rows.map((b) => (
@@ -925,8 +1122,8 @@ function Upcoming({
       {days.length === 0 && <Empty title="Nessuna prenotazione nei prossimi giorni" text="Le prenotazioni confermate da domani in poi compaiono qui, giorno per giorno." />}
       {days.map((day) => {
         const all = rows.filter((b) => b.day === day);
-        // Con la funzione accesa le prenotazioni di prova non contano nei totali.
-        const list = settings.enabled ? all.filter((b) => !b.isTest) : all;
+        // Con l'agenda accesa le prenotazioni di prova non contano nei totali.
+        const list = settings.agendaEnabled ? all.filter((b) => !b.isTest) : all;
         const people = list.reduce((s, b) => s + b.people, 0);
         const waiting = pending.filter((b) => b.day === day).length;
         const closed = fullDays.includes(day);
@@ -940,7 +1137,7 @@ function Upcoming({
                   {dayLong(day)}
                 </h2>
                 <p className="text-xs text-foreground-muted">
-                  {list.length ? `${peopleText(people)} · ${list.length} ${list.length === 1 ? "tavolo" : "tavoli"}` : "Nessuna prenotazione confermata"}
+                  {list.length ? agendaTotals(list).text : "Nessuna prenotazione confermata"}
                   {settings.capacityHint > 0 && <span className={overHint ? "font-semibold text-danger" : ""}> · di solito pieni oltre {peopleText(settings.capacityHint)}</span>}
                   {waiting > 0 && <span className="font-semibold text-gold"> · {waiting} da confermare</span>}
                 </p>
@@ -1045,6 +1242,120 @@ function Numbers({ stats }: { stats: BookingStatsData }) {
           ))}
         </ul>
       </section>
+    </div>
+  );
+}
+
+// Dopo «Segna in agenda»: niente schermata con «Fatto», il foglio si chiude e resta questo messaggio
+// in basso per qualche secondo, con «Annulla» (toglie la prenotazione appena segnata) e, se si può,
+// «Manda conferma» su WhatsApp.
+function SavedBar({
+  info,
+  canWhatsapp,
+  onUndo,
+  onQueue,
+  onOpen,
+  onClose,
+}: {
+  info: SavedInfo;
+  canWhatsapp: boolean;
+  onUndo: () => void;
+  onQueue: () => void;
+  onOpen: () => void;
+  onClose: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    if (hover) return;
+    const t = setTimeout(() => closeRef.current(), 12000);
+    return () => clearTimeout(t);
+  }, [hover]);
+  const btn = "flex min-h-10 shrink-0 items-center rounded-full px-3.5 text-sm font-semibold";
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      onPointerEnter={() => setHover(true)}
+      onPointerLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      className="fixed inset-x-3 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-lg rounded-2xl border border-success/30 bg-surface p-3 shadow-2xl"
+    >
+      <button type="button" onClick={onOpen} className="block w-full text-left">
+        <span className="block text-[15px] font-semibold text-success">✓ Segnata: {info.summary}</span>
+        {info.isTest && <span className="block text-xs text-foreground-muted">Di prova: l&apos;agenda è spenta.</span>}
+        {!info.phone && <span className="block text-xs text-foreground-muted">Manca il numero: lo aggiungi dopo con «Modifica».</span>}
+      </button>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={onUndo} className={`${btn} border border-border text-foreground hover:border-danger hover:text-danger`}>
+          Annulla
+        </button>
+        {info.whatsappHref &&
+          (canWhatsapp ? (
+            <a
+              href={info.whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                markWhatsapp(info.id, "opened").catch(() => {});
+                onClose();
+              }}
+              className={`${btn} gap-1.5 bg-[#137a43] text-white hover:bg-[#0f6837]`}
+            >
+              <WhatsappIcon className="h-4 w-4" /> Manda conferma
+            </a>
+          ) : (
+            <button type="button" onClick={onQueue} className={`${btn} border border-[#137a43]/40 text-[#137a43] hover:bg-[#137a43]/10 dark:text-[#3fae74]`}>
+              Conferma dal telefono del locale
+            </button>
+          ))}
+        <button type="button" onClick={onClose} aria-label="Chiudi il messaggio" className="ml-auto flex h-10 w-10 items-center justify-center rounded-full text-foreground-muted hover:text-foreground">
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// All'accensione dell'agenda o delle richieste online, se ci sono prenotazioni di prova.
+function TestsDialog({ tests, keepable, busy, onDelete, onKeep, onCancel }: { tests: number; keepable: number; busy: boolean; onDelete: () => void; onKeep: () => void; onCancel: () => void }) {
+  const title = tests === 1 ? "C'è 1 prenotazione di prova: cancellarla?" : `Ci sono ${tests} prenotazioni di prova: cancellarle?`;
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={() => !busy && onCancel()}>
+      <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-4">
+        <div
+          role="alertdialog"
+          aria-label={title}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-left shadow-2xl sm:rounded-2xl sm:pb-5"
+        >
+          <h2 className="text-base font-semibold text-foreground">{title}</h2>
+          <div className="mt-2 space-y-2 text-sm text-foreground-muted">
+            <p>Sono quelle segnate o chieste mentre provavi: non contano e non avvisano nessuno.</p>
+            <p>
+              {keepable > 0
+                ? `«Tienile e rendile vere»: ${keepable === 1 ? "diventa vera quella segnata" : `diventano vere le ${keepable} segnate`} a mano per oggi o i prossimi giorni (non annullate); le altre prove si cancellano.`
+                : "Nessuna è una prenotazione segnata a mano per oggi o i prossimi giorni: conviene cancellarle."}
+            </p>
+          </div>
+          <div className="mt-5 grid gap-2">
+            <button type="button" disabled={busy} onClick={onDelete} className="min-h-11 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50">
+              {busy ? "Un attimo…" : "Cancella le prove"}
+            </button>
+            {keepable > 0 && (
+              <button type="button" disabled={busy} onClick={onKeep} className="min-h-11 rounded-lg border border-border px-4 text-sm font-medium text-foreground hover:border-accent disabled:opacity-50">
+                Tienile e rendile vere
+              </button>
+            )}
+            <button type="button" disabled={busy} onClick={onCancel} className="min-h-11 rounded-lg px-4 text-sm font-medium text-foreground-muted hover:text-foreground disabled:opacity-50">
+              Annulla
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { mailConfigured } from "@/lib/mail";
 import { rangesFor, telHref, whatsappHref } from "@/lib/menu-venue";
 import { prisma } from "@/lib/prisma";
 import { bookingDays, loadBookingSettings } from "@/lib/booking/service";
-import { businessDay, dayLong, dayRelative, normalizeSource, romeInstant } from "@/lib/booking/rules";
+import { businessDay, dayLong, dayRelative, normalizeSource, onlineUntilInstant, pausedNow, romeInstant } from "@/lib/booking/rules";
 import { formatPromoDates } from "@/lib/menu-format";
 import { MenuFooter } from "../venue-footer";
 import { Ornament } from "../ornament";
@@ -68,6 +68,7 @@ export default async function PrenotaPage({ searchParams }: { searchParams: Prom
       reason: d.availability.state === "open" ? null : d.availability.reason,
       slots: d.availability.slots.map((s) => ({ time: s.time, at: s.startsAt.getTime() })),
       closeAt: end,
+      onlineUntil: onlineUntilInstant(d.day, today, settings)?.getTime() ?? null,
       events: d.events,
     };
   });
@@ -79,6 +80,7 @@ export default async function PrenotaPage({ searchParams }: { searchParams: Prom
     ? whatsappHref(contacts.phone, `Ciao! Siamo un gruppo di più di ${settings.maxPeople} persone e vorremmo prenotare un tavolo. Siamo in`)
     : null;
   const source = slug && event ? "evento" : normalizeSource(one(sp.da));
+  const paused = pausedNow(settings, now);
 
   return (
     <>
@@ -86,6 +88,12 @@ export default async function PrenotaPage({ searchParams }: { searchParams: Prom
         <PreviewBand>
           <strong className="font-medium">Anteprima:</strong> le prenotazioni online sono spente, i clienti non vedono questa pagina. Le
           richieste che mandi da qui sono di prova e non avvisano nessuno.
+        </PreviewBand>
+      )}
+      {paused && owner && (
+        <PreviewBand>
+          <strong className="font-medium">Pausa automatica:</strong> sono arrivate troppe richieste in poco tempo. Puoi riaprire da Prenotazioni ›
+          Impostazioni.
         </PreviewBand>
       )}
       <PrenotaHeader />
@@ -122,6 +130,7 @@ export default async function PrenotaPage({ searchParams }: { searchParams: Prom
           groupWa={groupWa}
           address={contacts.address}
           phone={contacts.phone}
+          paused={Boolean(paused)}
         />
       </main>
       <MenuFooter hours={venue.hours} contacts={contacts} hideBooking />

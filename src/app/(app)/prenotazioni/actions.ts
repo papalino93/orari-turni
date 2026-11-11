@@ -18,6 +18,12 @@ import {
   declineBooking,
   queueConfirmation,
   updateBooking,
+  undoManualBooking,
+  previewBlock,
+  clearPause,
+  testBookingsCount,
+  keepableTestBookings,
+  resolveTestBookings,
   type ManualInput,
   type ManualResult,
   eraseBooking,
@@ -34,13 +40,19 @@ import { sendPushToStaff } from "@/lib/booking/push";
 
 // Ogni azione è un indirizzo pubblico: la prima cosa è sempre requireAgendaManager()
 // (titolare/consulente, o dipendente con «Può gestire le prenotazioni», letto dal database;
-// con la funzione spenta solo il titolare, come la pagina).
+// con l'agenda spenta solo il titolare, come la pagina).
 
-// Con la funzione spenta prenotazioni e agenda sono solo per le prove del titolare (come la pagina).
+// Con l'agenda spenta prenotazioni e agenda sono solo per le prove del titolare (come la pagina).
 async function requireAgendaManager(): Promise<BookingManager> {
   const m = await requireBookingManager();
-  if (m.role !== "ADMIN" && !(await loadBookingSettings()).enabled) throw new AuthError("Le prenotazioni non sono ancora attive: per ora le prova solo il titolare.");
+  if (m.role !== "ADMIN" && !(await loadBookingSettings()).agendaEnabled) throw new AuthError("L'agenda delle prenotazioni non è ancora accesa: per ora la prova solo il titolare.");
   return m;
+}
+
+// Anteprime di Vercel (stesso database del sito): si lavora solo sulle prenotazioni di prova.
+async function guardPreview(id?: string | null) {
+  const blocked = await previewBlock(id);
+  if (blocked) throw new ValidationError(blocked);
 }
 
 const ID = /^[a-z0-9]{10,40}$/i;
@@ -68,10 +80,14 @@ function refresh() {
   revalidatePath("/", "layout");
 }
 
-export type ReplyOutcome = { mailSent: boolean; email: string | null; whatsappHref: string | null };
+// ask: «C'è già Rossi sabato alle 20:30 (4 persone): è la stessa?» (si richiama con dupOk).
+export type ReplyOutcome = { mailSent: boolean; email: string | null; whatsappHref: string | null; ask?: undefined } | { ask: string };
 
 function outcome(r: StaffResult): ReplyOutcome {
-  if (!r.ok) throw new ValidationError(r.error);
+  if (!r.ok) {
+    if (r.ask) return { ask: r.ask };
+    throw new ValidationError(r.error);
+  }
   return { mailSent: r.mailSent, email: r.booking.email, whatsappHref: r.whatsappHref };
 }
 
@@ -83,14 +99,18 @@ export async function replyToRequest(
   kind: "confirm" | "propose" | "decline" | "cancel" | "accept" | "refuse" | "customerCancel",
   message: string,
   time?: string,
+  // dupOk: «È un'altra, segna lo stesso»; selfWa: questo dispositivo manda lui il WhatsApp (niente avviso agli altri).
+  opts?: { dupOk?: boolean; selfWa?: boolean },
 ): Promise<ActionResult<ReplyOutcome>> {
   return runAction(async () => {
     const m = await requireAgendaManager();
     const id = parseBookingId(idInput);
+    await guardPreview(id);
     const origin = await requestOrigin();
-    const actor = { name: m.name };
+    // Il titolare manda i WhatsApp da qualsiasi dispositivo; un dipendente solo dal telefono del locale.
+    const actor = { name: m.name, selfWa: opts?.selfWa === true };
     try {
-      if (kind === "confirm") return outcome(await confirmBooking(id, actor, message, origin));
+      if (kind === "confirm") return outcome(await confirmBooking(id, actor, message, origin, opts?.dupOk === true));
       if (kind === "propose") return outcome(await proposeTime(id, actor, time, message, origin));
       if (kind === "decline") return outcome(await declineBooking(id, actor, message, origin));
       if (kind === "cancel") return outcome(await cancelByVenue(id, actor, message, origin));
@@ -108,6 +128,7 @@ export async function setArrival(idInput: string, arrived: boolean | null): Prom
   return runAction(async () => {
     const m = await requireAgendaManager();
     const id = parseBookingId(idInput);
+    await guardPreview(id);
     if (arrived !== true && arrived !== false && arrived !== null) throw new ValidationError("Azione non valida.");
     const r = await markArrival(id, { name: m.name }, arrived);
     refresh();
@@ -123,13 +144,14 @@ export async function setArrival(idInput: string, arrived: boolean | null): Prom
 export type AgendaFields = { name: string; phone: string; people: number; day: string; time: string; table: string; note: string; allergies: boolean; version: string };
 
 export type AgendaOutcome =
-  | { saved: true; id: string; whatsappHref: string | null; hasPhone: boolean; unchanged: boolean }
-  | { saved: false; ask: string; field?: undefined }
+  | { saved: true; id: string; whatsappHref: string | null; hasPhone: boolean; unchanged: boolean; isTest: boolean }
+  // dup: avviso doppioni («È un'altra, segna lo stesso»), altrimenti giorno chiuso / fuori orario.
+  | { saved: false; ask: string; dup: boolean; field?: undefined }
   | { saved: false; ask?: undefined; error: string; field?: string; conflict?: AgendaFields; gone?: boolean };
 
 function agendaOutcome(r: ManualResult): AgendaOutcome {
-  if (r.ok) return { saved: true, id: r.booking.id, whatsappHref: r.whatsappHref, hasPhone: Boolean(r.booking.phone), unchanged: r.unchanged === true };
-  if ("ask" in r) return { saved: false, ask: r.ask };
+  if (r.ok) return { saved: true, id: r.booking.id, whatsappHref: r.whatsappHref, hasPhone: Boolean(r.booking.phone), unchanged: r.unchanged === true, isTest: r.booking.isTest };
+  if ("ask" in r) return { saved: false, ask: r.ask, dup: r.dup === true };
   if ("conflict" in r) {
     const c = r.conflict;
     return {
@@ -144,8 +166,8 @@ function agendaOutcome(r: ManualResult): AgendaOutcome {
 
 const manualFields = (input: ManualInput): ManualInput => {
   if (!input || typeof input !== "object") throw new ValidationError("Dati non validi.");
-  const { day, time, people, name, phone, table, note, allergies, source, force } = input;
-  return { day, time, people, name, phone, table, note, allergies, source, force };
+  const { day, time, people, name, phone, table, note, allergies, source, force, dupOk } = input;
+  return { day, time, people, name, phone, table, note, allergies, source, force, dupOk };
 };
 
 export async function addManualBooking(input: ManualInput): Promise<ActionResult<AgendaOutcome>> {
@@ -161,10 +183,23 @@ export async function editBooking(idInput: string, input: ManualInput, version: 
   return runAction(async () => {
     const m = await requireAgendaManager();
     const id = parseBookingId(idInput);
+    await guardPreview(id);
     const fields = { ...manualFields(input), source: undefined };
     const r = await updateBooking(id, fields, typeof version === "string" ? version : null, { name: m.name }, await requestOrigin());
     refresh();
     return agendaOutcome(r);
+  });
+}
+
+// «Annulla» nel messaggio «✓ Segnata…» subito dopo il salvataggio: la prenotazione sparisce.
+export async function undoNewBooking(idInput: string): Promise<ActionResult> {
+  return runAction(async () => {
+    const m = await requireAgendaManager();
+    const id = parseBookingId(idInput);
+    await guardPreview(id);
+    const r = await undoManualBooking(id, { name: m.name });
+    refresh();
+    if (!r.ok) throw new ValidationError(r.error);
   });
 }
 
@@ -174,6 +209,7 @@ export async function markWhatsapp(idInput: string, how: "opened" | "done" | "un
   return runAction(async () => {
     const m = await requireAgendaManager();
     const id = parseBookingId(idInput);
+    await guardPreview(id);
     const exists = await prisma.bookingRequest.findUnique({ where: { id }, select: { id: true } });
     if (!exists) throw new ValidationError("Questa richiesta non c'è più.");
     if (how === "queue") {
@@ -197,6 +233,7 @@ export async function eraseRequest(idInput: string): Promise<ActionResult> {
   return runAction(async () => {
     await requireOwner();
     const id = parseBookingId(idInput);
+    await guardPreview(id);
     const r = await eraseBooking(id);
     refresh();
     if (!r.ok) throw new ValidationError(r.error);
@@ -207,6 +244,7 @@ export async function eraseRequest(idInput: string): Promise<ActionResult> {
 export async function setDayClosed(dayInput: string, full: boolean): Promise<ActionResult> {
   return runAction(async () => {
     const m = await requireAgendaManager();
+    await guardPreview();
     if (typeof dayInput !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dayInput) || Number.isNaN(Date.parse(`${dayInput}T00:00:00Z`))) {
       throw new ValidationError("Giorno non valido.");
     }
@@ -217,20 +255,55 @@ export async function setDayClosed(dayInput: string, full: boolean): Promise<Act
 
 // ---------- Solo titolare
 
-export async function setBookingsEnabled(on: boolean): Promise<ActionResult> {
+// Le prove all'accensione: «Ci sono N prenotazioni di prova: cancellarle?»
+export type SwitchOutcome = { done: true; deleted: number; kept: number } | { done: false; tests: number; keepable: number };
+
+// I due interruttori: «agenda» (agenda interna per il personale) e «online» (richieste dai clienti).
+// - accendere le richieste online accende anche l'agenda; spegnere l'agenda spegne anche le richieste;
+// - spegnere le richieste online non tocca mai l'agenda;
+// - accendendo, se ci sono prove si chiede che cosa farne (tests: "delete" | "keep").
+export async function setBookingSwitch(which: "agenda" | "online", on: boolean, tests?: "delete" | "keep"): Promise<ActionResult<SwitchOutcome>> {
   return runAction(async () => {
     await requireOwner();
+    await guardPreview();
+    if (which !== "agenda" && which !== "online") throw new ValidationError("Azione non valida.");
     const current = await loadBookingSettings();
-    await saveBookingSettings({ ...current, enabled: Boolean(on) });
+    let result: SwitchOutcome = { done: true, deleted: 0, kept: 0 };
+    const turningOn = on === true && (which === "agenda" ? !current.agendaEnabled : !current.enabled);
+    if (turningOn) {
+      const n = await testBookingsCount();
+      if (n > 0 && tests !== "delete" && tests !== "keep") return { done: false, tests: n, keepable: await keepableTestBookings() };
+      if (n > 0) {
+        const r = await resolveTestBookings(tests as "delete" | "keep");
+        result = { done: true, ...r };
+      }
+    }
+    const next =
+      which === "agenda"
+        ? { ...current, agendaEnabled: on === true, enabled: on === true ? current.enabled : false }
+        : { ...current, enabled: on === true, agendaEnabled: on === true ? true : current.agendaEnabled };
+    await saveBookingSettings(next);
+    refresh();
+    return result;
+  });
+}
+
+// «Riapri ora» dopo la pausa automatica (troppe richieste in poco tempo).
+export async function reopenOnline(): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireOwner();
+    await guardPreview();
+    await clearPause();
     refresh();
   });
 }
 
-export type SettingsInput = Omit<BookingSettings, "enabled">;
+export type SettingsInput = Omit<BookingSettings, "enabled" | "agendaEnabled" | "pausedUntil">;
 
 export async function saveSettings(input: SettingsInput): Promise<ActionResult> {
   return runAction(async () => {
     await requireOwner();
+    await guardPreview();
     if (!input || typeof input !== "object") throw new ValidationError("Dati non validi.");
     const int = (v: unknown, min: number, max: number, what: string) => {
       const n = Number(v);
@@ -241,9 +314,14 @@ export async function saveSettings(input: SettingsInput): Promise<ActionResult> 
     const email = typeof input.notifyEmail === "string" ? input.notifyEmail.trim().toLowerCase() : "";
     if (email && !isValidEmail(email)) throw new ValidationError("L'email per gli avvisi non sembra giusta: controllala.");
     if (![15, 30, 60].includes(Number(input.step))) throw new ValidationError("Scegli ogni quanto proporre gli orari.");
+    const todayUntil = typeof input.todayUntil === "string" ? input.todayUntil.trim() : "";
+    if (todayUntil && !/^([01]\d|2[0-3]):[0-5]\d$/.test(todayUntil)) throw new ValidationError("«Per stasera online fino alle»: scegli un orario o lascia vuoto.");
     const current = await loadBookingSettings();
     const next: BookingSettings = {
+      agendaEnabled: current.agendaEnabled,
       enabled: current.enabled,
+      pausedUntil: current.pausedUntil,
+      todayUntil,
       firstTime: input.firstTime,
       lastBeforeClose: int(input.lastBeforeClose, 0, 240, "Ultima richiesta prima della chiusura"),
       step: Number(input.step),
@@ -285,18 +363,32 @@ function parseSubscription(sub: SubscriptionInput) {
 
 const owner = (m: BookingManager) => (m.employeeId ? { employeeId: m.employeeId, username: null } : { username: m.username, employeeId: null });
 
-export async function savePushSubscription(sub: SubscriptionInput, userAgent: string): Promise<ActionResult> {
+export async function savePushSubscription(sub: SubscriptionInput, userAgent: string, localPhone = false): Promise<ActionResult> {
   return runAction(async () => {
     const m = await requireAgendaManager();
     const { endpoint, p256dh, auth } = parseSubscription(sub);
     const ua = typeof userAgent === "string" ? userAgent.slice(0, 300) : null;
+    const lp = localPhone === true;
     // Stesso telefono, altra persona che ha fatto l'accesso: l'iscrizione passa a chi c'è adesso.
     await prisma.pushSubscription.upsert({
       where: { endpoint },
-      create: { endpoint, p256dh, auth, userAgent: ua, ...owner(m) },
-      update: { p256dh, auth, userAgent: ua, failCount: 0, ...owner(m) },
+      create: { endpoint, p256dh, auth, userAgent: ua, localPhone: lp, ...owner(m) },
+      update: { p256dh, auth, userAgent: ua, failCount: 0, localPhone: lp, ...owner(m) },
     });
     revalidatePath("/prenotazioni");
+  });
+}
+
+// «Questo è il telefono del locale» acceso o spento: la scelta sta nel browser (localStorage), ma il
+// server deve saperla per mandare a questo dispositivo gli avvisi «da mandare su WhatsApp».
+export async function setPushLocalPhone(endpointInput: string, on: boolean): Promise<ActionResult> {
+  return runAction(async () => {
+    const m = await requireBookingManager();
+    if (typeof endpointInput !== "string" || endpointInput.length > 1000) throw new ValidationError("Dati non validi.");
+    await prisma.pushSubscription.updateMany({
+      where: { endpoint: endpointInput, ...(m.employeeId ? { employeeId: m.employeeId } : { username: m.username }) },
+      data: { localPhone: on === true },
+    });
   });
 }
 
