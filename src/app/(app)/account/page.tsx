@@ -46,26 +46,28 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <FeatureSetting feature="mail" visible={features.mail} title="«Mail»" hint="Invii di email ai clienti. Spenta, non compare tra le sezioni." />
       </div>
 
-      {/* Le prenotazioni online: da spente non sono nel menù in alto, si raggiungono da qui. */}
+      {/* Prenotazioni e agenda: da spente non sono nel menù in alto, si raggiungono da qui. */}
       <Link
         href="/prenotazioni"
         className="mb-6 flex min-h-11 items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 transition-colors hover:border-accent"
       >
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">
-            {bookings.enabled ? "Prenotazioni online" : "Prenotazioni online (in prova)"}
+            {bookings.agendaEnabled ? "Prenotazioni e agenda" : "Prenotazioni e agenda (in prova)"}
             <span
-              className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium ${bookings.enabled ? "bg-success-bg text-success" : "bg-surface-2 text-foreground-muted ring-1 ring-inset ring-border"}`}
+              className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium ${bookings.agendaEnabled ? "bg-success-bg text-success" : "bg-surface-2 text-foreground-muted ring-1 ring-inset ring-border"}`}
             >
-              {bookings.enabled ? "Accese" : "Spente"}
+              {bookings.agendaEnabled ? "Accese" : "Spente"}
             </span>
           </p>
           <p className="mt-0.5 text-xs text-foreground-muted">
-            {bookings.enabled
-              ? bookingsPending > 0
-                ? `${bookingsPending} ${bookingsPending === 1 ? "richiesta da confermare" : "richieste da confermare"}`
-                : "I clienti chiedono un tavolo dal sito, voi confermate"
-              : "Provale e accendile quando vuoi: i clienti non le vedono"}
+            {!bookings.agendaEnabled
+              ? "Provale e accendile quando vuoi: i clienti non le vedono"
+              : bookings.enabled
+                ? bookingsPending > 0
+                  ? `${bookingsPending} ${bookingsPending === 1 ? "richiesta da confermare" : "richieste da confermare"}`
+                  : "Agenda accesa · I clienti chiedono un tavolo dal sito, voi confermate"
+                : "Agenda accesa · Richieste online dai clienti spente"}
           </p>
         </div>
         <span className="text-foreground-muted">›</span>
