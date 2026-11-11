@@ -19,6 +19,17 @@ const { prisma } = await import("@/lib/prisma");
 const { availability, romeInstant, romeParts, businessDay, viewStatus, parseBookingSettings, DEFAULT_BOOKING_SETTINGS, timeToDayMinutes, dayShort, dayLong, dayRelative, peopleText, addDays, weekdayOf } = R;
 
 const iso = (d) => d.toISOString().slice(0, 16) + "Z";
+// Le richieste di prova già fatte contano per il freno anti-spam (15 in 10 minuti): si spostano indietro
+// e si toglie l'eventuale pausa, così le prove dopo non trovano il modulo chiuso.
+function coolDown() {
+  DB(`update "BookingRequest" set "createdAt" = "createdAt" - interval '30 minutes' where "createdAt" > now() - interval '30 minutes'`);
+  const row = DB(`select value from "MenuSetting" where id='bookings'`);
+  if (row) {
+    const v = JSON.parse(row);
+    v.pausedUntil = "";
+    DB(`update "MenuSetting" set value=${q(JSON.stringify(v))} where id='bookings'`);
+  }
+}
 const times = (a) => a.slots.map((s) => s.time).join(",");
 const set = (over = {}) => ({ ...DEFAULT_BOOKING_SETTINGS, enabled: true, firstTime: "12:00", lastBeforeClose: 60, step: 30, leadMinutes: 60, daysAhead: 30, maxPeople: 10, ...over });
 const range = (o, c) => ({ open: o, close: c });
@@ -196,6 +207,38 @@ check("calendario di prova: 9/11/2026 è lunedì, 14/11 sabato", weekdayOf("2026
   check("email degli avvisi ripulita, soglia negativa → 0", parseBookingSettings('{"notifyEmail":"  a@b.it  ","capacityHint":-1}').notifyEmail === "a@b.it" && parseBookingSettings('{"capacityHint":-1}').capacityHint === 0);
 }
 
+// Sabato: due interruttori, «per stasera online fino alle…», pausa, totali senza «tavoli», doppioni
+{
+  check("due interruttori: di partenza entrambi spenti", DEFAULT_BOOKING_SETTINGS.agendaEnabled === false && DEFAULT_BOOKING_SETTINGS.enabled === false && parseBookingSettings(null).agendaEnabled === false);
+  check("richieste online accese → agenda accesa (anche dalle impostazioni salvate prima)", parseBookingSettings('{"enabled":true}').agendaEnabled === true && parseBookingSettings('{"agendaEnabled":true}').enabled === false);
+  check("«per stasera online fino alle»: solo un orario valido, altrimenti vuoto", parseBookingSettings('{"todayUntil":"19:00"}').todayUntil === "19:00" && parseBookingSettings('{"todayUntil":"7pm"}').todayUntil === "" && parseBookingSettings(null).todayUntil === "");
+  const tue = "2026-11-10"; // martedì 17–21:30
+  const at = (h, m = 0) => romeInstant(tue, h * 60 + m);
+  const open1901 = availability(tue, HOURS, set({ leadMinutes: 0, todayUntil: "" }), null, at(19, 1));
+  const shut1901 = availability(tue, HOURS, set({ leadMinutes: 0, todayUntil: "19:00" }), null, at(19, 1));
+  const open1800 = availability(tue, HOURS, set({ leadMinutes: 0, todayUntil: "19:00" }), null, at(18, 0));
+  check("per stasera online fino alle 19: alle 19:01 oggi → «chiamaci» (noSlots)", open1901.state === "open" && shut1901.state === "noSlots", `${open1901.state} / ${shut1901.state}`);
+  check("…alle 18:00 oggi si chiede ancora (anche per le 20)", open1800.state === "open" && times(open1800).includes("20:00"), times(open1800));
+  check("…vale solo per oggi: domani alle 19:01 si chiede", availability("2026-11-11", HOURS, set({ leadMinutes: 0, todayUntil: "19:00" }), null, at(19, 1)).state === "open");
+  check("pausa automatica: in corso solo se l'ora di fine è dopo adesso", R.pausedNow({ pausedUntil: new Date(Date.now() + 60000).toISOString() }) !== null && R.pausedNow({ pausedUntil: new Date(Date.now() - 60000).toISOString() }) === null && R.pausedNow({ pausedUntil: "" }) === null);
+  check("totali senza «tavoli»: «2 prenotazioni · 7 persone», «1 prenotazione · 10 persone»", R.agendaTotals([{ people: 3 }, { people: 4 }]).text === "2 prenotazioni · 7 persone" && R.agendaTotals([{ people: 10 }]).text === "1 prenotazione · 10 persone");
+  check("fascia: «Agenda accesa · Richieste online spente»", R.switchesText({ agendaEnabled: true, enabled: false }) === "Agenda accesa · Richieste online spente");
+  check("doppioni: nome senza maiuscole, accenti e spazi in più", R.nameKey("  Rossì   Mario ") === R.nameKey("rossi mario") && R.nameKey("Rossi") !== R.nameKey("Russo"));
+  const t0 = romeInstant(tue, 20 * 60 + 30).getTime();
+  const ar = R.aroundTime(
+    [
+      { id: "a", day: tue, startsAt: t0 - 60 * 60000, people: 4 },
+      { id: "b", day: tue, startsAt: t0 + 30 * 60000, people: 6 },
+      { id: "c", day: tue, startsAt: t0 - 90 * 60000, people: 2 },
+      { id: "d", day: "2026-11-11", startsAt: t0, people: 9 },
+    ],
+    tue,
+    t0,
+  );
+  check("contesto: alle 20:30 (±1 ora) 10 persone in 2 prenotazioni, serata 12 in 3", ar.near.people === 10 && ar.near.count === 2 && ar.day.people === 12 && ar.day.count === 3, JSON.stringify(ar));
+  check("avviso: «sab 20:30»", R.dayTimeShort("2026-11-14", "20:30") === "sab 20:30");
+}
+
 // Testi
 check("dayShort «Sab 14 nov», dayLong «sabato 14 novembre»", dayShort("2026-11-14") === "Sab 14 nov" && dayLong("2026-11-14") === "sabato 14 novembre");
 check("dayRelative: oggi, domani, poi il giorno per esteso", dayRelative("2026-11-09", NOW) === "oggi" && dayRelative("2026-11-10", NOW) === "domani" && dayRelative("2026-11-11", NOW) === "mercoledì 11 novembre");
@@ -313,6 +356,9 @@ try {
   check("stesso IP: le prime 10 passano, l'undicesima no («tante richieste»)", fromIp.slice(0, 10).every((r) => r.ok) && !fromIp[10].ok && /tante richieste/.test(fromIp[10].error), fromIp.map((r) => (r.ok ? "ok" : r.error)).join(" / "));
   check("stesso IP: il titolare non ha limiti", (await create({ time: slot(D2, 1), day: D2.day }, { ip, isAdmin: true })).ok);
 
+  // Il freno complessivo (15 in 10 minuti) ha una prova sua: qui le richieste di prima «invecchiano».
+  coolDown();
+
   // Limite per telefono: 3 in attesa
   const phone = randomPhone();
   const byPhone = [];
@@ -362,7 +408,7 @@ try {
   setBookingSetting({ enabled: true, notifyEmail: "prova-c@example.com" });
 
   // ---------- Risposte del locale
-  const fresh = (over = {}) => create({ day: D1.day, time: slot(D1, 1 + (n % 3)), ...over });
+  const fresh = (over = {}) => (coolDown(), create({ day: D1.day, time: slot(D1, 1 + (n % 3)), ...over }));
   const marta = { name: "Prova C Marta" };
   const giulia = { name: "Prova C Giulia" };
 
@@ -515,6 +561,126 @@ try {
   check("listBookings: contiene le richieste di prova, in ordine di orario", list.rows.some((r) => r.id === m1.id) && list.rows.every((r, i) => i === 0 || r.startsAt >= list.rows[i - 1].startsAt));
   const stats = await S.bookingStats();
   check("bookingStats: conta senza le richieste «di prova», tempo di risposta calcolato", stats.total === Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and "createdAt" >= now() - interval '90 days'`)) && stats.medianResponseMinutes !== null && stats.bySource.some(([s]) => s === "google"));
+
+  // ================= Sabato: agenda, prove, doppioni, avvisi, freno, anteprime
+  coolDown();
+  const actor = { name: "Prova C Marta" };
+  const manual = (over = {}) =>
+    S.createManualBooking({ day: D2.day, time: slot(D2, 1), people: 4, name: `Prova C Agenda ${++n}`, phone: "", table: "", note: "", allergies: false, source: "telefono", ...over }, actor, null);
+
+  // 1. Due interruttori: con l'agenda accesa quello che si segna è vero, anche con le richieste online spente
+  setBookingSetting({ agendaEnabled: true, enabled: false });
+  const real = await manual();
+  check("agenda accesa, richieste online spente: la prenotazione a mano è vera (non di prova)", real.ok && real.booking.isTest === false);
+  setBookingSetting({ agendaEnabled: false, enabled: false });
+  const testOne = await manual();
+  check("agenda spenta: la prenotazione a mano è di prova", testOne.ok && testOne.booking.isTest === true);
+
+  // 3. Telefono facoltativo anche per «Telefono» e «WhatsApp»
+  setBookingSetting({ agendaEnabled: true });
+  const noPhone = await manual({ source: "whatsapp" });
+  check("«WhatsApp» senza numero: si segna (manca il numero)", noPhone.ok && noPhone.booking.phone === "" && noPhone.whatsappHref === null);
+  const keepPhone = await manual({ phone: "333 9123456" });
+  const editNoPhone = await S.updateBooking(keepPhone.booking.id, { day: D2.day, time: slot(D2, 1), people: 4, name: keepPhone.booking.name, phone: "", table: "", note: "", allergies: false }, null, actor, null);
+  check("modifica: un numero che c'era non si toglie per sbaglio", !editNoPhone.ok && editNoPhone.field === "phone");
+
+  // 4. Doppioni (stesso numero o stesso nome lo stesso giorno)
+  await manual({ name: "Prova C Rossì", time: slot(D2, 2), phone: "333 9555001" });
+  const dupName = await manual({ name: "Prova C  rossi", time: slot(D2, 3) });
+  check("doppione per nome (senza maiuscole/accenti): «C'è già … è la stessa?»", !dupName.ok && dupName.dup === true && dupName.ask === `C'è già Prova C Rossì ${dayLong(D2.day).split(" ")[0]} alle ${slot(D2, 2)} (4 persone): è la stessa?`, dupName.ask);
+  const dupPhone = await manual({ name: "Prova C Bianchi", phone: "333 9555001" });
+  check("doppione per numero (nome diverso)", !dupPhone.ok && dupPhone.dup === true && /Prova C Rossì/.test(dupPhone.ask ?? ""));
+  const dupOther = await manual({ name: "Prova C Rossì", day: D3.day, time: slot(D3, 1) });
+  check("stesso nome un altro giorno: niente domanda", dupOther.ok);
+  const dupForced = await manual({ name: "Prova C  rossi", time: slot(D2, 3), dupOk: true });
+  check("«È un'altra, segna lo stesso»: si segna", dupForced.ok);
+  // Conferma di una richiesta online con lo stesso numero di una prenotazione già in agenda
+  setBookingSetting({ agendaEnabled: true, enabled: true });
+  const req = await create({ day: D2.day, time: slot(D2, 0), phone: "333 9555001", name: "Prova C Cliente" });
+  const askConfirm = await S.confirmBooking(req.id, actor, null, null);
+  check("conferma di una richiesta: avviso doppioni prima di confermare", !askConfirm.ok && /^C'è già Prova C Rossì/.test(askConfirm.ask ?? "") && row(req.id).startsWith("PENDING"), askConfirm.ask ?? askConfirm.error);
+  const okConfirm = await S.confirmBooking(req.id, { ...actor, selfWa: true }, null, null, true);
+  check("…«È un'altra»: confermata", okConfirm.ok && row(req.id).startsWith("CONFIRMED"));
+
+  // «Annulla» subito dopo averla segnata
+  const undoMe = await manual({ name: "Prova C Annulla", time: slot(D2, 0) });
+  check("«Annulla» di un altro → no", !(await S.undoManualBooking(undoMe.booking.id, { name: "Prova C Giulia" })).ok);
+  check("«Annulla» di chi l'ha segnata → sparisce", (await S.undoManualBooking(undoMe.booking.id, actor)).ok && DB(`select count(*) from "BookingRequest" where id=${q(undoMe.booking.id)}`) === "0");
+
+  // 7. Avviso «da mandare su WhatsApp» al telefono del locale (e al titolare), non agli altri
+  const perms = DB(`select id||':'||"canManageBookings" from "Employee" where username in ('marta','giulia')`).split("\n").filter(Boolean).map((l) => l.split(":"));
+  try {
+    DB(`update "Employee" set "canManageBookings"=true where username in ('marta','giulia')`);
+    const emp = (u) => DB(`select id from "Employee" where username=${q(u)}`);
+    DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, "employeeId", "localPhone") values ('provacpushlocale', 'https://fcm.googleapis.com/prova-c-locale', 'x', 'y', ${q(emp("marta"))}, true), ('provacpushaltro', 'https://fcm.googleapis.com/prova-c-altro', 'x', 'y', ${q(emp("giulia"))}, false)`);
+    const lastOk = (id) => DB(`select ("lastOkAt" is not null)::text from "PushSubscription" where id=${q(id)}`);
+    const w1 = await create({ day: D2.day, time: slot(D2, 1) });
+    const r1 = await S.confirmBooking(w1.id, { name: "Prova C Giulia", selfWa: false }, null, null, true);
+    const pushLog = DB(`select coalesce(string_agg(message, ' | '), '') from "BookingLog" where "requestId"=${q(w1.id)} and kind='PUSH_OK'`);
+    check("risposta da un telefono che non manda WhatsApp: avviso «da mandare su WhatsApp»", r1.ok && /da mandare su WhatsApp/.test(pushLog), pushLog);
+    check("…arriva al telefono del locale, non a un altro dipendente", lastOk("provacpushlocale") === "true" && lastOk("provacpushaltro") === "false");
+    const w2 = await create({ day: D2.day, time: slot(D2, 2) });
+    await S.confirmBooking(w2.id, { name: "Prova C Giulia", selfWa: true }, null, null, true);
+    check("risposta dal telefono del locale (lo manda lui): nessun avviso", DB(`select count(*) from "BookingLog" where "requestId"=${q(w2.id)} and kind='PUSH_OK' and message like '%WhatsApp%'`) === "0");
+    const w3 = await manual({ name: "Prova C Coda", phone: "333 9555002", time: slot(D2, 3) });
+    await S.queueConfirmation(w3.booking.id, { name: "Prova C Giulia" });
+    check("«Da mandare dal telefono del locale» (agenda): avviso", DB(`select count(*) from "BookingLog" where "requestId"=${q(w3.booking.id)} and kind='PUSH_OK' and message like '%WhatsApp%'`) === "1");
+    const todo = await S.bookingsToDo();
+    check("pallino del menù: conta anche i messaggi da mandare", todo.whatsapp >= 2 && todo.pending === (await S.pendingCount()), JSON.stringify(todo));
+  } finally {
+    DB(`delete from "PushSubscription" where id in ('provacpushlocale','provacpushaltro')`);
+    for (const [id, v] of perms) DB(`update "Employee" set "canManageBookings"=${v === "t"} where id=${q(id)}`);
+  }
+
+  // 2. Prove all'accensione: «Tienile e rendile vere» solo per quelle a mano, non annullate, da oggi in poi
+  setBookingSetting({ agendaEnabled: false, enabled: false });
+  const tKeep = await manual({ name: "Prova C Prova vera", time: slot(D3, 2) });
+  const tCanc = await manual({ name: "Prova C Prova annullata", time: slot(D3, 3) });
+  await S.cancelForCustomer(tCanc.booking.id, actor, null);
+  const tOnline = await S.createBookingRequest(base({ day: D3.day, time: slot(D3, 0) }), ctx({ isAdmin: true }));
+  check("prove: contate (a mano e online)", (await S.testBookingsCount()) >= 3 && (await S.keepableTestBookings()) >= 1);
+  const kept = await S.resolveTestBookings("keep");
+  check("«Tienile»: la prova a mano futura diventa vera", kept.kept >= 1 && DB(`select "isTest"::text from "BookingRequest" where id=${q(tKeep.booking.id)}`) === "false");
+  check("…le altre prove (annullata, richiesta online) si cancellano", DB(`select count(*) from "BookingRequest" where id in (${q(tCanc.booking.id)}, ${q(tOnline.id)})`) === "0" && (await S.testBookingsCount()) === 0);
+  await manual({ name: "Prova C Prova da cancellare", time: slot(D3, 2), dupOk: true });
+  const del = await S.resolveTestBookings("delete");
+  check("«Cancella le prove»: nessuna prova rimasta", del.deleted >= 1 && del.kept === 0 && (await S.testBookingsCount()) === 0);
+
+  // 9. Freno anti-spam complessivo: oltre 15 richieste online in 10 minuti il modulo va in pausa da solo
+  setBookingSetting({ agendaEnabled: true, enabled: true });
+  coolDown();
+  const burst = [];
+  for (let i = 0; i < S.SPAM_MAX + 1; i++) burst.push(await create({ day: D3.day, time: slot(D3, i % 4) }));
+  check("freno: le prime 15 passano, la sedicesima trova «le richieste online sono chiuse: chiamaci»", burst.slice(0, S.SPAM_MAX).every((r) => r.ok) && !burst[S.SPAM_MAX].ok && burst[S.SPAM_MAX].error === S.PAUSED_TEXT, burst.map((r) => (r.ok ? "ok" : r.error)).join(" / "));
+  const pausedSettings = await S.loadBookingSettings();
+  const until = new Date(pausedSettings.pausedUntil).getTime();
+  check("…pausa salvata nelle impostazioni, per 30 minuti", Math.abs(until - (Date.now() + 30 * 60000)) < 2 * 60000, pausedSettings.pausedUntil);
+  const againPaused = await create({ day: D3.day, time: slot(D3, 1) });
+  check("…in pausa: anche un cliente nuovo legge «chiamaci», e la pausa non si allunga (un solo avviso)", !againPaused.ok && againPaused.error === S.PAUSED_TEXT && (await S.loadBookingSettings()).pausedUntil === pausedSettings.pausedUntil);
+  check("…il titolare (anteprima) può ancora provare", (await create({ day: D3.day, time: slot(D3, 2) }, { isAdmin: true })).ok);
+  await S.clearPause();
+  coolDown();
+  check("«Riapri ora»: pausa tolta, i clienti chiedono di nuovo", (await S.loadBookingSettings()).pausedUntil === "" && (await create({ day: D3.day, time: slot(D3, 3) })).ok);
+
+  // 10a. Anteprime di Vercel: le prenotazioni vere non si toccano
+  process.env.VERCEL_ENV = "preview";
+  try {
+    check("anteprima: una prenotazione vera è bloccata con un messaggio chiaro", (await S.previewBlock(real.booking.id)) === S.PREVIEW_BLOCKED && /anteprima/.test(S.PREVIEW_BLOCKED));
+    const tb = await prisma.bookingRequest.create({ data: { code: "PRVC01", tokenHash: `prova-c-${Date.now()}`, day: D3.day, time: "20:00", startsAt: new Date(Date.now() + 86400000 * 3), people: 2, name: "Prova C Anteprima", phone: "", contact: "whatsapp", isTest: true, manual: true } });
+    check("…una di prova si può toccare", (await S.previewBlock(tb.id)) === null);
+    check("…impostazioni e serate chiuse (senza id): bloccate", (await S.previewBlock()) === S.PREVIEW_BLOCKED);
+  } finally {
+    delete process.env.VERCEL_ENV;
+  }
+  check("fuori dall'anteprima: niente blocco", (await S.previewBlock(real.booking.id)) === null);
+
+  // 12. Pulizia dei dati vecchi al massimo una volta al giorno
+  const savedPurge = DB(`select value from "MenuSetting" where id='bookings-purge'`);
+  DB(`delete from "MenuSetting" where id='bookings-purge'`);
+  const p1st = await S.purgeOncePerDay();
+  const p2nd = await S.purgeOncePerDay();
+  check("pulizia dei dati vecchi: la prima volta del giorno sì, la seconda no", typeof p1st === "number" && p2nd === null && DB(`select value from "MenuSetting" where id='bookings-purge'`) === businessDay(new Date()));
+  if (savedPurge) DB(`update "MenuSetting" set value=${q(savedPurge)} where id='bookings-purge'`);
 } catch (e) {
   check("le prove del servizio sono arrivate in fondo", false, e?.stack ?? String(e));
 } finally {

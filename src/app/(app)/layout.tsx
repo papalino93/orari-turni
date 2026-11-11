@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/app-shell";
 import { StaffDeviceMark } from "@/components/staff-device-mark";
 import { loadFeatures } from "@/lib/app-features";
-import { loadBookingSettings, pendingCount } from "@/lib/booking/service";
+import { bookingsToDo, loadBookingSettings } from "@/lib/booking/service";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -36,10 +36,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     appInstalled = Boolean(user?.appInstalledAt);
   }
   const features = role === "ADMIN" ? await loadFeatures() : { mail: false, ferie: false };
-  // La voce «Prenotazioni» compare solo con le prenotazioni online accese (spente, il titolare
-  // la raggiunge da Impostazioni), con il numero delle richieste da confermare.
-  let bookings: { pending: number } | null = null;
-  if (canManageBookings && (await loadBookingSettings()).enabled) bookings = { pending: await pendingCount() };
+  // La voce «Prenotazioni» compare con l'agenda accesa (spenta, il titolare la raggiunge da
+  // Impostazioni), con il numero delle cose da fare: richieste da confermare e messaggi da mandare.
+  let bookings: { pending: number; whatsapp: number } | null = null;
+  if (canManageBookings && (await loadBookingSettings()).agendaEnabled) bookings = await bookingsToDo();
 
   return (
     <AppShell userName={session.user.name} role={role} canEditMenu={canEditMenu} appInstalled={appInstalled} showMail={features.mail} showFerie={features.ferie} bookings={bookings}>

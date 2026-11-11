@@ -1,10 +1,10 @@
 {
   "name": "orari-turni",
-  "version": "0.37.2",
+  "version": "0.38.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma migrate deploy && next build",
+    "build": "node scripts/migrate-if-production.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"

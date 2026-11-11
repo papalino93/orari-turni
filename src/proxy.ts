@@ -92,5 +92,8 @@ export const config = {
   // gestione sta infatti sotto un altro nome ("/gestione-menu").
   // api/widget: i dati dei widget si leggono con la chiave del telefono, non con la
   // sessione del sito (il controllo è in lib/widget-auth.ts).
-  matcher: ["/((?!api/auth|api/widget|login|menu(?:/|$)|opengraph-image|twitter-image|_next/static|_next/image|.*\\..*).*)"],
+  // "mail/cancellami/": la pagina «Non voglio più ricevere queste email» del link in fondo a
+  // ogni mail della lista, per chi non ha un accesso (la chiave è la firma nel link). Solo con
+  // la barra finale: "/mail", la pagina del titolare, resta dietro il login.
+  matcher: ["/((?!api/auth|api/widget|login|menu(?:/|$)|mail/cancellami/|opengraph-image|twitter-image|_next/static|_next/image|.*\\..*).*)"],
 };

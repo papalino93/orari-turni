@@ -24,6 +24,7 @@ import {
   login,
   randomIp,
   randomPhone,
+  coolDown,
 } from "./prenota-lib.mjs";
 
 const savedSetting = snapshotBookingSetting();
@@ -153,7 +154,7 @@ async function browserTests() {
   };
   const overflow = (p) => p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   const alerts = async (p) => (await p.getByRole("alert").allInnerTexts()).join(" | ");
-  const send = (p) => p.getByRole("button", { name: "Invia la richiesta" }).click();
+  const send = (p) => (coolDown(), p.getByRole("button", { name: "Invia la richiesta" }).click());
   const pick = async (p, people, day, time) => {
     if (people) await p.getByRole("radio", { name: `${people} ${people === 1 ? "persona" : "persone"}`, exact: true }).click();
     if (day) await p.locator(`[data-day="${day}"]`).click();
@@ -419,6 +420,27 @@ async function browserTests() {
     DB(`delete from "ClosureDay" where id='prova_c_chiusura'`);
     setBookingSetting({ enabled: true });
     await ctx.close();
+  }
+
+  // ---------- Pausa automatica (troppe richieste) e «per stasera online fino alle…»
+  {
+    setBookingSetting({ enabled: true, pausedUntil: new Date(Date.now() + 20 * 60000).toISOString() });
+    const { ctx, p } = await client();
+    await p.goto(`${BASE}/menu/prenota`, { waitUntil: "networkidle", timeout: 120000 });
+    const main = await p.locator("main").innerText();
+    check("pausa automatica: il modulo dice «In questo momento le richieste online sono chiuse: chiamaci» con Chiama", /In questo momento le richieste online sono chiuse: chiamaci/.test(main) && (await p.getByRole("button", { name: "Invia la richiesta" }).count()) === 0 && (await p.getByRole("link", { name: "Chiama" }).count()) >= 1);
+    await shot(p, "pausa");
+    const r = await postRequest(body({ t: await formStamp(), name: "Prova C Pausa" }), { headers: { "x-no-cooldown": "1" } });
+    check("pausa automatica: anche l'invio diretto è rifiutato", r.json?.ok === false && /richieste online sono chiuse/.test(r.json.error ?? ""), JSON.stringify(r.json));
+    await ctx.close();
+    // Spegnere le richieste online non tocca l'agenda (e viceversa la pagina pubblica sparisce).
+    setBookingSetting({ agendaEnabled: true, enabled: false });
+    const off = await fetch(`${BASE}/menu/prenota`);
+    check("richieste online spente (agenda accesa): la pagina pubblica non c'è (404)", off.status === 404);
+    setBookingSetting({ enabled: true, todayUntil: "00:00" });
+    const late = await postRequest(body({ t: await formStamp(), name: "Prova C Stasera", day: days[0].day, time: "23:59" }));
+    check("«per stasera online fino alle 00:00»: per oggi l'invio è rifiutato", late.json?.ok === false, JSON.stringify(late.json));
+    setBookingSetting({ enabled: true });
   }
 
   // ---------- Evento: giorno (e ora) già scelti

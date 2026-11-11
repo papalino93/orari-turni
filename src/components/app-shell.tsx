@@ -45,7 +45,7 @@ const EMPLOYEE_NAV_ITEMS = [{ href: "/mie-ore", label: "Le mie ore", icon: Calen
 // vetrina, il controllo vero resta lato server (vedi getMenuEditor).
 const EMPLOYEE_MENU_NAV_ITEM = { href: "/gestione-menu", label: "Menù", icon: MenuIcon };
 
-// «Prenotazioni»: solo con le prenotazioni online accese e per chi può gestirle (vedi layout.tsx).
+// «Prenotazioni»: solo con l'agenda accesa e per chi può gestirle (vedi layout.tsx).
 // Sul telefono, da sei voci in su, la parola intera non ci sta: «Tavoli».
 const BOOKINGS_NAV_ITEM = { href: "/prenotazioni", label: "Prenotazioni", short: "Tavoli", icon: BookingIcon };
 
@@ -70,8 +70,8 @@ export function AppShell({
   showMail: boolean;
   // «Ferie» si accende da Impostazioni, come «Mail».
   showFerie: boolean;
-  // Voce «Prenotazioni» con le richieste da confermare; null = non si mostra.
-  bookings: { pending: number } | null;
+  // Voce «Prenotazioni» con le richieste da confermare e i messaggi da mandare su WhatsApp; null = non si mostra.
+  bookings: { pending: number; whatsapp: number } | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -83,14 +83,24 @@ export function AppShell({
       : EMPLOYEE_NAV_ITEMS;
   // Subito dopo «Orari» (o «Le mie ore»): è la cosa da guardare più spesso durante la serata.
   const navItems: NavItem[] = bookings ? [baseItems[0], BOOKINGS_NAV_ITEM, ...baseItems.slice(1)] : baseItems;
-  const navLabel = (item: NavItem) => (item.href === "/prenotazioni" && bookings?.pending ? `${item.label}: ${bookings.pending} da confermare` : item.label);
+  // Il pallino conta le cose da fare: richieste da confermare + risposte da mandare su WhatsApp.
+  const todo = bookings ? bookings.pending + bookings.whatsapp : 0;
+  const todoText = bookings
+    ? [
+        bookings.pending ? `${bookings.pending} ${bookings.pending === 1 ? "richiesta" : "richieste"} da confermare` : "",
+        bookings.whatsapp ? `${bookings.whatsapp} ${bookings.whatsapp === 1 ? "messaggio" : "messaggi"} da mandare su WhatsApp` : "",
+      ]
+        .filter(Boolean)
+        .join(", ")
+    : "";
+  const navLabel = (item: NavItem) => (item.href === "/prenotazioni" && todo ? `${item.label}: ${todoText}` : item.label);
   const badge = (href: string) =>
-    href === "/prenotazioni" && bookings && bookings.pending > 0 ? (
+    href === "/prenotazioni" && todo > 0 ? (
       <span
         aria-hidden
         className="absolute -right-1.5 -top-2 min-w-[1.125rem] rounded-full bg-brand-band-foreground px-1 text-center text-[10px] font-bold leading-[1.125rem] text-brand-band tabular-nums"
       >
-        {bookings.pending > 99 ? "99+" : bookings.pending}
+        {todo > 99 ? "99+" : todo}
       </span>
     ) : null;
   // Il logo riporta alla prima sezione: per chi ha una sola sezione (dipendente senza il

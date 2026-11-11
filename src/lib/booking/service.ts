@@ -7,10 +7,11 @@
 // - richieste di prova (funzione spenta, anteprime di Vercel) non avvisano nessuno.
 
 import { createHash, createHmac, randomInt } from "node:crypto";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { loadVenue } from "@/lib/menu";
 import { internationalNumber, whatsappHref } from "@/lib/menu-venue";
-import { escapeHtml, getProvider, isValidEmail, mailConfigured, oneLine } from "@/lib/mail";
+import { escapeHtml, isValidEmail, mailConfigured, oneLine, sendTransactional } from "@/lib/mail";
 import {
   addDays,
   availability,
@@ -27,6 +28,9 @@ import {
   whatsappReachable,
   editVersion,
   romeParts,
+  nameKey,
+  pausedNow,
+  dayTimeShort,
   MANUAL_SOURCES,
   type ManualSource,
   type BookingSettings,
@@ -78,7 +82,30 @@ export function siteOrigin(requestOrigin?: string | null): string {
 }
 
 // Le anteprime di Vercel usano il database vero: da lì non parte mai nessun messaggio.
-const isPreview = () => process.env.VERCEL_ENV === "preview";
+export const isPreview = () => process.env.VERCEL_ENV === "preview";
+
+// Nelle anteprime il personale può provare solo con le prenotazioni di prova: quelle vere (stesso
+// database del sito) non si toccano. Restituisce il messaggio da mostrare, o null se si può.
+export const PREVIEW_BLOCKED =
+  "Questa è un'anteprima di prova del sito: le prenotazioni vere si cambiano solo dal sito vero (orari-turni.vercel.app).";
+export async function previewBlock(id?: string | null): Promise<string | null> {
+  if (!isPreview()) return null;
+  if (!id) return PREVIEW_BLOCKED;
+  const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { isTest: true } });
+  return b && b.isTest ? null : PREVIEW_BLOCKED;
+}
+
+// Lavoro da fare dopo aver risposto (avvisi, email): con after() quando c'è una richiesta in corso,
+// altrimenti (prove con tsx) subito ma con un tempo massimo. Mai un errore verso chi ha chiamato.
+export function later(work: () => Promise<unknown>, maxMs = 4000): Promise<void> {
+  const safe = () => work().catch((e: unknown) => console.error("[prenotazioni] dopo la risposta:", e));
+  try {
+    after(safe);
+    return Promise.resolve();
+  } catch {
+    return Promise.race([safe().then(() => {}), new Promise<void>((r) => setTimeout(r, maxMs))]);
+  }
+}
 
 export function statusPath(id: string): string {
   return `/menu/prenota/r/${tokenFor(id)}`;
@@ -171,6 +198,7 @@ const str = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+
 export async function createBookingRequest(input: NewRequestInput, ctx: NewRequestContext, now: Date = new Date()): Promise<NewRequestResult> {
   const settings = await loadBookingSettings();
   if (!settings.enabled && !ctx.isAdmin) return { ok: false, error: "Le prenotazioni online non sono attive. Chiamaci o scrivici su WhatsApp." };
+  if (!ctx.isAdmin && pausedNow(settings, now)) return { ok: false, error: PAUSED_TEXT };
 
   const day = str(input.day, 10);
   const time = str(input.time, 5);
@@ -226,6 +254,8 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
     ]);
     if (byIp >= 10) return { ok: false, error: "Hai mandato tante richieste in poco tempo: aspetta un po' oppure chiamaci." };
     if (pendingByPhone >= 3) return { ok: false, error: "Con questo numero ci sono già 3 richieste in attesa: aspetta la nostra risposta oppure chiamaci." };
+    // Freno complessivo (senza firewall): troppe richieste online da chiunque in 10 minuti → pausa da sola.
+    if (await spamBrake(now)) return { ok: false, error: PAUSED_TEXT };
   }
   const slug = str(input.event, 120);
   const promo = slug ? await prisma.menuPromo.findFirst({ where: { slug, kind: "EVENT", hidden: false, deletedAt: null }, select: { id: true } }) : null;
@@ -296,12 +326,68 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
   return { ok: true, id: created.id, code: created.code, statusPath: statusPath(created.id), isTest };
 }
 
+// ---------- Freno anti-spam complessivo
+//
+// Oltre SPAM_MAX richieste online in SPAM_MINUTES minuti (contate nel database: le istanze del server non
+// condividono la memoria) il modulo si mette in pausa da solo per PAUSE_MINUTES minuti: l'ora di fine sta
+// nelle impostazioni, il titolare riceve UN avviso e può riaprire prima («Riapri ora»).
+
+export const SPAM_MAX = 15;
+export const SPAM_MINUTES = 10;
+export const PAUSE_MINUTES = 30;
+export const PAUSED_TEXT = "In questo momento le richieste online sono chiuse: chiamaci.";
+
+async function spamBrake(now: Date): Promise<boolean> {
+  const recent = await prisma.bookingRequest.count({ where: { manual: false, createdAt: { gte: new Date(now.getTime() - SPAM_MINUTES * 60000) } } });
+  if (recent < SPAM_MAX) return false;
+  // Un solo «primo»: con il lucchetto, due richieste insieme non mettono due pause (e due avvisi).
+  const until = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('booking:pause'))`;
+    const row = await tx.menuSetting.findUnique({ where: { id: "bookings" } });
+    const current = parseBookingSettings(row?.value);
+    if (pausedNow(current, now)) return null;
+    const next = new Date(now.getTime() + PAUSE_MINUTES * 60000);
+    const value = JSON.stringify({ ...current, pausedUntil: next.toISOString() });
+    await tx.menuSetting.upsert({ where: { id: "bookings" }, update: { value }, create: { id: "bookings", value } });
+    return next;
+  });
+  if (until) {
+    const at = romeParts(until);
+    const hhmm = `${String(Math.floor(at.minutes / 60)).padStart(2, "0")}:${String(at.minutes % 60).padStart(2, "0")}`;
+    await later(() =>
+      notifyOwner(
+        "Richieste online in pausa",
+        `Più di ${SPAM_MAX} richieste in ${SPAM_MINUTES} minuti: il modulo è chiuso fino alle ${hhmm}. Se va tutto bene, riaprilo da Prenotazioni › Impostazioni.`,
+      ),
+    );
+  }
+  return true;
+}
+
+// «Riapri ora» del titolare.
+export async function clearPause(): Promise<void> {
+  const current = await loadBookingSettings();
+  if (current.pausedUntil) await saveBookingSettings({ ...current, pausedUntil: "" });
+}
+
+// Avviso solo al titolare (suoi dispositivi ed email per gli avvisi), senza una richiesta a cui legarlo.
+async function notifyOwner(title: string, body: string): Promise<void> {
+  if (isPreview()) return;
+  const settings = await loadBookingSettings();
+  await sendPushToStaff({ title, body, url: "/prenotazioni", tag: "booking-pause" }, undefined, "owner").catch(() => {});
+  if (settings.notifyEmail && isValidEmail(settings.notifyEmail) && mailConfigured()) {
+    // Conta sulla quota del giorno (con la riserva per le prenotazioni).
+    await sendTransactional([{ to: settings.notifyEmail, subject: oneLine(`${title}: ${body}`).slice(0, 180), text: body, html: `<p>${escapeHtml(body)}</p>` }])
+      .catch(() => {});
+  }
+}
+
 // Dopo il salvataggio (in after()): avvisi al personale e ricevuta al cliente per email.
 export async function afterCreate(id: string, origin: string | null): Promise<void> {
   const b = await prisma.bookingRequest.findUnique({ where: { id } });
   if (!b) return;
   if (b.isTest || isPreview()) return;
-  await purgeOldBookings().catch(() => {});
+  await purgeOncePerDay().catch(() => {});
   const alert = staffAlert(b);
   await notifyStaff(b.id, alert.title, alert.body, `/prenotazioni?r=${b.id}`);
   if (b.contact === "email" && b.email) await sendCustomerMail(b, "received", origin);
@@ -324,14 +410,15 @@ export type ManualInput = {
   allergies: unknown;
   source?: unknown; // solo alla creazione: "telefono" | "whatsapp" | "persona"
   force?: unknown; // true: segna anche fuori orario / giorno chiuso
+  dupOk?: unknown; // true: «È un'altra, segna lo stesso» dopo l'avviso doppioni
 };
 
 export type ManualResult =
   // unchanged: «Salva le modifiche» senza aver cambiato niente.
   | { ok: true; booking: BookingRow; whatsappHref: string | null; unchanged?: boolean }
   | { ok: false; error: string; field?: string }
-  // Da confermare: giorno chiuso, ora fuori apertura o già passata.
-  | { ok: false; error: string; ask: string }
+  // Da confermare: giorno chiuso, ora fuori apertura o già passata; dup: c'è già una prenotazione simile.
+  | { ok: false; error: string; ask: string; dup?: boolean }
   // Modifica: nel frattempo un altro l'ha cambiata (con i dati di adesso) o è stata annullata.
   | { ok: false; error: string; conflict: BookingRow }
   | { ok: false; error: string; gone: true };
@@ -366,9 +453,12 @@ async function cleanManual(input: ManualInput, source: string | null, now: Date,
     if (problem) return { ok: false, error: problem.replace("il tuo numero", "il numero"), field: "phone" };
     phone = internationalNumber(phoneRaw) ?? "";
     if (!phone) return { ok: false, error: "Il numero di telefono non sembra giusto: controllalo.", field: "phone" };
-  } else if (source && source !== "persona") {
+  } else if (source === "keep") {
+    // Modifica di una prenotazione che il numero l'aveva (per esempio online): non si toglie.
     return { ok: false, error: "Scrivi il telefono: serve per la conferma e per avvisare se cambia qualcosa.", field: "phone" };
   }
+  // Senza numero va bene anche per «Telefono» e «WhatsApp»: al telefono si segna in fretta, il numero
+  // si aggiunge dopo (nella prenotazione c'è il bollino «manca il numero»).
   // Giorno e ora non cambiati (si modifica altro): nessuna domanda, era già stata fatta.
   const kept = keep && keep.day === day && keep.time === time;
   if (input.force !== true && !kept) {
@@ -403,12 +493,17 @@ export async function createManualBooking(input: ManualInput, actor: StaffActor,
   if (!c.ok) return c;
   const v = c.v;
   const settings = await loadBookingSettings();
-  const isTest = !settings.enabled || isPreview();
+  // Di prova solo con l'agenda spenta (o da un'anteprima): con l'agenda accesa quello che si segna è vero.
+  const isTest = !settings.agendaEnabled || isPreview();
   // Doppio tocco su «Segna in agenda» (o rete che ripete l'invio): la stessa prenotazione non si segna due volte.
   const twin = await prisma.bookingRequest.findFirst({
     where: { manual: true, createdBy: actor.name, name: v.name, day: v.day, time: v.time, people: v.people, status: "CONFIRMED", createdAt: { gte: new Date(now.getTime() - 2 * 60000) } },
   });
   if (twin) return { ok: true, booking: twin, whatsappHref: await confirmationHref(twin, origin) };
+  if (input.dupOk !== true) {
+    const dup = await findDuplicate({ day: v.day, phone: v.phone, name: v.name, isTest });
+    if (dup) return { ok: false, error: "C'è già una prenotazione simile.", ask: dupQuestion(dup), dup: true };
+  }
   let created: BookingRow | null = null;
   for (let attempt = 0; attempt < 5 && !created; attempt++) {
     try {
@@ -447,6 +542,38 @@ export async function createManualBooking(input: ManualInput, actor: StaffActor,
   return { ok: true, booking: created, whatsappHref: await confirmationHref(created, origin) };
 }
 
+// ---------- Doppioni: stesso numero lo stesso giorno, oppure stesso nome (senza maiuscole e accenti)
+
+type DupRow = { id: string; name: string; day: string; time: string; people: number; status: string };
+
+export async function findDuplicate(c: { day: string; phone: string | null; name: string; isTest: boolean; excludeId?: string }): Promise<DupRow | null> {
+  const rows = await prisma.bookingRequest.findMany({
+    where: { day: c.day, isTest: c.isTest, status: { in: ["PENDING", "PROPOSED", "CONFIRMED"] }, ...(c.excludeId ? { id: { not: c.excludeId } } : {}) },
+    select: { id: true, name: true, day: true, time: true, people: true, status: true, phone: true },
+    orderBy: { startsAt: "asc" },
+  });
+  const key = nameKey(c.name);
+  // Prima le confermate (quelle in agenda), poi le richieste.
+  const hit = (r: (typeof rows)[number]) => (c.phone && r.phone === c.phone) || (key.length >= 2 && nameKey(r.name) === key);
+  return rows.find((r) => r.status === "CONFIRMED" && hit(r)) ?? rows.find(hit) ?? null;
+}
+
+export function dupQuestion(d: DupRow): string {
+  return `C'è già ${d.name} ${dayLong(d.day).split(" ")[0]} alle ${d.time} (${peopleText(d.people)})${d.status === "CONFIRMED" ? "" : ", ancora da confermare"}: è la stessa?`;
+}
+
+// «Annulla» subito dopo averla segnata (nel messaggio «✓ Segnata…»): si cancella del tutto, ma solo
+// se l'ha segnata la stessa persona da poco e nessuno l'ha ancora toccata.
+export async function undoManualBooking(id: string, actor: StaffActor, now: Date = new Date()): Promise<{ ok: true } | { ok: false; error: string }> {
+  const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { manual: true, createdBy: true, createdAt: true, log: { select: { kind: true } } } });
+  if (!b) return { ok: true };
+  if (!b.manual || b.createdBy !== actor.name || now.getTime() - b.createdAt.getTime() > 15 * 60000 || b.log.some((l) => l.kind !== "CREATED")) {
+    return { ok: false, error: "Non si può più togliere così: apri la prenotazione e annullala." };
+  }
+  await prisma.bookingRequest.deleteMany({ where: { id } });
+  return { ok: true };
+}
+
 // Modifica di una prenotazione confermata (online o a mano). `version` è editVersion() dei dati che
 // chi modifica aveva davanti: se nel frattempo qualcun altro li ha cambiati, non si sovrascrive e
 // si rimandano i dati di adesso, da far vedere nel modulo. «Arrivati» e simili non contano.
@@ -458,7 +585,7 @@ export async function updateBooking(id: string, input: ManualInput, version: unk
   }
   if (typeof version === "string" && editVersion(b) !== version) return conflictResult(b);
   // Telefono obbligatorio solo se c'era: una prenotazione online ha sempre il numero del cliente.
-  const c = await cleanManual(input, b.phone ? "telefono" : null, now, { day: b.day, time: b.time });
+  const c = await cleanManual(input, b.phone ? "keep" : null, now, { day: b.day, time: b.time });
   if (!c.ok) return c;
   const v = c.v;
   const changes: string[] = [];
@@ -497,8 +624,8 @@ export async function updateBooking(id: string, input: ManualInput, version: unk
     return conflictResult(now2);
   }
   await log(id, actor.name, "UPDATED", changes.join(", "));
-  const after = await prisma.bookingRequest.findUniqueOrThrow({ where: { id } });
-  return { ok: true, booking: after, whatsappHref: await confirmationHref(after, origin) };
+  const saved = await prisma.bookingRequest.findUniqueOrThrow({ where: { id } });
+  return { ok: true, booking: saved, whatsappHref: await confirmationHref(saved, origin) };
 }
 
 // «Nel frattempo l'ha modificata Marta»: il nome dall'ultima modifica in cronologia.
@@ -523,7 +650,24 @@ export async function queueConfirmation(id: string, actor: StaffActor): Promise<
   // Già in lista e non ancora mandata (doppio tocco, o due persone): niente seconda voce in cronologia.
   if (whatsappPending(b, Date.now()) === "confirmed") return { ok: true };
   await log(id, actor.name, "WA_QUEUED", null);
+  await later(() => notifyWhatsappQueue(id));
   return { ok: true };
+}
+
+// Una risposta è entrata in «Da mandare su WhatsApp»: avviso a chi può mandarla (dispositivi del
+// titolare e quelli segnati «telefono del locale»). Solo se c'è davvero qualcosa da mandare.
+export async function notifyWhatsappQueue(id: string): Promise<void> {
+  if (isPreview()) return;
+  const b = await prisma.bookingRequest.findUnique({ where: { id }, include: { log: { select: { at: true, actor: true, kind: true, message: true } } } });
+  if (!b || b.isTest || !whatsappPending(b, Date.now())) return;
+  const time = b.status === "PROPOSED" && b.proposedTime ? b.proposedTime : b.time;
+  const push = await sendPushToStaff(
+    { title: "Da mandare su WhatsApp", body: `Risposta a ${b.name} (${dayTimeShort(b.day, time)})`, url: `/prenotazioni?r=${b.id}`, tag: `booking-wa-${b.id}` },
+    undefined,
+    "whatsapp",
+  ).catch(() => ({ sent: 0, failed: 1 }));
+  if (push.sent) await log(id, "sistema", "PUSH_OK", `Avviso «da mandare su WhatsApp» a ${push.sent} ${push.sent === 1 ? "telefono" : "telefoni"}`);
+  if (push.failed) await log(id, "sistema", "PUSH_FAIL", `${push.failed} ${push.failed === 1 ? "avviso non partito" : "avvisi non partiti"}`);
 }
 
 // ---------- Avvisi
@@ -540,7 +684,7 @@ async function notifyStaff(requestId: string, title: string, body: string, url: 
   if (push.failed) await log(requestId, "sistema", "PUSH_FAIL", `${push.failed} ${push.failed === 1 ? "avviso non partito" : "avvisi non partiti"}`);
   if (settings.notifyEmail && isValidEmail(settings.notifyEmail) && mailConfigured()) {
     try {
-      await getProvider().sendBatch([
+      await sendTransactional([
         {
           to: settings.notifyEmail,
           subject: oneLine(`${title}: ${body}`).slice(0, 180),
@@ -579,7 +723,7 @@ async function sendCustomerMail(b: BookingRow, kind: MessageKind, origin: string
   const linkify = (escaped: string) =>
     links.reduce((acc, u) => acc.split(escapeHtml(u)).join(`<a href="${escapeHtml(u)}">${escapeHtml(u)}</a>`), escaped);
   try {
-    await getProvider().sendBatch([
+    await sendTransactional([
       {
         to: b.email,
         subject: oneLine(`${customerSubject(kind, m)} · ${VENUE_NAME}`),
@@ -607,10 +751,12 @@ export function customerWhatsappHref(b: BookingRow, kind: MessageKind, origin: s
 
 // ---------- Risposte del locale
 
-export type StaffActor = { name: string };
+// selfWa: chi risponde ha WhatsApp a portata di mano (titolare o telefono del locale) e lo manda lui:
+// niente avviso «da mandare su WhatsApp» agli altri.
+export type StaffActor = { name: string; selfWa?: boolean };
 export type StaffResult =
   | { ok: true; booking: BookingRow; mailSent: boolean; whatsappHref: string | null }
-  | { ok: false; error: string };
+  | { ok: false; error: string; ask?: string };
 
 async function alreadyHandled(id: string): Promise<string> {
   const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { status: true, handledBy: true, cancelledBy: true } });
@@ -656,16 +802,22 @@ async function respond(
     if (booking.contact === "email" && booking.email) mailSent = await sendCustomerMail(booking, kind, origin);
     // WhatsApp sempre pronto: anche per chi ha scelto l'email, se la mail non è partita.
     wa = customerWhatsappHref(booking, kind, origin, (await loadVenue()).contacts.address || null);
+    if (wa && !actor.selfWa && !booking.isTest) await later(() => notifyWhatsappQueue(id));
   }
   return { ok: true, booking, mailSent, whatsappHref: wa };
 }
 
 const msg = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 300) : null);
 
-export async function confirmBooking(id: string, actor: StaffActor, message: unknown, origin: string | null): Promise<StaffResult> {
-  const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { startsAt: true, status: true } });
+export async function confirmBooking(id: string, actor: StaffActor, message: unknown, origin: string | null, dupOk = false): Promise<StaffResult> {
+  const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { startsAt: true, status: true, day: true, phone: true, name: true, isTest: true } });
   if (b && b.status === "PENDING" && b.startsAt.getTime() < Date.now() - 30 * 60000) {
     return { ok: false, error: "L'orario di questa richiesta è già passato: non si può più confermare." };
+  }
+  // C'è già (in agenda o tra le richieste) lo stesso cliente quel giorno? Prima di confermare, si chiede.
+  if (b && b.status === "PENDING" && !dupOk) {
+    const dup = await findDuplicate({ day: b.day, phone: b.phone || null, name: b.name, isTest: b.isTest, excludeId: id });
+    if (dup) return { ok: false, error: "C'è già una prenotazione simile.", ask: dupQuestion(dup) };
   }
   return respond(id, actor, ["PENDING"], { status: "CONFIRMED", staffMessage: msg(message) }, "CONFIRMED", msg(message), "confirmed", origin);
 }
@@ -797,12 +949,15 @@ export async function customerAction(token: string, action: unknown, origin: str
     });
     if (!r.count) return { ok: false, error: "Non si può più annullare da qui: chiamaci." };
     await log(b.id, "cliente", "CANCELLED", null);
-    const after = await prisma.bookingRequest.findUniqueOrThrow({ where: { id: b.id } });
-    if (!after.isTest) {
-      await notifyStaff(b.id, "Prenotazione annullata dal cliente", `${after.name} · ${dayLong(after.day)} alle ${after.time} · ${peopleText(after.people)}`, `/prenotazioni?r=${b.id}`);
-      if (after.contact === "email") await sendCustomerMail(after, "cancelledByCustomer", origin, b.status === "CONFIRMED");
+    const updated = await prisma.bookingRequest.findUniqueOrThrow({ where: { id: b.id } });
+    // Avvisi ed email dopo la risposta: un servizio lento non fa aspettare il cliente.
+    if (!updated.isTest) {
+      await later(async () => {
+        await notifyStaff(b.id, "Prenotazione annullata dal cliente", `${updated.name} · ${dayLong(updated.day)} alle ${updated.time} · ${peopleText(updated.people)}`, `/prenotazioni?r=${b.id}`);
+        if (updated.contact === "email") await sendCustomerMail(updated, "cancelledByCustomer", origin, b.status === "CONFIRMED");
+      });
     }
-    return { ok: true, booking: after };
+    return { ok: true, booking: updated };
   }
   if (action === "accept" || action === "refuse") {
     if (b.status !== "PROPOSED" || !b.proposedTime || !b.proposedStartsAt) return { ok: false, error: "Non c'è nessun orario da accettare." };
@@ -816,17 +971,19 @@ export async function customerAction(token: string, action: unknown, origin: str
     });
     if (!r.count) return { ok: false, error: "Qualcosa è cambiato nel frattempo: ricarica la pagina." };
     await log(b.id, "cliente", accept ? "ACCEPTED" : "REFUSED", accept ? `Va bene alle ${b.proposedTime}` : `No alle ${b.proposedTime}`);
-    const after = await prisma.bookingRequest.findUniqueOrThrow({ where: { id: b.id } });
-    if (!after.isTest) {
-      await notifyStaff(
-        b.id,
-        accept ? "Il cliente ha accettato il nuovo orario" : "Il cliente ha detto no al nuovo orario",
-        `${after.name} · ${dayLong(after.day)} alle ${accept ? after.time : b.proposedTime} · ${peopleText(after.people)}`,
-        `/prenotazioni?r=${b.id}`,
-      );
-      if (accept && after.contact === "email") await sendCustomerMail(after, "confirmed", origin);
+    const updated = await prisma.bookingRequest.findUniqueOrThrow({ where: { id: b.id } });
+    if (!updated.isTest) {
+      await later(async () => {
+        await notifyStaff(
+          b.id,
+          accept ? "Il cliente ha accettato il nuovo orario" : "Il cliente ha detto no al nuovo orario",
+          `${updated.name} · ${dayLong(updated.day)} alle ${accept ? updated.time : b.proposedTime} · ${peopleText(updated.people)}`,
+          `/prenotazioni?r=${b.id}`,
+        );
+        if (accept && updated.contact === "email") await sendCustomerMail(updated, "confirmed", origin);
+      });
     }
-    return { ok: true, booking: after };
+    return { ok: true, booking: updated };
   }
   return { ok: false, error: "Azione non valida." };
 }
@@ -839,8 +996,27 @@ export async function pendingCount(): Promise<number> {
   });
 }
 
+// Le cose da fare per chi gestisce le prenotazioni: richieste da confermare e risposte da mandare su
+// WhatsApp (pallino del menù «Prenotazioni», widget «Da fare»).
+export async function bookingsToDo(now: Date = new Date()): Promise<{ pending: number; whatsapp: number }> {
+  const [pending, risposte] = await Promise.all([
+    pendingCount(),
+    prisma.bookingRequest.findMany({
+      // Anche le conferme in coda delle prenotazioni segnate a mano (non hanno handledAt).
+      where: {
+        isTest: false,
+        OR: [{ handledAt: { not: null } }, { manual: true }],
+        status: { in: ["CONFIRMED", "PROPOSED", "DECLINED", "CANCELLED"] },
+        startsAt: { gte: new Date(now.getTime() - 86400000) },
+      },
+      select: { status: true, contact: true, phone: true, cancelledBy: true, startsAt: true, proposedStartsAt: true, log: { select: { at: true, actor: true, kind: true, message: true } } },
+    }),
+  ]);
+  return { pending, whatsapp: risposte.filter((b) => whatsappPending(b, now.getTime()) !== null).length };
+}
+
 export async function listBookings(now: Date = new Date()) {
-  await purgeOldBookings(now).catch(() => {});
+  await purgeOncePerDay(now).catch(() => {});
   const today = businessDay(now);
   const since = addDays(today, -30);
   const rows = await prisma.bookingRequest.findMany({
@@ -903,6 +1079,46 @@ export async function purgeOldBookings(now: Date = new Date()): Promise<number> 
   const limit = addDays(businessDay(now), -KEEP_DAYS);
   const r = await prisma.bookingRequest.deleteMany({ where: { day: { lt: limit } } });
   return r.count;
+}
+
+// Al massimo una volta al giorno (non a ogni ricarica della pagina): il giorno dell'ultima pulizia
+// sta in MenuSetting «bookings-purge». Chi arriva per primo nel giorno la fa.
+const PURGE_ID = "bookings-purge";
+export async function purgeOncePerDay(now: Date = new Date()): Promise<number | null> {
+  const today = businessDay(now);
+  const row = await prisma.menuSetting.findUnique({ where: { id: PURGE_ID } });
+  if (row?.value === today) return null;
+  const r = row
+    ? await prisma.menuSetting.updateMany({ where: { id: PURGE_ID, value: row.value }, data: { value: today } })
+    : await prisma.menuSetting.createMany({ data: [{ id: PURGE_ID, value: today }], skipDuplicates: true });
+  if (!r.count) return null;
+  return purgeOldBookings(now);
+}
+
+// ---------- Prenotazioni di prova, all'accensione dell'agenda o delle richieste online
+
+export async function testBookingsCount(): Promise<number> {
+  return prisma.bookingRequest.count({ where: { isTest: true } });
+}
+
+// «Cancella le prove» oppure «Tienile e rendile vere»: diventano vere solo quelle segnate a mano, non
+// annullate, da oggi in poi (le altre prove non servono a niente e si cancellano).
+export async function resolveTestBookings(how: "delete" | "keep", now: Date = new Date()): Promise<{ deleted: number; kept: number }> {
+  let kept = 0;
+  if (how === "keep") {
+    const r = await prisma.bookingRequest.updateMany({
+      where: { isTest: true, manual: true, status: { not: "CANCELLED" }, day: { gte: businessDay(now) } },
+      data: { isTest: false },
+    });
+    kept = r.count;
+  }
+  const d = await prisma.bookingRequest.deleteMany({ where: { isTest: true } });
+  return { deleted: d.count, kept };
+}
+
+// Quante delle prove diventerebbero vere con «Tienile»?
+export async function keepableTestBookings(now: Date = new Date()): Promise<number> {
+  return prisma.bookingRequest.count({ where: { isTest: true, manual: true, status: { not: "CANCELLED" }, day: { gte: businessDay(now) } } });
 }
 
 // Il cliente chiede di cancellare i suoi dati: il titolare la elimina con la cronologia.

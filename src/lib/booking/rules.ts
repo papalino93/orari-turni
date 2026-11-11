@@ -4,9 +4,18 @@
 import { rangesFor, type Hours } from "@/lib/menu-venue";
 
 export type BookingSettings = {
-  // Spenta: la pagina pubblica non c'è (404) e nessuno riceve avvisi. Il titolare la vede
-  // lo stesso per provarla, e le sue richieste sono «di prova».
+  // Agenda interna («+ Nuova prenotazione», Agenda, Stasera, Prossimi giorni) per chi ha il permesso.
+  // Spenta: la vede solo il titolare, e quello che segna è «di prova». Le richieste online accese
+  // la accendono sempre (chi risponde ai clienti deve vederle).
+  agendaEnabled: boolean;
+  // Richieste online dai clienti (modulo pubblico, link nel menù e negli eventi). Spenta: la pagina
+  // pubblica non c'è (404) e nessuno riceve avvisi; il titolare la vede per provarla («di prova»).
+  // Spegnerla non tocca mai l'agenda: è il freno d'emergenza contro lo spam.
   enabled: boolean;
+  // «Per stasera online fino alle…» (es. «19:00»): dopo, il modulo per oggi dice di chiamare. "" = nessun limite.
+  todayUntil: string;
+  // Pausa automatica del modulo (troppe richieste in poco tempo): fino a quando (ISO), "" = nessuna.
+  pausedUntil: string;
   // Prima ora prenotabile («sempre esclusa la mattina»).
   firstTime: string;
   // Ultima richiesta: tanti minuti prima della chiusura.
@@ -26,7 +35,10 @@ export type BookingSettings = {
 };
 
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
+  agendaEnabled: false,
   enabled: false,
+  todayUntil: "",
+  pausedUntil: "",
   firstTime: "17:00",
   lastBeforeClose: 60,
   step: 30,
@@ -51,8 +63,14 @@ export function parseBookingSettings(raw: string | null | undefined): BookingSet
     v = {};
   }
   const d = DEFAULT_BOOKING_SETTINGS;
+  const enabled = v.enabled === true;
   return {
-    enabled: v.enabled === true,
+    // Con le richieste online accese l'agenda è sempre accesa (anche per le impostazioni salvate
+    // prima che ci fossero i due interruttori).
+    agendaEnabled: v.agendaEnabled === true || enabled,
+    enabled,
+    todayUntil: typeof v.todayUntil === "string" && TIME.test(v.todayUntil) ? v.todayUntil : "",
+    pausedUntil: typeof v.pausedUntil === "string" && !Number.isNaN(Date.parse(v.pausedUntil)) ? v.pausedUntil : "",
     firstTime: typeof v.firstTime === "string" && TIME.test(v.firstTime) ? v.firstTime : d.firstTime,
     lastBeforeClose: int(v.lastBeforeClose, 0, 240, d.lastBeforeClose),
     step: [15, 30, 60].includes(Number(v.step)) ? Number(v.step) : d.step,
@@ -154,6 +172,9 @@ export function availability(
   const ranges = rangesFor(hours, dayKey);
   if (!ranges.length) return { state: "closed", reason: null, slots: [] };
   if (closure?.kind === "full") return { state: "full", reason: closure.reason, slots: [] };
+  // «Per stasera online fino alle 19»: dopo quell'ora, per oggi si chiama (come quando è troppo tardi).
+  const until = onlineUntilInstant(dayKey, today, settings);
+  if (until && now.getTime() >= until.getTime()) return { state: "noSlots", reason: null, slots: [] };
 
   const first = toMin(settings.firstTime);
   const minStart = now.getTime() + settings.leadMinutes * 60000;
@@ -181,6 +202,24 @@ export function availability(
   slots.sort((a, b) => a.minutes - b.minutes);
   if (!slots.length) return { state: "noSlots", reason: null, slots: [] };
   return { state: "open", slots };
+}
+
+// Fino a quando oggi si può chiedere online («Per stasera online fino alle…»), o null se non c'è limite.
+export function onlineUntilInstant(dayKey: string, today: string, settings: Pick<BookingSettings, "todayUntil">): Date | null {
+  if (dayKey !== today || !settings.todayUntil) return null;
+  return romeInstant(dayKey, timeToDayMinutes(settings.todayUntil));
+}
+
+// Pausa automatica in corso (troppe richieste online in poco tempo)?
+export function pausedNow(settings: Pick<BookingSettings, "pausedUntil">, now: Date = new Date()): Date | null {
+  if (!settings.pausedUntil) return null;
+  const until = new Date(settings.pausedUntil);
+  return until.getTime() > now.getTime() ? until : null;
+}
+
+// Stato dei due interruttori in una riga, per la fascia in cima a /prenotazioni e le impostazioni.
+export function switchesText(settings: Pick<BookingSettings, "agendaEnabled" | "enabled">): string {
+  return `Agenda ${settings.agendaEnabled ? "accesa" : "spenta"} · Richieste online ${settings.enabled ? "accese" : "spente"}`;
 }
 
 // Minuti di un orario «HH:MM» scelto per un giorno: le ore prima delle 5 sono dopo mezzanotte.
@@ -279,11 +318,41 @@ export function withinOpening(dayKey: string, time: string, hours: Hours): "ok" 
   return "outside";
 }
 
-// Totali di un giorno in agenda: persone e tavoli (una prenotazione = un tavolo).
-export function agendaTotals(rows: { people: number }[]): { people: number; tables: number; text: string } {
+export const bookingsText = (n: number) => `${n} ${n === 1 ? "prenotazione" : "prenotazioni"}`;
+
+// Totali di un giorno: prenotazioni e persone. Niente «tavoli»: una prenotazione da 10 su più
+// tavoli accostati non è «1 tavolo».
+export function agendaTotals(rows: { people: number }[]): { people: number; count: number; text: string } {
   const people = rows.reduce((s, b) => s + b.people, 0);
-  const tables = rows.length;
-  return { people, tables, text: `${peopleText(people)} · ${tables} ${tables === 1 ? "tavolo" : "tavoli"}` };
+  return { people, count: rows.length, text: `${bookingsText(rows.length)} · ${peopleText(people)}` };
+}
+
+// Nome per riconoscere i doppioni: senza maiuscole, accenti e spazi in più («Rossì  Mario» = «rossi mario»).
+export function nameKey(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+// «sab 20:30»: giorno breve e ora, per gli avvisi e i messaggi brevi.
+export function dayTimeShort(dayKey: string, time: string): string {
+  return `${WEEKDAYS[weekdayOf(dayKey)].slice(0, 3)} ${time}`;
+}
+
+// Persone e prenotazioni confermate intorno a un orario (±1 ora) e in tutta la giornata: per decidere
+// se c'è posto prima di confermare una richiesta o segnarne una nuova.
+export function aroundTime(
+  rows: { id: string; day: string; startsAt: number; people: number }[],
+  day: string,
+  startsAt: number | null,
+  excludeId?: string,
+): { near: { people: number; count: number } | null; day: { people: number; count: number } } {
+  const same = rows.filter((r) => r.day === day && r.id !== excludeId);
+  const sum = (l: typeof same) => ({ people: l.reduce((s, r) => s + r.people, 0), count: l.length });
+  return { near: startsAt === null ? null : sum(same.filter((r) => Math.abs(r.startsAt - startsAt) <= 60 * 60000)), day: sum(same) };
 }
 
 // «Tavolo 5», ma «dehors» e «Sala grande» così come sono.

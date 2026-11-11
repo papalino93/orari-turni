@@ -10,7 +10,9 @@ import { loadBookingSettings, pendingCount } from "@/lib/booking/service";
 
 export const metadata = { title: "Impostazioni" };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ mail?: string | string[] }> }) {
+  // Arrivati da /mail con la sezione spenta: si dice perché e dove accenderla.
+  const mailOff = (await searchParams).mail === "spenta";
   const session = await getServerSession(authOptions);
   const [users, features, bookings, bookingsPending] = await Promise.all([
     prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
@@ -34,31 +36,38 @@ export default async function AccountPage() {
       </div>
 
       <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted">Sezioni da mostrare</h2>
+      {mailOff && !features.mail && (
+        <p role="status" className="mb-2 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-foreground">
+          La sezione Mail è spenta, quindi non si apre e non spedisce nulla. Per usarla accendi «Mail» qui sotto.
+        </p>
+      )}
       <div className="mb-6 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
         <FeatureSetting feature="ferie" visible={features.ferie} title="«Ferie»" hint="Ferie e permessi dei dipendenti. Spenta, non compare tra le sezioni; quello che c'è dentro resta." />
         <FeatureSetting feature="mail" visible={features.mail} title="«Mail»" hint="Invii di email ai clienti. Spenta, non compare tra le sezioni." />
       </div>
 
-      {/* Le prenotazioni online: da spente non sono nel menù in alto, si raggiungono da qui. */}
+      {/* Prenotazioni e agenda: da spente non sono nel menù in alto, si raggiungono da qui. */}
       <Link
         href="/prenotazioni"
         className="mb-6 flex min-h-11 items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 transition-colors hover:border-accent"
       >
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">
-            {bookings.enabled ? "Prenotazioni online" : "Prenotazioni online (in prova)"}
+            {bookings.agendaEnabled ? "Prenotazioni e agenda" : "Prenotazioni e agenda (in prova)"}
             <span
-              className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium ${bookings.enabled ? "bg-success-bg text-success" : "bg-surface-2 text-foreground-muted ring-1 ring-inset ring-border"}`}
+              className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium ${bookings.agendaEnabled ? "bg-success-bg text-success" : "bg-surface-2 text-foreground-muted ring-1 ring-inset ring-border"}`}
             >
-              {bookings.enabled ? "Accese" : "Spente"}
+              {bookings.agendaEnabled ? "Accese" : "Spente"}
             </span>
           </p>
           <p className="mt-0.5 text-xs text-foreground-muted">
-            {bookings.enabled
-              ? bookingsPending > 0
-                ? `${bookingsPending} ${bookingsPending === 1 ? "richiesta da confermare" : "richieste da confermare"}`
-                : "I clienti chiedono un tavolo dal sito, voi confermate"
-              : "Provale e accendile quando vuoi: i clienti non le vedono"}
+            {!bookings.agendaEnabled
+              ? "Provale e accendile quando vuoi: i clienti non le vedono"
+              : bookings.enabled
+                ? bookingsPending > 0
+                  ? `${bookingsPending} ${bookingsPending === 1 ? "richiesta da confermare" : "richieste da confermare"}`
+                  : "Agenda accesa · I clienti chiedono un tavolo dal sito, voi confermate"
+                : "Agenda accesa · Richieste online dai clienti spente"}
           </p>
         </div>
         <span className="text-foreground-muted">›</span>

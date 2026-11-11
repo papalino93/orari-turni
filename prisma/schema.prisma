@@ -679,7 +679,55 @@ model PushSubscription {
   createdAt  DateTime  @default(now())
   lastOkAt   DateTime?
   failCount  Int       @default(0)
+  // «Questo è il telefono del locale» acceso su questo dispositivo: riceve gli avvisi «da mandare su WhatsApp».
+  localPhone Boolean   @default(false)
 
   @@index([username])
   @@index([employeeId])
+}
+
+// Mail: invii del giorno (ora di Roma), per la quota condivisa tra prenotazioni e invii a una lista.
+model MailDay {
+  day           String   @id // AAAA-MM-GG
+  transactional Int      @default(0) // prenotazioni, avvisi
+  bulk          Int      @default(0) // invii dalla pagina Mail (prove comprese)
+  updatedAt     DateTime @updatedAt
+}
+
+// Mail: registro degli invii dalla pagina Mail (chi, cosa, a quanti, com'è andata).
+model MailSend {
+  id         String          @id @default(cuid())
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  by         String
+  subject    String
+  recipients Int
+  sent       Int             @default(0)
+  failed     Int             @default(0)
+  excluded   Int             @default(0)
+  // "IN_CORSO" | "INVIATA" | "PARZIALE" | "NON_PARTITA"
+  status     String          @default("IN_CORSO")
+  chunks     MailSendChunk[]
+
+  @@index([createdAt])
+}
+
+// Un gruppo (fino a 50) di un invio: la chiave (invio, numero del gruppo) impedisce di rispedirlo con «Riprova».
+model MailSendChunk {
+  sendId    String
+  idx       Int
+  sent      Int      @default(0)
+  failed    Int      @default(0)
+  createdAt DateTime @default(now())
+  send      MailSend @relation(fields: [sendId], references: [id], onDelete: Cascade)
+
+  @@id([sendId, idx])
+}
+
+// Mail: chi non vuole più ricevere le email della pagina Mail (indirizzo in minuscolo).
+model MailOptOut {
+  email     String   @id
+  createdAt DateTime @default(now())
+  // "link" (dalla mail), "one-click" (pulsante del programma di posta), "a mano" (segnato dal titolare)
+  source    String
 }
