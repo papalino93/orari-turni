@@ -20,7 +20,7 @@ PR #30, #31 (menù, allergeni, incolla in blocco, coperto), #32 (questo document
 - Pubblico: `src/app/(public)/menu/` (`page.tsx`, `menu-nav.tsx`, `menu.css`, `ornament.tsx`, `allergeni/`). Assets in `public/menu/` (`hero.jpg`, `logo.png`).
 - Gestione: `src/app/(app)/gestione-menu/` (`actions.ts`, `menu-editor.tsx`, `item-sheet.tsx`, `import-sheet.tsx`, `side-sheets.tsx`, `sheet.tsx`, `page.tsx`).
 - Logica: `src/lib/menu.ts` (solo server: database, `revalidateMenu`), `src/lib/menu-format.ts` (pura, usabile nel client: prezzi, giorno commerciale, `nb`), `src/lib/menu-import.ts`, `src/lib/allergens.ts`.
-- Dati: modelli `MenuSection`, `MenuGroup`, `MenuItem`, `MenuChange` (storico), `MenuBlock` (informazioni: coperto, chiusura cucina, avvisi), `MenuSetting` (vuota, per il futuro) in `prisma/schema.prisma`. Le migrazioni si applicano al deploy (`npm run build` = `prisma migrate deploy && next build`).
+- Dati: modelli `MenuSection`, `MenuGroup`, `MenuItem`, `MenuChange` (storico), `MenuBlock` (informazioni: coperto, chiusura cucina, avvisi), `MenuSetting` (vuota, per il futuro) in `prisma/schema.prisma`. Le migrazioni si applicano al deploy (`npm run build` = `node scripts/migrate-if-production.mjs && next build`: migra solo nel rilascio vero o in locale, mai nelle anteprime).
 - Il giorno commerciale cambia alle 5:00 ora italiana (`businessDayKey`). "Esaurito" = `soldOutDay` uguale al giorno corrente: si azzera da solo, nessun cron.
 
 ## Regola del titolare: numero di versione

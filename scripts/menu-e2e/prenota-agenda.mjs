@@ -57,10 +57,15 @@ const L = {
   srcWa: "WhatsApp",
   srcPerson: "Di persona",
   save: "Segna in agenda",
-  saved: "✓ Segnata in agenda",
-  waConfirm: "Manda la conferma su WhatsApp",
+  // Dopo «Segna in agenda» il foglio si chiude: in basso «✓ Segnata: Rossi, sab 20:30, 4 persone».
+  saved: "✓ Segnata:",
+  undo: "Annulla",
+  waConfirm: "Manda conferma",
   waConfirmEdit: "Manda la conferma aggiornata su WhatsApp",
-  waLater: "Da mandare dal telefono del locale",
+  waLater: "Conferma dal telefono del locale",
+  waLaterEdit: "Da mandare dal telefono del locale",
+  dayGroup: "Scegli il giorno",
+  otherDay: "Altro giorno",
   waLaterDone: /La manda il telefono del locale/,
   done: "Fatto",
   warnConfirm: "Segna lo stesso",
@@ -94,14 +99,15 @@ if (process.argv.includes("--servizio")) {
   const { prisma } = await import("@/lib/prisma");
   const [D1, D2, D3] = JSON.parse(process.argv[process.argv.indexOf("--servizio") + 1]);
   const who = { name: "Prova Agenda Servizio" };
-  const base = (over = {}) => ({ day: D1, time: "20:00", people: 2, name: "Prova Agenda S", phone: agendaPhone(9001), table: "", note: "", allergies: false, source: "telefono", ...over });
+  // dupOk: qui si provano le regole dei campi; i doppioni hanno la loro prova (prenota-regole).
+  const base = (over = {}) => ({ day: D1, time: "20:00", people: 2, name: "Prova Agenda S", phone: agendaPhone(9001), table: "", note: "", allergies: false, source: "telefono", dupOk: true, ...over });
   const P = (n) => "39" + agendaPhone(n).replace(/\D/g, "");
   try {
     // Errori di campo
     const e1 = await S.createManualBooking(base({ source: "sms" }), who, null);
     check("servizio: senza «da dove arriva» valido → errore sul campo", !e1.ok && e1.field === "source", JSON.stringify(e1));
     const e2 = await S.createManualBooking(base({ phone: "", name: "Prova Agenda S senza tel" }), who, null);
-    check("servizio: «Telefono» senza numero → «Scrivi il telefono…»", !e2.ok && e2.field === "phone" && /Scrivi il telefono/.test(e2.error), JSON.stringify(e2));
+    check("servizio: «Telefono» senza numero → salvata lo stesso (il numero si aggiunge dopo)", e2.ok && e2.booking.phone === "" && e2.whatsappHref === null, JSON.stringify(e2).slice(0, 160));
     const e3 = await S.createManualBooking(base({ phone: "", source: "persona", name: "Prova Agenda S di persona" }), who, null);
     check("servizio: «Di persona» senza numero → salvata, telefono vuoto, niente WhatsApp", e3.ok && e3.booking.phone === "" && e3.whatsappHref === null, JSON.stringify(e3).slice(0, 160));
     const e4 = await S.createManualBooking(base({ name: "X" }), who, null);
@@ -126,8 +132,8 @@ if (process.argv.includes("--servizio")) {
     const c2 = await S.createManualBooking(base({ day: D3, name: "Prova Agenda S chiuso", phone: agendaPhone(9002), force: true }), who, null);
     check("servizio: giorno chiuso + «Segna lo stesso» → salvata", c2.ok && c2.booking.day === D3);
     await prisma.closureDay.delete({ where: { id: "prova_agenda_srv" } });
-    const o1 = await S.createManualBooking(base({ time: "11:00", name: "Prova Agenda S presto", phone: agendaPhone(9003) }), who, null);
-    check("servizio: ora fuori apertura → «Alle 11:00 il locale risulta chiuso: segnarla lo stesso?»", !o1.ok && o1.ask === "Alle 11:00 il locale risulta chiuso: segnarla lo stesso?", JSON.stringify(o1));
+    const o1 = await S.createManualBooking(base({ time: "08:00", name: "Prova Agenda S presto", phone: agendaPhone(9003) }), who, null);
+    check("servizio: ora fuori apertura → «Alle 08:00 il locale risulta chiuso: segnarla lo stesso?»", !o1.ok && o1.ask === "Alle 08:00 il locale risulta chiuso: segnarla lo stesso?", JSON.stringify(o1));
     const o2 = await S.createManualBooking(base({ time: "00:30", name: "Prova Agenda S notte", phone: agendaPhone(9004), force: true }), who, null);
     check("servizio: 00:30 (dopo mezzanotte) → stesso giorno commerciale, alle 00:30 del giorno dopo", o2.ok && o2.booking.startsAt.getTime() === R.romeInstant(D1, 24 * 60 + 30).getTime(), o2.ok ? o2.booking.startsAt.toISOString() : JSON.stringify(o2));
 
@@ -267,12 +273,12 @@ if (process.argv.includes("--servizio")) {
     const idx = (t) => times.indexOf(t);
     check("servizio: agenda del giorno in ordine di ora (00:30 in fondo, dopo mezzanotte)", idx("00:30") === times.length - 1, times.join(","));
     const agT = R.agendaTotals(agRows);
-    check("servizio: totali dell'agenda = somma delle confermate (online + a mano)", agT.people === agRows.reduce((s, r) => s + r.people, 0) && agT.tables === agRows.length);
+    check("servizio: totali dell'agenda = somma delle confermate (online + a mano)", agT.people === agRows.reduce((s, r) => s + r.people, 0) && agT.count === agRows.length);
     check("servizio: (13) «Tavolo 5» davanti solo ai numeri («dehors», «Sala grande» così)", R.tableText("5") === "Tavolo 5" && R.tableText("dehors") === "dehors" && R.tableText("Sala grande") === "Sala grande");
     check("servizio: (4) etichette dei giorni di notte: «Sab 7 nov (stanotte)» / «Dom 8 nov»; di sera «Oggi»/«Domani»",
       JSON.stringify(R.quickDayLabels("2026-11-07", R.romeInstant("2026-11-07", 24 * 60 + 30))) === JSON.stringify({ today: "Sab 7 nov (stanotte)", tomorrow: "Dom 8 nov" }) &&
         JSON.stringify(R.quickDayLabels("2026-11-07", R.romeInstant("2026-11-07", 21 * 60))) === JSON.stringify({ today: "Oggi", tomorrow: "Domani" }));
-    check("servizio: agendaTotals «1 persona · 1 tavolo» / «5 persone · 2 tavoli»", R.agendaTotals([{ people: 1 }]).text === "1 persona · 1 tavolo" && R.agendaTotals([{ people: 2 }, { people: 3 }]).text === "5 persone · 2 tavoli", R.agendaTotals([{ people: 1 }]).text);
+    check("servizio: agendaTotals «1 prenotazione · 1 persona» / «2 prenotazioni · 5 persone» (niente «tavoli»)", R.agendaTotals([{ people: 1 }]).text === "1 prenotazione · 1 persona" && R.agendaTotals([{ people: 2 }, { people: 3 }]).text === "2 prenotazioni · 5 persone", R.agendaTotals([{ people: 1 }]).text);
 
     // Numeri: online e a mano separate
     const st = await S.bookingStats();
@@ -281,10 +287,14 @@ if (process.argv.includes("--servizio")) {
 
     // Funzione spenta: le prenotazioni a mano sono prove
     const saved = await S.loadBookingSettings();
-    await S.saveBookingSettings({ ...saved, enabled: false });
+    await S.saveBookingSettings({ ...saved, enabled: false, agendaEnabled: false });
     const off = await S.createManualBooking(base({ name: "Prova Agenda S spenta", phone: agendaPhone(9008) }), who, null);
     await S.saveBookingSettings(saved);
-    check("servizio: funzione spenta → prenotazione segnata come prova (isTest)", off.ok && off.booking.isTest === true);
+    check("servizio: agenda spenta → prenotazione segnata come prova (isTest)", off.ok && off.booking.isTest === true);
+    await S.saveBookingSettings({ ...saved, enabled: false, agendaEnabled: true });
+    const onA = await S.createManualBooking(base({ name: "Prova Agenda S agenda accesa", phone: agendaPhone(9009) }), who, null);
+    await S.saveBookingSettings(saved);
+    check("servizio: agenda accesa e richieste online spente → prenotazione vera", onA.ok && onA.booking.isTest === false);
     // Un cliente non può dichiararsi «telefono» o «di persona»
     check("servizio: un cliente online non può dire di arrivare «di persona»", R.normalizeSource("persona") === "altro" && R.normalizeSource("telefono") === "altro" && R.normalizeSource("google") === "google");
   } catch (e) {
@@ -335,7 +345,7 @@ const ADMIN_NAME = DB(`select name from "User" where username='andrea'`);
 const ensure = (enabled = true) => {
   DB(`update "Employee" set "canManageBookings"=true where id='${MARTA.id}'`);
   DB(`update "Employee" set "canManageBookings"=false where id='${SARA.id}'`);
-  setSetting({ enabled });
+  setSetting({ enabled, agendaEnabled: enabled });
 };
 ensure();
 
@@ -433,7 +443,7 @@ try {
       if (f.people <= 8 && (await r.count())) await r.click();
       else await d.getByLabel("Altro numero di persone").fill(String(f.people));
     }
-    if (f.day !== undefined) await d.getByLabel("Giorno", { exact: true }).fill(dmy(f.day));
+    if (f.day !== undefined) await setDay(d, f.day);
     if (f.time !== undefined) {
       const r = d.getByRole("radio", { name: f.time, exact: true });
       if (await r.count()) await r.click();
@@ -443,6 +453,11 @@ try {
     if (f.note !== undefined) await d.getByRole("textbox", { name: /^Nota/ }).fill(f.note);
     if (f.allergies !== undefined) await d.getByRole("checkbox", { name: L.allergies }).setChecked(f.allergies);
   }
+  // Giorno: «Altro giorno» e il calendario (vale per tutti i giorni, anche quelli dei 7 pulsanti).
+  async function setDay(d, day) {
+    await d.getByRole("radiogroup", { name: L.dayGroup }).getByRole("radio", { name: L.otherDay }).click();
+    await d.getByLabel("Giorno", { exact: true }).fill(dmy(day));
+  }
   async function fillNew(p, f) {
     await p.getByRole("button", { name: L.newBtn }).first().click();
     const d = p.getByRole("dialog", { name: L.newTitle });
@@ -450,25 +465,34 @@ try {
     await fillFields(d, f);
     return d;
   }
-  // Salva; se compare la domanda (giorno chiuso, fuori orario) la legge e, se `confirm`, «Segna lo stesso».
-  async function saveIn(p, d, button, savedText, { confirm = true } = {}) {
+  // Salva; se compare la domanda (giorno chiuso, fuori orario, doppione) la legge e, se `confirm`,
+  // «Segna lo stesso» / «È un'altra, segna lo stesso». `root`: dove compare il testo di «salvata».
+  async function saveIn(p, d, button, savedText, { confirm = true, root = d } = {}) {
     await d.getByRole("button", { name: button, exact: true }).click();
     const warn = p.getByRole("alertdialog");
     const outcome = await Promise.race([
       warn.waitFor({ timeout: 15000 }).then(() => "warn"),
-      d.getByText(savedText).first().waitFor({ timeout: 15000 }).then(() => "saved"),
+      root.getByText(savedText).first().waitFor({ timeout: 15000 }).then(() => "saved"),
     ]).catch(() => "none");
     let warnText = "";
     if (outcome === "warn") {
       warnText = (await warn.innerText()).replace(/\s+/g, " ");
       if (confirm) {
-        await warn.getByRole("button", { name: L.warnConfirm }).click();
-        await d.getByText(savedText).first().waitFor({ timeout: 15000 }).catch(() => {});
+        // Possono arrivare due domande di fila (fuori orario, poi doppione).
+        for (let i = 0; i < 3; i++) {
+          const btn = warn.getByRole("button", { name: /^(Segna lo stesso|È un'altra, segna lo stesso)$/ });
+          if (!(await btn.count())) break;
+          await btn.first().click({ timeout: 5000 }).catch(() => {});
+          await root.getByText(savedText).first().waitFor({ timeout: 6000 }).catch(() => {});
+          await p.waitForTimeout(300);
+        }
       }
     }
     return { outcome, warnText };
   }
-  const saveNew = (p, d, o) => saveIn(p, d, L.save, L.saved, o);
+  // Il messaggio in basso dopo «Segna in agenda» (nuova prenotazione).
+  const bar = (p) => p.getByRole("status").filter({ hasText: L.saved });
+  const saveNew = (p, d, o) => saveIn(p, d, L.save, L.saved, { root: p, ...o });
   // Chiude fogli e finestre aperte; se il modulo ha modifiche non salvate, «Esci senza salvare».
   const closeAll = async (p) => {
     for (let i = 0; i < 5; i++) {
@@ -525,13 +549,15 @@ try {
     await shot(A, "nuova-compilata");
     check("foglio «Nuova prenotazione» a 390 px: niente scorrimento orizzontale", (await overflow(A)) <= 0 && (await d.evaluate((el) => el.scrollWidth - el.clientWidth)) <= 0);
     const { outcome } = await saveNew(A, d);
-    check("nuova prenotazione: «✓ Segnata in agenda» senza domande (giorno aperto, ora dentro l'apertura)", outcome === "saved", outcome);
+    check("nuova prenotazione: il foglio si chiude e compare «✓ Segnata: …» senza domande (giorno aperto, ora dentro l'apertura)", outcome === "saved" && (await d.count()) === 0, outcome);
+    const barTxt = (await bar(A).innerText().catch(() => "")).replace(/\s+/g, " ");
+    check("«✓ Segnata: Prova Agenda Rossi, <giorno> 20:00, 4 persone» con «Annulla» (niente schermata con «Fatto»)", new RegExp(`✓ Segnata: ${n1}, \\S+ 20:00, 4 persone`).test(barTxt) && (await bar(A).getByRole("button", { name: L.undo, exact: true }).count()) === 1 && (await A.getByRole("button", { name: L.done, exact: true }).count()) === 0, barTxt);
     const id = byName(n1);
     const dbRow = DB(`select status||'|'||manual||'|'||coalesce("createdBy",'')||'|'||phone||'|'||people||'|'||day||'|'||time||'|'||coalesce("tableLabel",'')||'|'||coalesce(note,'')||'|'||allergies||'|'||coalesce(source,'')||'|'||"isTest" from "BookingRequest" where id=${q(id)}`);
     check(`nel database: CONFIRMED, a mano, segnata da ${ADMIN_NAME}, con tutti i campi`, dbRow === `CONFIRMED|true|${ADMIN_NAME}|${intl(P1)}|4|${D1.day}|20:00|5|Prova Agenda compleanno|true|telefono|false`, dbRow);
     const lg = logs(id);
     check("cronologia: creata a nome di chi l'ha segnata («telefono»)", lg.length >= 1 && lg[0] === `CREATED:${ADMIN_NAME}:telefono`, lg.join(" / "));
-    const wa = d.getByRole("link", { name: L.waConfirm });
+    const wa = bar(A).getByRole("link", { name: L.waConfirm });
     const href = decodeURIComponent((await wa.getAttribute("href").catch(() => null)) ?? "");
     check("«Manda la conferma su WhatsApp»: wa.me al numero del cliente", href.startsWith(`https://wa.me/${intl(P1)}?text=`), href.slice(0, 50) || "nessun pulsante");
     check("…con il messaggio di conferma e il link della pagina del cliente", /ti aspettiamo/i.test(href) && /\/menu\/prenota\/r\//.test(href), href.slice(0, 260));
@@ -563,18 +589,45 @@ try {
     const id = byName(n2);
     check("senza telefono («Di persona»): salvata", outcome === "saved" && !!id, outcome);
     check("…nel database con telefono vuoto e «persona»", DB(`select status||'|'||phone||'|'||coalesce(source,'')||'|'||manual from "BookingRequest" where id=${q(id)}`) === "CONFIRMED||persona|true", DB(`select status||'|'||phone||'|'||coalesce(source,'')||'|'||manual from "BookingRequest" where id=${q(id)}`));
-    check("…e né «Manda la conferma su WhatsApp» né «Da mandare dal telefono del locale»", (await d.getByRole("link", { name: L.waConfirm }).count()) === 0 && (await d.getByRole("button", { name: L.waLater }).count()) === 0);
+    check("…e né «Manda conferma» né «Conferma dal telefono del locale»", (await bar(A).getByRole("link", { name: L.waConfirm }).count()) === 0 && (await bar(A).getByRole("button", { name: L.waLater }).count()) === 0);
     await closeSheet(A, d);
   }
-  // «Telefono» senza numero: errore accanto al campo, niente salvato
+  // «Telefono» senza numero: si segna lo stesso (modalità rapida), bollino «Manca il numero» e «Aggiungi il numero»
   {
     const n = "Prova Agenda Senza numero";
     const d = await fillNew(A, { source: L.srcPhone, name: n, people: 2, day: D1.day, time: "19:30" });
-    await d.getByRole("button", { name: L.save, exact: true }).click();
-    await A.waitForTimeout(1500);
-    check("«Telefono» senza numero: «Scrivi il telefono: serve per la conferma…» e niente salvato", /Scrivi il telefono: serve per la conferma/.test(await d.innerText()) && DB(`select count(*) from "BookingRequest" where name=${q(n)}`) === "0");
+    const r = await saveNew(A, d);
+    check("«Telefono» senza numero: salvata (il numero è facoltativo)", r.outcome === "saved" && DB(`select status||'|'||phone from "BookingRequest" where name=${q(n)}`) === "CONFIRMED|", r.outcome);
+    check("…il messaggio dice «Manca il numero: lo aggiungi dopo»", /Manca il numero/.test(await bar(A).innerText().catch(() => "")));
     await closeAll(A);
-    await A.waitForTimeout(300);
+    const s0 = await openBooking(A, n, D1.day);
+    check("…nel foglio: bollino «Manca il numero» e pulsante «Aggiungi il numero»", /Manca il numero/.test(await s0.innerText()) && (await s0.getByRole("button", { name: "Aggiungi il numero" }).count()) === 1);
+    await s0.getByRole("button", { name: "Aggiungi il numero" }).click();
+    const e0 = A.getByRole("dialog", { name: L.editTitle });
+    await e0.waitFor();
+    await e0.getByRole("textbox", { name: /^Telefono/ }).fill(nextPhone());
+    const r0 = await saveIn(A, e0, L.editSave, L.editSaved);
+    check("…«Aggiungi il numero» → «Modifica»: numero salvato", r0.outcome === "saved" && (await waitDb(() => DB(`select phone from "BookingRequest" where name=${q(n)}`).startsWith("39300005"))));
+    await closeAll(A);
+  }
+  // «Annulla» nel messaggio dopo il salvataggio: la prenotazione appena segnata sparisce
+  {
+    const n = "Prova Agenda Da togliere";
+    const d = await fillNew(A, { name: n, people: 3, day: D1.day, time: "21:00" });
+    const r = await saveNew(A, d);
+    check("modalità rapida (Persone, Ora, Giorno, Nome, Segna): salvata", r.outcome === "saved" && DB(`select count(*) from "BookingRequest" where name=${q(n)}`) === "1");
+    await bar(A).getByRole("button", { name: L.undo, exact: true }).click();
+    check("«Annulla» nel messaggio: la prenotazione appena segnata non c'è più", await waitDb(() => DB(`select count(*) from "BookingRequest" where name=${q(n)}`) === "0"));
+  }
+  // Doppione: stesso nome lo stesso giorno → «C'è già … è la stessa?»
+  {
+    const d = await fillNew(A, { name: "prova agenda rossi", people: 2, day: D1.day, time: "21:30" });
+    const r = await saveNew(A, d, { confirm: false });
+    check("doppione: «C'è già Prova Agenda Rossi … alle 20:00 (4 persone): è la stessa?» con «È un'altra, segna lo stesso»", r.outcome === "warn" && /C'è già Prova Agenda Rossi \S+ alle 20:00 \(4 persone\): è la stessa\?/.test(r.warnText) && /È un'altra, segna lo stesso/.test(r.warnText), r.warnText);
+    await shot(A, "doppione");
+    await A.getByRole("alertdialog").getByRole("button", { name: "Annulla", exact: true }).click();
+    check("…«Annulla»: niente salvato", DB(`select count(*) from "BookingRequest" where name='prova agenda rossi'`) === "0");
+    await closeAll(A);
   }
 
   // ---- Giorno chiuso: domanda, «Segna lo stesso», poi si salva
@@ -595,15 +648,15 @@ try {
   // ---- Ora fuori apertura (e «Annulla» nella domanda non salva)
   const n4 = "Prova Agenda Fuori orario";
   {
-    const d = await fillNew(A, { source: L.srcPhone, name: n4, phone: nextPhone(), people: 3, day: D1.day, time: "11:00" });
+    const d = await fillNew(A, { source: L.srcPhone, name: n4, phone: nextPhone(), people: 3, day: D1.day, time: "08:00" });
     const first = await saveNew(A, d, { confirm: false });
-    check("ora fuori apertura: «Alle 11:00 il locale risulta chiuso: segnarla lo stesso?»", first.outcome === "warn" && first.warnText.includes("Alle 11:00 il locale risulta chiuso: segnarla lo stesso?"), first.warnText || first.outcome);
+    check("ora fuori apertura: «Alle 08:00 il locale risulta chiuso: segnarla lo stesso?»", first.outcome === "warn" && first.warnText.includes("Alle 08:00 il locale risulta chiuso: segnarla lo stesso?"), first.warnText || first.outcome);
     if (first.outcome === "warn") {
       await A.getByRole("alertdialog").getByRole("button", { name: "Annulla", exact: true }).click();
       await A.waitForTimeout(600);
       check("…«Annulla»: niente salvato, il foglio resta aperto con i dati", DB(`select count(*) from "BookingRequest" where name=${q(n4)}`) === "0" && (await d.getByRole("textbox", { name: /^Nome/ }).inputValue()) === n4);
       await saveNew(A, d);
-      check("…«Segna lo stesso»: salvata alle 11:00", await waitDb(() => DB(`select status||'|'||time from "BookingRequest" where name=${q(n4)}`) === "CONFIRMED|11:00"));
+      check("…«Segna lo stesso»: salvata alle 08:00", await waitDb(() => DB(`select status||'|'||time from "BookingRequest" where name=${q(n4)}`) === "CONFIRMED|08:00"));
     }
     await closeSheet(A, d);
   }
@@ -623,9 +676,9 @@ try {
   const uiRows = (await agenda(A).getByRole("list").first().getByRole("listitem").allInnerTexts()).filter((t) => !/Annullata|Di prova/.test(t));
   const uiPeople = uiRows.reduce((sum, t) => sum + Number(t.match(/(\d+)\s*pers\./)?.[1] ?? 0), 0);
   const [ppl, tables] = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and not "isTest"`).split("|");
-  const totTxt = agTxt.match(/\d+ person[ae] · \d+ tavol[io]/)?.[0] ?? "";
-  check(`Agenda: totale del giorno = somma delle righe (${uiPeople} persone · ${uiRows.length} tavoli)`, totTxt === `${uiPeople} persone · ${uiRows.length} tavoli`, totTxt);
-  check(`Agenda: …e uguale al database (${ppl} persone · ${tables} tavoli, online + a mano)`, totTxt === `${ppl} persone · ${tables} tavoli` || DB(`select count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`) !== "0", `${totTxt} (altre prove in corso: ${DB(`select count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`)})`);
+  const totTxt = agTxt.match(/\d+ prenotazion[ei] · \d+ person[ae]/)?.[0] ?? "";
+  check(`Agenda: totale del giorno = somma delle righe (${uiRows.length} prenotazioni · ${uiPeople} persone, niente «tavoli»)`, totTxt === `${uiRows.length} prenotazioni · ${uiPeople} persone` && !/tavoli/.test(agTxt), totTxt);
+  check(`Agenda: …e uguale al database (${tables} prenotazioni · ${ppl} persone, online + a mano)`, totTxt === `${tables} prenotazioni · ${ppl} persone` || DB(`select count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`) !== "0", `${totTxt} (altre prove in corso: ${DB(`select count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`)})`);
   const r1 = await agendaRow(A, n1).innerText();
   check("Agenda: riga con ora, «4 pers.», «Tavolo 5», nota, «⚠ Allergie», «Telefono · …»", /20:00/.test(r1) && /4 pers\./.test(r1) && /Tavolo 5/.test(r1) && /Prova Agenda compleanno/.test(r1) && /⚠ Allergie/.test(r1) && /Telefono · /.test(r1), r1.replace(/\n/g, " "));
   check("Agenda: la online dice «Online»", /Online/.test(await agendaRow(A, "Prova Agenda Online").innerText()));
@@ -687,6 +740,7 @@ try {
     await agenda(A).getByRole("button", { name: "+ Segna in questo giorno" }).click();
     const d = A.getByRole("dialog", { name: L.newTitle });
     await d.waitFor();
+    await d.getByRole("radiogroup", { name: L.dayGroup }).getByRole("radio", { name: L.otherDay }).click();
     check("«+ Segna in questo giorno»: «Nuova prenotazione» con il giorno già scelto", (await d.getByLabel("Giorno", { exact: true }).inputValue()) === D1.day, await d.getByLabel("Giorno", { exact: true }).inputValue());
     await closeAll(A);
     await A.waitForTimeout(300);
@@ -705,7 +759,8 @@ try {
   const tonight = await panel(A).innerText();
   const [tp, tt] = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where day='${TODAY}' and status='CONFIRMED' and not "isTest"`).split("|");
   check("«Stasera»: c'è la prenotazione a mano di oggi", tonight.includes(n5));
-  check(`«Stasera»: «Stasera · ${tp} persone prenotate · ${tt} tavol…» (contano anche quelle a mano)`, tonight.includes(`Stasera · ${tp} persone prenotate · ${tt} tavol`), tonight.split("\n").slice(0, 2).join(" ") + ` [db ${tp}|${tt} oggi=${TODAY}: ${DB(`select day||' '||time||' '||people from "BookingRequest" where name=${q(n5)}`)}]`);
+  const tonightTot = `Stasera · ${tt} ${tt === "1" ? "prenotazione" : "prenotazioni"} · ${peopleWord(tp)}`;
+  check(`«Stasera»: «${tonightTot}» (contano anche quelle a mano)`, tonight.includes(tonightTot), tonight.split("\n").slice(0, 2).join(" ") + ` [db ${tp}|${tt} oggi=${TODAY}: ${DB(`select day||' '||time||' '||people from "BookingRequest" where name=${q(n5)}`)}]`);
   check("«Stasera»: niente più «online» nel totale", !/persone prenotate online/.test(tonight));
   await shot(A, "stasera");
   await tab(A, "Da gestire");
@@ -765,14 +820,13 @@ try {
     const { outcome } = await saveNew(M, d);
     const id = byName(n6);
     check("Marta segna una prenotazione (createdBy Marta)", outcome === "saved" && DB(`select status||'|'||coalesce("createdBy",'')||'|'||manual from "BookingRequest" where id=${q(id)}`) === `CONFIRMED|${MARTA.name}|true`, DB(`select status||'|'||coalesce("createdBy",'') from "BookingRequest" where id=${q(id)}`));
-    check("Marta (non dal telefono del locale): niente «Manda la conferma su WhatsApp»", (await d.getByRole("link", { name: L.waConfirm }).count()) === 0);
-    const later = d.getByRole("button", { name: L.waLater });
-    check("Marta: c'è «Da mandare dal telefono del locale»", (await later.count()) === 1);
+    check("Marta (non dal telefono del locale): niente «Manda conferma»", (await bar(M).getByRole("link", { name: L.waConfirm }).count()) === 0);
+    const later = bar(M).getByRole("button", { name: L.waLater });
+    check("Marta: c'è «Conferma dal telefono del locale»", (await later.count()) === 1);
     await shot(M, "marta-salvata");
     if (await later.count()) {
       await later.click();
-      await d.getByText(L.waLaterDone).waitFor({ timeout: 10000 }).catch(() => {});
-      check("…«✓ La manda il telefono del locale…» e WA_QUEUED nella cronologia", L.waLaterDone.test(await d.innerText()) && (await waitDb(() => logs(id).some((l) => l.startsWith(`WA_QUEUED:${MARTA.name}`)))));
+      check("…WA_QUEUED nella cronologia", await waitDb(() => logs(id).some((l) => l.startsWith(`WA_QUEUED:${MARTA.name}`))));
       await goList(A);
       const list = await A.getByRole("region", { name: /Da mandare su WhatsApp/ }).innerText().catch(() => "");
       check("…e la conferma entra nella lista «Da mandare su WhatsApp» del titolare", list.includes(n6), list.slice(0, 200));
@@ -788,7 +842,7 @@ try {
     const r = await saveIn(M, e, L.editSave, L.editSaved);
     check("Marta modifica: persone e tavolo salvati", r.outcome === "saved" && (await waitDb(() => /^CONFIRMED\|[^|]+\|3\|2\|/.test(row(id)))), row(id));
     check(`…cronologia UPDATED di ${MARTA.name}`, logs(id).some((l) => l.startsWith(`UPDATED:${MARTA.name}:`)), logs(id).join(" / "));
-    check("…dopo la modifica, per Marta niente WhatsApp ma «Da mandare dal telefono del locale»", (await e.getByRole("link", { name: L.waConfirmEdit }).count()) === 0 && (await e.getByRole("button", { name: L.waLater }).count()) === 1);
+    check("…dopo la modifica, per Marta niente WhatsApp ma «Da mandare dal telefono del locale»", (await e.getByRole("link", { name: L.waConfirmEdit }).count()) === 0 && (await e.getByRole("button", { name: L.waLaterEdit }).count()) === 1);
     await closeSheet(M, e);
   }
 
@@ -804,7 +858,7 @@ try {
     await goList(local.p);
     const d = await fillNew(local.p, { source: L.srcPhone, name: n, phone: nextPhone(), people: 2, day: D2.day, time: D2.slots[2] });
     await saveNew(local.p, d);
-    check("Marta dal telefono del locale: «Manda la conferma su WhatsApp» (e non «Da mandare dal telefono del locale»)", (await d.getByRole("link", { name: L.waConfirm }).count()) === 1 && (await d.getByRole("button", { name: L.waLater }).count()) === 0);
+    check("Marta dal telefono del locale: «Manda conferma» (e non «Conferma dal telefono del locale»)", (await bar(local.p).getByRole("link", { name: L.waConfirm }).count()) === 1 && (await bar(local.p).getByRole("button", { name: L.waLater }).count()) === 0);
     await local.ctx.close();
   }
 
@@ -895,9 +949,9 @@ try {
     check("(16) agenda: l'annullata è in fondo al giorno con «Annullata»", k === items.length - 1 && /Annullata/.test(items[k] ?? ""), items.map((t) => t.split("\n")[0]).join(" | "));
     const deco = await agendaRow(A, n9).evaluate((el) => [...el.querySelectorAll("*")].some((x) => getComputedStyle(x).textDecorationLine.includes("line-through")));
     check("(16) …barrata", deco);
-    const tot = (await agenda(A).innerText()).match(/\d+ person[ae] · \d+ tavol[io]/)?.[0] ?? "";
+    const tot = (await agenda(A).innerText()).match(/\d+ prenotazion[ei] · \d+ person[ae]/)?.[0] ?? "";
     const [p2, t2] = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where day='${D2.day}' and status='CONFIRMED' and not "isTest"`).split("|");
-    check(`(16) …fuori dai totali (${p2} persone · ${t2} tavoli)`, tot === `${peopleWord(p2)} · ${t2} ${t2 === "1" ? "tavolo" : "tavoli"}` || DB(`select count(*) from "BookingRequest" where day='${D2.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`) !== "0", tot);
+    check(`(16) …fuori dai totali (${t2} prenotazioni · ${p2} persone)`, tot === `${t2} ${t2 === "1" ? "prenotazione" : "prenotazioni"} · ${peopleWord(p2)}` || DB(`select count(*) from "BookingRequest" where day='${D2.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`) !== "0", tot);
   }
 
   // ================= (4) Ora già passata e giorni di notte =================
@@ -907,7 +961,8 @@ try {
     const nowMin = Number(romeNow.slice(0, 2)) * 60 + Number(romeNow.slice(3));
     const night = nowMin < 5 * 60;
     const d = await fillNew(A, { source: L.srcPhone, name: "Prova Agenda Passata", phone: nextPhone(), people: 2 });
-    const btns = await d.getByRole("button", { pressed: true }).or(d.getByRole("button", { pressed: false })).allInnerTexts();
+    const btns = (await d.getByRole("radiogroup", { name: L.dayGroup }).getByRole("radio").allInnerTexts()).map((t) => t.trim());
+    check("pulsanti dei giorni: i prossimi 7 giorni e «Altro giorno»", btns.length === 8 && btns[7] === L.otherDay && btns.slice(2, 7).every((t) => /^\w{3} \d+$/.test(t)), btns.join(" | "));
     if (night) check("(4) di notte: niente «Oggi»/«Domani» ma la data («… (stanotte)» e il giorno dopo)", btns.some((t) => /^\w{3} \d+ \w{3} \(stanotte\)$/.test(t)) && !btns.includes("Oggi") && !btns.includes("Domani"), btns.join(" | "));
     else check("(4) di giorno: «Oggi» e «Domani»", btns.includes("Oggi") && btns.includes("Domani"), btns.join(" | "));
     // Un'ora di due ore fa, se è ancora «oggi» (dalle 7 in poi, o di notte dopo le 2).
@@ -916,7 +971,7 @@ try {
     if (sameDay) {
       const m = (pastMin + 1440) % 1440;
       const t = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-      await d.getByLabel("Giorno", { exact: true }).fill(TODAY);
+      await setDay(d, TODAY);
       await d.getByLabel("Un altro orario").fill(t);
       const r = await saveNew(A, d, { confirm: false });
       check(`(4) ora già passata (${t}): domanda «Le ${t} … sono già passate: segnarla lo stesso?»`, r.outcome === "warn" && new RegExp(`Le ${t} di (oggi|[^ ]+ \\d+ [^ ]+) sono già passate: segnarla lo stesso\\?`).test(r.warnText), r.warnText);

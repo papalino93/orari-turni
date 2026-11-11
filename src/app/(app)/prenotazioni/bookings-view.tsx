@@ -211,7 +211,11 @@ export function BookingsView({
     setOpenId(id);
     setSheetKey((k) => k + 1);
   }, []);
-  const newBooking = useCallback((day: string) => setForm({ booking: null, day, key: Date.now() }), []);
+  const newBooking = useCallback((day: string) => {
+    // Il messaggio «✓ Segnata…» di prima si chiude: quello nuovo arriva dopo il salvataggio.
+    setJustSaved(null);
+    setForm({ booking: null, day, key: Date.now() });
+  }, []);
   const opened = openId ? (rows.find((r) => r.id === openId) ?? null) : null;
   const next = lists.pending.find((b) => b.id !== openId) ?? null;
 
@@ -1282,7 +1286,7 @@ function SavedBar({
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
       onFocus={() => setHover(true)}
-      className="fixed inset-x-3 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-lg rounded-2xl border border-success/30 bg-surface p-3 shadow-2xl"
+      className="fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-lg md:bottom-4 rounded-2xl border border-success/30 bg-surface p-3 shadow-2xl"
     >
       <button type="button" onClick={onOpen} className="block w-full text-left">
         <span className="block text-[15px] font-semibold text-success">✓ Segnata: {info.summary}</span>

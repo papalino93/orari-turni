@@ -585,14 +585,14 @@ try {
   check("modifica: un numero che c'era non si toglie per sbaglio", !editNoPhone.ok && editNoPhone.field === "phone");
 
   // 4. Doppioni (stesso numero o stesso nome lo stesso giorno)
-  const rossi = await manual({ name: "Prova C Rossì", time: slot(D2, 2), phone: "333 9555001" });
-  const dupName = await manual({ name: "prova c  ROSSI", time: slot(D2, 3) });
+  await manual({ name: "Prova C Rossì", time: slot(D2, 2), phone: "333 9555001" });
+  const dupName = await manual({ name: "Prova C  rossi", time: slot(D2, 3) });
   check("doppione per nome (senza maiuscole/accenti): «C'è già … è la stessa?»", !dupName.ok && dupName.dup === true && dupName.ask === `C'è già Prova C Rossì ${dayLong(D2.day).split(" ")[0]} alle ${slot(D2, 2)} (4 persone): è la stessa?`, dupName.ask);
   const dupPhone = await manual({ name: "Prova C Bianchi", phone: "333 9555001" });
   check("doppione per numero (nome diverso)", !dupPhone.ok && dupPhone.dup === true && /Prova C Rossì/.test(dupPhone.ask ?? ""));
   const dupOther = await manual({ name: "Prova C Rossì", day: D3.day, time: slot(D3, 1) });
   check("stesso nome un altro giorno: niente domanda", dupOther.ok);
-  const dupForced = await manual({ name: "prova c  ROSSI", time: slot(D2, 3), dupOk: true });
+  const dupForced = await manual({ name: "Prova C  rossi", time: slot(D2, 3), dupOk: true });
   check("«È un'altra, segna lo stesso»: si segna", dupForced.ok);
   // Conferma di una richiesta online con lo stesso numero di una prenotazione già in agenda
   setBookingSetting({ agendaEnabled: true, enabled: true });

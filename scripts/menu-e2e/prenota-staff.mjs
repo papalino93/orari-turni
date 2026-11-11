@@ -125,22 +125,40 @@ try {
   const admin = await session("andrea", ADMIN_PW, "desktop");
   const A = admin.p;
 
-  // Spenta: voce nascosta nel menù in alto, si arriva da Impostazioni, si accende da qui
-  setBookingSetting({ enabled: false });
+  // Tutto spento: voce nascosta nel menù in alto, si arriva da Impostazioni, si accende da qui
+  setBookingSetting({ agendaEnabled: false, enabled: false });
+  // Una prova segnata a mano per domani (e una richiesta di prova): all'accensione si chiede che farne.
+  DB(`delete from "BookingRequest" where "isTest"=true`);
+  DB(`insert into "BookingRequest" (id, code, "tokenHash", status, day, time, "startsAt", people, name, phone, contact, "isTest", manual, "createdBy", "updatedAt") values ('provacprovavera01', 'PRVC11', 'prova-c-prova-vera', 'CONFIRMED', '${D1.day}', '20:00', now() + interval '2 days', 3, 'Prova C Prova vera', '', 'whatsapp', true, true, 'Andrea', now()), ('provacprovaonl01', 'PRVC12', 'prova-c-prova-onl', 'PENDING', '${D1.day}', '20:30', now() + interval '2 days', 2, 'Prova C Prova online', '393330000000', 'whatsapp', true, false, null, now())`);
   await A.goto(`${BASE}/account`, { waitUntil: "networkidle", timeout: 180000 });
   check("spenta: nel menù in alto niente «Prenotazioni»", (await A.locator("nav").getByRole("link", { name: /^Prenotazioni/ }).count()) === 0);
   const fromAccount = A.getByRole("link", { name: /Prenotazioni online \(in prova\)/ });
   check("spenta: in Impostazioni «Prenotazioni online (in prova)»", (await fromAccount.count()) === 1);
   await fromAccount.click();
   await A.waitForURL(/\/prenotazioni$/);
-  check("spenta: fascia «Le prenotazioni online sono spente: i clienti non le vedono.» con «Accendi»", /Le prenotazioni online sono spente:\s*i clienti non le vedono/.test(await bodyText(A)) && (await A.getByRole("button", { name: "Accendi", exact: true }).count()) === 1);
+  check("spenta: fascia «Agenda spenta · Richieste online spente» con «Accendi l'agenda»", /Agenda spenta · Richieste online spente/.test(await bodyText(A)) && (await A.getByRole("button", { name: "Accendi l'agenda", exact: true }).count()) === 1);
   await shot(A, "spenta");
-  await A.getByRole("button", { name: "Accendi", exact: true }).click();
-  const askOn = A.getByRole("alertdialog", { name: "Accendere le prenotazioni online?" });
+  await A.getByRole("button", { name: "Accendi l'agenda", exact: true }).click();
+  const askOn = A.getByRole("alertdialog", { name: "Accendere l'agenda?" });
   await askOn.getByRole("button", { name: "Accendi", exact: true }).click();
-  check("«Accendi» con conferma: accese nel database", await waitDb(() => /"enabled":true/.test(DB(`select value from "MenuSetting" where id='bookings'`))));
+  const askTests = A.getByRole("alertdialog", { name: /Ci sono 2 prenotazioni di prova: cancellarle\?/ });
+  await askTests.waitFor({ timeout: 30000 }).catch(() => {});
+  check("accendendo l'agenda: «Ci sono 2 prenotazioni di prova: cancellarle?» con tre scelte", (await askTests.count()) === 1 && (await askTests.getByRole("button", { name: "Cancella le prove" }).count()) === 1 && (await askTests.getByRole("button", { name: "Tienile e rendile vere" }).count()) === 1 && (await askTests.getByRole("button", { name: "Annulla" }).count()) === 1);
+  await shot(A, "prove-domanda");
+  await askTests.getByRole("button", { name: "Tienile e rendile vere" }).click();
+  check("«Tienile e rendile vere»: l'agenda è accesa, le richieste online restano spente", await waitDb(() => /"agendaEnabled":true/.test(DB(`select value from "MenuSetting" where id='bookings'`)) && /"enabled":false/.test(DB(`select value from "MenuSetting" where id='bookings'`))));
+  check("…la prova a mano di domani è diventata vera, la richiesta di prova è sparita", DB(`select string_agg(name||':'||"isTest", ',') from "BookingRequest" where id in ('provacprovavera01','provacprovaonl01')`) === "Prova C Prova vera:false");
+  DB(`delete from "BookingRequest" where id='provacprovavera01'`);
   await A.reload({ waitUntil: "networkidle" });
-  check("accesa: voce «Prenotazioni» nel menù in alto", (await A.getByRole("link", { name: /^Prenotazioni/ }).count()) >= 1);
+  check("agenda accesa: voce «Prenotazioni» nel menù in alto e fascia «Agenda accesa · Richieste online spente»", (await A.getByRole("link", { name: /^Prenotazioni/ }).count()) >= 1 && /Agenda accesa · Richieste online spente/.test(await bodyText(A)));
+  // Le richieste online si accendono dalle impostazioni (secondo interruttore).
+  await A.getByRole("button", { name: "Impostazioni delle prenotazioni" }).click();
+  await A.getByRole("switch", { name: "Richieste online dai clienti accese" }).click();
+  await A.getByRole("alertdialog", { name: "Accendere le richieste online?" }).getByRole("button", { name: "Accendi", exact: true }).click();
+  check("interruttore «Richieste online dai clienti»: accese nel database", await waitDb(() => /"enabled":true/.test(DB(`select value from "MenuSetting" where id='bookings'`))));
+  await shot(A, "interruttori");
+  await A.keyboard.press("Escape");
+  await A.reload({ waitUntil: "networkidle" });
 
   // Richieste di prova
   const R = {
@@ -161,7 +179,7 @@ try {
   await goList(A);
   const navLink = A.getByRole("link", { name: /^Prenotazioni/ }).first();
   const pending = Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and status='PENDING' and "startsAt">=now()`));
-  check("menù in alto: il numero delle richieste da confermare", new RegExp(`${pending} da confermare`).test((await navLink.getAttribute("aria-label")) ?? (await navLink.innerText())), `${await navLink.getAttribute("aria-label")} (attese ${pending})`);
+  check("menù in alto: il numero delle richieste da confermare", new RegExp(`${pending} (richiest[ae] )?da confermare`).test((await navLink.getAttribute("aria-label")) ?? (await navLink.innerText())), `${await navLink.getAttribute("aria-label")} (attese ${pending})`);
   const todo = A.getByRole("tab", { name: /^Da gestire/ });
   const todoN = Number((await todo.innerText()).match(/\d+/)?.[0] ?? 0);
   // Il numero della scheda = solo le richieste da confermare (come il pallino del menù in alto); le prove del titolare comprese.
@@ -222,7 +240,7 @@ try {
   await tab(A, "Prossimi giorni");
   check("«Prossimi giorni»: la proposta accettata c'è, con il nuovo orario", (await card(A, "Prova C Proposta").count()) === 1 && (await card(A, "Prova C Proposta").innerText()).includes(newTime));
   const nextTxt = await A.getByRole("tabpanel").innerText();
-  check("«Prossimi giorni»: totale persone del giorno", /\d+ persone · \d+ tavol/.test(nextTxt));
+  check("«Prossimi giorni»: totale del giorno «N prenotazioni · P persone» (niente «tavoli»)", /\d+ prenotazion[ei] · \d+ person[ae]/.test(nextTxt) && !/tavoli\b/.test(nextTxt));
   await shot(A, "prossimi-giorni");
 
   // Al completo
@@ -484,11 +502,16 @@ try {
   // Stasera: arrivati / non venuti
   await goList(A);
   await tab(A, "Stasera");
-  const tonight = A.getByRole("region", { name: "Stasera" });
+  const tonight = A.getByRole("region", { name: "Stasera", exact: true });
+  const pendTonight = Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and status='PENDING' and day='${TODAY}' and "startsAt">=now()`));
+  if (pendTonight > 0) check(`«Stasera»: in cima «Da confermare per stasera (${pendTonight})»`, (await A.getByRole("region", { name: `Da confermare per stasera (${pendTonight})` }).count()) === 1);
   const tt = await tonight.innerText();
   const ppl = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where status='CONFIRMED' and day='${TODAY}'`).split("|");
   // Contano anche le prenotazioni segnate a mano in agenda: niente più «online» nel totale.
-  check(`«Stasera»: le confermate di oggi, «Stasera · ${ppl[0]} persone prenotate · ${ppl[1]} tavoli»`, tt.startsWith(`Stasera · ${ppl[0]} persone prenotate · ${ppl[1]} tavol`) && /Prova C Tavolo arrivato/.test(tt) && /Prova C Tavolo dopo/.test(tt), tt.split("\n")[0]);
+  const tot = `Stasera · ${ppl[1]} ${ppl[1] === "1" ? "prenotazione" : "prenotazioni"} · ${ppl[0]} ${ppl[0] === "1" ? "persona" : "persone"}`;
+  check(`«Stasera»: le confermate di oggi, «${tot}»`, tt.includes(tot) && /Prova C Tavolo arrivato/.test(tt) && /Prova C Tavolo dopo/.test(tt), tt.split("\n")[0]);
+  const navName = (await A.locator("nav").getByRole("link", { name: /^Prenotazioni/ }).first().getAttribute("aria-label")) ?? "";
+  check("pallino del menù: aria-label con le cose da fare («… da confermare», «… da mandare su WhatsApp»)", /^Prenotazioni: .*(da confermare|messaggi? da mandare su WhatsApp)/.test(navName), navName);
   const row1 = tonight.getByRole("listitem").filter({ hasText: "Prova C Tavolo arrivato" });
   const row2 = tonight.getByRole("listitem").filter({ hasText: "Prova C Tavolo dopo" });
   check("«Non venuti» solo dopo l'orario", (await row1.getByRole("button", { name: "Non venuti" }).count()) === 1 && (await row2.getByRole("button", { name: "Non venuti" }).count()) === 0);

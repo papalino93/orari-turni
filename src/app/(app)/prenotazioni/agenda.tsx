@@ -372,10 +372,10 @@ export function BookingForm({
         </div>
 
         <div>
-          <span id="nuova-giorno" className={fieldLabel}>
+          <span className={fieldLabel}>
             Giorno
           </span>
-          <div role="radiogroup" aria-labelledby="nuova-giorno" className="grid grid-cols-4 gap-1.5">
+          <div role="radiogroup" aria-label="Scegli il giorno" className="grid grid-cols-4 gap-1.5">
             {week.map((d) => (
               <button
                 key={d.day}
