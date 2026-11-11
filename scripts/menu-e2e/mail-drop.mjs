@@ -1,7 +1,12 @@
 // Mail: il file dei destinatari (Excel o CSV) si può anche trascinare sul riquadro, non solo
 // sceglierlo con il pulsante. Un file di un tipo sbagliato o più file insieme danno un avviso.
 import { zipSync, strToU8 } from "fflate";
-import { launch, login, check, BASE, results, ADMIN_PW } from "./lib.mjs";
+import { launch, login, check, BASE, results, ADMIN_PW, DB } from "./lib.mjs";
+
+// La pagina Mail si apre solo con la sezione accesa: la si accende per la prova e alla fine si rispegne.
+const setMail = (on) =>
+  DB(`insert into "MenuSetting"(id, value) values ('features', '{"mail":${on},"ferie":false}') on conflict (id) do update set value = jsonb_set(coalesce(nullif("MenuSetting".value,'')::jsonb,'{}'::jsonb), '{mail}', '${on}')::text`);
+setMail(true);
 
 // Un .xlsx minimo (due colonne, due righe) costruito qui, senza programmi esterni.
 const xlsx = zipSync({
@@ -75,6 +80,7 @@ for (const [label, w, h] of [["computer", 1440, 900], ["telefono", 390, 844]]) {
   check(`${label}: «Scegli il file» funziona ancora`, /1\s+destinatario pronto/.test(await p.locator("body").innerText()));
 }
 await b.close();
+setMail(false);
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} ok`);
 process.exit(failed.length ? 1 : 0);

@@ -1,9 +1,19 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition, type DragEvent } from "react";
-import { applyHeader, guessColumns, HEADER_TAG, parseRecipients, tableToRecipients, type Recipient } from "@/lib/mail";
+import { useMemo, useRef, useState, useSyncExternalStore, useTransition, type DragEvent } from "react";
+import { useRouter } from "next/navigation";
+import {
+  applyHeader,
+  guessColumns,
+  HEADER_TAG,
+  mailFooter,
+  parseRecipients,
+  tableToRecipients,
+  type MailFooterInfo,
+  type Recipient,
+} from "@/lib/mail-text";
 import { readXlsx, type Sheet } from "@/lib/xlsx";
-import { sendMailChunk } from "./actions";
+import { sendMailChunk, sendMailTest, startMailSend } from "./actions";
 
 const CHUNK = 50;
 const DEFAULT_BODY = `Spett.le ${HEADER_TAG},\n\n`;
@@ -19,17 +29,43 @@ const ghostBtn =
 
 const STEPS = ["Destinatari", "Messaggio", "Invio"];
 
+// Ultimo indirizzo usato per la prova, ricordato solo in questo browser (può mancare: finestra
+// privata, dati cancellati). Letto con useSyncExternalStore: niente differenze col server.
+const LAST_TEST_KEY = "mail-ultima-prova";
+function readLastTest(): string {
+  try {
+    return localStorage.getItem(LAST_TEST_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+const noSubscribe = () => () => {};
+
+type Quota = { available: number; reserve: number; limit: number };
+// Invio interrotto a metà: «Riprova» riparte dallo stesso gruppo, con lo stesso invio nel registro.
+type Resume = { sendId: string; list: Recipient[]; from: number; sent: number };
+
 export function MailForm({
-  configured,
-  limit,
+  blocked,
+  blockedTitle,
+  quota,
   from,
   replyTo,
+  footer,
+  savedTestEmail,
+  optedOut,
 }: {
-  configured: boolean;
-  limit: number;
+  blocked: string | null;
+  blockedTitle: string;
+  quota: Quota;
   from: string | null;
   replyTo: string | null;
+  footer: MailFooterInfo;
+  savedTestEmail: string;
+  optedOut: string[];
 }) {
+  const configured = !blocked;
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [csv, setCsv] = useState("");
   const [fileName, setFileName] = useState("");
@@ -41,12 +77,16 @@ export function MailForm({
   const [body, setBody] = useState(DEFAULT_BODY);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [previewAt, setPreviewAt] = useState(0);
-  const [testTo, setTestTo] = useState("");
-  const [consent, setConsent] = useState(false);
+  const [typedTest, setTestTo] = useState<string | null>(null);
+  const lastTest = useSyncExternalStore(noSubscribe, readLastTest, () => "");
+  const testTo = typedTest ?? (savedTestEmail || lastTest);
+  // La spunta «Confermo…» vale per la lista per cui è stata data: se la lista cambia, si azzera.
+  const [consentFor, setConsentFor] = useState<string | null>(null);
+  const [resume, setResume] = useState<Resume | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [progress, setProgress] = useState<{ sent: number; total: number } | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
-  const [done, setDone] = useState<number | null>(null);
+  const [done, setDone] = useState<{ sent: number; failed: number; excluded: number; warning: string | null } | null>(null);
   const [pending, startTransition] = useTransition();
   const [dragging, setDragging] = useState(false);
 
@@ -55,16 +95,26 @@ export function MailForm({
     () => (sheet && cols?.group ? [...new Set(sheet.rows.map((r) => r[cols.group]).filter(Boolean))] : []),
     [sheet, cols],
   );
-  const { recipients, skipped } = useMemo(
+  const { recipients: parsed, skipped } = useMemo(
     () => (sheet ? tableToRecipients(sheet.rows, sheet.headers, { headerColumn, groups, onlyDocumented }) : parseRecipients(csv)),
     [sheet, headerColumn, groups, onlyDocumented, csv],
   );
+  // Chi si è cancellato non riceve più nulla (il server li toglie comunque).
+  const optedOutSet = useMemo(() => new Set(optedOut), [optedOut]);
+  const recipients = useMemo(() => parsed.filter((r) => !optedOutSet.has(r.email)), [parsed, optedOutSet]);
+  const excludedOptOut = parsed.length - recipients.length;
+  const listKey = useMemo(() => recipients.map((r) => `${r.email}\u0000${r.header}`).join("\n"), [recipients]);
+  const consent = consentFor === listKey;
   const hasList = Boolean(sheet) || csv.trim().length > 0;
   const excludedByBasis =
     sheet && cols?.basis && onlyDocumented
       ? tableToRecipients(sheet.rows, sheet.headers, { headerColumn, groups, onlyDocumented: false }).recipients.length - recipients.length
       : 0;
-  const overLimit = recipients.length > limit;
+  const overLimit = recipients.length > quota.available;
+  const quotaText =
+    quota.available > 0
+      ? `Oggi puoi mandare ancora ${quota.available} mail (${quota.reserve} sono tenute per le prenotazioni).`
+      : `Per oggi le mail della lista sono finite (${quota.reserve} restano tenute per le prenotazioni): riprova domani.`;
   const sample: Recipient | undefined = recipients[Math.min(previewAt, Math.max(recipients.length - 1, 0))];
   const canSend = configured && recipients.length > 0 && !overLimit && consent && !pending;
 
@@ -135,46 +185,93 @@ export function MailForm({
     setFileName("");
     setSubject("");
     setBody(DEFAULT_BODY);
-    setConsent(false);
+    setConsentFor(null);
     setConfirming(false);
+    setResume(null);
     setDone(null);
     setNotice(null);
   }
 
-  function run(list: Recipient[], onFinish: (sent: number) => void) {
+  // Spedisce a gruppi da 50. Ogni gruppo ha il suo numero: se la rete cade e si preme «Riprova»,
+  // il server non rispedisce i gruppi già partiti.
+  function run(job: Resume) {
     setNotice(null);
+    setResume(null);
     startTransition(async () => {
-      let sent = 0;
-      for (let i = 0; i < list.length; i += CHUNK) {
-        setProgress({ sent, total: list.length });
-        const res = await sendMailChunk({ recipients: list.slice(i, i + CHUNK), subject, body });
+      let { sent } = job;
+      let failed = 0;
+      let excluded = 0;
+      const warnings: string[] = [];
+      for (let i = job.from; i < job.list.length; i += CHUNK) {
+        setProgress({ sent: i, total: job.list.length });
+        let res: Awaited<ReturnType<typeof sendMailChunk>>;
+        try {
+          res = await sendMailChunk({ sendId: job.sendId, index: i / CHUNK, recipients: job.list.slice(i, i + CHUNK), subject, body });
+        } catch {
+          res = { ok: false, error: "La connessione si è interrotta." };
+        }
         if (!res.ok) {
           setProgress(null);
           setConfirming(false);
+          setResume({ ...job, from: i, sent });
           setNotice({
             kind: "error",
-            text: `${res.error} ${sent > 0 ? `Sono partite ${sent} mail su ${list.length}: non rinviare a chi l'ha già ricevuta.` : "Non è partita nessuna mail."}`,
+            text: `${res.error} ${sent > 0 ? `Sono partite ${sent} mail su ${job.list.length}: «Riprova» continua da dove si è fermato, senza rimandarle a chi le ha già ricevute.` : "Non è partita nessuna mail."}`,
           });
+          router.refresh();
           return;
         }
         sent += res.data.sent;
+        failed += res.data.failed;
+        excluded += res.data.excluded;
+        if (res.data.warning) warnings.push(res.data.warning);
       }
       setProgress(null);
-      onFinish(sent);
+      setConfirming(false);
+      setDone({ sent, failed, excluded, warning: warnings[0] ?? null });
+      router.refresh();
     });
   }
 
   function sendTest() {
     if (!sample) return;
-    run([{ email: testTo.trim(), header: sample.header }], () =>
-      setNotice({ kind: "ok", text: `Prova inviata a ${testTo.trim()}. Controlla la posta (anche lo spam).` }),
-    );
+    const to = testTo.trim();
+    setNotice(null);
+    startTransition(async () => {
+      let res: Awaited<ReturnType<typeof sendMailTest>>;
+      try {
+        res = await sendMailTest({ to, header: sample.header, subject, body });
+      } catch {
+        res = { ok: false, error: "La connessione si è interrotta: riprova." };
+      }
+      if (!res.ok) {
+        setNotice({ kind: "error", text: res.error });
+        return;
+      }
+      try {
+        localStorage.setItem(LAST_TEST_KEY, to);
+      } catch {}
+      setNotice({ kind: "ok", text: `Prova inviata a ${to}. Controlla la posta (anche lo spam).` });
+      router.refresh();
+    });
   }
 
   function sendAll() {
-    run(recipients, (sent) => {
-      setConfirming(false);
-      setDone(sent);
+    const list = recipients;
+    setNotice(null);
+    startTransition(async () => {
+      let res: Awaited<ReturnType<typeof startMailSend>>;
+      try {
+        res = await startMailSend({ subject, recipients: list.length });
+      } catch {
+        res = { ok: false, error: "La connessione si è interrotta: riprova." };
+      }
+      if (!res.ok) {
+        setConfirming(false);
+        setNotice({ kind: "error", text: `${res.error} Non è partita nessuna mail.` });
+        return;
+      }
+      run({ sendId: res.data.id, list, from: 0, sent: 0 });
     });
   }
 
@@ -182,11 +279,21 @@ export function MailForm({
     return (
       <div className={`${card} text-center`}>
         <p className="text-3xl">✓</p>
-        <h2 className="mt-2 text-lg font-semibold">{done === 1 ? "Mail inviata" : `${done} mail inviate`}</h2>
+        <h2 className="mt-2 text-lg font-semibold">{done.sent === 1 ? "Mail inviata" : `${done.sent} mail inviate`}</h2>
         <p className="mx-auto mt-1 max-w-sm text-sm text-foreground-muted">
           Ogni persona ha ricevuto la sua mail con il proprio saluto. Le risposte arrivano a{" "}
           {replyTo ?? "chi ha l'indirizzo mittente"}. Non rinviare la stessa lista: arriverebbe due volte.
         </p>
+        {done.failed > 0 && (
+          <p className="mx-auto mt-2 max-w-sm text-sm text-danger" role="alert">
+            {done.failed === 1 ? "1 mail non è partita" : `${done.failed} mail non sono partite`}. {done.warning?.replace(/^\d+ non (è partita|sono partite): /, "")}
+          </p>
+        )}
+        {done.excluded > 0 && (
+          <p className="mx-auto mt-2 max-w-sm text-xs text-foreground-muted">
+            {done.excluded} {done.excluded === 1 ? "indirizzo escluso perché si è cancellato" : "indirizzi esclusi perché si sono cancellati"}.
+          </p>
+        )}
         <button type="button" onClick={reset} className={`${ghostBtn} mt-5`}>
           Nuovo invio
         </button>
@@ -198,12 +305,8 @@ export function MailForm({
     <div className="flex flex-col gap-5">
       {!configured && (
         <div className="rounded-2xl border border-accent/40 bg-accent/10 px-5 py-4 text-sm">
-          <p className="font-medium text-foreground">L&apos;invio non è ancora attivo</p>
-          <p className="mt-1 text-foreground-muted">
-            Manca il collegamento con il servizio di posta (chiave e indirizzo mittente). Puoi comunque
-            preparare la lista e il messaggio e vedere l&apos;anteprima: il pulsante di invio si accende
-            quando il collegamento è pronto.
-          </p>
+          <p className="font-medium text-foreground">{blockedTitle}</p>
+          <p className="mt-1 text-foreground-muted">{blocked}</p>
         </div>
       )}
 
@@ -246,6 +349,7 @@ export function MailForm({
             Carica un file con un indirizzo email per riga e, se vuoi, il saluto da mettere in cima alla
             mail di ognuno. Va bene un file Excel (come «Aziende Natale») o un file .csv.
           </p>
+          {!hasList && <p className="mt-2 text-xs text-foreground-muted">{quotaText}</p>}
 
           <label
             className={`mt-4 flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors hover:border-accent ${
@@ -389,6 +493,11 @@ export function MailForm({
                 {recipients.length === 1 ? "destinatario pronto" : "destinatari pronti"}
                 {sheet && ` (su ${sheet.rows.length} righe del file)`}
               </p>
+              {excludedOptOut > 0 && (
+                <p className="mt-1 text-xs text-foreground-muted">
+                  {excludedOptOut === 1 ? "1 indirizzo escluso perché si è cancellato" : `${excludedOptOut} indirizzi esclusi perché si sono cancellati`}.
+                </p>
+              )}
               {skipped.length > 0 && (
                 <p className="mt-1 text-xs text-foreground-muted">
                   {skipped.length} {skipped.length === 1 ? "riga scartata" : "righe scartate"} perché l&apos;email non è valida:{" "}
@@ -401,12 +510,10 @@ export function MailForm({
                   Nessuno ha il permesso documentato. Compila la colonna nel file e ricaricalo, oppure togli la spunta sopra se sai di poter scrivere a questi indirizzi.
                 </p>
               )}
-              {overLimit && (
-                <p className="mt-1 text-xs text-accent-ink">
-                  Sono più di {limit}, il massimo che il servizio gratuito permette in un giorno: l&apos;invio si fermerebbe a metà.
-                  Riduci la lista (ad esempio solo la priorità A) e scrivi agli altri nei giorni dopo.
-                </p>
-              )}
+              <p className={`mt-1 text-xs ${overLimit ? "text-accent-ink" : "text-foreground-muted"}`}>
+                {quotaText}
+                {overLimit && quota.available > 0 && " Riduci la lista (ad esempio solo la priorità A) e scrivi agli altri nei giorni dopo."}
+              </p>
             </div>
           )}
 
@@ -460,7 +567,7 @@ export function MailForm({
           </div>
 
           <div className="mt-5">
-            <MailPreview from={from} sample={sample} subject={subject} body={body} />
+            <MailPreview from={from} sample={sample} subject={subject} body={body} footer={footer} />
           </div>
 
           <div className="mt-5 flex justify-between gap-3">
@@ -485,12 +592,11 @@ export function MailForm({
               <dd className="text-lg font-semibold">{recipients.length}</dd>
             </div>
             <div className="rounded-xl bg-surface-2 p-3">
-              <dt className="text-xs text-foreground-muted">Limite di oggi</dt>
-              <dd className={`text-lg font-semibold ${overLimit ? "text-danger" : ""}`}>
-                {recipients.length} / {limit}
-              </dd>
+              <dt className="text-xs text-foreground-muted">Puoi mandarne ancora oggi</dt>
+              <dd className={`text-lg font-semibold ${overLimit ? "text-danger" : ""}`}>{quota.available}</dd>
             </div>
           </dl>
+          <p className="mt-2 text-xs text-foreground-muted">{quotaText}</p>
 
           <div className="mt-4">
             <div className="mb-2 flex items-center justify-between text-xs text-foreground-muted">
@@ -505,7 +611,7 @@ export function MailForm({
                 </button>
               </span>
             </div>
-            <MailPreview from={from} sample={sample} subject={subject} body={body} />
+            <MailPreview from={from} sample={sample} subject={subject} body={body} footer={footer} />
           </div>
 
           <div className="mt-5 rounded-xl border border-border p-4">
@@ -521,14 +627,25 @@ export function MailForm({
           </div>
 
           <label className="mt-5 flex cursor-pointer items-start gap-3 text-sm">
-            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
+            <input type="checkbox" checked={consent} onChange={(e) => setConsentFor(e.target.checked ? listKey : null)} className="mt-1" />
             <span>
               Confermo che posso scrivere a queste persone (hanno dato il consenso o c&apos;è un altro motivo valido) e che
               possono chiedere di non ricevere più mail.
             </span>
           </label>
 
-          {notice?.kind === "error" && <p className="mt-3 text-sm text-danger" role="alert">{notice.text}</p>}
+          {notice?.kind === "error" && (
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <p className="text-sm text-danger" role="alert">
+                {notice.text}
+              </p>
+              {resume && (
+                <button type="button" disabled={pending} onClick={() => run(resume)} className={`${ghostBtn} shrink-0`}>
+                  Riprova
+                </button>
+              )}
+            </div>
+          )}
           {overLimit && <p className="mt-3 text-sm text-danger">Troppi destinatari per oggi: torna indietro e riduci la lista.</p>}
 
           <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
@@ -536,7 +653,7 @@ export function MailForm({
               Indietro
             </button>
             {!confirming ? (
-              <button type="button" disabled={!canSend} onClick={() => setConfirming(true)} className={primaryBtn}>
+              <button type="button" disabled={!canSend || Boolean(resume)} onClick={() => setConfirming(true)} className={primaryBtn}>
                 Invia a {recipients.length} {recipients.length === 1 ? "persona" : "persone"}
               </button>
             ) : (
@@ -568,19 +685,38 @@ export function MailForm({
   );
 }
 
-function MailPreview({ from, sample, subject, body }: { from: string | null; sample?: Recipient; subject: string; body: string }) {
+function MailPreview({
+  from,
+  sample,
+  subject,
+  body,
+  footer,
+}: {
+  from: string | null;
+  sample?: Recipient;
+  subject: string;
+  body: string;
+  footer: MailFooterInfo;
+}) {
+  // Lo stesso piè di pagina della mail vera (mail-text.ts), con link finti.
+  const foot = mailFooter(footer, "#");
   return (
     <div className="overflow-hidden rounded-xl border border-border text-sm">
       <div className="space-y-0.5 border-b border-border bg-surface-2 px-4 py-3 text-xs text-foreground-muted">
-        <p>Da: {from ?? "indirizzo mittente (da attivare)"}</p>
-        <p>A: {sample?.email ?? "—"}</p>
-        <p className="font-medium text-foreground">Oggetto: {subject.trim() || "—"}</p>
+        <p className="break-words">Da: {from ?? "indirizzo mittente (da attivare)"}</p>
+        <p className="break-words">A: {sample?.email ?? "—"}</p>
+        <p className="break-words font-medium text-foreground">Oggetto: {subject.trim() || "—"}</p>
       </div>
-      <div className="whitespace-pre-wrap px-4 py-4">
+      <div className="whitespace-pre-wrap break-words px-4 py-4">
         {body.trim() ? applyHeader(body.trim(), sample?.header ?? "") : "Qui comparirà il tuo testo…"}
-        <p className="mt-4 border-t border-border pt-2 text-xs text-foreground-muted">
-          Se non vuoi più ricevere queste mail, rispondi scrivendo «cancellami».
-        </p>
+        <div className="mt-4 whitespace-normal border-t border-border pt-2 text-xs text-foreground-muted">
+          {foot.lines.map((l) => (
+            <p key={l}>{l}</p>
+          ))}
+          <p className="mt-1.5">
+            <span className="underline">Informativa sulla privacy</span> · <span className="underline">Non voglio più ricevere queste email</span>
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -10,7 +10,9 @@ import { loadBookingSettings, pendingCount } from "@/lib/booking/service";
 
 export const metadata = { title: "Impostazioni" };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ mail?: string | string[] }> }) {
+  // Arrivati da /mail con la sezione spenta: si dice perché e dove accenderla.
+  const mailOff = (await searchParams).mail === "spenta";
   const session = await getServerSession(authOptions);
   const [users, features, bookings, bookingsPending] = await Promise.all([
     prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
@@ -34,6 +36,11 @@ export default async function AccountPage() {
       </div>
 
       <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted">Sezioni da mostrare</h2>
+      {mailOff && !features.mail && (
+        <p role="status" className="mb-2 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-foreground">
+          La sezione Mail è spenta, quindi non si apre e non spedisce nulla. Per usarla accendi «Mail» qui sotto.
+        </p>
+      )}
       <div className="mb-6 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
         <FeatureSetting feature="ferie" visible={features.ferie} title="«Ferie»" hint="Ferie e permessi dei dipendenti. Spenta, non compare tra le sezioni; quello che c'è dentro resta." />
         <FeatureSetting feature="mail" visible={features.mail} title="«Mail»" hint="Invii di email ai clienti. Spenta, non compare tra le sezioni." />

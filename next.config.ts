@@ -55,6 +55,8 @@ const nextConfig: NextConfig = {
       // Pagina di stato della prenotazione: il link è la chiave (mai in cache, mai passato ad altri siti).
       // Dopo la regola generale qui sopra: per la stessa intestazione vale l'ultima.
       { source: "/menu/prenota/r/:path*", headers: [...noStore, { key: "Referrer-Policy", value: "no-referrer" }] },
+      // Pagina per non ricevere più le email: il link contiene l'indirizzo di chi l'ha ricevuto.
+      { source: "/mail/cancellami/:path*", headers: [...noStore, { key: "Referrer-Policy", value: "no-referrer" }] },
     ];
   },
 };
