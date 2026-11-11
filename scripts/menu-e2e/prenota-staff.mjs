@@ -132,8 +132,8 @@ try {
   DB(`insert into "BookingRequest" (id, code, "tokenHash", status, day, time, "startsAt", people, name, phone, contact, "isTest", manual, "createdBy", "updatedAt") values ('provacprovavera01', 'PRVC11', 'prova-c-prova-vera', 'CONFIRMED', '${D1.day}', '20:00', now() + interval '2 days', 3, 'Prova C Prova vera', '', 'whatsapp', true, true, 'Andrea', now()), ('provacprovaonl01', 'PRVC12', 'prova-c-prova-onl', 'PENDING', '${D1.day}', '20:30', now() + interval '2 days', 2, 'Prova C Prova online', '393330000000', 'whatsapp', true, false, null, now())`);
   await A.goto(`${BASE}/account`, { waitUntil: "networkidle", timeout: 180000 });
   check("spenta: nel menù in alto niente «Prenotazioni»", (await A.locator("nav").getByRole("link", { name: /^Prenotazioni/ }).count()) === 0);
-  const fromAccount = A.getByRole("link", { name: /Prenotazioni online \(in prova\)/ });
-  check("spenta: in Impostazioni «Prenotazioni online (in prova)»", (await fromAccount.count()) === 1);
+  const fromAccount = A.getByRole("link", { name: /Prenotazioni e agenda \(in prova\)/ });
+  check("spenta: in Impostazioni «Prenotazioni e agenda (in prova)»", (await fromAccount.count()) === 1);
   await fromAccount.click();
   await A.waitForURL(/\/prenotazioni$/);
   check("spenta: fascia «Agenda spenta · Richieste online spente» con «Accendi l'agenda»", /Agenda spenta · Richieste online spente/.test(await bodyText(A)) && (await A.getByRole("button", { name: "Accendi l'agenda", exact: true }).count()) === 1);
