@@ -16,7 +16,6 @@ import {
   q,
   BASE,
   ADMIN_PW,
-  EMP_PW,
   SHOTS,
   snapshotBookingSetting,
   restoreBookingSetting,

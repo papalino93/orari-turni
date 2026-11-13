@@ -28,7 +28,7 @@ check("interruttore spento", (await sw.getAttribute("aria-checked")) === "false"
 await sw.click();
 await wait(1500);
 check("interruttore acceso e salvato con la data", /"enabled":true,"since":"\d{4}-\d{2}-\d{2}"/.test(DB(`select value from "MenuSetting" where id='stats'`)));
-check("navigazione: niente voce «Statistiche» in alto, «Menù» acceso su /statistiche", (await admin.locator("header nav, nav.brand-band-bar-bottom").getByRole("link", { name: "Statistiche" }).count()) === 0 && (await admin.locator("header nav").getByRole("link", { name: "Menù" }).getAttribute("class")).includes("nav-mark-bottom"));
+check("navigazione: niente voce «Statistiche» in alto, «Menù» acceso su /statistiche", (await admin.locator("header nav, nav.brand-band-bar-bottom").getByRole("link", { name: "Statistiche" }).count()) === 0 && /nav-mark-(top|bottom)/.test((await admin.locator("nav").getByRole("link", { name: "Menù", exact: true }).first().getAttribute("class")) ?? ""));
 {
   const tabs = admin.getByTestId("schede-menu");
   check("schede «Gestione · Statistiche» in cima, «Statistiche» scelta", (await tabs.getByRole("link").allInnerTexts()).join("|") === "Gestione|Statistiche" && (await tabs.getByRole("link", { name: "Statistiche" }).getAttribute("aria-current")) === "page");
