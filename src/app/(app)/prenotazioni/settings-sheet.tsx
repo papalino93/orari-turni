@@ -64,9 +64,9 @@ export function SettingsSheet({
     }
   }
 
-  function copy() {
+  function copy(link: string) {
     navigator.clipboard
-      ?.writeText(googleLink)
+      ?.writeText(link)
       .then(() => toast.showSuccess("Link copiato"))
       .catch(() => toast.showError("Non riesco a copiare: tieni premuto sul link e copialo a mano."));
   }
@@ -189,7 +189,7 @@ export function SettingsSheet({
           {/* Sul telefono il link va a capo dentro il riquadro (prima usciva dal bordo), «Copia» sotto. */}
           <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <code className="min-w-0 flex-1 rounded-lg bg-surface-2 px-3 py-2.5 text-xs text-foreground [overflow-wrap:anywhere] select-all">{googleLink}</code>
-            <button type="button" onClick={copy} className="min-h-11 shrink-0 self-end rounded-full border border-border px-4 text-sm font-medium text-foreground hover:border-accent sm:self-auto">
+            <button type="button" onClick={() => copy(googleLink)} className="min-h-11 shrink-0 self-end rounded-full border border-border px-4 text-sm font-medium text-foreground hover:border-accent sm:self-auto">
               Copia
             </button>
           </div>
@@ -201,7 +201,34 @@ export function SettingsSheet({
           </ol>
           {!settings.enabled && <p className="text-xs text-foreground-muted">Prima accendi le prenotazioni online: da spente, chi tocca il link trova una pagina che non c&apos;è.</p>}
         </section>
+
+        <section className="space-y-3 rounded-xl border border-border p-4">
+          <h3 className="text-sm font-semibold text-foreground">Instagram e Facebook</h3>
+          <p className="text-sm text-foreground-muted">
+            Ogni link ha il suo segno: nelle richieste vedi «da Instagram» o «da Facebook» e capisci da dove arrivano i clienti.
+          </p>
+          {SOCIAL_LINKS.map((s) => {
+            const link = googleLink.replace("da=google", `da=${s.source}`);
+            return (
+              <div key={s.source} className="space-y-1.5">
+                <p className="text-sm font-medium text-foreground">{s.title}</p>
+                <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                  <code className="min-w-0 flex-1 rounded-lg bg-surface-2 px-3 py-2.5 text-xs text-foreground [overflow-wrap:anywhere] select-all">{link}</code>
+                  <button type="button" onClick={() => copy(link)} className="min-h-11 shrink-0 self-end rounded-full border border-border px-4 text-sm font-medium text-foreground hover:border-accent sm:self-auto">
+                    Copia
+                  </button>
+                </div>
+                <p className="text-xs text-foreground-muted">{s.hint}</p>
+              </div>
+            );
+          })}
+        </section>
       </div>
     </Sheet>
   );
 }
+
+const SOCIAL_LINKS = [
+  { source: "instagram", title: "Link nella bio di Instagram", hint: "Profilo → «Modifica profilo» → «Link» → «Aggiungi link esterno»: incolla, come titolo «Prenota un tavolo»." },
+  { source: "facebook", title: "Pulsante «Prenota» su Facebook", hint: "Pagina → «Modifica» sul pulsante blu → «Prenota ora» → «Link a sito web»: incolla e salva." },
+];

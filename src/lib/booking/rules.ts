@@ -285,6 +285,8 @@ export const STATUS_LABEL: Record<BookingView, string> = {
 
 export const SOURCE_LABEL: Record<string, string> = {
   google: "Google",
+  instagram: "Instagram",
+  facebook: "Facebook",
   menu: "Menù",
   evento: "Evento",
   altro: "Link diretto",
@@ -299,7 +301,7 @@ export const MANUAL_SOURCES = ["telefono", "whatsapp", "persona"] as const;
 export type ManualSource = (typeof MANUAL_SOURCES)[number];
 
 // Solo le provenienze del sito: un cliente non può dichiararsi «telefono» o «di persona».
-const ONLINE_SOURCES = ["google", "menu", "evento", "altro"];
+const ONLINE_SOURCES = ["google", "instagram", "facebook", "menu", "evento", "altro"];
 export function normalizeSource(v: unknown): string {
   return typeof v === "string" && ONLINE_SOURCES.includes(v) ? v : "altro";
 }

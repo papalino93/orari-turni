@@ -113,6 +113,8 @@ export function sourceText(source: string | null, promoTitle: string | null): st
   if (source === "persona") return "di persona";
   if (source === "evento" || promoTitle) return promoTitle ? `dall'evento «${promoTitle}»` : "da un evento";
   if (source === "google") return "da Google";
+  if (source === "instagram") return "da Instagram";
+  if (source === "facebook") return "da Facebook";
   if (source === "menu") return "dal menù";
   return "dal link diretto";
 }
