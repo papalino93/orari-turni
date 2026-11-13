@@ -62,8 +62,9 @@ export default async function UnsubscribePage({
           <p className="m-0 mt-2">
             Le email le manda {sender.company.trim() || VENUE_NAME}
             {sender.vat.trim() ? ` (P. IVA ${sender.vat.trim()})` : ""}
-            {venue.contacts.address ? `, ${venue.contacts.address}` : ""}. Del tuo contatto teniamo solo l&apos;indirizzo email e il nome
-            con cui ti salutiamo, per mandarti le notizie dell&apos;enoteca; non li diamo a nessuno.
+            {venue.contacts.address ? `, ${venue.contacts.address}` : ""}. Del tuo contatto teniamo l&apos;indirizzo email, il nome con cui
+            ti salutiamo, il telefono se ce l&apos;hai dato e quando ti abbiamo scritto, per mandarti le notizie dell&apos;enoteca; non li diamo a
+            nessuno.
           </p>
           <p className="m-0 mt-2">
             Puoi smettere di riceverle quando vuoi, da questa pagina

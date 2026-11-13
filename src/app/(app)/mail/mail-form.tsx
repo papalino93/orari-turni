@@ -14,8 +14,11 @@ import {
   type Recipient,
 } from "@/lib/mail-text";
 import { readXlsx, type Sheet } from "@/lib/xlsx";
+import { CONSENTS, type Consent } from "@/lib/mail-rubrica";
 import { sendMailChunk, sendMailTest, startMailSend } from "./actions";
 import { newRow, PasteReading, RecipientsTable, type Row } from "./recipients-table";
+import { useMail, type Mode } from "./mail-store";
+import { RubricaPicker } from "./rubrica-picker";
 
 const CHUNK = 50;
 const DEFAULT_BODY = "";
@@ -73,9 +76,9 @@ function typedFrom(saved: string | null): Row[] {
   }
 }
 
-// I tre modi di dire a chi scrivere. Ognuno tiene il suo elenco: si spedisce quello scelto.
-type Mode = "tabella" | "file" | "incolla";
+// I quattro modi di dire a chi scrivere. Ognuno tiene il suo elenco: si spedisce quello scelto.
 const MODES: { id: Mode; label: string; hint: string }[] = [
+  { id: "rubrica", label: "Dalla rubrica", hint: "Chi hai già salvato" },
   { id: "tabella", label: "Scrivili qui", hint: "Pochi indirizzi, o una prova" },
   { id: "file", label: "Carica un file", hint: "Excel o .csv" },
   { id: "incolla", label: "Incolla un elenco", hint: "Copiato da un foglio o da una mail" },
@@ -107,8 +110,8 @@ export function MailForm({
 }) {
   const configured = !blocked;
   const router = useRouter();
-  const [step, setStep] = useState(0);
-  const [mode, setMode] = useState<Mode>("tabella");
+  // Passo e modo stanno nella pagina: «Scrivi a questi» dalla rubrica li cambia da fuori.
+  const { step, setStep, mode, setMode, picked, setPicked, byEmail, data: rubrica, reload: reloadRubrica, writeNonce } = useMail();
   const [fileText, setFileText] = useState(""); // un .csv caricato
   const [pasted, setPasted] = useState("");
   const [typed, setTyped] = useState<Row[] | null>(null);
@@ -131,13 +134,15 @@ export function MailForm({
   const [typedTest, setTestTo] = useState<string | null>(null);
   const lastTest = useSyncExternalStore(noSubscribe, readLastTest, () => "");
   const testTo = typedTest ?? (savedTestEmail || lastTest);
-  // La spunta «Confermo…» vale per la lista per cui è stata data: se la lista cambia, si azzera.
-  const [consentFor, setConsentFor] = useState<string | null>(null);
+  // Il «perché posso scrivergli» vale per la lista per cui è stato scelto: se la lista cambia, si azzera.
+  const [basisFor, setBasisFor] = useState<{ key: string; basis: Consent } | null>(null);
   const [resume, setResume] = useState<Resume | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [progress, setProgress] = useState<{ sent: number; total: number } | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
-  const [done, setDone] = useState<{ sent: number; failed: number; excluded: number; warning: string | null } | null>(null);
+  // L'esito dell'ultimo invio, finché non si comincia un invio nuovo («Scrivi a questi» dalla rubrica).
+  const [doneState, setDone] = useState<{ nonce: number; sent: number; failed: number; excluded: number; warning: string | null } | null>(null);
+  const done = doneState && doneState.nonce === writeNonce ? doneState : null;
   const [pending, startTransition] = useTransition();
   const [dragging, setDragging] = useState(false);
 
@@ -153,13 +158,20 @@ export function MailForm({
     [sheet, headerColumn, groups, onlyDocumented, fileText],
   );
   const pasteList = useMemo(() => parseRecipients(pasted), [pasted]);
-  const lists = { tabella: typedList, file: fileList, incolla: pasteList };
+  // «Dalla rubrica»: le persone scelte, chi non vuole più email no (non si possono nemmeno scegliere).
+  const rubricaList = useMemo(() => {
+    const recipients: Recipient[] = [];
+    if (rubrica) for (const c of rubrica.contacts) if (picked.has(c.id) && !c.out) recipients.push({ email: c.email, header: c.name });
+    return { recipients, skipped: [] as string[], duplicates: 0 };
+  }, [rubrica, picked]);
+  const lists = { rubrica: rubricaList, tabella: typedList, file: fileList, incolla: pasteList };
   const has = {
+    rubrica: picked.size > 0,
     tabella: typedList.states.some((st) => st.kind !== "vuota"),
     file: Boolean(fileName),
     incolla: pasted.trim().length > 0,
   };
-  const active = mode === "tabella" ? typedList : mode === "file" ? fileList : pasteList;
+  const active = mode === "rubrica" ? rubricaList : mode === "tabella" ? typedList : mode === "file" ? fileList : pasteList;
   const { recipients: parsed, skipped, duplicates } = active;
   // Chi si è cancellato non riceve più nulla (il server li toglie comunque).
   const optedOutSet = useMemo(() => new Set(optedOut), [optedOut]);
@@ -167,7 +179,10 @@ export function MailForm({
   const recipients = useMemo(() => parsed.filter((r) => !optedOutSet.has(r.email)), [parsed, optedOutSet]);
   const excludedOptOut = parsed.length - recipients.length;
   const listKey = useMemo(() => recipients.map((r) => `${r.email}\u0000${r.header}`).join("\n"), [recipients]);
-  const consent = consentFor === listKey;
+  const basis = basisFor?.key === listKey ? basisFor.basis : null;
+  const consent = basis !== null;
+  // Tutti già in rubrica: per loro resta il motivo già segnato; quello scelto vale per i nuovi.
+  const newcomers = rubrica ? recipients.filter((r) => !byEmail.has(r.email)).length : null;
   const hasList = has[mode];
   // Gli altri elenchi preparati e messi da parte: si dice che non verranno usati.
   const aside = MODES.filter((m) => m.id !== mode && has[m.id]);
@@ -249,7 +264,8 @@ export function MailForm({
     setBody(DEFAULT_BODY);
     setGreeting("Gentile");
     setWithName(true);
-    setConsentFor(null);
+    setBasisFor(null);
+    setPicked(new Set());
     setConfirming(false);
     setResume(null);
     setDone(null);
@@ -294,8 +310,10 @@ export function MailForm({
       setConfirming(false);
       // Partito l'elenco scritto a mano: non serve più ricordarlo.
       if (job.mode === "tabella") setRows([newRow()]);
-      setDone({ sent, failed, excluded, warning: warnings[0] ?? null });
+      setDone({ nonce: writeNonce, sent, failed, excluded, warning: warnings[0] ?? null });
       router.refresh();
+      // Chi l'ha ricevuta è in rubrica, con l'ultima mail aggiornata.
+      if (rubrica) void reloadRubrica();
     });
   }
 
@@ -324,11 +342,12 @@ export function MailForm({
 
   function sendAll() {
     const list = recipients;
+    if (!basis) return;
     setNotice(null);
     startTransition(async () => {
       let res: Awaited<ReturnType<typeof startMailSend>>;
       try {
-        res = await startMailSend({ subject, recipients: list.length });
+        res = await startMailSend({ subject, recipients: list.length, basis });
       } catch {
         res = { ok: false, error: "La connessione si è interrotta: riprova." };
       }
@@ -418,7 +437,7 @@ export function MailForm({
 
           <fieldset className="mt-4">
             <legend className="sr-only">Come vuoi aggiungere i destinatari?</legend>
-            <div className="grid grid-cols-3 gap-1 rounded-2xl bg-surface-2 p-1">
+            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-surface-2 p-1 sm:grid-cols-4">
               {MODES.map((m) => {
                 const on = mode === m.id;
                 const n = ready(lists[m.id].recipients).length;
@@ -452,6 +471,8 @@ export function MailForm({
               })}
             </div>
           </fieldset>
+
+          {mode === "rubrica" && <RubricaPicker />}
 
           {mode === "tabella" && (
             <>
@@ -616,7 +637,14 @@ export function MailForm({
                 {mode === "file" && sheet && ` (su ${sheet.rows.length} righe del file)`}
               </p>
               <p className="mt-0.5 text-xs text-foreground-muted">
-                {mode === "tabella" ? "Si userà l'elenco scritto qui." : mode === "file" ? `Si userà il file «${fileName}».` : "Si userà l'elenco incollato."}
+                {mode === "rubrica"
+                  ? "Si userà la scelta dalla rubrica."
+                  : mode === "tabella"
+                    ? "Si userà l'elenco scritto qui."
+                    : mode === "file"
+                      ? `Si userà il file «${fileName}».`
+                      : "Si userà l'elenco incollato."}{" "}
+                {mode !== "rubrica" && "Dopo l'invio, chi lo riceve entra da solo nella rubrica."}
               </p>
               {excludedOptOut > 0 && (
                 <p className="mt-1 text-xs text-foreground-muted">
@@ -661,11 +689,13 @@ export function MailForm({
           <div className="mt-5 flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
             {recipients.length === 0 && (
               <p className="text-center text-xs text-foreground-muted sm:mr-auto sm:text-left">
-                {mode === "tabella"
-                  ? "Scrivi almeno un indirizzo per andare avanti."
-                  : mode === "file"
-                    ? "Carica un file per andare avanti."
-                    : "Incolla almeno un indirizzo per andare avanti."}
+                {mode === "rubrica"
+                  ? "Scegli almeno una persona per andare avanti."
+                  : mode === "tabella"
+                    ? "Scrivi almeno un indirizzo per andare avanti."
+                    : mode === "file"
+                      ? "Carica un file per andare avanti."
+                      : "Incolla almeno un indirizzo per andare avanti."}
               </p>
             )}
             <button type="button" disabled={recipients.length === 0} onClick={() => setStep(1)} className={primaryBtn}>
@@ -803,13 +833,29 @@ export function MailForm({
             {notice?.kind === "ok" && <p className="mt-2 text-sm text-foreground" role="status">{notice.text}</p>}
           </div>
 
-          <label className="mt-5 flex cursor-pointer items-start gap-3 text-sm">
-            <input type="checkbox" checked={consent} onChange={(e) => setConsentFor(e.target.checked ? listKey : null)} className="mt-1" />
-            <span>
-              Confermo che posso scrivere a queste persone (hanno dato il consenso o c&apos;è un altro motivo valido) e che
-              possono chiedere di non ricevere più mail.
-            </span>
-          </label>
+          <fieldset className="mt-5 rounded-xl border border-border p-4">
+            <legend className="px-1 text-sm font-medium">Perché puoi scrivere a queste persone?</legend>
+            <div className="mt-1 grid gap-2 sm:grid-cols-3">
+              {CONSENTS.map((c) => (
+                <label
+                  key={c.id}
+                  className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${
+                    basis === c.id ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground hover:border-accent"
+                  }`}
+                >
+                  <input type="radio" name="mail-basis" checked={basis === c.id} onChange={() => setBasisFor({ key: listKey, basis: c.id })} className="h-4 w-4 shrink-0 accent-accent" />
+                  <span>{c.plural}</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-2.5 text-xs text-foreground-muted">
+              Scegliendo confermi che puoi scrivergli e che ognuno può chiedere di non ricevere più mail (il link è in fondo a ogni
+              mail).{" "}
+              {newcomers === 0
+                ? "Sono tutti già in rubrica: per loro resta il motivo già segnato."
+                : "Chi non è ancora in rubrica ci entra con questo motivo."}
+            </p>
+          </fieldset>
 
           {notice?.kind === "error" && (
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">

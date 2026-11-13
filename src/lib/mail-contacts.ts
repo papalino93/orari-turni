@@ -66,6 +66,7 @@ export async function loadRubrica(): Promise<RubricaData> {
       }),
     ),
     groups: groups.map((g) => ({ id: g.id, name: g.name, color: g.color, sortOrder: g.sortOrder })),
+    optOuts: optOuts.map((o) => o.email),
   };
 }
 

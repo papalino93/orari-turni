@@ -63,7 +63,9 @@ export type RContact = {
   out: { at: string; source: string } | null;
 };
 export type RGroup = { id: string; name: string; color: string; sortOrder: number };
-export type RubricaData = { contacts: RContact[]; groups: RGroup[] };
+// optOuts: tutti gli indirizzi che non vogliono più email (anche chi non è in rubrica), per
+// l'anteprima dell'importazione.
+export type RubricaData = { contacts: RContact[]; groups: RGroup[]; optOuts: string[] };
 
 // Ricerca senza accenti e senza maiuscole: «nicolo» trova «Nicolò».
 export function fold(s: string): string {

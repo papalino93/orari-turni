@@ -6,6 +6,7 @@ import { phoneProblem } from "@/lib/booking/rules";
 import { ChatIcon, ContactButtons, pillFilled } from "./ui";
 import { PrivacyText } from "./privacy-text";
 import { edgeFade } from "@/lib/edge-fade";
+import { BOOKING_OPTIN_TEXT } from "@/lib/mail-rubrica";
 
 export type FormDay = {
   day: string;
@@ -23,7 +24,7 @@ export type FormDay = {
   events: { title: string; slug: string; startTime: string | null }[];
 };
 
-type Field = "people" | "day" | "time" | "name" | "phone" | "email" | "privacy";
+type Field = "people" | "day" | "time" | "name" | "phone" | "email" | "privacy" | "newsEmail";
 type Contact = "whatsapp" | "email";
 
 const DRAFT_KEY = "prenota-bozza";
@@ -117,6 +118,10 @@ export function BookingForm({
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
   const [privacy, setPrivacy] = useState(false);
+  // Novità ed eventi per email: facoltativo, mai spuntato in partenza. Con la risposta su WhatsApp
+  // serve un'email a parte.
+  const [news, setNews] = useState(false);
+  const [newsEmail, setNewsEmail] = useState("");
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -217,7 +222,7 @@ export function BookingForm({
       if (!el) return;
       el.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
       const input = el.querySelector<HTMLElement>("input:not([type=hidden]), textarea");
-      if (input && (field === "name" || field === "phone" || field === "email")) input.focus({ preventScroll: true });
+      if (input && (field === "name" || field === "phone" || field === "email" || field === "newsEmail")) input.focus({ preventScroll: true });
     });
   }
 
@@ -231,6 +236,8 @@ export function BookingForm({
     if (phoneError) return ["phone", phoneError];
     if (useEmail && !EMAIL.test(email.trim())) return ["email", email.trim() ? "L'indirizzo email non sembra giusto: controllalo." : "Scrivi la tua email."];
     if (!privacy) return ["privacy", "Per inviare la richiesta, spunta la casella qui sopra."];
+    if (news && !useEmail && !EMAIL.test(newsEmail.trim()))
+      return ["newsEmail", newsEmail.trim() ? "L'indirizzo email non sembra giusto: controllalo." : "Scrivi l'email per ricevere le novità, oppure togli la spunta."];
     return null;
   }
 
@@ -260,6 +267,8 @@ export function BookingForm({
           email: useEmail ? email.trim() : "",
           note: note.trim(),
           privacy,
+          news,
+          newsEmail: news && !useEmail ? newsEmail.trim() : "",
           source,
           event: event?.slug ?? "",
           t: stamp,
@@ -292,7 +301,7 @@ export function BookingForm({
       return;
     }
     setSending(false);
-    const field = data.field && ["people", "day", "time", "name", "phone", "email", "privacy"].includes(data.field) ? data.field : null;
+    const field = data.field && ["people", "day", "time", "name", "phone", "email", "privacy", "newsEmail"].includes(data.field) ? data.field : null;
     showError(field, data.error || "Qualcosa non ha funzionato: riprova tra poco.");
     // Giorno o ora non più disponibili: si ricaricano giorni e orari, quello che si è scritto resta.
     if (field === "day" || field === "time") router.refresh();
@@ -614,6 +623,46 @@ export function BookingForm({
                   <p id="errore-privacy" role="alert" className="menu-sans m-0 mt-2 text-[13.5px] font-medium text-[#A11B1B]">
                     {errors.privacy}
                   </p>
+                )}
+              </div>
+
+              <div id="campo-novita" className="mt-5">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={news}
+                    onChange={(e) => {
+                      setNews(e.target.checked);
+                      clearError("newsEmail");
+                    }}
+                    aria-describedby="campo-novita-aiuto"
+                    className="mt-0.5 h-[22px] w-[22px] flex-none accent-[#6B1020]"
+                  />
+                  <span className="text-[16.5px] leading-snug text-[#1F2621]">{BOOKING_OPTIN_TEXT}</span>
+                </label>
+                <p id="campo-novita-aiuto" className="menu-sans m-0 ml-[34px] mt-1 text-[12.5px] text-[#5B605A]">
+                  Facoltativo. Poche mail, e ti cancelli quando vuoi con un tocco in fondo a ognuna.
+                  {news && useEmail && email.trim() ? ` Le mandiamo a ${email.trim()}.` : ""}
+                </p>
+                {news && !useEmail && (
+                  <div className="ml-[34px] mt-3">
+                    <TextField
+                      id="campo-newsEmail"
+                      label="La tua email per le novità"
+                      type="email"
+                      inputMode="email"
+                      value={newsEmail}
+                      onChange={(v) => {
+                        setNewsEmail(v);
+                        clearError("newsEmail");
+                      }}
+                      error={errors.newsEmail}
+                      autoComplete="email"
+                      maxLength={254}
+                      placeholder="nome@esempio.it"
+                      hint="Solo per le novità: per il tavolo ti rispondiamo su WhatsApp."
+                    />
+                  </div>
                 )}
               </div>
 
