@@ -6,6 +6,7 @@ import { loadVenue } from "@/lib/menu";
 import { mailConfigured } from "@/lib/mail";
 import { bookingStats, listBookings, loadBookingSettings, siteOrigin } from "@/lib/booking/service";
 import { menuSuggestions } from "@/lib/booking/agenda-server";
+import { effectiveMode, venueDeviceExists, venueWho, whatsappRole, whoChoices, VENUE_LABEL } from "@/lib/booking/venue";
 import { pushPublicKey } from "@/lib/booking/push";
 import { BookingsView } from "./bookings-view";
 import { toBookingItem } from "./items";
@@ -59,7 +60,7 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const origin = siteOrigin(host ? `${h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}` : null);
-  const [list, stats, venue, subs, menus] = await Promise.all([
+  const [list, stats, venue, subs, menus, venueExists, who] = await Promise.all([
     listBookings(now),
     bookingStats(now),
     loadVenue(),
@@ -68,7 +69,14 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
       select: { endpoint: true, localPhone: true },
     }),
     menuSuggestions(),
+    venueDeviceExists(),
+    venueWho(manager),
   ]);
+  const waMode = effectiveMode(settings, venueExists);
+  // Sul telefono enoteca: chi lo sta usando («Chi sei?»), con prima chi è in turno oggi.
+  const venueDevice = manager.venueDevice
+    ? { who: who?.name ?? null, choices: await whoChoices(list.today), label: VENUE_LABEL }
+    : null;
 
   const rows: BookingItem[] = list.rows.map((b) => toBookingItem(b, origin));
 
@@ -81,6 +89,8 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
       settings={settings}
       hours={venue.hours}
       menus={menus}
+      wa={{ role: whatsappRole(manager, waMode), mode: waMode, me: who ? `${who.name} (${VENUE_LABEL})` : manager.venueDevice ? null : manager.name, venueDevice: Boolean(manager.venueDevice), venueExists }}
+      venueDevice={venueDevice}
       phoneUA={/iPhone|Android.+Mobile|Mobile Safari/i.test(h.get("user-agent") ?? "")}
       stats={stats}
       isOwner={manager.role === "ADMIN"}

@@ -41,6 +41,8 @@ export function toBookingItem(b: FullRow, origin: string): BookingItem {
     timeUnknown: b.timeUnknown,
     peopleUnknown: b.peopleUnknown,
     menu: b.menu,
+    waClaimBy: b.waClaimBy,
+    waClaimAt: b.waClaimAt?.getTime() ?? null,
     createdAt: b.createdAt.getTime(),
     updatedAt: b.updatedAt.getTime(),
     statusUrl: `${origin}${statusPath(b.id)}`,
