@@ -36,6 +36,7 @@ import {
   type BookingSettings,
   type DayAvailability,
   type DayClosure,
+  mentionsAllergy,
 } from "@/lib/booking/rules";
 import { customerMessage, customerSubject, staffAlert, VENUE_NAME, type MessageKind } from "@/lib/booking/messages";
 import { sendPushToStaff } from "@/lib/booking/push";
@@ -295,7 +296,7 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
             email: contact === "email" ? email || null : null,
             contact,
             note: note || null,
-            allergies: input.allergies === true,
+            allergies: input.allergies === true || mentionsAllergy(note),
             source,
             promoId: promo?.id ?? null,
             isTest,

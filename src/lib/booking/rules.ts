@@ -417,3 +417,10 @@ export function phoneReadable(international: string): string {
   }
   return `+${international}`;
 }
+
+// Il modulo del cliente non ha più la domanda sulle allergie: basta scriverlo nelle note. Se la
+// nota ne parla, la richiesta si segna «con allergie» da sola (bollino rosso per il personale).
+const ALLERGY_WORDS = /allergi|allergic|intolleran|celiac|glutine|gluten|lattosio|lactose|nichel|anafilass|epipen|frutta\s+a\s+guscio|arachid|crostace|molluschi|sesamo|senape|sedano|lupini|solfiti/i;
+export function mentionsAllergy(note: string | null | undefined): boolean {
+  return Boolean(note && ALLERGY_WORDS.test(note));
+}

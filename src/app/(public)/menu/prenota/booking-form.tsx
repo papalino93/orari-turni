@@ -115,9 +115,7 @@ export function BookingForm({
   const [phone, setPhone] = useState("");
   const [contact, setContact] = useState<Contact>("whatsapp");
   const [email, setEmail] = useState("");
-  const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
-  const [allergies, setAllergies] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -164,11 +162,7 @@ export function BookingForm({
         if (typeof d.phone === "string") setPhone(d.phone);
         if (typeof d.email === "string") setEmail(d.email);
         if (d.contact === "email" && mailOn) setContact("email");
-        if (typeof d.note === "string" && d.note) {
-          setNote(d.note.slice(0, NOTE_MAX));
-          setNoteOpen(true);
-        }
-        if (typeof d.allergies === "boolean") setAllergies(d.allergies);
+        if (typeof d.note === "string" && d.note) setNote(d.note.slice(0, NOTE_MAX));
         if (typeof d.people === "number" && d.people >= 1 && d.people <= maxPeople) setPeople(d.people);
         if (!event && typeof d.day === "string" && days.some((x) => x.day === d.day && x.state === "open")) {
           setDay(d.day);
@@ -188,11 +182,11 @@ export function BookingForm({
   useEffect(() => {
     if (!restored) return;
     try {
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ name, phone, email, contact, note, allergies, people: typeof people === "number" ? people : null, day, time }));
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ name, phone, email, contact, note, people: typeof people === "number" ? people : null, day, time }));
     } catch {
       // memoria non disponibile: pazienza
     }
-  }, [restored, name, phone, email, contact, note, allergies, people, day, time]);
+  }, [restored, name, phone, email, contact, note, people, day, time]);
 
   // Il giorno già scelto (da un evento o dalla bozza) si vede nella striscia, senza far scorrere la pagina.
   // Solo la prima volta: dopo, la striscia resta dove la si è lasciata.
@@ -265,7 +259,6 @@ export function BookingForm({
           contact: useEmail ? "email" : "whatsapp",
           email: useEmail ? email.trim() : "",
           note: note.trim(),
-          allergies,
           privacy,
           source,
           event: event?.slug ?? "",
@@ -567,59 +560,26 @@ export function BookingForm({
                   )}
 
                   <div>
-                    <button
-                      type="button"
-                      aria-expanded={noteOpen}
-                      aria-controls="campo-note"
-                      onClick={() => setNoteOpen((v) => !v)}
-                      className="menu-sans flex min-h-11 items-center gap-2 text-[14px] font-medium text-[#6B1020]"
-                    >
-                      <span aria-hidden className="inline-flex h-6 w-6 items-center justify-center rounded-full border !border-[#6B1020] text-[16px] leading-none">
-                        {noteOpen ? "−" : "+"}
+                    <label htmlFor="campo-note" className="menu-sans mb-1.5 block text-[14px] font-medium text-[#1F2621]">
+                      Note <span className="font-normal text-[#5B605A]">(facoltative)</span>
+                    </label>
+                    <textarea
+                      id="campo-note"
+                      value={note}
+                      maxLength={NOTE_MAX}
+                      rows={3}
+                      onChange={(e) => setNote(e.target.value)}
+                      aria-describedby="campo-note-aiuto"
+                      placeholder="Es. allergie o intolleranze, un seggiolone per un bambino, un compleanno…"
+                      className="menu-sans block w-full resize-y rounded-xl border bg-[#FBF7EF] px-4 py-3 text-[16px] leading-snug text-[#1F2621] outline-none placeholder:text-[#8A8F88] focus:!border-[#6B1020]"
+                    />
+                    <div id="campo-note-aiuto" className="menu-sans mt-1 flex justify-between gap-3 text-[12px] text-[#5B605A]">
+                      <span>Per le allergie basta scriverlo: ne parliamo al tavolo.</span>
+                      <span className="flex-none tabular-nums">
+                        {note.length}/{NOTE_MAX}
                       </span>
-                      {noteOpen ? "Nascondi la nota" : note.trim() ? "Nota aggiunta: modificala" : "Aggiungi una nota"}
-                    </button>
-                    {noteOpen && (
-                      <div id="campo-note" className="mt-2">
-                        <textarea
-                          aria-label="Nota"
-                          value={note}
-                          maxLength={NOTE_MAX}
-                          rows={3}
-                          onChange={(e) => setNote(e.target.value)}
-                          placeholder="Es. un seggiolone, un compleanno, un tavolo tranquillo…"
-                          className="menu-sans block w-full resize-y rounded-xl border bg-[#FBF7EF] px-4 py-3 text-[16px] leading-snug text-[#1F2621] outline-none placeholder:text-[#8A8F88] focus:!border-[#6B1020]"
-                        />
-                        <div className="menu-sans mt-1 flex justify-between gap-3 text-[12px] text-[#5B605A]">
-                          <span>Per le allergie usa la domanda qui sotto.</span>
-                          <span className="flex-none tabular-nums">
-                            {note.length}/{NOTE_MAX}
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
-
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={allergies}
-                    onClick={() => setAllergies((v) => !v)}
-                    className="flex w-full items-center gap-4 rounded-2xl border bg-[#FBF7EF] px-4 py-3.5 text-left"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[17px] font-medium leading-snug text-[#1F2621]">Qualcuno ha allergie o intolleranze?</span>
-                      <span className="menu-sans mt-0.5 block text-[13px] leading-snug text-[#5B605A]">
-                        {allergies ? "Sì: ne parliamo al tavolo." : "Ne parliamo al tavolo: qui basta un sì."}
-                      </span>
-                    </span>
-                    <span
-                      aria-hidden
-                      className={`relative h-7 w-12 flex-none rounded-full transition-colors ${allergies ? "bg-[#6B1020]" : "bg-[#D9CEBC]"}`}
-                    >
-                      <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[left] ${allergies ? "left-[22px]" : "left-0.5"}`} />
-                    </span>
-                  </button>
                 </div>
               </Step>
 
