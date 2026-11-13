@@ -41,6 +41,8 @@ import {
 import { customerMessage, customerSubject, staffAlert, VENUE_NAME, type MessageKind } from "@/lib/booking/messages";
 import { sendPushToStaff } from "@/lib/booking/push";
 import { whatsappPending } from "@/lib/booking/whatsapp-queue";
+import { importable, importSig, parseImport, IMPORT_MAX_ROWS } from "@/lib/booking/import";
+import type { Hours } from "@/lib/menu-venue";
 
 export type BookingRow = Awaited<ReturnType<typeof prisma.bookingRequest.findFirstOrThrow>>;
 
@@ -426,7 +428,8 @@ export type ManualResult =
 
 type CleanManual = { day: string; time: string; startsAt: Date; people: number; name: string; phone: string; table: string | null; note: string | null; allergies: boolean };
 
-const SOURCE_LOG: Record<ManualSource, string> = { telefono: "telefono", whatsapp: "WhatsApp", persona: "di persona" };
+// Nella cronologia: «Segnata da Marta (telefono)». «librone»: arrivate con «Importa dal librone».
+const SOURCE_LOG: Record<ManualSource | "librone", string> = { telefono: "telefono", whatsapp: "WhatsApp", persona: "di persona", librone: "dal librone" };
 
 // keep: giorno e ora della prenotazione che si modifica (un giorno o un'ora già passati si possono
 // tenere senza domande, per esempio per segnare il tavolo di ieri sera).
@@ -497,18 +500,29 @@ export async function createManualBooking(input: ManualInput, actor: StaffActor,
   // Di prova solo con l'agenda spenta (o da un'anteprima): con l'agenda accesa quello che si segna è vero.
   const isTest = !settings.agendaEnabled || isPreview();
   // Doppio tocco su «Segna in agenda» (o rete che ripete l'invio): la stessa prenotazione non si segna due volte.
-  const twin = await prisma.bookingRequest.findFirst({
-    where: { manual: true, createdBy: actor.name, name: v.name, day: v.day, time: v.time, people: v.people, status: "CONFIRMED", createdAt: { gte: new Date(now.getTime() - 2 * 60000) } },
-  });
+  const twin = await recentTwin(v, actor, now);
   if (twin) return { ok: true, booking: twin, whatsappHref: await confirmationHref(twin, origin) };
   if (input.dupOk !== true) {
     const dup = await findDuplicate({ day: v.day, phone: v.phone, name: v.name, isTest });
     if (dup) return { ok: false, error: "C'è già una prenotazione simile.", ask: dupQuestion(dup), dup: true };
   }
-  let created: BookingRow | null = null;
-  for (let attempt = 0; attempt < 5 && !created; attempt++) {
+  const created = await insertManual(v, source, actor, isTest);
+  if (!created) return { ok: false, error: "Non sono riuscito a salvarla: riprova tra poco." };
+  return { ok: true, booking: created, whatsappHref: await confirmationHref(created, origin) };
+}
+
+// La stessa prenotazione segnata dalla stessa persona negli ultimi 2 minuti (doppio tocco).
+function recentTwin(v: CleanManual, actor: StaffActor, now: Date): Promise<BookingRow | null> {
+  return prisma.bookingRequest.findFirst({
+    where: { manual: true, createdBy: actor.name, name: v.name, day: v.day, time: v.time, people: v.people, status: "CONFIRMED", createdAt: { gte: new Date(now.getTime() - 2 * 60000) } },
+  });
+}
+
+// Salva una prenotazione segnata a mano: già confermata, con la riga «Segnata da …» in cronologia.
+async function insertManual(v: CleanManual, source: ManualSource | "librone", actor: StaffActor, isTest: boolean): Promise<BookingRow | null> {
+  for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      created = await prisma.$transaction(async (tx) => {
+      return await prisma.$transaction(async (tx) => {
         const row = await tx.bookingRequest.create({
           data: {
             code: newCode(),
@@ -536,26 +550,134 @@ export async function createManualBooking(input: ManualInput, actor: StaffActor,
         return withToken;
       });
     } catch (e) {
+      // Codice già usato (rarissimo): se ne prova un altro.
       if (!(e instanceof Error && /Unique constraint/i.test(e.message))) throw e;
     }
   }
-  if (!created) return { ok: false, error: "Non sono riuscito a salvarla: riprova tra poco." };
-  return { ok: true, booking: created, whatsappHref: await confirmationHref(created, origin) };
+  return null;
+}
+
+// ---------- «Importa dal librone»: tante prenotazioni insieme da una lista incollata
+//
+// Il testo si rilegge qui (parseImport), mai fidandosi dell'anteprima del browser. Ogni riga buona
+// passa da cleanManual come «Segna lo stesso» (giorno chiuso o fuori orario non bloccano: sul librone
+// c'erano già), ma un giorno passato no. Le prenotazioni già in agenda (stesso numero o stesso nome
+// quel giorno) si saltano, tranne quelle che chi importa ha scelto di tenere («Importa lo stesso»).
+
+export type ImportLineResult = {
+  line: number;
+  // Impronta della riga letta (importSig): il foglio la confronta con la sua anteprima.
+  sig: string;
+  ok: boolean;
+  id?: string;
+  error?: string;
+  // Già in agenda: «C'è già Rossi alle 20:30 (4 persone)». skippedDuplicate: per questo non segnata.
+  dup?: string;
+  skippedDuplicate?: boolean;
+  // Uguale alla riga… della stessa lista: non si segna due volte.
+  repeatOf?: number;
+  // Non blocca: giorno chiuso, ora fuori apertura o già passata.
+  warning?: string;
+};
+
+export async function importManualBookings(
+  text: string,
+  keepLines: number[],
+  actor: StaffActor,
+  opts: { dryRun: boolean },
+  now: Date = new Date(),
+): Promise<{ ok: true; results: ImportLineResult[]; isTest: boolean } | { ok: false; error: string }> {
+  const rows = parseImport(text, now).filter((r) => r.kind === "booking");
+  if (rows.length > IMPORT_MAX_ROWS) return { ok: false, error: `Al massimo ${IMPORT_MAX_ROWS} prenotazioni alla volta: dividi la lista in più parti.` };
+  const keep = new Set(keepLines);
+  const settings = await loadBookingSettings();
+  const isTest = !settings.agendaEnabled || isPreview();
+  const days = [...new Set(rows.filter(importable).map((r) => r.day as string))].sort();
+  // Una lettura sola per i doppioni e una per gli orari: le prenotazioni segnate qui non contano
+  // (due «Rossi» diversi lo stesso giorno nella lista si segnano tutti e due).
+  const [existing, venue, closures] = days.length
+    ? await Promise.all([
+        prisma.bookingRequest.findMany({ where: { day: { in: days }, isTest, status: { in: [...DUP_STATUSES] } }, select: DUP_SELECT, orderBy: { startsAt: "asc" } }),
+        loadVenue(),
+        closuresBetween(days[0], days[days.length - 1]),
+      ])
+    : [[], null, new Map<string, DayClosure>()];
+  const results: ImportLineResult[] = [];
+  for (const r of rows) {
+    const base = { line: r.line, sig: importSig(r) };
+    if (r.errors.length) {
+      results.push({ ...base, ok: false, error: r.errors.join(" · ") });
+      continue;
+    }
+    if (r.repeatOf !== null) {
+      results.push({ ...base, ok: false, repeatOf: r.repeatOf });
+      continue;
+    }
+    const c = await cleanManual(
+      { day: r.day, time: r.time, people: r.people, name: r.name, phone: r.phone, table: r.table, note: r.note, allergies: mentionsAllergy(r.note), force: true },
+      "librone",
+      now,
+    );
+    if (!c.ok) {
+      results.push({ ...base, ok: false, error: c.error });
+      continue;
+    }
+    const v = c.v;
+    const warning = importWarning(v, venue?.hours ?? null, closures.get(v.day) ?? null, now);
+    const dupRow = pickDuplicate(
+      existing.filter((e) => e.day === v.day),
+      { phone: v.phone || null, name: v.name },
+    );
+    const dup = dupRow ? `C'è già ${dupRow.status === "CONFIRMED" ? "" : "una richiesta di "}${dupRow.name} alle ${dupRow.time} (${peopleText(dupRow.people)})${dupRow.status === "CONFIRMED" ? "" : ", da confermare"}` : undefined;
+    if (dup && !keep.has(r.line)) {
+      results.push({ ...base, ok: false, dup, skippedDuplicate: true, warning });
+      continue;
+    }
+    if (opts.dryRun) {
+      results.push({ ...base, ok: true, dup, warning });
+      continue;
+    }
+    try {
+      const saved = (await recentTwin(v, actor, now)) ?? (await insertManual(v, "librone", actor, isTest));
+      results.push(saved ? { ...base, ok: true, id: saved.id, dup, warning } : { ...base, ok: false, error: "Non sono riuscito a salvarla: riprova tra poco." });
+    } catch (e) {
+      console.error("[prenotazioni] importa dal librone:", e);
+      results.push({ ...base, ok: false, error: "Non sono riuscito a salvarla: riprova tra poco." });
+    }
+  }
+  return { ok: true, results, isTest };
+}
+
+// Avviso (non blocca) per una prenotazione dal librone: le stesse domande del foglio «Nuova prenotazione».
+function importWarning(v: CleanManual, hours: Hours | null, closure: DayClosure | null, now: Date): string | undefined {
+  if (v.startsAt.getTime() < now.getTime() - 30 * 60000) return `Le ${v.time} di oggi sono già passate`;
+  if (!hours) return undefined;
+  if (closure?.kind === "closed") return closure.reason ? `Quel giorno risulta chiuso (${closure.reason})` : "Quel giorno risulta chiuso";
+  const open = withinOpening(v.day, v.time, hours);
+  if (open === "closedDay") return "Quel giorno risulta chiuso";
+  if (open === "outside") return `Alle ${v.time} il locale risulta chiuso`;
+  return undefined;
 }
 
 // ---------- Doppioni: stesso numero lo stesso giorno, oppure stesso nome (senza maiuscole e accenti)
 
-type DupRow = { id: string; name: string; day: string; time: string; people: number; status: string };
+type DupRow = { id: string; name: string; day: string; time: string; people: number; status: string; phone: string };
+const DUP_STATUSES = ["PENDING", "PROPOSED", "CONFIRMED"] as const;
+const DUP_SELECT = { id: true, name: true, day: true, time: true, people: true, status: true, phone: true } as const;
 
 export async function findDuplicate(c: { day: string; phone: string | null; name: string; isTest: boolean; excludeId?: string }): Promise<DupRow | null> {
   const rows = await prisma.bookingRequest.findMany({
-    where: { day: c.day, isTest: c.isTest, status: { in: ["PENDING", "PROPOSED", "CONFIRMED"] }, ...(c.excludeId ? { id: { not: c.excludeId } } : {}) },
-    select: { id: true, name: true, day: true, time: true, people: true, status: true, phone: true },
+    where: { day: c.day, isTest: c.isTest, status: { in: [...DUP_STATUSES] }, ...(c.excludeId ? { id: { not: c.excludeId } } : {}) },
+    select: DUP_SELECT,
     orderBy: { startsAt: "asc" },
   });
+  return pickDuplicate(rows, c);
+}
+
+// Tra le prenotazioni di quel giorno (in ordine di ora): prima le confermate (quelle in agenda), poi le richieste.
+function pickDuplicate(rows: DupRow[], c: { phone: string | null; name: string }): DupRow | null {
   const key = nameKey(c.name);
-  // Prima le confermate (quelle in agenda), poi le richieste.
-  const hit = (r: (typeof rows)[number]) => (c.phone && r.phone === c.phone) || (key.length >= 2 && nameKey(r.name) === key);
+  const hit = (r: DupRow) => (c.phone && r.phone === c.phone) || (key.length >= 2 && nameKey(r.name) === key);
   return rows.find((r) => r.status === "CONFIRMED" && hit(r)) ?? rows.find(hit) ?? null;
 }
 

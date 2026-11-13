@@ -18,7 +18,7 @@ export const statusLabel = (v: BookingView) => STATUS_LABEL[v];
 // Da dove arriva, breve, per le righe dell'agenda: «Telefono · Marta», «Online».
 export function originShort(b: Pick<BookingItem, "manual" | "source" | "createdBy">): string {
   if (!b.manual) return "Online";
-  const where = b.source === "whatsapp" ? "WhatsApp" : b.source === "persona" ? "Di persona" : "Telefono";
+  const where = b.source === "whatsapp" ? "WhatsApp" : b.source === "persona" ? "Di persona" : b.source === "librone" ? "Dal librone" : "Telefono";
   return b.createdBy ? `${where} · ${b.createdBy}` : where;
 }
 
@@ -111,6 +111,7 @@ export function sourceText(source: string | null, promoTitle: string | null): st
   if (source === "telefono") return "al telefono";
   if (source === "whatsapp") return "su WhatsApp";
   if (source === "persona") return "di persona";
+  if (source === "librone") return "dal librone";
   if (source === "evento" || promoTitle) return promoTitle ? `dall'evento «${promoTitle}»` : "da un evento";
   if (source === "google") return "da Google";
   if (source === "instagram") return "da Instagram";
