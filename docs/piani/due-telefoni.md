@@ -436,3 +436,30 @@ modificata.
    rispondere alla richiesta): basterebbe una frase «Inviando accetti l'informativa sulla privacy»,
    un passaggio in meno. È una scelta da verificare con chi segue la privacy (`booking-form.tsx`,
    riga 600).
+
+---
+
+## Aggiornamento del 14 novembre 2026: che cosa è stato sistemato
+
+- **#1 Password e avvisi:** una password nuova (scritta o generata), un accesso disattivato o eliminato,
+  e il cambio password del titolare o del consulente **spengono gli avvisi** di quell'accesso. I telefoni
+  buoni li riaccendono con «Attiva gli avvisi».
+- **#3 Elenco dei telefoni:** Prenotazioni → ⋯ → Impostazioni → **«Telefoni che ricevono gli avvisi»**:
+  chi, che apparecchio (iPhone, Android, Computer…), quando è arrivato l'ultimo avviso, e «Togli».
+  Solo titolare e consulente.
+- **#2 Promemoria:** con «Solo il telefono enoteca», se un messaggio resta da mandare per **15 minuti**,
+  parte **un solo** avviso a titolare e consulente («Da 15 minuti c'è un messaggio WhatsApp da mandare a
+  Rossi: il telefono dell'enoteca è acceso?»). Il controllo parte quando si apre Prenotazioni, mentre la
+  pagina controlla la lista e quando arriva una richiesta (su Vercel Hobby non c'è un controllo ogni
+  minuto): se nessuno apre il sito, il promemoria arriva al primo controllo utile.
+- **#6 Lucchetto:** riconosce anche l'apparecchio (un numero a caso tenuto sul dispositivo): lo stesso
+  nome su due apparecchi non prende due volte lo stesso messaggio («In invio da Andrea su un altro
+  apparecchio»).
+- **Cliente, punto 1:** modulo e pagina della richiesta dicono «Ti scriviamo dal numero WhatsApp
+  dell'enoteca, 331 210 2464: salvalo in rubrica» (il numero viene dai contatti del menù). Anche le
+  email delle prenotazioni lo dicono.
+- **Cliente, punti 2 e 6:** nella pagina della richiesta il codice è anche in alto, e per chi ha scelto
+  WhatsApp c'è «Mandaci il codice su WhatsApp» subito sotto.
+
+Restano da decidere: #4 (con «Anche titolare e consulente» la sala non suona se conferma il titolare),
+#5 («da dove è partito» dedotto dall'accesso) e i punti 3, 4, 5, 7 e 8 della revisione del cliente.
