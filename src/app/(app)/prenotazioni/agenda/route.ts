@@ -20,6 +20,17 @@ export async function GET(request: Request) {
   }
   const q = new URL(request.url).searchParams;
 
+  // ?coda=1: un'impronta leggera di quello che cambia (prenotazioni, cronologia, lucchetti di WhatsApp):
+  // la pagina la chiede ogni pochi secondi mentre ci sono risposte da mandare e si aggiorna solo se cambia.
+  if (q.get("coda") === "1") {
+    const since = new Date(Date.now() - 2 * 86400000);
+    const [last, logs] = await Promise.all([
+      prisma.bookingRequest.aggregate({ _max: { updatedAt: true }, _count: { _all: true } }),
+      prisma.bookingLog.count({ where: { at: { gte: since } } }),
+    ]);
+    return NextResponse.json({ sig: `${last._max.updatedAt?.getTime() ?? 0}:${last._count._all}:${logs}` }, { headers: NO_STORE });
+  }
+
   const id = q.get("id");
   if (id !== null) {
     if (!/^[a-z0-9_]{10,40}$/i.test(id)) return NextResponse.json({ error: "Prenotazione non trovata." }, { status: 400, headers: NO_STORE });

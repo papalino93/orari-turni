@@ -22,6 +22,9 @@ export type WidgetDef = {
   vecchio?: boolean;
 };
 
+// «Telefono enoteca»: solo i widget della sala (niente turni né ore personali).
+export const VENUE_WIDGET_IDS = ["menuqr", "qr", "apri", "clienti"];
+
 export const WIDGETS: WidgetDef[] = [
   { id: "pannello", nome: "Pannello", descrizione: "Sei riquadri da toccare: il menù, il QR, le aperture di oggi, il fuori menù, chi lavora stasera, le cose da fare. Ai dipendenti mostra il loro turno, gli esauriti e le loro ore.", per: "tutti", sizes: ["large"], icona: { colore: "deep-brown", disegno: "th-large" } },
   { id: "sala", nome: "In sala", descrizione: "Durante il servizio: le aperture di oggi contro ieri alla stessa ora, chi è al lavoro, gli esauriti e le parole cercate che nel menù non ci sono.", per: "admin", sizes: ["medium"], icona: { colore: "deep-red", disegno: "chart-line" } },

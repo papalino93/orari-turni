@@ -130,7 +130,7 @@ export async function replyToRequest(
     const id = parseBookingId(idInput);
     await guardPreview(id);
     const origin = await requestOrigin();
-    // Il titolare manda i WhatsApp da qualsiasi dispositivo; un dipendente solo dal telefono del locale.
+    // Il titolare manda i WhatsApp da qualsiasi dispositivo; un dipendente solo dal telefono enoteca.
     // Chi manda i WhatsApp lo decide il server (telefono enoteca, impostazione «Chi manda i WhatsApp»).
     void opts?.selfWa;
     const actor = { name: await who(m), selfWa: await sendsWhatsapp(m) };

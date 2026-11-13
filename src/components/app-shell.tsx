@@ -60,6 +60,7 @@ export function AppShell({
   showMail,
   showFerie,
   bookings,
+  venueDevice = false,
   children,
 }: {
   userName: string;
@@ -73,6 +74,8 @@ export function AppShell({
   showFerie: boolean;
   // Voce «Prenotazioni» con le richieste da confermare e i messaggi da mandare su WhatsApp; null = non si mostra.
   bookings: { pending: number; whatsapp: number; incomplete?: number } | null;
+  // «Telefono enoteca»: solo Prenotazioni (e Menù se il titolare l'ha permesso), niente «Le mie ore».
+  venueDevice?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -83,7 +86,11 @@ export function AppShell({
       ? [...EMPLOYEE_NAV_ITEMS, EMPLOYEE_MENU_NAV_ITEM]
       : EMPLOYEE_NAV_ITEMS;
   // Subito dopo «Orari» (o «Le mie ore»): è la cosa da guardare più spesso durante la serata.
-  const navItems: NavItem[] = bookings ? [baseItems[0], BOOKINGS_NAV_ITEM, ...baseItems.slice(1)] : baseItems;
+  const navItems: NavItem[] = venueDevice
+    ? [BOOKINGS_NAV_ITEM, ...(canEditMenu ? [EMPLOYEE_MENU_NAV_ITEM] : [])]
+    : bookings
+      ? [baseItems[0], BOOKINGS_NAV_ITEM, ...baseItems.slice(1)]
+      : baseItems;
   // Il pallino conta le cose da fare: richieste da confermare + risposte da mandare su WhatsApp.
   // Richieste da confermare, messaggi da mandare e prenotazioni da completare: tre insiemi separati
   // (una prenotazione da completare è già confermata e non ha messaggi in coda), niente doppioni.
@@ -239,7 +246,7 @@ export function AppShell({
           <BlockedNotice />
         </Suspense>
         <InstalledMark installed={appInstalled} />
-        {appInstalled ? null : isAdmin ? <InstallBanner /> : <EmployeeInstallPrompt />}
+        {appInstalled || venueDevice ? null : isAdmin ? <InstallBanner /> : <EmployeeInstallPrompt />}
         {children}
         {/* Colore pieno, non attenuato: «/70» scendeva a un contrasto di 3 su 1 nel tema chiaro. */}
         <p className="mt-10 text-center text-[11px] text-foreground-muted" aria-label="Versione dell'app">

@@ -73,7 +73,8 @@ export default async function OrariPage({
   );
 
   const employees = await prisma.employee.findMany({
-    where: employeeIdsWithData.length > 0 ? { OR: [{ active: true }, { id: { in: employeeIdsWithData } }] } : { active: true },
+    // Il «Telefono enoteca» non è una persona: mai negli orari (né in copertura e PDF).
+    where: { isVenueDevice: false, ...(employeeIdsWithData.length > 0 ? { OR: [{ active: true }, { id: { in: employeeIdsWithData } }] } : { active: true }) },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
 

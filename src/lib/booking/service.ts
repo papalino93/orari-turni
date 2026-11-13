@@ -859,7 +859,7 @@ async function conflictResult(current: BookingRow): Promise<ManualResult> {
 
 export const INCOMPLETE_NO_CONFIRM = "Prima completa ora e persone: la conferma al cliente si manda quando sono decise.";
 
-// «Da mandare dal telefono del locale»: la conferma entra nella lista «Da mandare su WhatsApp».
+// «Da mandare dal telefono enoteca»: la conferma entra nella lista «Da mandare su WhatsApp».
 export async function queueConfirmation(id: string, actor: StaffActor): Promise<{ ok: true } | { ok: false; error: string }> {
   const b = await prisma.bookingRequest.findUnique({
     where: { id },
@@ -887,7 +887,7 @@ export async function queueConfirmation(id: string, actor: StaffActor): Promise<
 }
 
 // Una risposta è entrata in «Da mandare su WhatsApp»: avviso a chi può mandarla (dispositivi del
-// titolare e quelli segnati «telefono del locale»). Solo se c'è davvero qualcosa da mandare.
+// titolare e quelli segnati «telefono enoteca»). Solo se c'è davvero qualcosa da mandare.
 export async function notifyWhatsappQueue(id: string): Promise<void> {
   if (isPreview()) return;
   const b = await prisma.bookingRequest.findUnique({ where: { id }, include: { log: { select: { at: true, actor: true, kind: true, message: true } } } });
@@ -982,7 +982,7 @@ async function sendCustomerMail(b: BookingRow, kind: MessageKind, origin: string
   }
 }
 
-// Messaggio WhatsApp già scritto per il cliente (chi lavora tocca Invia dal telefono del locale).
+// Messaggio WhatsApp già scritto per il cliente (chi lavora tocca Invia dal telefono enoteca).
 export function customerWhatsappHref(b: BookingRow, kind: MessageKind, origin: string | null, address?: string | null): string | null {
   if (!whatsappReachable(b.phone)) return null;
   // Il numero è salvato già internazionale («33612345678»): con il «+» non si confonde con un numero italiano.
@@ -991,7 +991,7 @@ export function customerWhatsappHref(b: BookingRow, kind: MessageKind, origin: s
 
 // ---------- Risposte del locale
 
-// selfWa: chi risponde ha WhatsApp a portata di mano (titolare o telefono del locale) e lo manda lui:
+// selfWa: chi risponde ha WhatsApp a portata di mano (titolare o telefono enoteca) e lo manda lui:
 // niente avviso «da mandare su WhatsApp» agli altri.
 export type StaffActor = { name: string; selfWa?: boolean };
 export type StaffResult =

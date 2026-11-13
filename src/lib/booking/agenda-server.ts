@@ -119,8 +119,8 @@ async function staffOn(day: string, isOwner: boolean): Promise<AgendaStaff> {
     if (!visible(date)) return { working: null, away: null };
   }
   const [blocks, leaves] = await Promise.all([
-    prisma.shiftBlock.findMany({ where: { date }, select: { startTime: true, endTime: true, employee: { select: { id: true, name: true, sortOrder: true } } }, orderBy: { startTime: "asc" } }),
-    prisma.leaveEntry.findMany({ where: { date, type: { in: ["FERIE", "PERMESSO"] } }, select: { type: true, quantity: true, employee: { select: { name: true } } } }),
+    prisma.shiftBlock.findMany({ where: { date, employee: { isVenueDevice: false } }, select: { startTime: true, endTime: true, employee: { select: { id: true, name: true, sortOrder: true } } }, orderBy: { startTime: "asc" } }),
+    prisma.leaveEntry.findMany({ where: { date, type: { in: ["FERIE", "PERMESSO"] }, employee: { isVenueDevice: false } }, select: { type: true, quantity: true, employee: { select: { name: true } } } }),
   ]);
   const byEmployee = new Map<string, { name: string; first: string; ranges: string[] }>();
   for (const b of blocks) {

@@ -1,6 +1,6 @@
 // Risposte da mandare su WhatsApp (funzione pura, anche nei componenti client).
 //
-// Le risposte su WhatsApp partono solo dal telefono del locale o dal titolare: chi risponde da un
+// Le risposte su WhatsApp partono solo dal telefono enoteca o dal titolare: chi risponde da un
 // altro telefono conferma/propone/rifiuta, e il messaggio resta «da mandare» finché qualcuno lo
 // apre in WhatsApp (WHATSAPP_OPENED) o lo segna come già mandato (WHATSAPP_DONE).
 
@@ -28,7 +28,7 @@ const RESPONSES: Record<string, MessageKind> = {
   PROPOSED: "proposed",
   DECLINED: "declined",
   CANCELLED: "cancelledByVenue",
-  // Agenda: «Da mandare dal telefono del locale» dopo aver segnato o modificato una prenotazione.
+  // Agenda: «Da mandare dal telefono enoteca» dopo aver segnato o modificato una prenotazione.
   WA_QUEUED: "confirmed",
 };
 

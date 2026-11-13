@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { runWithToast, useToast } from "@/components/toast";
-import { WIDGET_THEMES, scriptFiles, type WidgetDef } from "@/lib/widgets";
+import { VENUE_WIDGET_IDS, WIDGET_THEMES, scriptFiles, type WidgetDef } from "@/lib/widgets";
 import { createWidgetDevice, revokeWidgetDevice, setEmployeeWidgets, setWidgetTheme } from "./actions";
 
 const APP_STORE = "https://apps.apple.com/it/app/scriptable/id1405459188";
@@ -51,7 +51,7 @@ function Section({ title, hint, children, clip = true }: { title: string; hint?:
 }
 
 // ---------- Chi può usare i widget (titolare e consulente)
-export function AuthorizeList({ employees, widgets }: { employees: { id: string; name: string; widgets: string[] }[]; widgets: WidgetDef[] }) {
+export function AuthorizeList({ employees, widgets: all }: { employees: { id: string; name: string; widgets: string[]; isVenueDevice?: boolean }[]; widgets: WidgetDef[] }) {
   const [pending, start] = useTransition();
   const router = useRouter();
   const toast = useToast();
@@ -89,6 +89,8 @@ export function AuthorizeList({ employees, widgets }: { employees: { id: string;
       {employees.length === 0 && <p className="px-5 py-4 text-sm text-foreground-muted">Nessun dipendente attivo.</p>}
       <ul className="divide-y divide-border">
         {employees.map((e) => {
+          // Il telefono enoteca: solo i widget della sala (menù, QR, «Da dire ai clienti»).
+          const widgets = e.isVenueDevice ? all.filter((w) => VENUE_WIDGET_IDS.includes(w.id)) : all;
           const on = e.widgets.length > 0;
           return (
             <li key={e.id} className="px-5 py-3">

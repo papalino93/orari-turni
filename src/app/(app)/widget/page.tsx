@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ADMIN_WIDGETS, DEFAULT_THEME, EMPLOYEE_WIDGETS, KEY_IDLE_DAYS, WIDGET_THEMES, WIDGETS, scriptFiles, type WidgetDef } from "@/lib/widgets";
+import { ADMIN_WIDGETS, DEFAULT_THEME, EMPLOYEE_WIDGETS, KEY_IDLE_DAYS, WIDGET_THEMES, VENUE_WIDGET_IDS, WIDGETS, scriptFiles, type WidgetDef } from "@/lib/widgets";
 import { AuthorizeList, DeviceList, Installer, PhoneQr, ThemePicker, WidgetGallery, type DeviceRow } from "./widget-client";
 
 const themeOf = (t: string | null | undefined) => (WIDGET_THEMES.some((x) => x.id === t) ? (t as string) : DEFAULT_THEME);
@@ -15,8 +15,8 @@ export default async function WidgetPage() {
   const isEmployee = session?.user?.role === "EMPLOYEE";
 
   if (isEmployee) {
-    const emp = await prisma.employee.findUnique({ where: { id: session!.user!.employeeId! }, select: { id: true, name: true, widgets: true, widgetTheme: true } });
-    const allowed = WIDGETS.filter((w) => !w.vecchio && emp?.widgets.includes(w.id));
+    const emp = await prisma.employee.findUnique({ where: { id: session!.user!.employeeId! }, select: { id: true, name: true, widgets: true, widgetTheme: true, isVenueDevice: true } });
+    const allowed = WIDGETS.filter((w) => !w.vecchio && emp?.widgets.includes(w.id) && (!emp.isVenueDevice || VENUE_WIDGET_IDS.includes(w.id)));
     const devices = emp ? await prisma.widgetDevice.findMany({ where: { employeeId: emp.id, revokedAt: null }, orderBy: { createdAt: "desc" } }) : [];
     return (
       <Layout admin={false} qr={allowed.length > 0}>
@@ -38,7 +38,7 @@ export default async function WidgetPage() {
 
   const [user, employees, devices, users] = await Promise.all([
     prisma.user.findUnique({ where: { username: session?.user?.username ?? "" }, select: { id: true, name: true, widgetTheme: true } }),
-    prisma.employee.findMany({ where: { role: "EMPLOYEE", active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, widgets: true } }),
+    prisma.employee.findMany({ where: { role: "EMPLOYEE", active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, widgets: true, isVenueDevice: true } }),
     prisma.widgetDevice.findMany({ where: { revokedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.user.findMany({ select: { id: true, name: true } }),
   ]);

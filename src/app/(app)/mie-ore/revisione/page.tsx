@@ -35,6 +35,7 @@ export default async function RevisionePage({
 
   const employee = await prisma.employee.findUnique({ where: { id: targetEmployeeId } });
   if (!employee) redirect(preview ? "/dipendenti" : "/login");
+  if (employee.isVenueDevice && !preview) redirect("/prenotazioni");
 
   const today = todayKey();
   const { year: yearParam, month: monthParam } = await searchParams;

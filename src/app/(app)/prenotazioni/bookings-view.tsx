@@ -10,10 +10,12 @@ import { addDays, agendaTotals, availability, dayLong, isIncomplete, missingText
 import { whatsappPending } from "@/lib/booking/whatsapp-queue";
 import type { MessageKind } from "@/lib/booking/messages";
 import type { Hours } from "@/lib/menu-venue";
-import { markWhatsapp, reopenOnline, setArrival, setBookingSwitch, setDayClosed, setPushLocalPhone, undoNewBooking } from "./actions";
+import { chooseVenueWho, markWhatsapp, reopenOnline, setArrival, setBookingSwitch, setDayClosed, setPushLocalPhone, undoNewBooking } from "./actions";
+import { WaContext, WhatsappButton, PERSONAL_WARNING, type WaInfo } from "./wa-send";
+import { activeClaim, lastSent } from "@/lib/booking/whatsapp-queue";
 import { ALLERGY_TEXT, BookingSheet, StatusChip, TestChip } from "./booking-sheet";
 import { SettingsSheet } from "./settings-sheet";
-import { BellIcon, LocalPhoneBox, PushBox, useLocalPhone, usePush, WhatsappIcon } from "./device";
+import { arrivesText, BellIcon, PushBox, usePush, WhatsappIcon, WhatsappInfoBox } from "./device";
 import { clock, dayLabel, duration, originShort, phoneDisplay, REPLY_SHORT, replyHref, sourceText, telLink, viewOf } from "./format";
 import { BookingForm, type SavedInfo } from "./agenda";
 import { AgendaCalendar } from "./calendar";
@@ -42,6 +44,8 @@ export function BookingsView({
   hours,
   menus = [],
   phoneUA = false,
+  wa = { role: "send", mode: "all", me: null, venueDevice: false, venueExists: false },
+  venueDevice = null,
   stats,
   isOwner,
   mailReady,
@@ -59,6 +63,10 @@ export function BookingsView({
   // Menù già usati (suggerimenti nel foglio) e telefono secondo il browser (vista di partenza dell'agenda).
   menus?: string[];
   phoneUA?: boolean;
+  // Chi manda i WhatsApp da questo dispositivo (telefono enoteca, impostazione «Chi manda i WhatsApp»).
+  wa?: WaInfo;
+  // Solo sul telefono enoteca: chi lo sta usando adesso e tra chi scegliere (prima chi è in turno).
+  venueDevice?: { who: string | null; choices: { id: string; name: string; onShift: string | null }[]; label: string } | null;
   stats: BookingStatsData;
   isOwner: boolean;
   mailReady: boolean;
@@ -108,20 +116,22 @@ export function BookingsView({
   const [askClose, setAskClose] = useState<{ day: string; pending: number } | null>(null);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
-  const [localPhone, setLocalPhone] = useLocalPhone();
-  const push = usePush(pushConfig.publicKey, pushConfig.myEndpoints, localPhone);
-  // Il server deve sapere se questo dispositivo è il telefono del locale (avvisi «da mandare su WhatsApp»):
-  // la scelta sta nel browser, si copia sull'iscrizione agli avvisi quando cambia o se non coincide.
+  const push = usePush(pushConfig.publicKey, pushConfig.myEndpoints);
+  // Il server deve sapere se questo dispositivo è il telefono enoteca (avvisi «da mandare su WhatsApp»):
+  // lo decide l'accesso; un'iscrizione fatta prima (o da un altro accesso) si riallinea da sola.
   const serverLocal = push.endpoint ? (pushConfig.localPhoneEndpoints ?? []).includes(push.endpoint) : null;
   useEffect(() => {
-    if (push.state !== "on" || !push.endpoint || serverLocal === null || serverLocal === localPhone) return;
-    setPushLocalPhone(push.endpoint, localPhone)
+    if (push.state !== "on" || !push.endpoint || serverLocal === null || serverLocal === wa.venueDevice) return;
+    setPushLocalPhone(push.endpoint)
       .then(() => router.refresh())
       .catch(() => {});
-  }, [push.state, push.endpoint, serverLocal, localPhone, router]);
+  }, [push.state, push.endpoint, serverLocal, wa.venueDevice, router]);
+  // «Chi sei?» sul telefono enoteca: si chiede subito se nessuno l'ha ancora detto.
+  const [askWho, setAskWho] = useState(Boolean(venueDevice && !venueDevice.who));
   const [pushLater, setPushLater] = useState(true);
   const [iosLater, setIosLater] = useState(true);
-  const canWhatsapp = isOwner || localPhone;
+  // Il pulsante verde c'è per chi manda e, con «Mandalo io dal mio WhatsApp», per titolare e consulente.
+  const canWhatsapp = wa.role !== "none";
   // Risposte aperte in WhatsApp da questa pagina: restano nella lista con «Aperto alle…» finché la pagina resta aperta.
   const [waOpened, setWaOpened] = useState<Record<string, { at: number; kind: MessageKind }>>({});
   const noteWaOpened = useCallback((id: string, kind: MessageKind) => setWaOpened((m) => ({ ...m, [id]: { at: Date.now(), kind } })), []);
@@ -154,6 +164,37 @@ export function BookingsView({
       window.removeEventListener("focus", tick);
     };
   }, [router]);
+  // Coda di WhatsApp condivisa: mentre c'è qualcosa da mandare (o qualcuno lo sta mandando), ogni 8
+  // secondi un'impronta leggera dal server; se è cambiata (preso in mano, mandato) la pagina si aggiorna.
+  const waBusy = rows.some((b) => whatsappPending(b, now) !== null);
+  const sigRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!waBusy) return;
+    let alive = true;
+    const tick = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const r = await fetch("/prenotazioni/agenda?coda=1", { cache: "no-store" });
+        const j = (await r.json()) as { sig?: string };
+        if (!alive || !j.sig) return;
+        if (sigRef.current !== null && sigRef.current !== j.sig) router.refresh();
+        sigRef.current = j.sig;
+      } catch {
+        /* la prossima volta */
+      }
+    };
+    tick();
+    const id = setInterval(tick, 8000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [waBusy, router]);
+  useEffect(() => {
+    // Dopo un aggiornamento della pagina l'impronta si rilegge da capo (niente doppio aggiornamento).
+    sigRef.current = null;
+  }, [serverNow]);
+
   // Dopo ogni aggiornamento dal server, l'ora giusta (per «in attesa da…» e le scadute).
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- segue i dati appena arrivati dal server
@@ -170,10 +211,13 @@ export function BookingsView({
       .sort((a, b) => a.b.startsAt - b.b.startsAt);
     // Quelle appena aperte in WhatsApp da qui: restano visibili, con «Aperto alle…» e «Riapri».
     const waIds = new Set(wa.map((x) => x.b.id));
+    // Mandate da poco (da chiunque): restano in fondo, chiare, con «Mandato da … alle …».
     const waDone = rows
-      .filter((b) => waOpened[b.id] && !waIds.has(b.id))
-      .map((b) => ({ b, kind: waOpened[b.id].kind, openedAt: waOpened[b.id].at }))
-      .sort((a, b) => a.b.startsAt - b.b.startsAt);
+      .filter((b) => !waIds.has(b.id))
+      .map((b) => ({ b, sent: lastSent(b) }))
+      .filter((x): x is { b: BookingItem; sent: { by: string; at: number } } => x.sent !== null && now - x.sent.at < 30 * 60000 && x.sent.at <= now + 60000)
+      .map((x) => ({ b: x.b, kind: (waOpened[x.b.id]?.kind ?? "confirmed") as MessageKind, openedAt: x.sent.at, by: x.sent.by }))
+      .sort((a, b) => b.openedAt - a.openedAt);
     const tonight = live.filter((x) => x.v === "CONFIRMED" && x.b.day === today).map((x) => x.b);
     const tonightPending = live.filter((x) => x.v === "PENDING" && x.b.day === today).map((x) => x.b);
     const confirmed = live.filter((x) => x.v === "CONFIRMED").map((x) => x.b);
@@ -323,7 +367,7 @@ export function BookingsView({
     setJustSaved(null);
     try {
       const res = await markWhatsapp(info.id, "queue");
-      if (res.ok) toast.showSuccess("La conferma la manda il telefono del locale");
+      if (res.ok) toast.showSuccess("La conferma la manda il telefono enoteca");
       else toast.showError(res.error);
       router.refresh();
     } catch (e) {
@@ -355,6 +399,7 @@ export function BookingsView({
   ];
 
   return (
+    <WaContext.Provider value={wa}>
     <div className="app-wide mx-auto max-w-6xl">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -383,6 +428,29 @@ export function BookingsView({
           )}
         </div>
       </div>
+
+      {venueDevice && (
+        <div className="mb-4 flex flex-wrap items-center gap-2" data-testid="chi-sei">
+          {venueDevice.who ? (
+            <button
+              type="button"
+              onClick={() => setAskWho(true)}
+              className="inline-flex min-h-10 items-center gap-2 rounded-full bg-surface px-3.5 text-sm text-foreground ring-1 ring-inset ring-border hover:ring-accent"
+              aria-label={`Sei ${venueDevice.who}: tocca per cambiare`}
+            >
+              <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground">
+                {venueDevice.who.charAt(0)}
+              </span>
+              Sei <strong>{venueDevice.who}</strong> · <span className="text-accent-ink underline decoration-dotted underline-offset-2">cambia</span>
+            </button>
+          ) : (
+            <button type="button" onClick={() => setAskWho(true)} className="min-h-11 rounded-full bg-gold/15 px-4 text-sm font-semibold text-foreground ring-1 ring-inset ring-gold/40">
+              Chi sei? Tocca qui e scegli il tuo nome
+            </button>
+          )}
+          <span className="text-xs text-foreground-muted">Telefono enoteca: quello che segni porta il tuo nome.</span>
+        </div>
+      )}
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
         <button
@@ -607,26 +675,30 @@ export function BookingsView({
                     </h2>
                     {canWhatsapp ? (
                       <>
-                        <p className="mt-0.5 text-xs text-foreground-muted">Un tocco sul pulsante verde apre WhatsApp con il messaggio già scritto: controlla e tocca Invia.</p>
-                        <ul className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-                          {lists.wa.map(({ b, kind }) => (
-                            <WaRow key={b.id} b={b} kind={kind} today={today} openedAt={null} onOpen={open} onWaOpened={noteWaOpened} />
-                          ))}
-                          {lists.waDone.map(({ b, kind, openedAt }) => (
-                            <WaRow key={b.id} b={b} kind={kind} today={today} openedAt={openedAt} onOpen={open} onWaOpened={noteWaOpened} />
-                          ))}
-                        </ul>
+                        <p className="mt-0.5 text-xs text-foreground-muted">
+                          {wa.role === "override"
+                            ? "Le manda il telefono enoteca. Se serve, puoi mandarne una tu con «Mandalo io»."
+                            : "Il pulsante verde apre WhatsApp con il messaggio già scritto: tocca Invia, poi «Mandato». Chi la prende la vede solo lui: gli altri leggono «In invio da…»."}
+                        </p>
+                        {!wa.venueDevice && <p className="mt-1 text-xs font-medium text-foreground" data-testid="wa-avviso-personale">{PERSONAL_WARNING}</p>}
                       </>
                     ) : (
-                      // Da un telefono che non manda WhatsApp basta sapere che ci sono: i dettagli sono nel foglio di ognuna.
-                      <p className="mt-1 text-sm text-foreground-muted">
-                        {lists.wa.length === 1 ? "1 risposta aspetta" : `${lists.wa.length} risposte aspettano`} il telefono del locale.{" "}
-                        {!isOwner && (
-                          <button type="button" onClick={() => setShowDevice(true)} className="font-medium text-foreground underline decoration-dotted underline-offset-2">
-                            È questo?
-                          </button>
-                        )}
-                      </p>
+                      <p className="mt-1 text-sm text-foreground-muted">Le manda il telefono enoteca: qui le vedi soltanto.</p>
+                    )}
+                    {(lists.wa.length > 0 || lists.waDone.length > 0) && (
+                      <ul className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface" data-testid="coda-whatsapp">
+                        {lists.wa.map(({ b, kind }) => (
+                          <WaRow key={b.id} b={b} kind={kind} today={today} now={now} canSend={canWhatsapp} onOpen={open} />
+                        ))}
+                        {lists.waDone.map(({ b, openedAt, by }) => (
+                          <li key={b.id} className="flex min-h-11 items-center gap-2 px-3 py-1.5 text-sm text-foreground-muted" data-testid="wa-mandato">
+                            <button type="button" onClick={() => open(b.id)} className="min-w-0 flex-1 truncate text-left">
+                              <span className="font-semibold text-foreground">{b.name}</span> · Mandato da {by} alle {clock(openedAt)}
+                            </button>
+                            <span aria-hidden className="text-success">✓</span>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </section>
                 )}
@@ -801,7 +873,7 @@ export function BookingsView({
         <SavedBar
           key={justSaved.id}
           info={justSaved}
-          canWhatsapp={canWhatsapp}
+          canWhatsapp={wa.role === "send"}
           onUndo={() => undoSaved(justSaved)}
           onQueue={() => queueSaved(justSaved)}
           onOpen={() => {
@@ -812,15 +884,17 @@ export function BookingsView({
         />
       )}
 
+      {askWho && venueDevice && <WhoPicker choices={venueDevice.choices} current={venueDevice.who} onClose={() => setAskWho(false)} />}
+
       {showSettings && isOwner && (
-        <SettingsSheet settings={settings} mailReady={mailReady} googleLink={googleLink} busy={busy} onToggle={askToggle} onReopen={reopen} onClose={() => setShowSettings(false)} />
+        <SettingsSheet venueExists={wa.venueExists} settings={settings} mailReady={mailReady} googleLink={googleLink} busy={busy} onToggle={askToggle} onReopen={reopen} onClose={() => setShowSettings(false)} />
       )}
 
       {showDevice && (
         <Sheet title="Avvisi e WhatsApp su questo telefono" onClose={() => setShowDevice(false)}>
           <div className="space-y-3" data-unsaved-ignore>
-            <PushBox push={push} />
-            <LocalPhoneBox isOwner={isOwner} localPhone={localPhone} setLocalPhone={setLocalPhone} />
+            <PushBox push={push} arrives={arrivesText(wa)} />
+            <WhatsappInfoBox wa={wa} />
           </div>
         </Sheet>
       )}
@@ -890,6 +964,7 @@ export function BookingsView({
         </ConfirmSheet>
       )}
     </div>
+    </WaContext.Provider>
   );
 }
 
@@ -999,65 +1074,24 @@ function RequestCard({ b, now, today, onOpen, showStatus = false }: { b: Booking
   );
 }
 
-// Una riga della lista «Da mandare su WhatsApp»: nome · tipo di risposta · giorno e ora, e il pulsante verde.
-function WaRow({
-  b,
-  kind,
-  today,
-  openedAt,
-  onOpen,
-  onWaOpened,
-}: {
-  b: BookingItem;
-  kind: MessageKind;
-  today: string;
-  // Già aperta in WhatsApp da qui (ora): resta in lista con «Riapri».
-  openedAt: number | null;
-  onOpen: (id: string) => void;
-  onWaOpened: (id: string, kind: MessageKind) => void;
-}) {
-  const router = useRouter();
+// Una riga della lista «Da mandare su WhatsApp»: nome · tipo di risposta · giorno e ora, lo stato
+// («In invio da Marta…») e il pulsante verde con il lucchetto condiviso.
+function WaRow({ b, kind, today, now, canSend, onOpen }: { b: BookingItem; kind: MessageKind; today: string; now: number; canSend: boolean; onOpen: (id: string) => void }) {
   const href = replyHref(b, kind);
+  const claim = activeClaim(b, now);
   return (
-    <li className="flex items-center gap-2 py-1 pl-3 pr-1.5">
-      <button type="button" onClick={() => onOpen(b.id)} className="flex min-h-11 min-w-0 flex-1 items-center text-left">
+    <li className="flex items-center gap-2 py-1 pl-3 pr-1.5" data-testid="wa-riga">
+      <button type="button" onClick={() => onOpen(b.id)} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center text-left">
         {/* Si accorcia solo il nome: tipo di risposta, giorno e ora restano sempre interi. */}
         <span className="flex min-w-0 items-baseline text-sm">
           <span className="min-w-0 truncate font-semibold text-foreground">{b.name}</span>
           <span className="shrink-0 whitespace-nowrap text-foreground-muted">
-            &nbsp;· {openedAt ? `Aperto alle ${clock(openedAt)}` : REPLY_SHORT[kind]} · {dayLabel(b.day, today)} {kind === "proposed" ? b.proposedTime : b.time}
+            &nbsp;· {REPLY_SHORT[kind]} · {dayLabel(b.day, today)} {kind === "proposed" ? b.proposedTime : b.time}
           </span>
         </span>
+        {claim && !canSend && <span className="text-xs font-medium text-gold">In invio da {claim.by}…</span>}
       </button>
-      {href &&
-        (openedAt ? (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => onWaOpened(b.id, kind)}
-            className="flex min-h-11 shrink-0 items-center rounded-full px-3 text-xs font-semibold text-[#137a43] underline decoration-dotted underline-offset-2 dark:text-[#3fae74]"
-          >
-            Riapri
-          </a>
-        ) : (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Manda su WhatsApp a ${b.name}`}
-            title="Manda su WhatsApp"
-            onClick={() => {
-              onWaOpened(b.id, kind);
-              markWhatsapp(b.id, "opened")
-                .then(() => router.refresh())
-                .catch(() => {});
-            }}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#137a43] text-white hover:bg-[#0f6837]"
-          >
-            <WhatsappIcon />
-          </a>
-        ))}
+      {href && canSend && <WhatsappButton key={`${b.id}-${b.waClaimAt ?? 0}`} href={href} bookingId={b.id} icon name={b.name} claim={{ by: b.waClaimBy, at: b.waClaimAt }} />}
     </li>
   );
 }
@@ -1424,8 +1458,18 @@ function SavedBar({
               href={info.whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => {
-                markWhatsapp(info.id, "opened").catch(() => {});
+              onClick={(e) => {
+                // Stessa coda condivisa: si prende in mano (cronologia «in invio…») e si apre WhatsApp.
+                e.preventDefault();
+                const win = window.open("", "_blank");
+                markWhatsapp(info.id, "opened")
+                  .then((r) => {
+                    if (r.ok && r.data.ok) {
+                      if (win) win.location.href = info.whatsappHref!;
+                      else window.location.href = info.whatsappHref!;
+                    } else win?.close();
+                  })
+                  .catch(() => win?.close());
                 onClose();
               }}
               className={`${btn} gap-1.5 bg-[#137a43] text-white hover:bg-[#0f6837]`}
@@ -1434,7 +1478,7 @@ function SavedBar({
             </a>
           ) : (
             <button type="button" onClick={onQueue} className={`${btn} border border-[#137a43]/40 text-[#137a43] hover:bg-[#137a43]/10 dark:text-[#3fae74]`}>
-              Conferma dal telefono del locale
+              Conferma dal telefono enoteca
             </button>
           ))}
         <button type="button" onClick={onClose} aria-label="Chiudi il messaggio" className="ml-auto flex h-10 w-10 items-center justify-center rounded-full text-foreground-muted hover:text-foreground">
@@ -1442,6 +1486,63 @@ function SavedBar({
         </button>
       </div>
     </div>
+  );
+}
+
+// «Chi sei?» sul telefono enoteca: un tocco sul nome (prima chi è in turno oggi). Vale qualche ora.
+function WhoPicker({ choices, current, onClose }: { choices: { id: string; name: string; onShift: string | null }[]; current: string | null; onClose: () => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  async function pick(id: string) {
+    setBusy(true);
+    try {
+      const res = await chooseVenueWho(id);
+      if (!res.ok) toast.showError(res.error);
+      else {
+        toast.showSuccess(`Ciao ${res.data.name}: quello che segni porta il tuo nome`);
+        onClose();
+      }
+      router.refresh();
+    } catch (e) {
+      showActionError(toast, e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const onShift = choices.filter((c) => c.onShift);
+  const others = choices.filter((c) => !c.onShift);
+  const btn = (c: (typeof choices)[number]) => (
+    <li key={c.id}>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => pick(c.id)}
+        className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-4 text-left ring-1 ring-inset hover:ring-accent disabled:opacity-60 ${current === c.name ? "bg-accent/10 ring-accent/50" : "bg-surface ring-border"}`}
+      >
+        <span className="text-[15px] font-semibold text-foreground">{c.name}</span>
+        {c.onShift && <span className="text-xs tabular-nums text-foreground-muted">{c.onShift}</span>}
+      </button>
+    </li>
+  );
+  return (
+    <Sheet title="Chi sei?" onClose={onClose}>
+      <div className="space-y-4" data-testid="chi-sei-scelta" data-unsaved-ignore>
+        <p className="text-sm text-foreground-muted">Questo è il telefono enoteca: scegli il tuo nome. Quello che segni o mandi da qui porta il tuo nome, per qualche ora.</p>
+        {onShift.length > 0 && (
+          <section>
+            <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-foreground-muted">In turno oggi</h3>
+            <ul className="space-y-1.5">{onShift.map(btn)}</ul>
+          </section>
+        )}
+        {others.length > 0 && (
+          <section>
+            <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-foreground-muted">{onShift.length ? "Gli altri" : "Tutti"}</h3>
+            <ul className="space-y-1.5">{others.map(btn)}</ul>
+          </section>
+        )}
+      </div>
+    </Sheet>
   );
 }
 

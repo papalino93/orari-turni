@@ -295,13 +295,13 @@ export function BookingForm({
                 </p>
               </>
             ) : queued ? (
-              <p className="text-sm font-medium text-foreground">✓ La manda il telefono del locale: è nella lista «Da mandare su WhatsApp».</p>
+              <p className="text-sm font-medium text-foreground">✓ La manda il telefono enoteca: è nella lista «Da mandare su WhatsApp».</p>
             ) : (
               <>
                 <button type="button" disabled={busy} onClick={queue} className="flex min-h-12 w-full items-center justify-center rounded-xl border border-[#137a43]/40 px-4 text-[15px] font-semibold text-[#137a43] hover:bg-[#137a43]/10 disabled:opacity-60 dark:text-[#3fae74]">
-                  Da mandare dal telefono del locale
+                  Da mandare dal telefono enoteca
                 </button>
-                <p className="text-xs text-foreground-muted">Facoltativo: se il cliente vuole la conferma su WhatsApp, la manda il telefono del locale.</p>
+                <p className="text-xs text-foreground-muted">Facoltativo: se il cliente vuole la conferma su WhatsApp, la manda il telefono enoteca.</p>
               </>
             )
           ) : (

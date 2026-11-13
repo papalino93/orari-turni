@@ -10,7 +10,7 @@ export default async function FeriePage() {
   const yearEnd = new Date(Date.UTC(year, 11, 31));
 
   const [employees, balances, allEntries, closures] = await Promise.all([
-    prisma.employee.findMany({ where: { role: "EMPLOYEE" }, orderBy: [{ active: "desc" }, { sortOrder: "asc" }] }),
+    prisma.employee.findMany({ where: { role: "EMPLOYEE", isVenueDevice: false }, orderBy: [{ active: "desc" }, { sortOrder: "asc" }] }),
     prisma.leaveBalance.findMany({ where: { year } }),
     prisma.leaveEntry.findMany({ where: { date: { gte: yearStart, lte: yearEnd }, type: { in: ["FERIE", "PERMESSO"] } } }),
     prisma.closureDay.findMany({ where: { date: { gte: yearStart, lte: yearEnd } }, select: { date: true } }),

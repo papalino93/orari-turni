@@ -15,6 +15,7 @@ import {
   type ActionResult,
 } from "@/lib/validation";
 import { toDateKey } from "@/lib/week";
+import { VENUE_WIDGET_IDS } from "@/lib/widgets";
 import { encryptEmployeePassword, generateEmployeePassword, generateEmployeeUsername } from "@/lib/employee-credentials";
 
 const ROLES = ["EMPLOYEE", "OWNER"] as const;
@@ -487,5 +488,64 @@ export async function getEmployeeScheduleRange(
       })),
       closures: closures.map((c) => ({ dateKey: toDateKey(c.date), reason: c.reason })),
     };
+  });
+}
+
+// --- «Telefono enoteca» ------------------------------------------------------
+//
+// Il telefono che resta in sala: un accesso condiviso, già pronto (solo prenotazioni, i widget della
+// sala, niente menù). Non è una persona: niente orari, ore, ferie, mesi da inviare.
+
+export async function createVenueDevice(another = false): Promise<ActionResult<{ id: string; username: string; password: string }>> {
+  return runAction(async () => {
+    await requireUser();
+    const existing = await prisma.employee.count({ where: { isVenueDevice: true } });
+    assert(existing === 0 || another === true, "Il telefono dell'enoteca c'è già: lo trovi qui sotto. Per un secondo telefono tocca «Aggiungi un altro telefono».");
+    // «enoteca», «enoteca2»… (anche tra gli accessi del titolare e del consulente).
+    let username = "enoteca";
+    for (let n = 2; ; n++) {
+      const taken =
+        (await prisma.employee.findFirst({ where: { username: { equals: username, mode: "insensitive" } }, select: { id: true } })) ||
+        (await prisma.user.findFirst({ where: { username: { equals: username, mode: "insensitive" } }, select: { id: true } }));
+      if (!taken) break;
+      username = `enoteca${n}`;
+    }
+    const password = generateEmployeePassword();
+    const last = await prisma.employee.findFirst({ orderBy: { sortOrder: "desc" } });
+    const e = await prisma.employee.create({
+      data: {
+        name: existing === 0 ? "Telefono enoteca" : `Telefono enoteca ${existing + 1}`,
+        role: "EMPLOYEE",
+        sortOrder: (last?.sortOrder ?? -1) + 1,
+        username,
+        password: encryptEmployeePassword(password),
+        canManageBookings: true,
+        canEditMenu: false,
+        isVenueDevice: true,
+        widgets: [...VENUE_WIDGET_IDS],
+      },
+    });
+    revalidateEmployees();
+    revalidatePath("/prenotazioni");
+    return { id: e.id, username, password };
+  });
+}
+
+// L'interruttore «Accesso del telefono enoteca» nella scheda: anche un dipendente esistente si può
+// trasformare (prende le prenotazioni e solo i widget della sala) e tornare persona.
+export async function setEmployeeVenueDevice(idInput: string, on: boolean): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireUser();
+    const id = parseId(idInput, "dipendente");
+    const employee = await prisma.employee.findUnique({ where: { id } });
+    assert(employee, "Dipendente non trovato.");
+    assert(employee.role === "EMPLOYEE", "Solo un dipendente con accesso può diventare il telefono enoteca.");
+    await prisma.employee.update({
+      where: { id },
+      data: on === true ? { isVenueDevice: true, canManageBookings: true, widgets: employee.widgets.filter((w) => VENUE_WIDGET_IDS.includes(w)) } : { isVenueDevice: false },
+    });
+    revalidateEmployees();
+    revalidatePath("/prenotazioni");
+    revalidatePath("/widget");
   });
 }
