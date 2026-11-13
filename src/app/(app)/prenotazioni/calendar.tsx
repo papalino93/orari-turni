@@ -221,7 +221,7 @@ export function AgendaCalendar(props: CalendarProps) {
       <span className="flex min-h-11 items-center gap-1.5 rounded-xl px-1 md:px-2">
         <span className="min-w-0">
           {near && <span className="block text-[11px] font-semibold uppercase leading-tight tracking-wider text-accent-ink">{near}</span>}
-          <span data-testid="agenda-titolo" className="block truncate font-serif text-[1.3rem] font-semibold leading-tight tracking-tight text-foreground md:text-[1.6rem]">
+          <span data-testid="agenda-titolo" className="block text-pretty font-serif text-[1.2rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.35rem] md:truncate md:text-[1.6rem]">
             {title}
           </span>
         </span>
@@ -261,7 +261,7 @@ export function AgendaCalendar(props: CalendarProps) {
             onClick={() => setAnchor(today)}
             aria-current={showsToday ? "date" : undefined}
             title="Oggi (tasto T)"
-            className={`min-h-11 items-center rounded-full px-3.5 text-sm font-semibold ring-1 ring-inset md:flex md:px-4 ${showsToday ? "hidden bg-surface text-foreground-muted ring-border" : "flex bg-surface text-foreground ring-accent/60 hover:ring-accent"}`}
+            className={`min-h-11 items-center rounded-full px-3 text-sm font-semibold ring-1 ring-inset md:flex md:px-4 ${showsToday ? "hidden bg-surface text-foreground-muted ring-border" : "flex bg-surface text-foreground ring-accent/60 hover:ring-accent"}`}
           >
             Oggi
           </button>

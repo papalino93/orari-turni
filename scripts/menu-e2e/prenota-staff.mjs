@@ -393,7 +393,7 @@ try {
   await goList(A);
   const waList = A.getByTestId("sezione-whatsapp");
   const waRound = waList.getByRole("link", { name: `Manda su WhatsApp a ${R.decl.name}` });
-  check("lista WhatsApp (titolare): riga «nome · Al completo · giorno e ora» con il pulsante tondo", (await waRound.count()) === 1 && /Prova C Completo\s+· Al completo · /.test(await waList.innerText()));
+  check("lista WhatsApp (titolare): riga «nome · Al completo · giorno e ora» con il pulsante tondo", (await waRound.count()) === 1 && /Prova C Completo\s+Al completo · /.test(await waList.innerText()));
   const box = await waRound.boundingBox();
   check("…pulsante tondo di 44 px", box && Math.round(box.width) === 44 && Math.round(box.height) === 44, JSON.stringify(box));
   await shot(A, "lista-whatsapp");

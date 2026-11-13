@@ -175,12 +175,10 @@ function WaRow({ b, kind, today, now, canSend, onOpen }: { b: BookingItem; kind:
     // Se lo stato a destra («✓ Mandato · Annulla», «In invio da …») non ci sta, va sotto: il nome resta leggibile.
     <li className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 py-1 pl-3 pr-1.5" data-testid="wa-riga">
       <button type="button" onClick={() => onOpen(b.id)} className="flex min-h-11 min-w-0 flex-[1_1_13rem] flex-col justify-center text-left">
-        {/* Si accorcia solo il nome: tipo di risposta, giorno e ora restano sempre interi. */}
-        <span className="flex min-w-0 items-baseline text-sm">
-          <span className="min-w-0 truncate font-semibold text-foreground">{b.name}</span>
-          <span className="shrink-0 whitespace-nowrap text-foreground-muted">
-            &nbsp;· {REPLY_SHORT[kind]} · {dayLabel(b.day, today)} {kind === "proposed" ? b.proposedTime : b.time}
-          </span>
+        {/* Il nome su una riga, sotto che cosa mandare e per quando (sempre intero). */}
+        <span className="block truncate text-sm font-semibold text-foreground">{b.name}</span>
+        <span className="block whitespace-nowrap text-xs text-foreground-muted">
+          {REPLY_SHORT[kind]} · {dayLabel(b.day, today)} {kind === "proposed" ? b.proposedTime : b.time}
         </span>
         {claim && !canSend && <span className="text-xs font-medium text-gold">In invio da {claim.by}…</span>}
       </button>
