@@ -243,7 +243,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
   const action = c.nuovo > 0 ? `Importa ${plural(c.nuovo, "contatto", "contatti")}` : `Aggiorna ${plural(touched, "contatto", "contatti")}`;
 
   return (
-    <Sheet title="Importa contatti" onClose={onClose} dirty={!progress}>
+    <Sheet title="Importa contatti" onClose={onClose} dirty={!progress && Boolean(consent || extra.size || updateNames || Object.keys(choice).length)}>
       <p className="text-xs text-foreground-muted">
         Da {origin.what ? `«${origin.what}»` : "elenco"} · {FORMAT_LABEL[parsed.format]}
       </p>

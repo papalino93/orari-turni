@@ -1,6 +1,6 @@
 "use client";
 
-import { groupHex, matches, type RContact, type RGroup } from "@/lib/mail-rubrica";
+import { groupHex, matches, n, type RContact, type RGroup } from "@/lib/mail-rubrica";
 import type { Indexed } from "./mail-store";
 
 // Pezzi comuni alla scheda «Rubrica», a «Dalla rubrica» del passo 1 e alle finestre della rubrica.
@@ -117,4 +117,4 @@ export function groupCounts(contacts: RContact[]): Map<string, number> {
   return m;
 }
 
-export const plural = (count: number, one: string, many: string) => `${count.toLocaleString("it-IT")} ${count === 1 ? one : many}`;
+export const plural = (count: number, one: string, many: string) => `${n(count)} ${count === 1 ? one : many}`;

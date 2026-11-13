@@ -135,5 +135,6 @@ export const OPTOUT_LABEL: Record<string, string> = {
   cancellazione: "ha chiesto di cancellare i suoi dati",
 };
 
-// Numeri all'italiana: 5.000.
-export const n = (x: number) => x.toLocaleString("it-IT");
+// Numeri all'italiana, con il punto anche a quattro cifre: 5.000 (non «5000»).
+const numFmt = new Intl.NumberFormat("it-IT", { useGrouping: "always" } as Intl.NumberFormatOptions);
+export const n = (x: number) => numFmt.format(x);

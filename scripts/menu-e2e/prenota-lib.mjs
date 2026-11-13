@@ -8,7 +8,7 @@ import path from "node:path";
 
 const require = createRequire(import.meta.url);
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-export const BASE = process.env.BASE || "http://localhost:3100";
+export const BASE = process.env.BASE || process.env.E2E_BASE || "http://localhost:3100";
 export const ADMIN_PW = process.env.E2E_ADMIN_PASSWORD || "admin-locale";
 export const EMP_PW = process.env.E2E_EMPLOYEE_PASSWORD || "dip-locale";
 export const SHOTS = process.env.SHOTS;
