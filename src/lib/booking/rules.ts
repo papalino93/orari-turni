@@ -367,8 +367,57 @@ export function tableText(table: string): string {
 // Impronta dei campi che si modificano dal foglio «Modifica»: chi salva dice quali dati aveva
 // davanti, e se nel frattempo qualcuno li ha cambiati non si sovrascrive. «Arrivati»/«Non venuti»
 // e le altre azioni non toccano questi campi, quindi non fanno fallire una modifica aperta.
-export function editVersion(b: { day: string; time: string; people: number; name: string; phone: string | null; table: string | null; note: string | null; allergies: boolean }): string {
-  return JSON.stringify([b.day, b.time, b.people, b.name, b.phone ?? "", b.table ?? "", b.note ?? "", b.allergies]);
+export function editVersion(b: {
+  day: string;
+  time: string;
+  people: number;
+  name: string;
+  phone: string | null;
+  table: string | null;
+  note: string | null;
+  allergies: boolean;
+  timeUnknown?: boolean;
+  peopleUnknown?: boolean;
+  menu?: string | null;
+}): string {
+  return JSON.stringify([b.day, b.time, b.people, b.name, b.phone ?? "", b.table ?? "", b.note ?? "", b.allergies, b.timeUnknown === true, b.peopleUnknown === true, b.menu ?? ""]);
+}
+
+// ---------- Dati ancora da definire (prenotazioni vere ma incomplete, di solito dal librone)
+//
+// Ora non nota: time "" e startsAt alle 5:00 del giorno (inizio del giorno commerciale: resta in
+// quel giorno, in cima, e non sembra mai «in ritardo»). Persone non note: people 0 (non pesa sui totali).
+
+export const UNKNOWN_TIME_MINUTES = 5 * 60;
+type MaybeIncomplete = { timeUnknown?: boolean | null; peopleUnknown?: boolean | null };
+export const isIncomplete = (b: MaybeIncomplete) => Boolean(b.timeUnknown || b.peopleUnknown);
+
+// «Mancano: ora, persone» · «Manca l'ora» · «Mancano le persone» (null se c'è tutto).
+export function missingText(b: MaybeIncomplete): string | null {
+  if (b.timeUnknown && b.peopleUnknown) return "Mancano: ora, persone";
+  if (b.timeUnknown) return "Manca l'ora";
+  if (b.peopleUnknown) return "Mancano le persone";
+  return null;
+}
+
+// L'ora come si scrive accanto al nome: «20:30» oppure «ora da definire».
+export const timeOrUnknown = (b: { time: string } & MaybeIncomplete) => (b.timeUnknown ? "ora da definire" : b.time);
+// «4 persone» oppure «persone da definire».
+export const peopleOrUnknown = (b: { people: number } & MaybeIncomplete) => (b.peopleUnknown ? "persone da definire" : peopleText(b.people));
+
+// Menù scelto: si scrive pulito («menu da 25 euro» → «Menù da 25 €»). Vuoto → null.
+export function cleanMenu(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  let t = raw.replace(/\s+/g, " ").trim().slice(0, 60);
+  if (!t) return null;
+  t = t
+    .replace(/^men[uùú](?=\s|$)/i, "Menù")
+    .replace(/(\d)\s*(?:€|euro(?![a-z])|eur(?![a-z]))\.?/gi, "$1 €")
+    .replace(/(\d) €(?=\S)/g, "$1 € ");
+  // «25», «25 €», «Menù 25 €» → «Menù da 25 €».
+  const price = t.match(/^(?:Menù\s+)?(\d+(?:[.,]\d{1,2})?)(?:\s*€)?$/);
+  if (price) t = `Menù da ${price[1]} €`;
+  return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 // Le etichette dei giorni nel foglio: tra mezzanotte e le 5 il giorno commerciale («oggi»)

@@ -629,6 +629,13 @@ model BookingRequest {
   table     String?       @map("tableLabel")
   createdBy String?
   manual    Boolean       @default(false)
+  // Dati ancora da definire (dal librone: «Arianna, giovedì, menù da 25 €»): prenotazione vera ma
+  // incompleta. Ora non nota: time "" e startsAt alle 5:00 del giorno (inizio del giorno commerciale);
+  // persone non note: people 0. Le richieste online hanno sempre ora e persone.
+  timeUnknown   Boolean   @default(false)
+  peopleUnknown Boolean   @default(false)
+  // Menù scelto («Menù da 25 €», «Menù degustazione»), testo libero e facoltativo.
+  menu      String?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
@@ -655,6 +662,18 @@ model BookingLog {
   message   String?
 
   @@index([requestId, at])
+}
+
+// Nota di un giorno dell'agenda («EVENTO DAINELLI» in cima alla pagina del librone, un promemoria).
+model BookingDayNote {
+  id        String   @id @default(cuid())
+  day       String // giorno commerciale AAAA-MM-GG
+  text      String
+  author    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([day])
 }
 
 // Serate in cui non si accettano più richieste online («Siamo al completo»).
