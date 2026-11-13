@@ -22,7 +22,8 @@ function parseXml(files: Record<string, Uint8Array>, name: string): Document | n
 // messaggio in italiano che dice cosa fare.
 export const XLSX_UNREADABLE = "Non riesco ad aprire questo file Excel: salvalo di nuovo come .xlsx.";
 
-export function readXlsx(buffer: ArrayBuffer): Sheet {
+// Tutte le righe del primo foglio, così come sono (per la rubrica, che riconosce da sola le colonne).
+export function readXlsxGrid(buffer: ArrayBuffer): string[][] {
   let files: Record<string, Uint8Array>;
   try {
     files = unzipSync(new Uint8Array(buffer));
@@ -57,9 +58,13 @@ export function readXlsx(buffer: ArrayBuffer): Sheet {
       }
       cells[colIndex(c.getAttribute("r") ?? "A1")] = value.trim();
     }
-    grid.push(cells);
+    grid.push(Array.from(cells, (c) => c ?? ""));
   }
+  return grid;
+}
 
+export function readXlsx(buffer: ArrayBuffer): Sheet {
+  const grid = readXlsxGrid(buffer);
   const at = grid.findIndex((r) => r.some((c) => /^e-?mail/i.test(c ?? "")));
   if (at < 0) throw new Error("Non trovo una colonna «Email» nel file.");
   const headers = grid[at].map((h) => h ?? "");

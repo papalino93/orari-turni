@@ -35,7 +35,7 @@ if (process.argv.includes("--servizio")) {
   const { loadEnvLocal } = await import("./prenota-lib.mjs");
   loadEnvLocal();
   delete process.env.VERCEL_ENV;
-  if (!/\/orari_test(\?|$)/.test(process.env.DATABASE_URL || "")) process.exit(2);
+  if (!new RegExp(`/${process.env.E2E_DB || "orari_test"}(\\?|$)`).test(process.env.DATABASE_URL || "")) process.exit(2);
   const S = await import("@/lib/booking/service");
   const R = await import("@/lib/booking/rules");
   const A = await import("@/lib/booking/agenda");

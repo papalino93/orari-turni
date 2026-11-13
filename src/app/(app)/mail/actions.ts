@@ -24,6 +24,8 @@ import {
   type Recipient,
 } from "@/lib/mail";
 import { parseId, parseText, runAction, ValidationError, type ActionResult } from "@/lib/validation";
+import { recordSent } from "@/lib/mail-contacts";
+import { isConsent, longDay } from "@/lib/mail-rubrica";
 
 const MAX_CHUNK = 50;
 
@@ -82,15 +84,19 @@ function statusOf(s: { recipients: number; sent: number; failed: number; exclude
 }
 
 // Inizio di un invio alla lista: una riga nel registro, che i gruppi aggiornano.
-export async function startMailSend(input: { subject: string; recipients: number }): Promise<ActionResult<{ id: string }>> {
+// basis: perché si può scrivere a queste persone, scelto al passo 3 («Sono clienti o contatti già
+// avuti», «Hanno chiesto di riceverle», «Altro motivo»): resta nel registro e vale per chi entra in
+// rubrica con questo invio.
+export async function startMailSend(input: { subject: string; recipients: number; basis: string }): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const user = await mailUser();
     const subject = parseText(input?.subject, "oggetto", { max: 200, required: true });
     const total = Number(input?.recipients);
     if (!Number.isInteger(total) || total < 1 || total > 100000) throw new ValidationError("Numero di destinatari non valido.");
+    if (!isConsent(input?.basis)) throw new ValidationError("Scegli perché puoi scrivere a queste persone.");
     const quota = await mailQuotaToday();
     if (total > quota.bulkAvailable) throw new ValidationError(quotaMessage(quota.bulkAvailable, quota.reserve));
-    const row = await prisma.mailSend.create({ data: { by: user.name || user.username, subject, recipients: total } });
+    const row = await prisma.mailSend.create({ data: { by: user.name || user.username, subject, recipients: total, basis: input.basis } });
     return { id: row.id };
   });
 }
@@ -147,6 +153,9 @@ export async function sendMailChunk(input: {
 
     if (recipients.length === 0) {
       await finish(0, 0, false);
+      await prisma.mailSendRecipient
+        .createMany({ data: all.map((r) => ({ sendId, email: r.email, status: "excluded" })), skipDuplicates: true })
+        .catch(() => {});
       return { sent: 0, failed: 0, excluded, warning: null };
     }
 
@@ -167,6 +176,16 @@ export async function sendMailChunk(input: {
     }
     await releaseBulk(res.failed.length);
     await finish(res.sent, res.failed.length, Boolean(res.error?.quota));
+    // Chi l'ha ricevuta entra in rubrica (o si aggiorna). Se non riesce, l'invio resta valido.
+    const failedSet = new Set(res.failed);
+    await recordSent({
+      sendId,
+      sent: recipients.filter((r) => !failedSet.has(r.email)),
+      failed: res.failed,
+      excluded: all.filter((r) => optedOut.has(r.email)).map((r) => r.email),
+      basis: isConsent(send.basis) ? send.basis : "altro",
+      note: `Dichiarato all'invio «${send.subject}» del ${longDay(send.createdAt.toISOString())}`,
+    }).catch((e: unknown) => console.error("[mail] rubrica dopo l'invio", e));
     revalidatePath("/mail");
     return {
       sent: res.sent,

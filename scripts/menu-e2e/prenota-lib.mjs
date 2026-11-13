@@ -8,7 +8,7 @@ import path from "node:path";
 
 const require = createRequire(import.meta.url);
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-export const BASE = process.env.BASE || "http://localhost:3100";
+export const BASE = process.env.BASE || process.env.E2E_BASE || "http://localhost:3100";
 export const ADMIN_PW = process.env.E2E_ADMIN_PASSWORD || "admin-locale";
 export const EMP_PW = process.env.E2E_EMPLOYEE_PASSWORD || "dip-locale";
 export const SHOTS = process.env.SHOTS;
@@ -35,9 +35,11 @@ export function finish() {
   return failed.length ? 1 : 0;
 }
 
-// Database di prova (psql, utente orari/orari): MAI quello di produzione.
+// Database di prova (psql, utente orari/orari): MAI quello di produzione. E2E_DB ne sceglie un altro
+// (es. orari_rubrica per una seconda copia di lavoro), sempre locale.
+export const TEST_DB = process.env.E2E_DB || "orari_test";
 export const DB = (sql) =>
-  execFileSync("psql", ["-h", "localhost", "-U", "orari", "orari_test", "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } })
+  execFileSync("psql", ["-h", "localhost", "-U", "orari", TEST_DB, "-Atc", sql], { env: { ...process.env, PGPASSWORD: "orari" } })
     .toString()
     .trim();
 export const q = (s) => `'${String(s).replace(/'/g, "''")}'`;

@@ -286,7 +286,7 @@ export function unsubscribeUrls(email: string, origin: string) {
 }
 
 // Idempotente: chi si è già cancellato resta com'era (data e modo della prima volta).
-export async function addOptOut(email: string, source: "link" | "one-click" | "a mano"): Promise<void> {
+export async function addOptOut(email: string, source: "link" | "one-click" | "a mano" | "cancellazione"): Promise<void> {
   const e = email.trim().toLowerCase();
   await prisma.mailOptOut.upsert({ where: { email: e }, create: { email: e, source }, update: {} });
 }

@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { consentShort, OPTOUT_LABEL } from "@/lib/mail-rubrica";
 import { markOptOutAction, saveMailSenderAction } from "./actions";
+import { sendPeople } from "./rubrica-actions";
 
 const field =
   "w-full rounded-xl border border-border bg-surface-2 px-3.5 py-3 text-base text-foreground placeholder:text-foreground-muted focus:border-accent focus:outline-none sm:text-sm";
@@ -13,7 +15,7 @@ const ghostBtn =
 const dateFmt = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const dayFmt = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", day: "numeric", month: "short", year: "numeric" });
 
-type SendRow = { id: string; at: string; by: string; subject: string; recipients: number; sent: number; failed: number; excluded: number; status: string };
+type SendRow = { id: string; at: string; by: string; subject: string; recipients: number; sent: number; failed: number; excluded: number; status: string; basis: string | null };
 
 const STATUS: Record<string, { label: string; tone: string }> = {
   INVIATA: { label: "Inviata", tone: "bg-success-bg text-success" },
@@ -45,7 +47,9 @@ export function MailHistory({ sends }: { sends: SendRow[] }) {
                   {dateFmt.format(new Date(s.at))} · {s.by} · partite {s.sent} su {s.recipients}
                   {s.failed > 0 && ` · ${s.failed} non partite`}
                   {s.excluded > 0 && ` · ${s.excluded} escluse perché cancellate`}
+                  {s.basis && ` · motivo: ${consentShort(s.basis).toLowerCase()}`}
                 </p>
+                {s.basis && <SendPeople id={s.id} />}
               </li>
             );
           })}
@@ -55,7 +59,52 @@ export function MailHistory({ sends }: { sends: SendRow[] }) {
   );
 }
 
-const SOURCE: Record<string, string> = { link: "dal link nella mail", "one-click": "dal programma di posta", "a mano": "segnato a mano" };
+const SOURCE = OPTOUT_LABEL;
+
+const PEOPLE_STATUS: Record<string, string> = { sent: "", failed: "non partita", excluded: "esclusa: si era cancellata" };
+
+// «A chi è andata»: l'elenco si legge quando lo si apre (gli invii fatti prima della rubrica non ce l'hanno).
+function SendPeople({ id }: { id: string }) {
+  const [people, setPeople] = useState<{ email: string; name: string; status: string }[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <details
+      className="mt-1 text-xs"
+      onToggle={(e) => {
+        if (!(e.currentTarget as HTMLDetailsElement).open || people || pending) return;
+        start(async () => {
+          try {
+            const res = await sendPeople({ id });
+            if (res.ok) setPeople(res.data);
+            else setError(res.error);
+          } catch {
+            setError("Non riesco a leggere l'elenco: controlla la connessione e riprova.");
+          }
+        });
+      }}
+    >
+      <summary className="inline-flex min-h-9 cursor-pointer items-center text-accent-ink">A chi è andata</summary>
+      {error ? (
+        <p className="mt-1 text-danger">{error}</p>
+      ) : !people ? (
+        <p className="mt-1 text-foreground-muted">Un attimo…</p>
+      ) : (
+        <ul className="mt-1 max-h-64 divide-y divide-border overflow-y-auto rounded-xl bg-surface-2 px-3">
+          {people.map((p) => (
+            <li key={p.email} className="flex flex-wrap justify-between gap-x-3 py-2">
+              <span className="min-w-0 break-all text-foreground">
+                {p.name ? `${p.name} · ` : ""}
+                {p.email}
+              </span>
+              {PEOPLE_STATUS[p.status] && <span className={p.status === "failed" ? "text-danger" : "text-foreground-muted"}>{PEOPLE_STATUS[p.status]}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </details>
+  );
+}
 
 // Indirizzi che non vogliono più ricevere le mail, e «Segna come cancellato» per chi ha risposto «cancellami».
 export function OptOutBox({ optOuts }: { optOuts: { email: string; at: string; source: string }[] }) {
@@ -85,7 +134,7 @@ export function OptOutBox({ optOuts }: { optOuts: { email: string; at: string; s
       </h2>
       <p className="mt-1 text-sm text-foreground-muted">
         Chi tocca «Non voglio più ricevere queste email» finisce qui da solo e viene tolto da ogni invio. Se qualcuno ti
-        risponde «cancellami», segnalo tu.
+        risponde «cancellami», segnalo tu: qui o dalla sua scheda nella Rubrica.
       </p>
       <form onSubmit={submit} className="mt-3 flex flex-col gap-2 sm:flex-row">
         <label htmlFor="optout-email" className="sr-only">

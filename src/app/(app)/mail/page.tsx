@@ -4,14 +4,18 @@ import { loadFeatures } from "@/lib/app-features";
 import { loadVenue } from "@/lib/menu";
 import { prisma } from "@/lib/prisma";
 import { isPreviewDeploy, loadMailSender, mailConfigured, mailQuotaToday } from "@/lib/mail";
+import { contactCount } from "@/lib/mail-contacts";
 import { MailForm } from "./mail-form";
 import { MailHistory, OptOutBox, SenderBox } from "./mail-extras";
+import { MailProvider, type Tab } from "./mail-store";
+import { MailTabs } from "./mail-tabs";
+import { Rubrica } from "./rubrica";
 
 export const metadata = { title: "Mail" };
 
 // Solo titolare e consulente: il Proxy rimanda già i dipendenti, ma il confine
 // vero è qui e nelle azioni (requireUser rifiuta il ruolo EMPLOYEE).
-export default async function MailPage() {
+export default async function MailPage({ searchParams }: { searchParams: Promise<{ scheda?: string }> }) {
   try {
     await requireUser();
   } catch {
@@ -20,12 +24,15 @@ export default async function MailPage() {
   // Sezione spenta: la pagina non si apre (si torna a Impostazioni, che dice perché).
   if (!(await loadFeatures()).mail) redirect("/account?mail=spenta");
 
-  const [quota, sender, venue, sends, optOuts] = await Promise.all([
+  const { scheda } = await searchParams;
+  const initialTab: Tab = scheda === "rubrica" || scheda === "invii" ? scheda : "scrivi";
+  const [quota, sender, venue, sends, optOuts, contacts] = await Promise.all([
     mailQuotaToday(),
     loadMailSender(),
     loadVenue(),
     prisma.mailSend.findMany({ orderBy: { createdAt: "desc" }, take: 20 }),
     prisma.mailOptOut.findMany({ orderBy: { createdAt: "desc" }, select: { email: true, createdAt: true, source: true } }),
+    contactCount(),
   ]);
   const preview = isPreviewDeploy();
   const blocked = preview
@@ -35,39 +42,53 @@ export default async function MailPage() {
       : null;
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <h1 className="mb-1 text-xl font-semibold tracking-tight">Mail</h1>
-      <p className="mb-6 text-sm text-foreground-muted">
-        Scrivi una volta sola e ogni persona riceve la <b>sua</b> mail, con il proprio saluto in cima. Mai
-        tutti in copia. Tre passaggi: scegli a chi scrivere, scrivi il messaggio, controlla e invia.
-      </p>
-      <MailForm
-        blocked={blocked}
-        blockedTitle={preview ? "Versione di prova: non si spedisce" : "L'invio non è ancora attivo"}
-        quota={{ available: quota.bulkAvailable, reserve: quota.reserve, limit: quota.limit }}
-        from={process.env.MAIL_FROM || null}
-        replyTo={process.env.MAIL_REPLY_TO || null}
-        footer={{ address: venue.contacts.address, company: sender.company, vat: sender.vat, privacyUrl: sender.privacyUrl }}
-        savedTestEmail={sender.testEmail}
-        optedOut={optOuts.map((o) => o.email)}
-      />
-      <div className="mt-8 flex flex-col gap-5">
-        <MailHistory
-          sends={sends.map((s) => ({
-            id: s.id,
-            at: s.createdAt.toISOString(),
-            by: s.by,
-            subject: s.subject,
-            recipients: s.recipients,
-            sent: s.sent,
-            failed: s.failed,
-            excluded: s.excluded,
-            status: s.status,
-          }))}
+    <div className="mx-auto max-w-3xl">
+      <h1 className="mb-4 text-xl font-semibold tracking-tight">Mail</h1>
+      <MailProvider initialTab={initialTab} contactCount={contacts}>
+        <MailTabs
+          scrivi={
+            <>
+              <p className="mb-5 text-sm text-foreground-muted">
+                Scrivi una volta sola e ogni persona riceve la <b>sua</b> mail, con il proprio saluto in cima. Mai tutti in copia.
+                Tre passaggi: scegli a chi scrivere, scrivi il messaggio, controlla e invia.
+              </p>
+              <MailForm
+                blocked={blocked}
+                blockedTitle={preview ? "Versione di prova: non si spedisce" : "L'invio non è ancora attivo"}
+                quota={{ available: quota.bulkAvailable, reserve: quota.reserve, limit: quota.limit }}
+                from={process.env.MAIL_FROM || null}
+                replyTo={process.env.MAIL_REPLY_TO || null}
+                footer={{ address: venue.contacts.address, company: sender.company, vat: sender.vat, privacyUrl: sender.privacyUrl }}
+                savedTestEmail={sender.testEmail}
+                optedOut={optOuts.map((o) => o.email)}
+              />
+              <div className="mt-8">
+                <SenderBox sender={sender} address={venue.contacts.address} from={process.env.MAIL_FROM || null} replyTo={process.env.MAIL_REPLY_TO || null} />
+              </div>
+            </>
+          }
+          rubrica={<Rubrica />}
+          invii={
+            <div className="flex flex-col gap-5">
+              <MailHistory
+                sends={sends.map((s) => ({
+                  id: s.id,
+                  at: s.createdAt.toISOString(),
+                  by: s.by,
+                  subject: s.subject,
+                  recipients: s.recipients,
+                  sent: s.sent,
+                  failed: s.failed,
+                  excluded: s.excluded,
+                  status: s.status,
+                  basis: s.basis,
+                }))}
+              />
+              <OptOutBox optOuts={optOuts.map((o) => ({ email: o.email, at: o.createdAt.toISOString(), source: o.source }))} />
+            </div>
+          }
         />
-        <OptOutBox optOuts={optOuts.map((o) => ({ email: o.email, at: o.createdAt.toISOString(), source: o.source }))} />
-        <SenderBox sender={sender} address={venue.contacts.address} from={process.env.MAIL_FROM || null} replyTo={process.env.MAIL_REPLY_TO || null} />
-      </div>
+      </MailProvider>
     </div>
   );
 }
