@@ -17,6 +17,7 @@ export function cleanAgendaSeed() {
   DB(`delete from "BookingRequest" where id like 'agv\\_%'`);
   DB(`delete from "MenuPromo" where id like 'agv\\_%'`);
   DB(`delete from "BookingDayNote" where id like 'agv\\_%' or text like '%(prova agv)%'`);
+  DB(`delete from "BookingRequest" where name like 'Agv %' or name like 'Agv Servizio%'`);
   DB(`delete from "ShiftBlock" where id like 'agv\\_%'`);
   DB(`delete from "LeaveEntry" where id like 'agv\\_%'`);
   DB(`delete from "ClosureDay" where id like 'agv\\_%'`);

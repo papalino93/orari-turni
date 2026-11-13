@@ -7,6 +7,7 @@ import {
   checkTypedRows,
   guessColumns,
   HEADER_TAG,
+  HEADER_TAG_RE,
   mailFooter,
   parseRecipients,
   tableToRecipients,
@@ -19,7 +20,7 @@ import { newRow, PasteReading, RecipientsTable, type Row } from "./recipients-ta
 
 const CHUNK = 50;
 const DEFAULT_BODY = `Spett.le ${HEADER_TAG},\n\n`;
-const SAMPLE_CSV = "\uFEFFemail;intestazione\nmario.rossi@esempio.it;Dott. Rossi\nlaura.bianchi@esempio.it;Laura\n";
+const SAMPLE_CSV = "\uFEFFemail;nome\nmario.rossi@esempio.it;Dott. Rossi\nlaura.bianchi@esempio.it;Laura\n";
 
 const field =
   "w-full rounded-xl border border-border bg-surface-2 px-3.5 py-3 text-base text-foreground placeholder:text-foreground-muted focus:border-accent focus:outline-none sm:text-sm";
@@ -487,12 +488,12 @@ export function MailForm({
               <details className="mt-3 text-sm" open={!hasList}>
                 <summary className="cursor-pointer py-2.5 text-accent-ink">Come deve essere fatto il file?</summary>
                 <div className="mt-2 rounded-xl bg-surface-2 p-3 text-xs text-foreground-muted">
-                  <p>Due colonne: la prima con l&apos;<b>email</b>, la seconda con l&apos;<b>intestazione</b>, cioè solo la parte di ognuno (nome o azienda). Esempio:</p>
+                  <p>Due colonne: la prima con l&apos;<b>email</b>, la seconda con il <b>nome o l&apos;azienda</b> di ognuno. Esempio:</p>
                   <table className="my-2 w-full text-left text-foreground">
                     <thead>
                       <tr className="text-foreground-muted">
                         <th className="pr-3 font-medium">email</th>
-                        <th className="font-medium">intestazione</th>
+                        <th className="font-medium">nome</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -547,7 +548,7 @@ export function MailForm({
             <div className="mt-5 flex flex-col gap-5 border-t border-border pt-5">
               <div>
                 <label className="mb-1 block text-sm font-medium" htmlFor="mail-header-col">
-                  Quale colonna contiene l&apos;intestazione?
+                  Quale colonna contiene il nome (o l&apos;azienda)?
                 </label>
                 <p className="mb-2 text-xs text-foreground-muted">
                   È la parte diversa per ognuno, ad esempio il nome dell&apos;azienda o «Dott. Rossi». «Spett.le», «Gentile» e simili
@@ -682,8 +683,8 @@ export function MailForm({
         <section className={card}>
           <h2 className="text-base font-semibold">Cosa vuoi dire?</h2>
           <p className="mt-1 text-sm text-foreground-muted">
-            Il testo è uguale per tutti, saluto compreso. Dove vuoi l&apos;intestazione di ognuno (il nome o l&apos;azienda) metti
-            il segnaposto <b>{HEADER_TAG}</b>: nell&apos;invio viene sostituito con quella della persona.
+            Il testo è uguale per tutti. Se vuoi che ognuno veda <b>il suo nome</b> (quello scritto nell&apos;elenco, es. «Dott. Rossi»,
+            «Studio Lenzi»), metti il cursore dove va e tocca <b>«+ Nome della persona»</b>.
           </p>
 
           <label className="mb-1 mt-4 block text-sm font-medium" htmlFor="mail-subject">
@@ -711,13 +712,30 @@ export function MailForm({
             className={field}
           />
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button type="button" onClick={insertTag} className="rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:border-accent">
-              + Inserisci l&apos;intestazione
+            <button type="button" onClick={insertTag} className="min-h-11 rounded-full border border-border px-4 text-sm font-medium hover:border-accent">
+              + Nome della persona
             </button>
-            {!/\{intestazione\}/i.test(body) && (
-              <span className="text-xs text-accent-ink">Nel testo non c&apos;è {HEADER_TAG}: nessuno vedrà il proprio nome.</span>
-            )}
+            <span className="text-xs text-foreground-muted">Nel testo compare come {HEADER_TAG}: al momento dell&apos;invio diventa il nome di ognuno.</span>
           </div>
+          {body.trim() && (
+            <div className="mt-3 rounded-xl bg-surface-2/60 px-4 py-3 text-sm" aria-live="polite">
+              {HEADER_TAG_RE.test(body) ? (
+                <>
+                  <p className="text-xs text-foreground-muted">
+                    Così inizia la mail{sample?.header ? <> per <b className="text-foreground">{sample.email}</b></> : null}:
+                  </p>
+                  <p className="mt-1 font-medium [overflow-wrap:anywhere]">
+                    «{applyHeader(body.split(/\n/).find((l) => HEADER_TAG_RE.test(l)) ?? "", sample?.header || "Dott. Rossi").trim()}»
+                  </p>
+                  {sample && !sample.header && <p className="mt-1 text-xs text-foreground-muted">Chi nell&apos;elenco non ha un nome riceve la riga senza nome.</p>}
+                </>
+              ) : (
+                <p className="text-foreground-muted">
+                  Tutti riceveranno lo <b className="text-foreground">stesso identico testo</b>, senza il loro nome. Va bene così, oppure tocca «+ Nome della persona».
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="mt-5">
             <MailPreview from={from} sample={sample} subject={subject} body={body} footer={footer} />

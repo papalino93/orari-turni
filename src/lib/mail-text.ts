@@ -191,7 +191,9 @@ function parseCsv(text: string, delimiter: string): string[][] {
   return rows;
 }
 
-export const HEADER_TAG = "{intestazione}";
+// Segnaposto del nome di ognuno nel testo. «{intestazione}» è il nome vecchio: vale ancora.
+export const HEADER_TAG = "{nome}";
+export const HEADER_TAG_RE = /\{(?:nome|intestazione)\}/i;
 
 export function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -209,7 +211,7 @@ export function oneLine(s: string) {
 export function applyHeader(body: string, header: string): string {
   const h = oneLine(header);
   return body
-    .replace(/\{intestazione\}/gi, () => h)
+    .replace(/\{(?:nome|intestazione)\}/gi, () => h)
     .replace(/ +([,.;:!?])/g, "$1")
     .replace(/[ \t]{2,}/g, " ");
 }
