@@ -37,6 +37,10 @@ import {
   type DayAvailability,
   type DayClosure,
   mentionsAllergy,
+  cleanMenu,
+  isIncomplete,
+  peopleOrUnknown,
+  UNKNOWN_TIME_MINUTES,
 } from "@/lib/booking/rules";
 import { customerMessage, customerSubject, staffAlert, VENUE_NAME, type MessageKind } from "@/lib/booking/messages";
 import { sendPushToStaff } from "@/lib/booking/push";
@@ -411,6 +415,10 @@ export type ManualInput = {
   table: unknown;
   note: unknown;
   allergies: unknown;
+  // «Ancora da definire»: ora e/o persone non ancora note (prenotazione vera, da completare).
+  timeUnknown?: unknown;
+  peopleUnknown?: unknown;
+  menu?: unknown; // «Menù da 25 €», facoltativo
   source?: unknown; // solo alla creazione: "telefono" | "whatsapp" | "persona"
   force?: unknown; // true: segna anche fuori orario / giorno chiuso
   dupOk?: unknown; // true: «È un'altra, segna lo stesso» dopo l'avviso doppioni
@@ -426,14 +434,27 @@ export type ManualResult =
   | { ok: false; error: string; conflict: BookingRow }
   | { ok: false; error: string; gone: true };
 
-type CleanManual = { day: string; time: string; startsAt: Date; people: number; name: string; phone: string; table: string | null; note: string | null; allergies: boolean };
+type CleanManual = {
+  day: string;
+  time: string;
+  startsAt: Date;
+  people: number;
+  name: string;
+  phone: string;
+  table: string | null;
+  note: string | null;
+  allergies: boolean;
+  timeUnknown: boolean;
+  peopleUnknown: boolean;
+  menu: string | null;
+};
 
 // Nella cronologia: «Segnata da Marta (telefono)». «librone»: arrivate con «Importa dal librone».
 const SOURCE_LOG: Record<ManualSource | "librone", string> = { telefono: "telefono", whatsapp: "WhatsApp", persona: "di persona", librone: "dal librone" };
 
 // keep: giorno e ora della prenotazione che si modifica (un giorno o un'ora già passati si possono
 // tenere senza domande, per esempio per segnare il tavolo di ieri sera).
-async function cleanManual(input: ManualInput, source: string | null, now: Date, keep?: { day: string; time: string }): Promise<{ ok: true; v: CleanManual } | { ok: false; error: string; field?: string } | { ok: false; error: string; ask: string }> {
+async function cleanManual(input: ManualInput, source: string | null, now: Date, keep?: { day: string; time: string; timeUnknown: boolean }): Promise<{ ok: true; v: CleanManual } | { ok: false; error: string; field?: string } | { ok: false; error: string; ask: string }> {
   const keepDay = keep?.day;
   const day = str(input.day, 10);
   const time = str(input.time, 5);
@@ -442,14 +463,17 @@ async function cleanManual(input: ManualInput, source: string | null, now: Date,
   const phoneRaw = str(input.phone, 40);
   const table = str(input.table, 20);
   const note = str(input.note, 300);
+  const timeUnknown = input.timeUnknown === true;
+  const peopleUnknown = input.peopleUnknown === true;
+  const menu = cleanMenu(input.menu);
   const today = businessDay(now);
   if (name.length < 2) return { ok: false, error: "Scrivi il nome.", field: "name" };
-  if (!Number.isInteger(people) || people < 1 || people > 60) return { ok: false, error: "Persone: scrivi un numero da 1 a 60.", field: "people" };
+  if (!peopleUnknown && (!Number.isInteger(people) || people < 1 || people > 60)) return { ok: false, error: "Persone: scrivi un numero da 1 a 60, oppure «Ancora da definire».", field: "people" };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(Date.parse(`${day}T00:00:00Z`)) || addDays(day, 0) !== day) return { ok: false, error: "Scegli il giorno.", field: "day" };
   // Un giorno già passato si può tenere solo se la prenotazione era già lì (modifica di altro).
   if (day < today && day !== keepDay) return { ok: false, error: "Quel giorno è già passato: scegli oggi o un giorno che deve venire.", field: "day" };
   if (day > addDays(today, 365)) return { ok: false, error: "Si può segnare fino a un anno avanti.", field: "day" };
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return { ok: false, error: "Scegli l'ora.", field: "time" };
+  if (!timeUnknown && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return { ok: false, error: "Scegli l'ora, oppure «Ancora da definire».", field: "time" };
   let phone = "";
   if (phoneRaw) {
     // Anche un fisso va bene: la conferma su WhatsApp la si manda solo a un cellulare.
@@ -464,8 +488,16 @@ async function cleanManual(input: ManualInput, source: string | null, now: Date,
   // Senza numero va bene anche per «Telefono» e «WhatsApp»: al telefono si segna in fretta, il numero
   // si aggiunge dopo (nella prenotazione c'è il bollino «manca il numero»).
   // Giorno e ora non cambiati (si modifica altro): nessuna domanda, era già stata fatta.
-  const kept = keep && keep.day === day && keep.time === time;
-  if (input.force !== true && !kept) {
+  const kept = keep && keep.day === day && (timeUnknown ? keep.timeUnknown : !keep.timeUnknown && keep.time === time);
+  if (input.force !== true && !kept && timeUnknown) {
+    // Ora ancora da definire: si chiede solo se quel giorno il locale è chiuso.
+    const { hours } = await loadVenue();
+    const closed = (await closuresBetween(day, day)).get(day);
+    if (closed?.kind === "closed" || withinOpening(day, "20:00", hours) === "closedDay") {
+      return { ok: false, error: "Quel giorno risulta chiuso.", ask: `${closed?.kind === "closed" && closed.reason ? `Quel giorno risulta chiuso (${closed.reason})` : "Quel giorno risulta chiuso"}: segnarla lo stesso?` };
+    }
+  }
+  if (input.force !== true && !kept && !timeUnknown) {
     // Orario già passato da più di mezz'ora (per esempio «Oggi» toccato al posto di «Domani»):
     // è lo sbaglio più probabile, quindi la prima domanda.
     const startsAt = romeInstant(day, timeToDayMinutes(time));
@@ -481,12 +513,27 @@ async function cleanManual(input: ManualInput, source: string | null, now: Date,
   }
   return {
     ok: true,
-    v: { day, time, startsAt: romeInstant(day, timeToDayMinutes(time)), people, name, phone, table: table || null, note: note || null, allergies: input.allergies === true },
+    v: {
+      day,
+      time: timeUnknown ? "" : time,
+      // Ora da definire: le 5:00 del giorno (inizio del giorno commerciale), sempre in quel giorno e in cima.
+      startsAt: romeInstant(day, timeUnknown ? UNKNOWN_TIME_MINUTES : timeToDayMinutes(time)),
+      people: peopleUnknown ? 0 : people,
+      name,
+      phone,
+      table: table || null,
+      note: note || null,
+      allergies: input.allergies === true,
+      timeUnknown,
+      peopleUnknown,
+      menu,
+    },
   };
 }
 
 async function confirmationHref(b: BookingRow, origin: string | null): Promise<string | null> {
-  if (!b.phone) return null;
+  // Ora o persone ancora da definire: niente conferma al cliente (avrebbe un orario inventato).
+  if (!b.phone || isIncomplete(b)) return null;
   return customerWhatsappHref(b, "confirmed", origin, (await loadVenue()).contacts.address || null);
 }
 
@@ -514,7 +561,18 @@ export async function createManualBooking(input: ManualInput, actor: StaffActor,
 // La stessa prenotazione segnata dalla stessa persona negli ultimi 2 minuti (doppio tocco).
 function recentTwin(v: CleanManual, actor: StaffActor, now: Date): Promise<BookingRow | null> {
   return prisma.bookingRequest.findFirst({
-    where: { manual: true, createdBy: actor.name, name: v.name, day: v.day, time: v.time, people: v.people, status: "CONFIRMED", createdAt: { gte: new Date(now.getTime() - 2 * 60000) } },
+    where: {
+      manual: true,
+      createdBy: actor.name,
+      name: v.name,
+      day: v.day,
+      time: v.time,
+      people: v.people,
+      timeUnknown: v.timeUnknown,
+      peopleUnknown: v.peopleUnknown,
+      status: "CONFIRMED",
+      createdAt: { gte: new Date(now.getTime() - 2 * 60000) },
+    },
   });
 }
 
@@ -538,6 +596,9 @@ async function insertManual(v: CleanManual, source: ManualSource | "librone", ac
             note: v.note,
             allergies: v.allergies,
             table: v.table,
+            timeUnknown: v.timeUnknown,
+            peopleUnknown: v.peopleUnknown,
+            menu: v.menu,
             source,
             manual: true,
             createdBy: actor.name,
@@ -613,8 +674,22 @@ export async function importManualBookings(
       results.push({ ...base, ok: false, repeatOf: r.repeatOf });
       continue;
     }
+    // Ora o persone che mancano: la prenotazione si segna lo stesso, «da completare».
     const c = await cleanManual(
-      { day: r.day, time: r.time, people: r.people, name: r.name, phone: r.phone, table: r.table, note: r.note, allergies: mentionsAllergy(r.note), force: true },
+      {
+        day: r.day,
+        time: r.time ?? "",
+        people: r.people ?? 0,
+        timeUnknown: r.time === null,
+        peopleUnknown: r.people === null,
+        name: r.name,
+        phone: r.phone,
+        table: r.table,
+        note: r.note,
+        menu: r.menu,
+        allergies: mentionsAllergy(r.note),
+        force: true,
+      },
       "librone",
       now,
     );
@@ -628,7 +703,7 @@ export async function importManualBookings(
       existing.filter((e) => e.day === v.day),
       { phone: v.phone || null, name: v.name },
     );
-    const dup = dupRow ? `C'è già ${dupRow.status === "CONFIRMED" ? "" : "una richiesta di "}${dupRow.name} alle ${dupRow.time} (${peopleText(dupRow.people)})${dupRow.status === "CONFIRMED" ? "" : ", da confermare"}` : undefined;
+    const dup = dupRow ? `C'è già ${dupRow.status === "CONFIRMED" ? "" : "una richiesta di "}${dupRow.name} ${dupAt(dupRow)} (${peopleOrUnknown(dupRow)})${dupRow.status === "CONFIRMED" ? "" : ", da confermare"}` : undefined;
     if (dup && !keep.has(r.line)) {
       results.push({ ...base, ok: false, dup, skippedDuplicate: true, warning });
       continue;
@@ -650,9 +725,10 @@ export async function importManualBookings(
 
 // Avviso (non blocca) per una prenotazione dal librone: le stesse domande del foglio «Nuova prenotazione».
 function importWarning(v: CleanManual, hours: Hours | null, closure: DayClosure | null, now: Date): string | undefined {
-  if (v.startsAt.getTime() < now.getTime() - 30 * 60000) return `Le ${v.time} di oggi sono già passate`;
+  if (!v.timeUnknown && v.startsAt.getTime() < now.getTime() - 30 * 60000) return `Le ${v.time} di oggi sono già passate`;
   if (!hours) return undefined;
   if (closure?.kind === "closed") return closure.reason ? `Quel giorno risulta chiuso (${closure.reason})` : "Quel giorno risulta chiuso";
+  if (v.timeUnknown) return withinOpening(v.day, "20:00", hours) === "closedDay" ? "Quel giorno risulta chiuso" : undefined;
   const open = withinOpening(v.day, v.time, hours);
   if (open === "closedDay") return "Quel giorno risulta chiuso";
   if (open === "outside") return `Alle ${v.time} il locale risulta chiuso`;
@@ -661,9 +737,11 @@ function importWarning(v: CleanManual, hours: Hours | null, closure: DayClosure 
 
 // ---------- Doppioni: stesso numero lo stesso giorno, oppure stesso nome (senza maiuscole e accenti)
 
-type DupRow = { id: string; name: string; day: string; time: string; people: number; status: string; phone: string };
+type DupRow = { id: string; name: string; day: string; time: string; people: number; status: string; phone: string; timeUnknown: boolean; peopleUnknown: boolean };
 const DUP_STATUSES = ["PENDING", "PROPOSED", "CONFIRMED"] as const;
-const DUP_SELECT = { id: true, name: true, day: true, time: true, people: true, status: true, phone: true } as const;
+const DUP_SELECT = { id: true, name: true, day: true, time: true, people: true, status: true, phone: true, timeUnknown: true, peopleUnknown: true } as const;
+// «alle 20:30» oppure «(ora da definire)».
+const dupAt = (d: Pick<DupRow, "time" | "timeUnknown">) => (d.timeUnknown ? "con l'ora da definire" : `alle ${d.time}`);
 
 export async function findDuplicate(c: { day: string; phone: string | null; name: string; isTest: boolean; excludeId?: string }): Promise<DupRow | null> {
   const rows = await prisma.bookingRequest.findMany({
@@ -682,7 +760,7 @@ function pickDuplicate(rows: DupRow[], c: { phone: string | null; name: string }
 }
 
 export function dupQuestion(d: DupRow): string {
-  return `C'è già ${d.name} ${dayLong(d.day).split(" ")[0]} alle ${d.time} (${peopleText(d.people)})${d.status === "CONFIRMED" ? "" : ", ancora da confermare"}: è la stessa?`;
+  return `C'è già ${d.name} ${dayLong(d.day).split(" ")[0]} ${dupAt(d)} (${peopleOrUnknown(d)})${d.status === "CONFIRMED" ? "" : ", ancora da confermare"}: è la stessa?`;
 }
 
 // «Annulla» subito dopo averla segnata (nel messaggio «✓ Segnata…»): si cancella del tutto, ma solo
@@ -708,7 +786,7 @@ export async function updateBooking(id: string, input: ManualInput, version: unk
   }
   if (typeof version === "string" && editVersion(b) !== version) return conflictResult(b);
   // Telefono obbligatorio solo se c'era: una prenotazione online ha sempre il numero del cliente.
-  const c = await cleanManual(input, b.phone ? "keep" : null, now, { day: b.day, time: b.time });
+  const c = await cleanManual(input, b.phone ? "keep" : null, now, { day: b.day, time: b.time, timeUnknown: b.timeUnknown });
   if (!c.ok) return c;
   const v = c.v;
   const changes: string[] = [];
@@ -716,17 +794,32 @@ export async function updateBooking(id: string, input: ManualInput, version: unk
     if ((before ?? "") !== (after ?? "")) changes.push(`${label} ${before || "—"} → ${after || "—"}`);
   };
   if (b.day !== v.day) changes.push(`giorno ${dayShort(b.day)} → ${dayShort(v.day)}`);
-  diff("ora", b.time, v.time);
-  diff("persone", String(b.people), String(v.people));
+  diff("ora", b.timeUnknown ? "da definire" : b.time, v.timeUnknown ? "da definire" : v.time);
+  diff("persone", b.peopleUnknown ? "da definire" : String(b.people), v.peopleUnknown ? "da definire" : String(v.people));
   diff("nome", b.name, v.name);
   diff("telefono", b.phone ? `+${b.phone}` : null, v.phone ? `+${v.phone}` : null);
   diff("tavolo", b.table, v.table);
   if ((b.note ?? "") !== (v.note ?? "")) changes.push(v.note ? "nota cambiata" : "nota tolta");
   if (b.allergies !== v.allergies) changes.push(v.allergies ? "allergie: sì" : "allergie: no");
+  diff("menù", b.menu, v.menu);
   if (!changes.length) return { ok: true, booking: b, whatsappHref: await confirmationHref(b, origin), unchanged: true };
   // Si salva solo se i campi sono ancora quelli letti qui sopra (due «Salva» insieme: vince il primo).
   const r = await prisma.bookingRequest.updateMany({
-    where: { id, status: "CONFIRMED", day: b.day, time: b.time, people: b.people, name: b.name, phone: b.phone, table: b.table, note: b.note, allergies: b.allergies },
+    where: {
+      id,
+      status: "CONFIRMED",
+      day: b.day,
+      time: b.time,
+      people: b.people,
+      name: b.name,
+      phone: b.phone,
+      table: b.table,
+      note: b.note,
+      allergies: b.allergies,
+      timeUnknown: b.timeUnknown,
+      peopleUnknown: b.peopleUnknown,
+      menu: b.menu,
+    },
     data: {
       day: v.day,
       time: v.time,
@@ -737,6 +830,9 @@ export async function updateBooking(id: string, input: ManualInput, version: unk
       table: v.table,
       note: v.note,
       allergies: v.allergies,
+      timeUnknown: v.timeUnknown,
+      peopleUnknown: v.peopleUnknown,
+      menu: v.menu,
       // Spostata a un altro giorno: «arrivati» / «non venuti» di prima non valgono più.
       ...(b.day !== v.day ? { arrivedAt: null, noShowAt: null } : {}),
     },
@@ -761,13 +857,26 @@ async function conflictResult(current: BookingRow): Promise<ManualResult> {
   };
 }
 
+export const INCOMPLETE_NO_CONFIRM = "Prima completa ora e persone: la conferma al cliente si manda quando sono decise.";
+
 // «Da mandare dal telefono del locale»: la conferma entra nella lista «Da mandare su WhatsApp».
 export async function queueConfirmation(id: string, actor: StaffActor): Promise<{ ok: true } | { ok: false; error: string }> {
   const b = await prisma.bookingRequest.findUnique({
     where: { id },
-    select: { status: true, phone: true, contact: true, cancelledBy: true, startsAt: true, proposedStartsAt: true, log: { select: { at: true, actor: true, kind: true, message: true } } },
+    select: {
+      status: true,
+      phone: true,
+      contact: true,
+      cancelledBy: true,
+      startsAt: true,
+      proposedStartsAt: true,
+      timeUnknown: true,
+      peopleUnknown: true,
+      log: { select: { at: true, actor: true, kind: true, message: true } },
+    },
   });
   if (!b || b.status !== "CONFIRMED") return { ok: false, error: "Si può mandare solo la conferma di una prenotazione confermata." };
+  if (isIncomplete(b)) return { ok: false, error: INCOMPLETE_NO_CONFIRM };
   if (!b.phone) return { ok: false, error: "Manca il telefono: aggiungilo con «Modifica»." };
   if (!whatsappReachable(b.phone)) return { ok: false, error: "È un numero fisso: su WhatsApp non arriva. Se serve, chiama il cliente." };
   // Già in lista e non ancora mandata (doppio tocco, o due persone): niente seconda voce in cronologia.
@@ -828,8 +937,9 @@ function messageInput(b: BookingRow, origin: string | null, extra: { address?: s
     bookUrl: `${siteOrigin(origin)}/prenota`,
     name: b.name,
     day: b.day,
-    time: b.time,
-    people: b.people,
+    // Ora o persone da definire: nel messaggio non si scrivono (mai un orario inventato).
+    time: b.timeUnknown ? "" : b.time,
+    people: b.peopleUnknown ? 0 : b.people,
     proposedTime: b.proposedTime,
     staffMessage: b.staffMessage,
     statusUrl: `${siteOrigin(origin)}${statusPath(b.id)}`,
@@ -1121,8 +1231,8 @@ export async function pendingCount(): Promise<number> {
 
 // Le cose da fare per chi gestisce le prenotazioni: richieste da confermare e risposte da mandare su
 // WhatsApp (pallino del menù «Prenotazioni», widget «Da fare»).
-export async function bookingsToDo(now: Date = new Date()): Promise<{ pending: number; whatsapp: number }> {
-  const [pending, risposte] = await Promise.all([
+export async function bookingsToDo(now: Date = new Date()): Promise<{ pending: number; whatsapp: number; incomplete: number }> {
+  const [pending, risposte, incomplete] = await Promise.all([
     pendingCount(),
     prisma.bookingRequest.findMany({
       // Anche le conferme in coda delle prenotazioni segnate a mano (non hanno handledAt).
@@ -1132,10 +1242,29 @@ export async function bookingsToDo(now: Date = new Date()): Promise<{ pending: n
         status: { in: ["CONFIRMED", "PROPOSED", "DECLINED", "CANCELLED"] },
         startsAt: { gte: new Date(now.getTime() - 86400000) },
       },
-      select: { status: true, contact: true, phone: true, cancelledBy: true, startsAt: true, proposedStartsAt: true, log: { select: { at: true, actor: true, kind: true, message: true } } },
+      select: {
+        status: true,
+        contact: true,
+        phone: true,
+        cancelledBy: true,
+        startsAt: true,
+        proposedStartsAt: true,
+        timeUnknown: true,
+        peopleUnknown: true,
+        log: { select: { at: true, actor: true, kind: true, message: true } },
+      },
     }),
+    incompleteCount(now),
   ]);
-  return { pending, whatsapp: risposte.filter((b) => whatsappPending(b, now.getTime()) !== null).length };
+  return { pending, whatsapp: risposte.filter((b) => whatsappPending(b, now.getTime()) !== null).length, incomplete };
+}
+
+// Prenotazioni vere con ora o persone ancora da definire, da oggi in avanti («Da completare»).
+// Non sono mai richieste da confermare né risposte da mandare: nessun conteggio doppio.
+export async function incompleteCount(now: Date = new Date()): Promise<number> {
+  return prisma.bookingRequest.count({
+    where: { isTest: false, status: "CONFIRMED", day: { gte: businessDay(now) }, OR: [{ timeUnknown: true }, { peopleUnknown: true }] },
+  });
 }
 
 export async function listBookings(now: Date = new Date()) {

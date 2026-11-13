@@ -7,7 +7,7 @@
 // («Sabato 15/11») vale per le righe sotto, come una pagina del librone.
 
 import { internationalNumber } from "@/lib/menu-venue";
-import { addDays, businessDay, mentionsAllergy, nameKey, phoneProblem, weekdayOf } from "@/lib/booking/rules";
+import { addDays, businessDay, cleanMenu, mentionsAllergy, nameKey, phoneProblem, weekdayOf } from "@/lib/booking/rules";
 
 export const IMPORT_MAX_ROWS = 200;
 export const IMPORT_MAX_CHARS = 60000;
@@ -30,6 +30,8 @@ export type ImportRow = {
   phoneIntl: string;
   table: string;
   note: string;
+  // «Menù da 25 €», «Menù degustazione» (letto dalla riga, non finisce nella nota). null se non c'è.
+  menu: string | null;
   allergies: boolean;
   // Problemi che impediscono di segnarla (in rosso) e avvisi che non la bloccano (in giallo).
   errors: string[];
@@ -43,6 +45,9 @@ export const E_PAST = "Giorno già passato";
 export const E_FAR = "Giorno troppo avanti (più di un anno)";
 export const E_TIME = "Ora non letta";
 export const E_PEOPLE = "Persone?";
+// Ora o persone che mancano: la prenotazione si segna lo stesso, «da completare» (avviso giallo).
+export const W_TIME = "Ora da definire";
+export const W_PEOPLE = "Persone da definire";
 export const E_NAME = "Manca il nome";
 export const E_NAME_LONG = "Nome troppo lungo: separa la nota con una virgola";
 export const W_WEEKDAY = "Il giorno della settimana non torna";
@@ -231,11 +236,31 @@ function findPhone(toks: { t: string; f: number }[]): PhoneRun | null {
   return null;
 }
 
+// ---------- Menù («menù da 25 €», «menu 25€», «menù degustazione»)
+
+const MENU_PRICE = /(^|[\s,;|\t(])men[uùú]\.?[ ]*(?:da[ ]*)?(?:€[ ]*)?(\d{1,3}(?:[.,]\d{1,2})?)[ ]*(?:€|euro(?![a-z])|eur(?![a-z]))?\.?(?=$|[\s,;|\t)])/i;
+const MENU_KIND = /(^|[\s,;|\t(])men[uùú][ ]+(degustazione|fisso|bimbi|bambini|vegetariano|vegano|di[ ]+pesce|di[ ]+carne|di[ ]+terra|del[ ]+giorno)(?=$|[\s,;|\t)])/i;
+
+// Toglie il menù dalla riga (così il prezzo non diventa ora o persone) e lo restituisce pulito.
+export function takeMenu(raw: string): { rest: string; menu: string | null } {
+  for (const re of [MENU_PRICE, MENU_KIND]) {
+    const m = raw.match(re);
+    if (!m || m.index === undefined) continue;
+    const start = m.index + m[1].length;
+    const found = raw.slice(start, m.index + m[0].length);
+    const rest = `${raw.slice(0, start)}${raw.slice(m.index + m[0].length)}`.replace(/[ ]{2,}/g, " ");
+    const menu = re === MENU_PRICE ? `Menù da ${m[2]} €` : cleanMenu(`menù ${m[2].replace(/\s+/g, " ").toLowerCase()}`);
+    return { rest: rest.replace(/\([ ]*\)/g, ""), menu: found ? menu : null };
+  }
+  return { rest: raw, menu: null };
+}
+
 // ---------- Una riga
 
 type Parsed = Omit<ImportRow, "line" | "text" | "dayFrom" | "repeatOf"> & { weekday: number | null; bareDay: boolean; dayError: "past" | "invalid" | null };
 
-function parseLine(raw: string, today: string): Parsed {
+function parseLine(line: string, today: string): Parsed {
+  const { rest: raw, menu } = takeMenu(line);
   const fielded = /[\t;|]/.test(raw);
   const fields = fielded ? raw.split(/[\t;|]/) : [raw];
   const toks: { t: string; f: number }[] = [];
@@ -449,7 +474,10 @@ function parseLine(raw: string, today: string): Parsed {
     .join(", ");
 
   const errors: string[] = [];
-  if (peopleBad || people === null) errors.push(E_PEOPLE);
+  const warnings: string[] = [];
+  // Un numero di persone che non va (0, 61…) è un errore; persone che mancano no: si definiscono dopo.
+  if (peopleBad) errors.push(E_PEOPLE);
+  else if (people === null) warnings.push(W_PEOPLE);
   if (name.length < 2) errors.push(E_NAME);
   else if (name.length > 80) errors.push(E_NAME_LONG);
   let phoneIntl = "";
@@ -462,7 +490,7 @@ function parseLine(raw: string, today: string): Parsed {
     }
   }
 
-  const nothingElse = time === null && people === null && !peopleBad && !rest.length && !table;
+  const nothingElse = time === null && people === null && !peopleBad && !rest.length && !table && !menu;
   return {
     kind: "booking",
     day,
@@ -473,9 +501,10 @@ function parseLine(raw: string, today: string): Parsed {
     phoneIntl,
     table,
     note: note.slice(0, 300),
+    menu,
     allergies: mentionsAllergy(note),
     errors,
-    warnings: [],
+    warnings,
     weekday,
     bareDay: nothingElse && (day !== null || dayError !== null || weekday !== null),
     dayError,
@@ -499,6 +528,7 @@ export function parseImport(text: string, now: Date): ImportRow[] {
     if (bareDay) {
       row.kind = "day";
       row.errors = [];
+      row.warnings = [];
       if (dayError === "past") row.errors.push(E_PAST);
       else if (dayError === "invalid" || row.day === null) row.errors.push(E_DAY);
       else if (row.day < today) row.errors.push(E_PAST);
@@ -529,8 +559,9 @@ export function parseImport(text: string, now: Date): ImportRow[] {
     if (row.day && row.day < today && !dayErrors.length) dayErrors.push(E_PAST);
     if (row.day && row.day > addDays(today, 365)) dayErrors.push(E_FAR);
     if (row.day && weekday !== null && weekdayOf(row.day) !== weekday) row.warnings.push(weekdayWarning(row.day));
-    const timeErrors = row.time ? [] : [E_TIME];
-    row.errors = [...dayErrors, ...timeErrors, ...row.errors];
+    // Senza ora si segna lo stesso, «da definire» (avviso giallo), come senza persone.
+    if (!row.time) row.warnings.unshift(W_TIME);
+    row.errors = [...dayErrors, ...row.errors];
     out.push(row);
   }
   markRepeats(out);

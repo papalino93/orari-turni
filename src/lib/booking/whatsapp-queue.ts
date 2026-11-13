@@ -5,7 +5,7 @@
 // apre in WhatsApp (WHATSAPP_OPENED) o lo segna come già mandato (WHATSAPP_DONE).
 
 import type { MessageKind } from "@/lib/booking/messages";
-import { whatsappReachable } from "@/lib/booking/rules";
+import { isIncomplete, whatsappReachable } from "@/lib/booking/rules";
 
 type LogLike = { at: Date | number | string; actor: string; kind: string; message: string | null };
 type BookingLike = {
@@ -15,6 +15,9 @@ type BookingLike = {
   cancelledBy: string | null;
   startsAt: Date | number | string;
   proposedStartsAt?: Date | number | string | null;
+  // Ora o persone ancora da definire: la conferma non si manda (avrebbe un orario inventato).
+  timeUnknown?: boolean | null;
+  peopleUnknown?: boolean | null;
   log: LogLike[];
 };
 
@@ -43,6 +46,7 @@ export function whatsappPending(b: BookingLike, now: number): MessageKind | null
     if (kind && l.actor !== "cliente" && l.actor !== "sistema") last = { at: ms(l.at), kind, logKind: l.kind };
   }
   if (!last) return null;
+  if (last.kind === "confirmed" && isIncomplete(b)) return null;
   // La risposta deve essere ancora quella valida: se poi il cliente ha accettato/annullato, il messaggio non serve più.
   const stillValid =
     ((last.logKind === "CONFIRMED" || last.logKind === "ACCEPTED" || last.logKind === "WA_QUEUED") && b.status === "CONFIRMED") ||
