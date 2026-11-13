@@ -63,7 +63,7 @@ export function AccountMenu({ userName, isAdmin, settingsActive, onSignOut }: { 
         type="button"
         aria-haspopup="true"
         aria-expanded={open}
-        aria-label={`${userName}: impostazioni, tema ed esci`}
+        aria-label={`Account di ${userName}`}
         title={userName}
         onClick={() => setOpen((v) => !v)}
         className={`flex h-11 items-center gap-2 rounded-full border border-brand-band-border pl-1 pr-2.5 transition-colors hover:text-brand-band-foreground ${
