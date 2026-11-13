@@ -28,6 +28,8 @@ for (const [label, w, h] of [["computer", 1440, 900], ["telefono", 390, 844]]) {
   const open = async () => {
     await p.goto(`${BASE}/mail`, { waitUntil: "networkidle", timeout: 180000 });
     await p.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+    // Il passo 1 si apre su «Scrivili qui»: il riquadro del file è nella linguetta «Carica un file».
+    await p.getByRole("radio", { name: /Carica un file/ }).locator("xpath=..").click();
   };
   const zone = () => p.locator('label:has(input[type="file"])');
   // Trascina uno o più file (come farebbe il browser) sul riquadro; `over` = si ferma sopra senza rilasciare.

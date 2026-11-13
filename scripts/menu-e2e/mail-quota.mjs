@@ -52,8 +52,10 @@ try {
     await p.goto(`${BASE}/mail`, { waitUntil: "networkidle", timeout: 180000 });
     await p.addStyleTag({ content: "nextjs-portal{display:none!important}" });
   };
+  // Passo 1, linguetta «Incolla un elenco» (radio nascosto: si tocca l'etichetta).
+  const pasteMode = () => p.getByRole("radio", { name: /Incolla un elenco/ }).locator("xpath=..").click();
   const paste = async (lines) => {
-    await p.getByText("Oppure incolla l'elenco").click();
+    await pasteMode();
     await p.locator("#mail-csv").fill(lines.join("\n"));
   };
   const toStep2 = async (subject) => {
@@ -137,14 +139,14 @@ try {
   await consent().check();
   await p.getByRole("button", { name: "Indietro" }).click();
   await p.getByRole("button", { name: "Indietro" }).click();
-  await p.getByText("Oppure incolla l'elenco").click();
+  await pasteMode();
   await p.locator("#mail-csv").fill([...mails(3, "ok"), `${late};Tardi`, `rifiuto-${RUN}+errore@prova-mail.it;Rifiuto`, `nuovo-${RUN}@prova-mail.it;Nuovo`].join("\n"));
   await p.getByRole("button", { name: "Avanti: scrivi il messaggio" }).click();
   await p.getByRole("button", { name: "Avanti: controlla" }).click();
   check("conferma: la spunta si azzera se cambia la lista", !(await consent().isChecked()));
   await p.getByRole("button", { name: "Indietro" }).click();
   await p.getByRole("button", { name: "Indietro" }).click();
-  await p.getByText("Oppure incolla l'elenco").click();
+  await pasteMode();
   await p.locator("#mail-csv").fill([...mails(3, "ok"), `${late};Tardi`, `rifiuto-${RUN}+errore@prova-mail.it;Rifiuto`].join("\n"));
   await p.getByRole("button", { name: "Avanti: scrivi il messaggio" }).click();
   await p.getByRole("button", { name: "Avanti: controlla" }).click();

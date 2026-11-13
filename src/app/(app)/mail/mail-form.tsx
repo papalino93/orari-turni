@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useSyncExternalStore, useTransition, type Dr
 import { useRouter } from "next/navigation";
 import {
   applyHeader,
+  checkTypedRows,
   guessColumns,
   HEADER_TAG,
   mailFooter,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/mail-text";
 import { readXlsx, type Sheet } from "@/lib/xlsx";
 import { sendMailChunk, sendMailTest, startMailSend } from "./actions";
+import { newRow, PasteReading, RecipientsTable, type Row } from "./recipients-table";
 
 const CHUNK = 50;
 const DEFAULT_BODY = `Spett.le ${HEADER_TAG},\n\n`;
@@ -41,9 +43,47 @@ function readLastTest(): string {
 }
 const noSubscribe = () => () => {};
 
+// Le righe di «Scrivili qui», ricordate in questa scheda del browser finché non si invia: se la pagina
+// si ricarica non si perdono. Può mancare (finestra privata, dati bloccati): allora si riparte vuoti.
+const TYPED_KEY = "mail-destinatari-scritti";
+function readTyped(): string | null {
+  try {
+    return sessionStorage.getItem(TYPED_KEY);
+  } catch {
+    return null;
+  }
+}
+function saveTyped(rows: Row[]) {
+  try {
+    if (rows.some((r) => r.email.trim() || r.header.trim()))
+      sessionStorage.setItem(TYPED_KEY, JSON.stringify(rows.map((r) => ({ e: r.email, h: r.header }))));
+    else sessionStorage.removeItem(TYPED_KEY);
+  } catch {}
+}
+function typedFrom(saved: string | null): Row[] {
+  try {
+    const list = saved ? (JSON.parse(saved) as { e?: unknown; h?: unknown }[]) : [];
+    const rows = Array.isArray(list)
+      ? list.slice(0, 200).map((x, i) => ({ id: `s${i}`, email: typeof x?.e === "string" ? x.e : "", header: typeof x?.h === "string" ? x.h : "" }))
+      : [];
+    return rows.length ? rows : [{ id: "s0", email: "", header: "" }];
+  } catch {
+    return [{ id: "s0", email: "", header: "" }];
+  }
+}
+
+// I tre modi di dire a chi scrivere. Ognuno tiene il suo elenco: si spedisce quello scelto.
+type Mode = "tabella" | "file" | "incolla";
+const MODES: { id: Mode; label: string; hint: string }[] = [
+  { id: "tabella", label: "Scrivili qui", hint: "Pochi indirizzi, o una prova" },
+  { id: "file", label: "Carica un file", hint: "Excel o .csv" },
+  { id: "incolla", label: "Incolla un elenco", hint: "Copiato da un foglio o da una mail" },
+];
+const PASTE_EXAMPLE = "mario.rossi@esempio.it; Dott. Rossi\nlaura.bianchi@esempio.it; Laura";
+
 type Quota = { available: number; reserve: number; limit: number };
 // Invio interrotto a metà: «Riprova» riparte dallo stesso gruppo, con lo stesso invio nel registro.
-type Resume = { sendId: string; list: Recipient[]; from: number; sent: number };
+type Resume = { sendId: string; list: Recipient[]; from: number; sent: number; mode: Mode };
 
 export function MailForm({
   blocked,
@@ -67,7 +107,12 @@ export function MailForm({
   const configured = !blocked;
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [csv, setCsv] = useState("");
+  const [mode, setMode] = useState<Mode>("tabella");
+  const [fileText, setFileText] = useState(""); // un .csv caricato
+  const [pasted, setPasted] = useState("");
+  const [typed, setTyped] = useState<Row[] | null>(null);
+  const savedTyped = useSyncExternalStore(noSubscribe, readTyped, () => null);
+  const rows = useMemo(() => typed ?? typedFrom(savedTyped), [typed, savedTyped]);
   const [fileName, setFileName] = useState("");
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [headerColumn, setHeaderColumn] = useState("");
@@ -95,17 +140,31 @@ export function MailForm({
     () => (sheet && cols?.group ? [...new Set(sheet.rows.map((r) => r[cols.group]).filter(Boolean))] : []),
     [sheet, cols],
   );
-  const { recipients: parsed, skipped } = useMemo(
-    () => (sheet ? tableToRecipients(sheet.rows, sheet.headers, { headerColumn, groups, onlyDocumented }) : parseRecipients(csv)),
-    [sheet, headerColumn, groups, onlyDocumented, csv],
+  // Un elenco per modo, letto sempre (servono i conteggi sulle linguette); si usa quello scelto.
+  const typedList = useMemo(() => checkTypedRows(rows), [rows]);
+  const fileList = useMemo(
+    () => (sheet ? tableToRecipients(sheet.rows, sheet.headers, { headerColumn, groups, onlyDocumented }) : parseRecipients(fileText)),
+    [sheet, headerColumn, groups, onlyDocumented, fileText],
   );
+  const pasteList = useMemo(() => parseRecipients(pasted), [pasted]);
+  const lists = { tabella: typedList, file: fileList, incolla: pasteList };
+  const has = {
+    tabella: typedList.states.some((st) => st.kind !== "vuota"),
+    file: Boolean(fileName),
+    incolla: pasted.trim().length > 0,
+  };
+  const active = mode === "tabella" ? typedList : mode === "file" ? fileList : pasteList;
+  const { recipients: parsed, skipped, duplicates } = active;
   // Chi si è cancellato non riceve più nulla (il server li toglie comunque).
   const optedOutSet = useMemo(() => new Set(optedOut), [optedOut]);
+  const ready = (list: Recipient[]) => list.filter((r) => !optedOutSet.has(r.email));
   const recipients = useMemo(() => parsed.filter((r) => !optedOutSet.has(r.email)), [parsed, optedOutSet]);
   const excludedOptOut = parsed.length - recipients.length;
   const listKey = useMemo(() => recipients.map((r) => `${r.email}\u0000${r.header}`).join("\n"), [recipients]);
   const consent = consentFor === listKey;
-  const hasList = Boolean(sheet) || csv.trim().length > 0;
+  const hasList = has[mode];
+  // Gli altri elenchi preparati e messi da parte: si dice che non verranno usati.
+  const aside = MODES.filter((m) => m.id !== mode && has[m.id]);
   const excludedByBasis =
     sheet && cols?.basis && onlyDocumented
       ? tableToRecipients(sheet.rows, sheet.headers, { headerColumn, groups, onlyDocumented: false }).recipients.length - recipients.length
@@ -126,7 +185,7 @@ export function MailForm({
         const parsed = readXlsx(await file.arrayBuffer());
         const g = guessColumns(parsed.headers);
         setSheet(parsed);
-        setCsv("");
+        setFileText("");
         setGroups(null);
         setOnlyDocumented(true);
         setHeaderColumn(g.name);
@@ -137,8 +196,13 @@ export function MailForm({
       return;
     }
     setSheet(null);
-    setCsv(await file.text());
+    setFileText(await file.text());
     setFileName(file.name);
+  }
+
+  function setRows(next: Row[]) {
+    setTyped(next);
+    saveTyped(next);
   }
 
   // Trascinare il file sul riquadro (o su tutta la scheda) vale come sceglierlo.
@@ -147,6 +211,7 @@ export function MailForm({
     if (!hasFiles(e)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
+    setMode("file");
     setDragging(true);
   }
   function onDragLeave(e: DragEvent<HTMLElement>) {
@@ -180,7 +245,9 @@ export function MailForm({
 
   function reset() {
     setStep(0);
-    setCsv("");
+    setFileText("");
+    setPasted("");
+    setRows([newRow()]);
     setSheet(null);
     setFileName("");
     setSubject("");
@@ -228,6 +295,8 @@ export function MailForm({
       }
       setProgress(null);
       setConfirming(false);
+      // Partito l'elenco scritto a mano: non serve più ricordarlo.
+      if (job.mode === "tabella") setRows([newRow()]);
       setDone({ sent, failed, excluded, warning: warnings[0] ?? null });
       router.refresh();
     });
@@ -271,7 +340,7 @@ export function MailForm({
         setNotice({ kind: "error", text: `${res.error} Non è partita nessuna mail.` });
         return;
       }
-      run({ sendId: res.data.id, list, from: 0, sent: 0 });
+      run({ sendId: res.data.id, list, from: 0, sent: 0, mode });
     });
   }
 
@@ -346,79 +415,135 @@ export function MailForm({
         <section className={card} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
           <h2 className="text-base font-semibold">A chi vuoi scrivere?</h2>
           <p className="mt-1 text-sm text-foreground-muted">
-            Carica un file con un indirizzo email per riga e, se vuoi, il saluto da mettere in cima alla
-            mail di ognuno. Va bene un file Excel (come «Aziende Natale») o un file .csv.
+            Scegli come aggiungere le persone. Per ognuna puoi indicare il nome o l&apos;azienda, che comparirà in cima
+            alla sua mail.
           </p>
-          {!hasList && <p className="mt-2 text-xs text-foreground-muted">{quotaText}</p>}
 
-          <label
-            className={`mt-4 flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors hover:border-accent ${
-              dragging ? "border-accent bg-accent/10" : "border-border bg-surface-2"
-            }`}
-          >
-            <span className="text-sm font-medium">
-              {dragging ? "Rilascia qui il file" : fileName ? `File: ${fileName}` : "Scegli il file"}
-            </span>
-            <span className="text-xs text-foreground-muted">
-              {dragging ? "Excel (.xlsx) o .csv" : fileName ? "Tocca per cambiarlo, o trascina qui un altro file" : "Excel (.xlsx) o file di testo (.csv) · puoi anche trascinarlo qui"}
-            </span>
-            <input type="file" accept=".csv,.txt,.xlsx" className="sr-only" onChange={(e) => loadFile(e.target.files?.[0])} />
-          </label>
-          {notice?.kind === "error" && step === 0 && <p className="mt-2 text-sm text-danger" role="alert">{notice.text}</p>}
-
-          <details className="mt-3 text-sm" open={!hasList}>
-            <summary className="cursor-pointer py-2.5 text-accent-ink">Come deve essere fatto il file?</summary>
-            <div className="mt-2 rounded-xl bg-surface-2 p-3 text-xs text-foreground-muted">
-              <p>Due colonne: la prima con l&apos;<b>email</b>, la seconda con l&apos;<b>intestazione</b>, cioè solo la parte di ognuno (nome o azienda). Esempio:</p>
-              <table className="my-2 w-full text-left text-foreground">
-                <thead>
-                  <tr className="text-foreground-muted">
-                    <th className="pr-3 font-medium">email</th>
-                    <th className="font-medium">intestazione</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="pr-3">mario.rossi@esempio.it</td>
-                    <td>Dott. Rossi</td>
-                  </tr>
-                  <tr>
-                    <td className="pr-3">laura.bianchi@esempio.it</td>
-                    <td>Laura</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p>Il saluto («Spett.le», «Gentile», «Cara»…) lo scrivi tu nel testo, uguale per tutti. Indirizzi sbagliati e doppioni vengono tolti da soli.</p>
-              <a
-                href={`data:text/csv;charset=utf-8,${encodeURIComponent(SAMPLE_CSV)}`}
-                download="esempio-destinatari.csv"
-                className="mt-1 inline-flex min-h-10 items-center font-medium text-accent-ink"
-              >
-                Scarica un file di esempio
-              </a>
+          <fieldset className="mt-4">
+            <legend className="sr-only">Come vuoi aggiungere i destinatari?</legend>
+            <div className="grid grid-cols-3 gap-1 rounded-2xl bg-surface-2 p-1">
+              {MODES.map((m) => {
+                const on = mode === m.id;
+                const n = ready(lists[m.id].recipients).length;
+                return (
+                  <label
+                    key={m.id}
+                    className={`flex min-h-12 cursor-pointer flex-col items-center justify-center rounded-xl px-1.5 py-2 text-center transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${
+                      on ? "bg-surface text-foreground shadow-sm ring-1 ring-border" : "text-foreground-muted hover:text-foreground"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="mail-mode"
+                      value={m.id}
+                      checked={on}
+                      onChange={() => {
+                        setMode(m.id);
+                        setNotice(null);
+                      }}
+                      className="sr-only"
+                    />
+                    <span className="text-[13px] font-semibold leading-tight sm:text-sm">{m.label}</span>
+                    <span className="mt-0.5 hidden text-xs leading-tight sm:block">{m.hint}</span>
+                    {has[m.id] && (
+                      <span className={`mt-1 rounded-full px-1.5 text-[11px] font-medium ${n > 0 ? "bg-accent/15 text-accent-ink" : "bg-surface-2 text-foreground-muted"}`}>
+                        {n} {n === 1 ? "pronto" : "pronti"}
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
             </div>
-          </details>
+          </fieldset>
 
-          <details className="mt-2 text-sm">
-            <summary className="cursor-pointer py-2.5 text-accent-ink">Oppure incolla l&apos;elenco</summary>
-            <label className="sr-only" htmlFor="mail-csv">
-              Elenco destinatari
-            </label>
-            <textarea
-              id="mail-csv"
-              value={csv}
-              onChange={(e) => {
-                setSheet(null);
-                setFileName("");
-                setCsv(e.target.value);
-              }}
-              rows={5}
-              placeholder={"mario.rossi@esempio.it;Dott. Rossi"}
-              className={`${field} mt-2 font-mono`}
-            />
-          </details>
+          {mode === "tabella" && (
+            <>
+              <p className="mt-4 text-sm text-foreground-muted">Una persona per riga. Per una prova veloce bastano 2 o 3 indirizzi.</p>
+              <RecipientsTable rows={rows} states={typedList.states} optedOut={optedOutSet} onChange={setRows} />
+              <p className="mt-3 rounded-xl bg-surface-2 px-3 py-2.5 text-xs text-foreground-muted">
+                In cima a ogni mail: il saluto che scrivi nel testo + questo nome (es. «Gentile Dott. Rossi»). Se lo lasci
+                vuoto, resta solo il saluto.
+              </p>
+            </>
+          )}
 
-          {sheet && cols && (
+          {mode === "file" && (
+            <>
+              <label
+                className={`mt-4 flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors hover:border-accent ${
+                  dragging ? "border-accent bg-accent/10" : "border-border bg-surface-2"
+                }`}
+              >
+                <span className="text-sm font-medium">
+                  {dragging ? "Rilascia qui il file" : fileName ? `File: ${fileName}` : "Scegli il file"}
+                </span>
+                <span className="text-xs text-foreground-muted">
+                  {dragging ? "Excel (.xlsx) o .csv" : fileName ? "Tocca per cambiarlo, o trascina qui un altro file" : "Excel (.xlsx) o file di testo (.csv) · puoi anche trascinarlo qui"}
+                </span>
+                <input type="file" accept=".csv,.txt,.xlsx" className="sr-only" onChange={(e) => loadFile(e.target.files?.[0])} />
+              </label>
+              {notice?.kind === "error" && <p className="mt-2 text-sm text-danger" role="alert">{notice.text}</p>}
+
+              <details className="mt-3 text-sm" open={!hasList}>
+                <summary className="cursor-pointer py-2.5 text-accent-ink">Come deve essere fatto il file?</summary>
+                <div className="mt-2 rounded-xl bg-surface-2 p-3 text-xs text-foreground-muted">
+                  <p>Due colonne: la prima con l&apos;<b>email</b>, la seconda con l&apos;<b>intestazione</b>, cioè solo la parte di ognuno (nome o azienda). Esempio:</p>
+                  <table className="my-2 w-full text-left text-foreground">
+                    <thead>
+                      <tr className="text-foreground-muted">
+                        <th className="pr-3 font-medium">email</th>
+                        <th className="font-medium">intestazione</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="pr-3">mario.rossi@esempio.it</td>
+                        <td>Dott. Rossi</td>
+                      </tr>
+                      <tr>
+                        <td className="pr-3">laura.bianchi@esempio.it</td>
+                        <td>Laura</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <p>Il saluto («Spett.le», «Gentile», «Cara»…) lo scrivi tu nel testo, uguale per tutti. Indirizzi sbagliati e doppioni vengono tolti da soli.</p>
+                  <a
+                    href={`data:text/csv;charset=utf-8,${encodeURIComponent(SAMPLE_CSV)}`}
+                    download="esempio-destinatari.csv"
+                    className="mt-1 inline-flex min-h-10 items-center font-medium text-accent-ink"
+                  >
+                    Scarica un file di esempio
+                  </a>
+                </div>
+              </details>
+            </>
+          )}
+
+          {mode === "incolla" && (
+            <>
+              <p className="mt-4 text-sm font-medium">Una persona per riga: email, poi punto e virgola, poi il nome.</p>
+              <p className="mt-0.5 text-xs text-foreground-muted">
+                Va bene anche la virgola, o due colonne copiate da Excel. Il nome si può lasciare vuoto. Esempio:
+              </p>
+              <pre className="mt-2 overflow-x-auto rounded-lg bg-surface-2 px-3 py-2 font-mono text-xs leading-relaxed text-foreground">{PASTE_EXAMPLE}</pre>
+              <label className="mb-1 mt-4 block text-sm font-medium" htmlFor="mail-csv">
+                Il tuo elenco
+              </label>
+              <textarea
+                id="mail-csv"
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+                rows={5}
+                spellCheck={false}
+                autoCapitalize="none"
+                placeholder="Incolla o scrivi qui, una persona per riga"
+                className={`${field} font-mono`}
+              />
+              {has.incolla && <PasteReading ready={recipients} skipped={skipped} titleRow={pasteList.titleRow} duplicates={duplicates} />}
+            </>
+          )}
+
+          {mode === "file" && sheet && cols && (
             <div className="mt-5 flex flex-col gap-5 border-t border-border pt-5">
               <div>
                 <label className="mb-1 block text-sm font-medium" htmlFor="mail-header-col">
@@ -486,26 +611,39 @@ export function MailForm({
             </div>
           )}
 
-          {hasList && (
-            <div className="mt-5 rounded-xl bg-surface-2 p-4 text-sm">
+          {hasList ? (
+            <div className="mt-5 rounded-xl bg-surface-2 p-4 text-sm" aria-live="polite">
               <p>
                 <b className="text-lg">{recipients.length}</b>{" "}
                 {recipients.length === 1 ? "destinatario pronto" : "destinatari pronti"}
-                {sheet && ` (su ${sheet.rows.length} righe del file)`}
+                {mode === "file" && sheet && ` (su ${sheet.rows.length} righe del file)`}
+              </p>
+              <p className="mt-0.5 text-xs text-foreground-muted">
+                {mode === "tabella" ? "Si userà l'elenco scritto qui." : mode === "file" ? `Si userà il file «${fileName}».` : "Si userà l'elenco incollato."}
               </p>
               {excludedOptOut > 0 && (
                 <p className="mt-1 text-xs text-foreground-muted">
                   {excludedOptOut === 1 ? "1 indirizzo escluso perché si è cancellato" : `${excludedOptOut} indirizzi esclusi perché si sono cancellati`}.
                 </p>
               )}
-              {skipped.length > 0 && (
+              {mode === "file" && skipped.length > 0 && (
                 <p className="mt-1 text-xs text-foreground-muted">
                   {skipped.length} {skipped.length === 1 ? "riga scartata" : "righe scartate"} perché l&apos;email non è valida:{" "}
                   {skipped.slice(0, 3).join(", ")}
                   {skipped.length > 3 ? "…" : ""}
                 </p>
               )}
-              {recipients.length === 0 && sheet && onlyDocumented && cols?.basis && (
+              {mode === "file" && duplicates > 0 && (
+                <p className="mt-1 text-xs text-foreground-muted">
+                  {duplicates === 1 ? "1 indirizzo ripetuto: riceverà una mail sola." : `${duplicates} indirizzi ripetuti: ognuno riceverà una mail sola.`}
+                </p>
+              )}
+              {mode === "tabella" && skipped.length > 0 && (
+                <p className="mt-1 text-xs text-danger">
+                  {skipped.length === 1 ? "1 riga da correggere: così com'è non riceve la mail." : `${skipped.length} righe da correggere: così come sono non ricevono la mail.`}
+                </p>
+              )}
+              {recipients.length === 0 && mode === "file" && sheet && onlyDocumented && cols?.basis && (
                 <p className="mt-1 text-xs text-accent-ink">
                   Nessuno ha il permesso documentato. Compila la colonna nel file e ricaricalo, oppure togli la spunta sopra se sai di poter scrivere a questi indirizzi.
                 </p>
@@ -514,10 +652,25 @@ export function MailForm({
                 {quotaText}
                 {overLimit && quota.available > 0 && " Riduci la lista (ad esempio solo la priorità A) e scrivi agli altri nei giorni dopo."}
               </p>
+              {aside.length > 0 && <AsideNote aside={aside} fileName={fileName} />}
+            </div>
+          ) : (
+            <div className="mt-5 text-xs text-foreground-muted">
+              <p>{quotaText}</p>
+              {aside.length > 0 && <AsideNote aside={aside} fileName={fileName} />}
             </div>
           )}
 
-          <div className="mt-5 flex justify-end">
+          <div className="mt-5 flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+            {recipients.length === 0 && (
+              <p className="text-center text-xs text-foreground-muted sm:mr-auto sm:text-left">
+                {mode === "tabella"
+                  ? "Scrivi almeno un indirizzo per andare avanti."
+                  : mode === "file"
+                    ? "Carica un file per andare avanti."
+                    : "Incolla almeno un indirizzo per andare avanti."}
+              </p>
+            )}
             <button type="button" disabled={recipients.length === 0} onClick={() => setStep(1)} className={primaryBtn}>
               Avanti: scrivi il messaggio
             </button>
@@ -682,6 +835,17 @@ export function MailForm({
         </section>
       )}
     </div>
+  );
+}
+
+// Gli altri elenchi preparati: restano da parte, ma non partono.
+function AsideNote({ aside, fileName }: { aside: { id: Mode; label: string }[]; fileName: string }) {
+  const what = aside.map((m) => (m.id === "file" ? `il file «${fileName}»` : m.id === "tabella" ? "gli indirizzi scritti qui" : "l'elenco incollato"));
+  const them = aside.length > 1 || aside[0].id === "tabella" ? "usarli" : "usarlo";
+  return (
+    <p className="mt-2 border-t border-border pt-2 text-xs text-foreground-muted">
+      Restano da parte e non partono con questo invio: {what.join(" e ")}. Per {them}, scegli {aside.map((m) => `«${m.label}»`).join(" o ")} qui sopra.
+    </p>
   );
 }
 
