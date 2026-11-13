@@ -4,7 +4,7 @@
 import { loadEnvLocal } from "./prenota-lib.mjs";
 
 loadEnvLocal();
-if (!/\/orari_test(\?|$)/.test(process.env.DATABASE_URL || "")) {
+if (!new RegExp(`/${process.env.E2E_DB || "orari_test"}(\\?|$)`).test(process.env.DATABASE_URL || "")) {
   console.error("DATABASE_URL non è il database di prova orari_test.");
   process.exit(2);
 }

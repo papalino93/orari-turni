@@ -174,7 +174,7 @@ check("riga dell'agenda: «Dal librone · Andrea»", F.originShort({ manual: tru
 check("cronologia: «Segnata da Andrea (dal librone)»", F.logText({ at: 0, actor: "Andrea", kind: "CREATED", message: "dal librone · di prova" }).text === "Segnata da Andrea (dal librone)");
 
 // ================= 2. Il servizio sul database di prova =================
-const dbOk = /\/orari_test(\?|$)/.test(process.env.DATABASE_URL || "");
+const dbOk = new RegExp(`/${process.env.E2E_DB || "orari_test"}(\\?|$)`).test(process.env.DATABASE_URL || "");
 const cleanImport = () => DB(`delete from "BookingRequest" where name like 'Prova Import%' or phone like '39300006%'`);
 const savedSetting = snapshotBookingSetting();
 const dmy = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
