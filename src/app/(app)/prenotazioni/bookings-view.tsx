@@ -190,7 +190,9 @@ export function BookingsView({
     seen.current = ids;
   }, [lists.pending, toast]);
 
-  const [tab, setTab] = useState<Tab>(() => (lists.pending.length || lists.wa.length || !lists.tonight.length ? "todo" : "tonight"));
+  // Si apre sull'agenda (è il «librone»); solo se c'è un messaggio WhatsApp da mandare si parte da «Da gestire».
+  // Le richieste da confermare restano in vista con la fascia sopra l'agenda.
+  const [tab, setTab] = useState<Tab>(() => (lists.wa.length ? "todo" : "agenda"));
   // Sul telefono la riga delle schede scorre di lato: bordi sfumati da dove c'è altro
   // e la scheda scelta sempre in vista (niente «enda» o pallino tagliati a metà).
   const tabRow = useRef<HTMLDivElement | null>(null);
@@ -310,9 +312,9 @@ export function BookingsView({
 
   // Come il pallino del menù in alto e Impostazioni: solo le richieste da confermare.
   const TABS: { id: Tab; label: string; count?: number }[] = [
+    { id: "agenda", label: "Agenda" },
     { id: "todo", label: "Da gestire", count: lists.pending.length },
     { id: "tonight", label: "Stasera", count: lists.tonight.length },
-    { id: "agenda", label: "Agenda" },
     { id: "next", label: "Prossimi giorni" },
     { id: "archive", label: "Archivio" },
     { id: "numbers", label: "Numeri" },
@@ -618,6 +620,23 @@ export function BookingsView({
 
             {tab === "tonight" && <Tonight rows={lists.tonight} pending={lists.tonightPending} countTests={!settings.agendaEnabled} now={now} today={today} onOpen={open} />}
 
+            {tab === "agenda" && (lists.pending.length > 0 || lists.wa.length > 0) && (
+              <button
+                type="button"
+                onClick={() => setTab("todo")}
+                className="mb-4 flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-left text-sm font-medium text-foreground hover:border-gold"
+              >
+                <span>
+                  {[
+                    lists.pending.length ? `${lists.pending.length} ${lists.pending.length === 1 ? "richiesta online da confermare" : "richieste online da confermare"}` : "",
+                    lists.wa.length ? `${lists.wa.length} ${lists.wa.length === 1 ? "messaggio da mandare su WhatsApp" : "messaggi da mandare su WhatsApp"}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                <span className="shrink-0 text-accent">Apri ›</span>
+              </button>
+            )}
             {tab === "agenda" && <Agenda rows={lists.confirmed} cancelled={lists.cancelled} countTests={!settings.agendaEnabled} day={agendaDay} setDay={setAgendaDay} today={today} now={now} onOpen={open} onNew={newBooking} />}
 
             {tab === "next" && (
