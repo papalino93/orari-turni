@@ -191,7 +191,9 @@ function parseCsv(text: string, delimiter: string): string[][] {
   return rows;
 }
 
-export const HEADER_TAG = "{intestazione}";
+// Segnaposto del nome di ognuno nel testo. «{intestazione}» è il nome vecchio: vale ancora.
+export const HEADER_TAG = "{nome}";
+export const HEADER_TAG_RE = /\{(?:nome|intestazione)\}/i;
 
 export function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -209,7 +211,7 @@ export function oneLine(s: string) {
 export function applyHeader(body: string, header: string): string {
   const h = oneLine(header);
   return body
-    .replace(/\{intestazione\}/gi, () => h)
+    .replace(/\{(?:nome|intestazione)\}/gi, () => h)
     .replace(/ +([,.;:!?])/g, "$1")
     .replace(/[ \t]{2,}/g, " ");
 }
@@ -228,18 +230,38 @@ export type MailFooterInfo = {
 // ragione sociale e partita IVA se ci sono, informativa e link per non ricevere più le email.
 export function mailFooter(info: MailFooterInfo, unsubscribeUrl: string): { lines: string[]; text: string; html: string } {
   const privacyUrl = info.privacyUrl.trim() || `${unsubscribeUrl}#privacy`;
-  const who = [VENUE_NAME, oneLine(info.address)].filter(Boolean).join(" · ");
+  const address = oneLine(info.address);
+  const who = [VENUE_NAME, address].filter(Boolean).join(" · ");
   const legal = [oneLine(info.company), info.vat.trim() ? `P. IVA ${oneLine(info.vat)}` : ""].filter(Boolean).join(" · ");
-  const lines = [who, legal, `Ricevi questa email perché sei tra i contatti dell'${VENUE_NAME.replace(/^L'/, "")}.`].filter(Boolean);
+  const reason = `Ricevi questa email perché sei tra i contatti dell'${VENUE_NAME.replace(/^L'/, "")}.`;
+  const lines = [who, legal, reason].filter(Boolean);
   const text = [...lines, `Informativa sulla privacy: ${privacyUrl}`, `Non voglio più ricevere queste email: ${unsubscribeUrl}`].join("\n");
-  const link = (href: string, label: string) =>
-    `<a href="${escapeHtml(href)}" style="color:#6B1020;text-decoration:underline">${escapeHtml(label)}</a>`;
+  // Ogni pezzo su una riga sua e senza a capo nel mezzo («53/C, 50018» non si spezza più). L'indirizzo è
+  // già un link (a Google Maps) con il colore del testo: così Gmail non lo trasforma in un link blu.
+  const nowrap = (inner: string) => `<span style="white-space:nowrap">${inner}</span>`;
+  const quiet = "color:#7a6f68;text-decoration:none";
+  const link = (href: string, label: string) => `<a href="${escapeHtml(href)}" style="color:#6B1020;text-decoration:underline">${escapeHtml(label)}</a>`;
+  const maps = address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : "";
+  const row = (inner: string, extra = "") => `<p style="margin:0 0 3px;${extra}">${inner}</p>`;
   const html =
-    `<div style="margin-top:28px;padding-top:14px;border-top:1px solid #e4ddd2;font-size:12.5px;line-height:1.55;color:#6b6b6b">` +
-    lines.map((l) => `<p style="margin:0 0 4px">${escapeHtml(l)}</p>`).join("") +
-    `<p style="margin:10px 0 0">${link(privacyUrl, "Informativa sulla privacy")} · ${link(unsubscribeUrl, "Non voglio più ricevere queste email")}</p>` +
+    `<div style="margin-top:30px;padding-top:18px;border-top:1px solid #eae3d8;font-size:12.5px;line-height:1.6;color:#7a6f68">` +
+    row(escapeHtml(VENUE_NAME), "font-weight:600;color:#4a3f3a") +
+    (address ? row(nowrap(`<a href="${escapeHtml(maps)}" style="${quiet}">${escapeHtml(address)}</a>`)) : "") +
+    (legal ? row(nowrap(escapeHtml(legal))) : "") +
+    row(escapeHtml(reason), "margin-top:10px") +
+    `<p style="margin:10px 0 0">${nowrap(link(privacyUrl, "Informativa sulla privacy"))}<br>${nowrap(link(unsubscribeUrl, "Non voglio più ricevere queste email"))}</p>` +
     `</div>`;
   return { lines, text, html };
+}
+
+// Il logo in cima alla mail: indirizzo completo del sito (le mail non conoscono «/»), preso dal link di
+// disiscrizione; nell'anteprima del sito basta il percorso. Chi blocca le immagini legge il testo alternativo.
+export function mailLogoSrc(unsubscribeUrl: string): string {
+  try {
+    return `${new URL(unsubscribeUrl).origin}/menu/logo-mail.png`;
+  } catch {
+    return "/menu/logo-mail.png";
+  }
 }
 
 // Una mail della lista: testo con l'intestazione della persona, piè di pagina di legge e le
@@ -258,16 +280,23 @@ export function buildMail(
     .split(/\n{2,}/)
     .map((p) => `<p style="margin:0 0 16px">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
     .join("");
+  const logo = mailLogoSrc(opts.unsubscribeUrl);
   const html =
     `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<title>${escapeHtml(subject)}</title></head>` +
+    `<meta name="color-scheme" content="light"><title>${escapeHtml(subject)}</title></head>` +
     `<body style="margin:0;padding:0;background:#f4efe7">` +
-    `<div style="max-width:600px;margin:0 auto;padding:28px 22px;background:#ffffff;color:#222222;` +
-    `font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6">` +
-    `<p style="margin:0 0 20px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#6B1020">${escapeHtml(VENUE_NAME)}</p>` +
+    // Tabelle: l'unico impaginato che regge anche su Outlook.
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4efe7"><tr><td align="center" style="padding:24px 12px">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:14px">` +
+    `<tr><td align="center" style="padding:28px 28px 8px">` +
+    `<img src="${escapeHtml(logo)}" alt="${escapeHtml(VENUE_NAME)}" width="170" style="display:block;width:170px;max-width:60%;height:auto;border:0;color:#6B1020;font-size:18px">` +
+    `<div style="width:56px;height:1px;background:#c9a96e;margin:18px auto 0;line-height:1px;font-size:0">&nbsp;</div>` +
+    `</td></tr>` +
+    `<tr><td style="padding:18px 28px 30px;color:#2b1a1c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.65">` +
     paragraphs +
     footer.html +
-    `</div></body></html>`;
+    `</td></tr></table>` +
+    `</td></tr></table></body></html>`;
   const unsubscribe = [opts.oneClickUrl ?? opts.unsubscribeUrl, opts.replyTo ? `mailto:${opts.replyTo}?subject=Cancellami` : ""]
     .filter(Boolean)
     .map((u) => `<${u}>`)
