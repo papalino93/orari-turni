@@ -11,6 +11,7 @@ import { toBookingItem } from "../items";
 // partirebbero una alla volta). Stessi permessi della pagina /prenotazioni.
 //   ?dal=AAAA-MM-GG&al=AAAA-MM-GG[&righe=1][&servizio=1]  → AgendaData
 //   ?id=<prenotazione>                                    → la prenotazione intera (con la cronologia)
+//   ?cerca=<testo>                                        → { results: BookingItem[] } (anche le passate)
 export async function GET(request: Request) {
   const manager = await getBookingManager();
   if (!manager) return NextResponse.json({ error: "Non hai il permesso di vedere le prenotazioni." }, { status: 403, headers: NO_STORE });
@@ -37,6 +38,36 @@ export async function GET(request: Request) {
     const b = await prisma.bookingRequest.findUnique({ where: { id }, include: { promo: { select: { title: true } }, log: { orderBy: { at: "asc" } } } });
     if (!b) return NextResponse.json({ error: "Questa prenotazione non c'è più." }, { status: 404, headers: NO_STORE });
     return NextResponse.json({ booking: toBookingItem(b, siteOrigin(new URL(request.url).origin)) }, { headers: NO_STORE });
+  }
+
+  // «Cerca» (al posto del vecchio «Archivio»): per nome, telefono, codice, menù o nota, in tutte le
+  // prenotazioni ancora salvate (passate comprese), le più vicine a oggi per prime.
+  const search = q.get("cerca");
+  if (search !== null) {
+    const text = search.trim().slice(0, 60);
+    if (text.length < 2) return NextResponse.json({ results: [] }, { headers: NO_STORE });
+    const digits = text.replace(/\D/g, "");
+    const rows = await prisma.bookingRequest.findMany({
+      where: {
+        OR: [
+          { name: { contains: text, mode: "insensitive" } },
+          { code: { equals: text.toUpperCase() } },
+          { menu: { contains: text, mode: "insensitive" } },
+          { note: { contains: text, mode: "insensitive" } },
+          ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
+        ],
+      },
+      include: { promo: { select: { title: true } }, log: { orderBy: { at: "asc" } } },
+      orderBy: [{ startsAt: "desc" }],
+      take: 60,
+    });
+    const origin = siteOrigin(new URL(request.url).origin);
+    const now = Date.now();
+    // Prima le prossime (dalla più vicina), poi le passate (dalla più recente).
+    const items = rows.map((b) => toBookingItem(b, origin));
+    const next = items.filter((b) => b.startsAt >= now - 6 * 3600000).sort((a, b) => a.startsAt - b.startsAt);
+    const past = items.filter((b) => b.startsAt < now - 6 * 3600000);
+    return NextResponse.json({ results: [...next, ...past] }, { headers: NO_STORE });
   }
 
   const from = q.get("dal");

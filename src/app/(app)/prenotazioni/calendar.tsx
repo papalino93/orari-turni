@@ -29,12 +29,14 @@ import {
   type DaySummary,
 } from "@/lib/booking/agenda";
 import { DayView } from "./calendar-day";
+import { CalendarPlusIcon, Empty } from "./lists";
 
 const VIEW_KEY = "prenotazioni-agenda-vista";
-const VIEWS: { id: AgendaView; label: string }[] = [
-  { id: "day", label: "Giorno" },
-  { id: "week", label: "Settimana" },
-  { id: "month", label: "Mese" },
+// «Sett.» sul telefono: le tre viste, «Richieste» e «⋯» stanno su una riga anche a 360 px.
+const VIEWS: { id: AgendaView; label: string; short: string }[] = [
+  { id: "day", label: "Giorno", short: "Giorno" },
+  { id: "week", label: "Settimana", short: "Sett." },
+  { id: "month", label: "Mese", short: "Mese" },
 ];
 // Nella vista Settimana, per ogni giorno: le prime prenotazioni, poi «N in più».
 const WEEK_CHIPS = 8;
@@ -54,8 +56,14 @@ export type CalendarProps = {
   onNew: (day: string) => void;
   onCloseRequests: (day: string) => void;
   onReopenRequests: (day: string) => void;
-  // Il giorno in vista (per «+ Nuova prenotazione» in cima alla pagina).
+  // «Importa dal librone» (riquadri vuoti).
+  onImport?: () => void;
+  // Il giorno in vista (per «+ Prenotazione» in cima alla pagina).
   onDayChange?: (day: string) => void;
+  // La barra in alto: pulsanti che vengono dalla pagina (Richieste, + Prenotazione, ⋯, stato, «Chi sei?»).
+  bar?: { status?: React.ReactNode; who?: React.ReactNode; requests?: React.ReactNode; add?: React.ReactNode; more?: React.ReactNode };
+  // Da un link o da una notifica: «apri la vista Giorno di oggi», «la settimana»… (n cambia a ogni richiesta).
+  jump?: { view?: AgendaView; day?: string; n: number } | null;
 };
 
 // ---------- Dati del periodo
@@ -120,9 +128,12 @@ function useAgendaData(view: AgendaView, anchor: string, version: number) {
 
 // ---------- Vista scelta (ricordata su questo dispositivo)
 
-function useView(phoneUA: boolean): [AgendaView, (v: AgendaView) => void] {
-  const [view, setViewState] = useState<AgendaView>(phoneUA ? "day" : "week");
+function useView(phoneUA: boolean, forced: AgendaView | null): [AgendaView, (v: AgendaView) => void] {
+  const [view, setViewState] = useState<AgendaView>(forced ?? (phoneUA ? "day" : "week"));
+  const forcedRef = useRef(forced);
   useEffect(() => {
+    // Aperta da un link con la vista scelta (es. «Oggi» dal widget): quella, non la ricordata.
+    if (forcedRef.current) return;
     let stored: string | null = null;
     try {
       stored = localStorage.getItem(VIEW_KEY);
@@ -148,9 +159,16 @@ function useView(phoneUA: boolean): [AgendaView, (v: AgendaView) => void] {
 // ---------- Agenda
 
 export function AgendaCalendar(props: CalendarProps) {
-  const { today, now, version, settings, hours, countTests, phoneUA, onDayChange } = props;
-  const [view, setView] = useView(phoneUA);
-  const [anchor, setAnchorState] = useState(today);
+  const { today, now, version, settings, hours, countTests, phoneUA, onDayChange, bar, jump } = props;
+  const [view, setView] = useView(phoneUA, jump?.view ?? null);
+  const [anchor, setAnchorState] = useState(jump?.day ?? today);
+  // Un salto chiesto dopo l'apertura (una notifica toccata con la pagina già aperta).
+  const [jumped, setJumped] = useState(jump?.n ?? 0);
+  if (jump && jump.n !== jumped) {
+    setJumped(jump.n);
+    if (jump.view) setView(jump.view);
+    if (jump.day) setAnchorState(jump.day);
+  }
   // Da settimana o mese un tocco su un giorno lo «apre»: piccola animazione da dove si è toccato.
   const [explode, setExplode] = useState<{ x: number; y: number; n: number } | null>(null);
   const { data, from, to, error, retry } = useAgendaData(view, anchor, version);
@@ -198,47 +216,53 @@ export function AgendaCalendar(props: CalendarProps) {
   const near = view === "day" ? (anchor === today ? "Oggi" : anchor === addDays(today, 1) && !night ? "Domani" : anchor === addDays(today, -1) ? "Ieri" : null) : null;
   const showsToday = today >= from && today <= to;
 
+  const titleBlock = (
+    // Titolo del periodo: un tocco apre il calendario per saltare a un giorno.
+    <div className="relative order-1 min-w-0 flex-1 md:order-2 xl:flex-none">
+      <span className="flex min-h-11 items-center gap-1.5 rounded-xl px-1 md:px-2">
+        <span className="min-w-0">
+          {near && <span className="block text-[11px] font-semibold uppercase leading-tight tracking-wider text-accent-ink">{near}</span>}
+          <span data-testid="agenda-titolo" className="block truncate font-serif text-[1.3rem] font-semibold leading-tight tracking-tight text-foreground md:text-[1.6rem]">
+            {title}
+          </span>
+        </span>
+        <svg aria-hidden width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="mt-1 shrink-0 text-foreground-muted">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </span>
+      <input
+        type="date"
+        value={anchor}
+        min={min}
+        max={max}
+        onChange={(e) => e.target.value && setAnchor(e.target.value)}
+        onClick={(e) => {
+          try {
+            (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+          } catch {
+            /* il calendario si apre da solo */
+          }
+        }}
+        aria-label={`Scegli la data (adesso: ${title})`}
+        title="Scegli la data"
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      />
+    </div>
+  );
+
   return (
     <section aria-label="Agenda" className="space-y-3" data-vista={view}>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-2.5">
-        {/* Titolo del periodo: un tocco apre il calendario per saltare a un giorno. */}
-        <div className="relative order-1 min-w-0 flex-1 md:order-2 md:flex-none">
-          <span className="flex min-h-11 items-center gap-1.5 rounded-xl px-1 md:px-2">
-            <span className="min-w-0">
-              {near && <span className="block text-[11px] font-semibold uppercase tracking-wider text-accent-ink">{near}</span>}
-              <span data-testid="agenda-titolo" className="block font-serif text-[1.35rem] font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
-                {title}
-              </span>
-            </span>
-            <svg aria-hidden width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="mt-1 shrink-0 text-foreground-muted">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </span>
-          <input
-            type="date"
-            value={anchor}
-            min={min}
-            max={max}
-            onChange={(e) => e.target.value && setAnchor(e.target.value)}
-            onClick={(e) => {
-              try {
-                (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
-              } catch {
-                /* il calendario si apre da solo */
-              }
-            }}
-            aria-label="Scegli la data"
-            title="Scegli la data"
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-          />
-        </div>
+      {/* La barra in alto. Telefono: titolo e frecce; sotto, vista, «Richieste» e «⋯» (il «+» è il
+          tondo in basso). Tablet: «Oggi» ‹ › titolo e stato; sotto, vista e pulsanti. Computer largo: una riga. */}
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 md:gap-x-2" data-testid="agenda-barra">
+        {titleBlock}
         <div className="order-2 flex shrink-0 items-center gap-1 md:order-1">
           <button
             type="button"
             onClick={() => setAnchor(today)}
             aria-current={showsToday ? "date" : undefined}
             title="Oggi (tasto T)"
-            className={`min-h-11 rounded-full px-4 text-sm font-semibold ring-1 ring-inset ${showsToday ? "bg-surface text-foreground-muted ring-border" : "bg-surface text-foreground ring-accent/60 hover:ring-accent"}`}
+            className={`min-h-11 items-center rounded-full px-3.5 text-sm font-semibold ring-1 ring-inset md:flex md:px-4 ${showsToday ? "hidden bg-surface text-foreground-muted ring-border" : "flex bg-surface text-foreground ring-accent/60 hover:ring-accent"}`}
           >
             Oggi
           </button>
@@ -249,19 +273,33 @@ export function AgendaCalendar(props: CalendarProps) {
             <path d="M9 6l6 6-6 6" />
           </NavButton>
         </div>
-        <div role="radiogroup" aria-label="Vista dell'agenda" className="order-3 grid w-full grid-cols-3 rounded-full border border-border bg-surface-2/70 p-1 md:ml-auto md:w-auto">
+        {(bar?.who || bar?.status) && (
+          <div className="order-3 ml-auto hidden shrink-0 items-center gap-2 md:flex">
+            {bar.who}
+            {bar.status}
+          </div>
+        )}
+        <div aria-hidden className="order-4 h-0 basis-full xl:hidden" />
+        <div role="radiogroup" aria-label="Vista dell'agenda" className="order-5 grid min-w-0 flex-1 grid-cols-3 rounded-full bg-surface-2/80 p-1 ring-1 ring-inset ring-border md:flex-none xl:ml-2">
           {VIEWS.map((v) => (
             <button
               key={v.id}
               type="button"
               role="radio"
               aria-checked={view === v.id}
+              aria-label={v.label}
               onClick={() => setView(v.id)}
-              className={`min-h-9 rounded-full px-4 text-sm font-semibold transition-colors ${view === v.id ? "bg-accent text-accent-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"}`}
+              className={`min-h-9 rounded-full px-2 text-[13px] font-semibold transition-colors sm:px-4 sm:text-sm ${view === v.id ? "bg-accent text-accent-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"}`}
             >
-              {v.label}
+              <span className="sm:hidden">{v.short}</span>
+              <span className="max-sm:hidden">{v.label}</span>
             </button>
           ))}
+        </div>
+        <div className="order-6 flex shrink-0 items-center gap-1.5 md:ml-auto md:gap-2 xl:ml-0">
+          {bar?.requests}
+          {bar?.add && <span className="hidden md:contents">{bar.add}</span>}
+          {bar?.more}
         </div>
       </div>
 
@@ -284,11 +322,55 @@ export function AgendaCalendar(props: CalendarProps) {
           <DayView {...props} day={anchor} data={data} capacity={capacity} />
         </div>
       ) : view === "week" ? (
-        <WeekView data={data} from={from} today={today} now={now} hours={hours} countTests={countTests} capacity={capacity} onDay={openDay} onOpen={props.onOpen} />
+        <>
+          {weekEmpty(data, from, now) && <PeriodEmpty what="week" past={addDays(from, 6) < today} onNew={() => props.onNew(from >= today ? from : today)} onImport={props.onImport} />}
+          <WeekView data={data} from={from} today={today} now={now} hours={hours} countTests={countTests} capacity={capacity} onDay={openDay} onOpen={props.onOpen} />
+        </>
       ) : (
-        <MonthView data={data} from={from} to={to} anchor={anchor} today={today} hours={hours} capacity={capacity} onDay={openDay} />
+        <>
+          {monthEmpty(data, from, to, anchor) && <PeriodEmpty what="month" past={to < today} onNew={() => props.onNew(from >= today ? from : today)} onImport={props.onImport} />}
+          <MonthView data={data} from={from} to={to} anchor={anchor} today={today} hours={hours} capacity={capacity} onDay={openDay} />
+        </>
       )}
     </section>
+  );
+}
+
+// Settimana o mese senza prenotazioni (né richieste da confermare): un riquadro che dice che cosa fare.
+function weekEmpty(data: AgendaData, from: string, now: number) {
+  const to = addDays(from, 6);
+  return !(data.bookings ?? []).some((b) => b.day >= from && b.day <= to && (b.status === "CONFIRMED" || isOpenRequest(b, now)));
+}
+function monthEmpty(data: AgendaData, from: string, to: string, anchor: string) {
+  return !daysBetween(from, to).some((d) => inMonth(d, anchor) && ((data.summary[d]?.count ?? 0) > 0 || (data.summary[d]?.pending ?? 0) > 0));
+}
+
+export function PeriodEmpty({ what, past, onNew, onImport }: { what: "day" | "today" | "week" | "month"; past: boolean; onNew: () => void; onImport?: () => void }) {
+  const title = {
+    day: "Nessuna prenotazione in questo giorno",
+    today: "Nessuna prenotazione per oggi",
+    week: past ? "Nessuna prenotazione quella settimana" : "Nessuna prenotazione questa settimana",
+    month: past ? "Nessuna prenotazione quel mese" : "Nessuna prenotazione questo mese",
+  }[what];
+  return (
+    <Empty
+      icon={<CalendarPlusIcon />}
+      title={title}
+      text={past ? "Qui c'è tutto, come sul librone: le prenotazioni dal sito e quelle segnate a mano." : "Segna quelle arrivate al telefono, oppure copia in un colpo le pagine del librone."}
+    >
+      {!past && (
+        <>
+          <button type="button" onClick={onNew} className="min-h-11 rounded-full bg-accent px-5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover">
+            + Prenotazione
+          </button>
+          {onImport && (
+            <button type="button" onClick={onImport} className="min-h-11 rounded-full bg-surface px-5 text-sm font-semibold text-foreground ring-1 ring-inset ring-border hover:ring-accent">
+              Importa dal librone
+            </button>
+          )}
+        </>
+      )}
+    </Empty>
   );
 }
 
@@ -419,7 +501,7 @@ function WeekView({
                 <span className="min-w-0 flex-1 space-y-1">
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-foreground-muted tabular-nums">
                     <span className={info.closed ? "font-semibold text-danger" : ""}>{info.closed ? info.closedText : info.hours}</span>
-                    {info.requestsClosed && <span>· Richieste chiuse</span>}
+                    {info.requestsClosed && <ClosedChip />}
                   </span>
                   {info.events.map((ev) => (
                     <EventPill key={ev.slug} title={ev.title} compact />
@@ -482,7 +564,11 @@ function WeekView({
                       </span>
                     ))}
               </p>
-              {info.requestsClosed && <p className="truncate text-center text-[10.5px] text-foreground-muted">Richieste chiuse</p>}
+              {info.requestsClosed && (
+                <p className="flex justify-center">
+                  <ClosedChip />
+                </p>
+              )}
               {info.events.map((ev) => (
                 <EventPill key={ev.slug} title={ev.title} compact />
               ))}
@@ -606,7 +692,7 @@ function MonthView({
                 <button
                   type="button"
                   onClick={(e) => onDay(day, e)}
-                  aria-label={`Apri ${dayAria(day)}: ${info.closed ? `${info.closedText}, ` : ""}${sumAria(sum)}${info.events.length ? `, evento: ${info.events.map((e) => e.title).join(", ")}` : ""}`}
+                  aria-label={`Apri ${dayAria(day)}: ${info.closed ? `${info.closedText}, ` : ""}${info.requestsClosed && !info.closed ? "richieste chiuse, " : ""}${sumAria(sum)}${info.events.length ? `, evento: ${info.events.map((e) => e.title).join(", ")}` : ""}`}
                   className={`flex h-full min-h-[4.25rem] w-full flex-col items-stretch gap-0.5 px-1 pb-1.5 pt-1 text-left transition-colors hover:bg-surface-2/70 sm:min-h-[6.5rem] sm:px-1.5 ${TINT[level]} ${out ? "opacity-45" : ""}`}
                 >
                   <span className="flex items-center justify-between gap-1">
@@ -630,6 +716,7 @@ function MonthView({
                     </span>
                   ) : null}
                   {sum.pending > 0 && <span className="truncate text-[10.5px] font-semibold text-gold max-sm:hidden">+{sum.pending} da conf.</span>}
+                  {info.requestsClosed && !info.closed && <ClosedChip tiny />}
                   {info.events.slice(0, 1).map((ev) => (
                     <span key={ev.slug} className="mt-auto flex min-w-0 items-center gap-1 text-[10.5px] font-medium text-accent-ink">
                       <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
@@ -665,6 +752,22 @@ export function EventPill({ title, time, compact = false }: { title: string; tim
       <span aria-hidden>★</span>
       <span className="truncate">{title}</span>
       {time && <span className="shrink-0 font-normal text-foreground-muted">· {time}</span>}
+    </span>
+  );
+}
+
+// «Richieste chiuse»: quel giorno i clienti non possono chiedere un tavolo dal sito (in tutte le viste).
+export function ClosedChip({ tiny = false }: { tiny?: boolean }) {
+  return (
+    <span
+      title="Richieste online chiuse per questo giorno"
+      className={`inline-flex max-w-full shrink-0 items-center gap-1 rounded-full bg-danger-bg font-semibold text-danger ring-1 ring-inset ring-danger/25 ${tiny ? "px-1 py-px text-[10px]" : "px-2 py-0.5 text-[10.5px]"}`}
+    >
+      <svg aria-hidden width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+        <rect x="5" y="11" width="14" height="10" rx="2" />
+        <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+      </svg>
+      <span className={`truncate ${tiny ? "max-sm:sr-only" : ""}`}>Richieste chiuse</span>
     </span>
   );
 }

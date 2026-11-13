@@ -407,3 +407,36 @@ body {
     transform: none;
   }
 }
+
+/* Prenotazioni: il pannello «Richieste» entra da destra (computer) o dal basso (telefono),
+   il menù «⋯» si apre dal pulsante. Solo con motion-safe. */
+@keyframes panel-left {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes panel-up {
+  from {
+    transform: translateY(32px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes menu-in {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
