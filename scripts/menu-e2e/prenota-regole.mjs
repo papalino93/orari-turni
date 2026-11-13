@@ -659,10 +659,11 @@ try {
     DB(`update "Employee" set "canManageBookings"=true, "isVenueDevice"=(username='marta') where username in ('marta','giulia')`);
     const emp = (u) => DB(`select id from "Employee" where username=${q(u)}`);
     DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, "employeeId") values ('provacpushlocale', 'https://fcm.googleapis.com/prova-c-locale', 'x', 'y', ${q(emp("marta"))}), ('provacpushaltro', 'https://fcm.googleapis.com/prova-c-altro', 'x', 'y', ${q(emp("giulia"))})`);
-    DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, username) values ('provacpushtitolare', 'https://fcm.googleapis.com/prova-c-titolare', 'x', 'y', 'admin')`);
+    DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, username) values ('provacpushtitolare', 'https://fcm.googleapis.com/prova-c-titolare', 'x', 'y', 'andrea')`);
     const lastOk = (id) => DB(`select ("lastOkAt" is not null)::text from "PushSubscription" where id=${q(id)}`);
     const reset = () => DB(`update "PushSubscription" set "lastOkAt"=null where id like 'provacpush%'`);
-    setBookingSetting({ whatsappSenders: "venue" });
+    const senders = (v) => DB(`update "MenuSetting" set value = jsonb_set(value::jsonb, '{whatsappSenders}', ${q(JSON.stringify(v))}::jsonb)::text where id='bookings'`);
+    senders("venue");
     const w1 = await create({ day: D2.day, time: slot(D2, 1) });
     const r1 = await S.confirmBooking(w1.id, { name: "Prova C Giulia", selfWa: false }, null, null, true);
     const pushLog = DB(`select coalesce(string_agg(message, ' | '), '') from "BookingLog" where "requestId"=${q(w1.id)} and kind='PUSH_OK'`);
@@ -672,7 +673,7 @@ try {
     await S.confirmBooking(w2.id, { name: "Prova C Giulia", selfWa: true }, null, null, true);
     check("risposta dal telefono enoteca (lo manda lui): nessun avviso", DB(`select count(*) from "BookingLog" where "requestId"=${q(w2.id)} and kind='PUSH_OK' and message like '%WhatsApp%'`) === "0");
     reset();
-    setBookingSetting({ whatsappSenders: "all" });
+    senders("all");
     const w3 = await manual({ name: "Prova C Coda", phone: "333 9555002", time: slot(D2, 3) });
     await S.queueConfirmation(w3.booking.id, { name: "Prova C Giulia" });
     check("«Da mandare dal telefono enoteca» (agenda): avviso", DB(`select count(*) from "BookingLog" where "requestId"=${q(w3.booking.id)} and kind='PUSH_OK' and message like '%WhatsApp%'`) === "1");
@@ -681,7 +682,7 @@ try {
     check("pallino del menù: conta anche i messaggi da mandare", todo.whatsapp >= 2 && todo.pending === (await S.pendingCount()), JSON.stringify(todo));
     // Senza telefono enoteca, «solo il telefono enoteca» non lascerebbe nessuno: vale il titolare.
     reset();
-    setBookingSetting({ whatsappSenders: "venue" });
+    senders("venue");
     DB(`update "Employee" set "isVenueDevice"=false where username='marta'`);
     const w4 = await manual({ name: "Prova C Coda due", phone: "333 9555003", time: slot(D2, 4) });
     await S.queueConfirmation(w4.booking.id, { name: "Prova C Giulia" });
