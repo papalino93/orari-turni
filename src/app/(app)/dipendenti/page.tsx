@@ -13,6 +13,7 @@ import {
 } from "@/lib/week";
 import { blockTimeLabel, leaveLabelFor } from "@/lib/schedule";
 import { NewEmployeeForm } from "./new-employee-form";
+import { VenueDeviceButton } from "./venue-device";
 import { EmployeeList } from "./employee-list";
 import {
   decryptEmployeePassword,
@@ -150,6 +151,7 @@ export default async function DipendentiPage() {
     (e) =>
       e.role === "EMPLOYEE" &&
       e.active &&
+      !e.isVenueDevice &&
       e.username &&
       e.createdAt <= reviewMonthEnd &&
       !submittedOrApprovedIds.has(e.id),
@@ -169,6 +171,7 @@ export default async function DipendentiPage() {
     password: e.password ? safeDecrypt(e.password) : null,
     canEditMenu: e.canEditMenu,
     canManageBookings: e.canManageBookings,
+    isVenueDevice: e.isVenueDevice,
     pendingSubmissions: pendingSubmissions
       .filter((s) => s.employeeId === e.id)
       .map((s) => ({
@@ -209,6 +212,7 @@ export default async function DipendentiPage() {
       )}
 
       <NewEmployeeForm />
+      <VenueDeviceButton exists={employees.some((e) => e.isVenueDevice)} />
       <EmployeeList
         employees={mapped}
         dateKeys={dateKeys}

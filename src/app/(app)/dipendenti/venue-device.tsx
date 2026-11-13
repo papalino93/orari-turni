@@ -203,7 +203,7 @@ export function VenueDeviceCard({ device }: { device: VenueRow }) {
         </button>
       </div>
       {askMenu && (
-        <ConfirmSheet title={MENU_WARNING} confirmLabel="Sì, accendi" cancelLabel="Annulla" busy={pending} onConfirm={() => { setAskMenu(false); run(() => setEmployeeMenuAccess(device.id, true), "Il telefono può modificare il menù"); }} onCancel={() => setAskMenu(false)}>
+        <ConfirmSheet title={MENU_WARNING} confirmLabel="Sì, accendi" busy={pending} onConfirm={() => { setAskMenu(false); run(() => setEmployeeMenuAccess(device.id, true), "Il telefono può modificare il menù"); }} onCancel={() => setAskMenu(false)}>
           <p>Si spegne con lo stesso interruttore, quando vuoi.</p>
         </ConfirmSheet>
       )}
