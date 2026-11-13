@@ -135,8 +135,8 @@ export function Rubrica() {
       </div>
       {data && total > 0 && (
         <div className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-          <button type="button" onClick={() => setOpen({ kind: "contact", id: null })} className={`${primaryBtn} px-2 sm:order-last sm:px-4`}>
-            + Nuovo<span className="hidden sm:inline">&nbsp;contatto</span>
+          <button type="button" onClick={() => setOpen({ kind: "contact", id: null })} className={`${primaryBtn} whitespace-nowrap px-2 sm:order-last sm:px-4`}>
+            + Nuovo<span className="hidden sm:inline">contatto</span>
           </button>
           <button type="button" onClick={() => setOpen({ kind: "import" })} className={`${ghostBtn} px-2 sm:px-4`}>
             Importa
