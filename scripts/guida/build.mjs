@@ -414,7 +414,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Strumenti")}
 pages.push(`<section class="page wine">${chrome(pg(), "Statistiche")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Statistiche</div>
   <h2>Quanti aprono il menù,<br><em>quando e per cosa</em></h2>
-  <p class="lead">Solo per il titolare. In cima c'è il numero di <b>oggi</b>; poi scegli il periodo in una riga (Oggi, Ieri, Questa settimana… Ultimi 7 giorni, Date a scelta) e leggi il grafico: le fasce dorate sono gli eventi. <b>Gli eventi funzionano?</b> confronta i giorni con un evento e gli altri. Dal computer, il pulsante <b>Vista larga</b> accanto al tema usa tutto lo schermo.</p></div>
+  <p class="lead">Solo per il titolare: in alto <b>Menù</b>, poi la scheda <b>Statistiche</b> accanto a «Gestione». In cima c'è il numero di <b>oggi</b>; poi scegli il periodo in una riga (Oggi, Ieri, Questa settimana… Ultimi 7 giorni, Date a scelta) e leggi il grafico: le fasce dorate sono gli eventi. <b>Gli eventi funzionano?</b> confronta i giorni con un evento e gli altri. Dal computer, <b>Vista larga</b> (tocca le tue iniziali in alto a destra) usa tutto lo schermo.</p></div>
   <div style="position:relative;margin-top:8mm;height:126mm">
     <div style="position:absolute;left:0;top:0">${mac("mac-statistiche", 148)}</div>
     <div style="position:absolute;right:0;top:14mm">${phone("ges-stat-grafico", 38)}</div>
@@ -439,7 +439,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Widget sul telefono")}
     <div style="display:flex;flex-direction:column;gap:5mm">${wimg("sala-medium", 78)}${wimg("stasera-medium", 78)}</div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:auto">
-    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Dove si mettono</h3><p><b>Impostazioni</b> (l'ingranaggio in alto) → <b>Widget sul telefono</b>. Si incolla una volta l'installatore in Scriptable: crea «Angolo · Pannello», «Angolo · In sala»… e su ogni widget si sceglie dall'elenco.</p></div>
+    <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Dove si mettono</h3><p><b>Impostazioni</b> (dal computer: le tue iniziali in alto a destra) → <b>Widget sul telefono</b>. Si incolla una volta l'installatore in Scriptable: crea «Angolo · Pannello», «Angolo · In sala»… e su ogni widget si sceglie dall'elenco.</p></div>
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Per i dipendenti</h3><p>In <b>Chi può usare i widget</b> scegli chi e quali: il loro pannello, i loro turni, «Da dire ai clienti», il QR. Mai statistiche né dati dei colleghi.</p></div>
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Una chiave per telefono</h3><p>Lo script di ogni telefono ha la sua chiave: si legge e basta. <b>Scollega</b> la spegne subito; dopo 90 giorni senza uso si spegne da sola.</p></div>
     <div class="card" style="padding:4.5mm 5mm"><h3 style="font-size:15pt">Otto colori</h3><p>Crema, carta, oro, bordeaux, notte, nero, oliva, blu: ognuno sceglie i suoi in <b>Colori dei widget</b>, con l'anteprima.</p></div>
@@ -455,7 +455,7 @@ pages.push(`<section class="page wine">${chrome(pg(), "Guida · entrare")}
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;margin-top:7mm">
     <div class="cap" style="margin:0"><span class="nb">1</span>Apri <b>orari-turni.vercel.app</b> nel browser (Safari o Chrome). Conviene salvarlo tra i preferiti.</div>
     <div class="cap" style="margin:0"><span class="nb">2</span>Scrivi <b>Username</b> e <b>Password</b>, poi <b>Accedi</b>.</div>
-    <div class="cap" style="margin:0"><span class="nb">3</span>In alto tocca <b>Menù</b>. Le <b>Statistiche</b> sono accanto.</div>
+    <div class="cap" style="margin:0"><span class="nb">3</span>In alto tocca <b>Menù</b>. Due schede: <b>Gestione</b> e <b>Statistiche</b>.</div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-top:auto">
     <div class="card"><h3>Anche dal telefono</h3><p>Stesso indirizzo e stesse credenziali; sul telefono la barra è in basso. Si può aggiungere alla schermata Home con <span class="ui">Scopri come</span>.</p></div>
@@ -503,7 +503,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Guida · ogni tanto")}
     <div class="card"><h3>Orari, ferie e chiusure</h3><ol class="steps"><li>Scheda <span class="ui">Orari e contatti</span>, poi Orari <span class="ui">Modifica</span>.</li><li>Ferie o chiusura: <span class="ui">+ Aggiungi chiusura o apertura straordinaria</span>, date, «Chiuso», motivo.</li><li><span class="ui">Salva</span>.</li></ol><p class="res">«Aperto ora · chiude alle…» in copertina si calcola da solo.</p></div>
     <div class="card"><h3>Coperto, cucina, avvisi</h3><ol class="steps"><li><span class="ui">Orari e contatti</span>, in «Informazioni del menù» <span class="ui">+ Aggiungi</span>.</li><li>Scegli: testo, voce con prezzo o avviso; dove compare e, se serve, dal giorno al giorno.</li></ol><p class="res">Finita la data, l'avviso sparisce da solo.</p></div>
     <div class="card"><h3>Cambiare l'ordine</h3><ol class="steps"><li>Le categorie: <span class="ui">Ordina categorie</span> sotto l'elenco. Gruppi e voci: <span class="ui">Strumenti</span>, <span class="ui">Riordina</span> (<span class="ui">Apri ›</span> per entrare).</li><li>Trascina dalla maniglia ≡ o usa le frecce, poi <span class="ui">Salva ordine</span>.</li></ol><p class="res">Per i vini c'è anche <span class="ui">Ordina per regione</span>; per «In evidenza» la scheda <span class="ui">Eventi e annunci</span>.</p></div>
-    <div class="card"><h3>Menù di carta e statistiche</h3><ol class="steps"><li>In <span class="ui">Strumenti</span>, <span class="ui">Menù da stampare</span>, poi <span class="ui">Stampa o salva in PDF</span>.</li><li>Nella barra: <span class="ui">Statistiche</span>, poi <span class="ui">Inizia a contare</span> e il periodo.</li></ol><p class="res">Copertina e contatti: scheda «Orari e contatti»; il QR: «Strumenti», <span class="ui">Codice QR</span>.</p></div>
+    <div class="card"><h3>Menù di carta e statistiche</h3><ol class="steps"><li>In <span class="ui">Strumenti</span>, <span class="ui">Menù da stampare</span>, poi <span class="ui">Stampa o salva in PDF</span>.</li><li>In <span class="ui">Menù</span>, scheda <span class="ui">Statistiche</span>, poi <span class="ui">Inizia a contare</span> e il periodo.</li></ol><p class="res">Copertina e contatti: scheda «Orari e contatti»; il QR: «Strumenti», <span class="ui">Codice QR</span>.</p></div>
   </div>
 </section>`);
 
@@ -543,7 +543,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Domande frequenti")}
     <div><h4>Devo cambiare tanti prezzi: c'è un modo veloce?</h4><p>Sì: in «Strumenti», «Tabella prezzi». Si cambiano tutti quelli che servono, anche in categorie diverse, e si salva una volta sola.</p></div>
     <div><h4>Le statistiche registrano i clienti?</h4><p>No: niente nomi, telefoni o cookie. Si conta solo cosa succede (un'apertura, una ricerca), il giorno e l'ora.</p></div>
     <div><h4>Ho aperto il menù per prova: conta?</h4><p>Si toglie: in «Statistiche», sotto le aperture di oggi, «Togli aperture di prova», spunta l'ora e conferma. Perché il tuo telefono non conti più: «Il tuo telefono non deve contare».</p></div>
-    <div><h4>Posso vedere i numeri sul telefono senza aprire il sito?</h4><p>Sì, con i widget sulla Home dell'iPhone: Impostazioni (l'ingranaggio in alto) → «Widget sul telefono». Lì scegli anche quali dare ai dipendenti.</p></div>
+    <div><h4>Posso vedere i numeri sul telefono senza aprire il sito?</h4><p>Sì, con i widget sulla Home dell'iPhone: Impostazioni (dal computer: le tue iniziali in alto a destra) → «Widget sul telefono». Lì scegli anche quali dare ai dipendenti.</p></div>
     <div><h4>Mi serve il menù su carta: come faccio?</h4><p>In «Strumenti», «Menù da stampare», poi «Stampa o salva in PDF». È sempre aggiornato a quel momento.</p></div>
 
     <div><h4>Come consiglio un vino o un piatto?</h4><p>In «In vetrina», «+ Aggiungi consiglio» (o nella voce, «Consigliato dalla casa»): compare in «I consigli della casa», al massimo 4.</p></div>
