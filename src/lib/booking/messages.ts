@@ -33,9 +33,9 @@ export function customerMessage(kind: MessageKind, m: MessageInput): string {
   const ciao = `Ciao ${first(m.name)},`;
   switch (kind) {
     case "received":
-      return `${ciao} abbiamo ricevuto la tua richiesta per ${when}, ${peopleText(m.people)}. Non è ancora confermata: ti rispondiamo noi appena possibile.\n\nQui vedi sempre a che punto è: ${m.statusUrl}\n\n${VENUE_NAME}`;
+      return `${ciao} abbiamo ricevuto la tua richiesta per ${when}, ${peopleText(m.people)}.\n\nAttenzione: non è ancora una prenotazione confermata. La stiamo controllando e ti scriviamo appena possibile per confermarla.\n\nQui vedi sempre a che punto è: ${m.statusUrl}\n\n${VENUE_NAME}`;
     case "confirmed":
-      return `${ciao} ti aspettiamo ${when}${m.people > 0 ? `, tavolo per ${peopleText(m.people)}` : ""}.${m.allergies ? " Abbiamo preso nota delle allergie: ne parliamo al tavolo." : ""}${extra}${m.address ? `\n\nCi trovi in ${m.address}.` : ""}\n\nSe cambia qualcosa, puoi annullare da qui: ${m.statusUrl}\n\nA presto, ${VENUE_NAME}`;
+      return `${ciao} prenotazione confermata! Ti aspettiamo ${when}${m.people > 0 ? `, tavolo per ${peopleText(m.people)}` : ""}.${m.allergies ? " Abbiamo preso nota delle allergie: ne parliamo al tavolo." : ""}${extra}${m.address ? `\n\nCi trovi in ${m.address}.` : ""}\n\nSe cambia qualcosa, puoi annullare da qui: ${m.statusUrl}\n\nA presto, ${VENUE_NAME}`;
     case "proposed":
       return `${ciao} ${dayLong(m.day)} alle ${m.time} siamo al completo. Ti va bene alle ${m.proposedTime}?${extra}\n\nRispondi pure qui con «sì» o «no», oppure da questa pagina: ${m.statusUrl}\n\n${VENUE_NAME}`;
     case "declined":
@@ -51,7 +51,7 @@ export function customerSubject(kind: MessageKind, m: MessageInput): string {
   const when = m.time ? `${dayLong(m.day)} alle ${m.time}` : dayLong(m.day);
   switch (kind) {
     case "received":
-      return `Richiesta ricevuta: ${when} (non ancora confermata)`;
+      return `Richiesta ricevuta, in attesa di conferma: ${when}`;
     case "confirmed":
       return `Prenotazione confermata: ${when}`;
     case "proposed":

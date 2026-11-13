@@ -421,7 +421,7 @@ try {
   check("due conferme insieme: una sola va a buon fine", winners.length === 1, JSON.stringify([r1.ok, r2.ok]));
   check("…l'altra legge «Già confermata da <chi ha vinto>.»", loser && loser.error === `Già confermata da ${winnerName}.`, loser?.error);
   check("…una sola «CONFIRMED» nella cronologia", DB(`select count(*) from "BookingLog" where "requestId"=${q(c1.id)} and kind='CONFIRMED'`) === "1");
-  check("conferma: messaggio WhatsApp pronto per il numero del cliente", /^https:\/\/wa\.me\/39333\d+\?text=/.test(winners[0].whatsappHref) && decodeURIComponent(winners[0].whatsappHref).includes("ti aspettiamo") && winners[0].mailSent === false);
+  check("conferma: messaggio WhatsApp pronto per il numero del cliente", /^https:\/\/wa\.me\/39333\d+\?text=/.test(winners[0].whatsappHref) && decodeURIComponent(winners[0].whatsappHref).toLowerCase().includes("ti aspettiamo") && winners[0].mailSent === false);
   check("conferma: il link nel messaggio porta alla pagina del cliente", decodeURIComponent(winners[0].whatsappHref).includes(`/menu/prenota/r/${S.tokenFor(c1.id)}`));
 
   // Conferma per chi ha scelto l'email
@@ -522,7 +522,7 @@ try {
   await S.proposeTime(y1.id, marta, y1t, null, null);
   const yes = await S.acceptProposalForCustomer(y1.id, giulia, null);
   check("«Il cliente ha detto sì»: confermata al nuovo orario da chi l'ha segnato", yes.ok && yes.booking.status === "CONFIRMED" && yes.booking.time === y1t && yes.booking.proposedTime === null && row(y1.id) === "CONFIRMED|Prova C Giulia|");
-  check("…cronologia «ACCEPTED» di Giulia, messaggio di conferma pronto per WhatsApp", DB(`select actor||':'||kind from "BookingLog" where "requestId"=${q(y1.id)} and kind='ACCEPTED'`) === "Prova C Giulia:ACCEPTED" && decodeURIComponent(yes.whatsappHref ?? "").includes("ti aspettiamo"));
+  check("…cronologia «ACCEPTED» di Giulia, messaggio di conferma pronto per WhatsApp", DB(`select actor||':'||kind from "BookingLog" where "requestId"=${q(y1.id)} and kind='ACCEPTED'`) === "Prova C Giulia:ACCEPTED" && decodeURIComponent(yes.whatsappHref ?? "").toLowerCase().includes("ti aspettiamo"));
   check("…nella lista «Da mandare su WhatsApp» come conferma", (await queue(y1.id)) === "confirmed");
   check("…segnarlo di nuovo → «Già confermata»", /Già confermata/.test((await S.acceptProposalForCustomer(y1.id, marta, null)).error ?? ""));
   const n1 = await fresh();

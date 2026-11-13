@@ -209,7 +209,7 @@ try {
   check("conferma: nel database «CONFIRMED» da chi ha risposto", status(R.conf.id) === `CONFIRMED|${ADMIN_NAME}|`, status(R.conf.id));
   const wa = s1.getByRole("link", { name: "Manda la risposta su WhatsApp" });
   const waHref = (await wa.getAttribute("href")) ?? "";
-  check("conferma: «Manda la risposta su WhatsApp» con il messaggio già scritto per il numero del cliente", /^https:\/\/wa\.me\/39333\d+\?text=/.test(waHref) && decodeURIComponent(waHref).includes("ti aspettiamo"), waHref.slice(0, 60));
+  check("conferma: «Manda la risposta su WhatsApp» con il messaggio già scritto per il numero del cliente", /^https:\/\/wa\.me\/39333\d+\?text=/.test(waHref) && decodeURIComponent(waHref).toLowerCase().includes("ti aspettiamo"), waHref.slice(0, 60));
   const [popup] = await Promise.all([admin.ctx.waitForEvent("page"), wa.click()]);
   await popup.close();
   check("WhatsApp aperto: segnato nella cronologia", await waitDb(() => DB(`select count(*) from "BookingLog" where "requestId"='${R.conf.id}' and kind='WHATSAPP_OPENED'`) === "1"));
@@ -309,7 +309,7 @@ try {
   await yesBtn.click();
   await sy.getByText(`✓ Confermata alle ${yesTime}`).waitFor();
   check("«Il cliente ha detto sì»: confermata al nuovo orario", DB(`select status||'|'||time||'|'||"handledBy" from "BookingRequest" where id='${R.yes.id}'`) === `CONFIRMED|${yesTime}|${ADMIN_NAME}`);
-  check("…con il messaggio di conferma pronto su WhatsApp", decodeURIComponent((await sy.getByRole("link", { name: "Manda la risposta su WhatsApp" }).getAttribute("href")) ?? "").includes("ti aspettiamo"));
+  check("…con il messaggio di conferma pronto su WhatsApp", decodeURIComponent((await sy.getByRole("link", { name: "Manda la risposta su WhatsApp" }).getAttribute("href")) ?? "").toLowerCase().includes("ti aspettiamo"));
   await A.keyboard.press("Escape");
   await goList(A);
   await tab(A, "Prossimi giorni");
