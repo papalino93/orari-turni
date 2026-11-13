@@ -19,7 +19,7 @@ export default async function WidgetPage() {
     const allowed = WIDGETS.filter((w) => !w.vecchio && emp?.widgets.includes(w.id) && (!emp.isVenueDevice || VENUE_WIDGET_IDS.includes(w.id)));
     const devices = emp ? await prisma.widgetDevice.findMany({ where: { employeeId: emp.id, revokedAt: null }, orderBy: { createdAt: "desc" } }) : [];
     return (
-      <Layout admin={false} qr={allowed.length > 0}>
+      <Layout admin={false} qr={allowed.length > 0} back={emp?.isVenueDevice ? { href: "/prenotazioni", label: "‹ Prenotazioni" } : undefined}>
         {allowed.length === 0 ? (
           <div className="rounded-2xl border border-border bg-surface px-5 py-6 text-sm text-foreground-muted">
             Il titolare non ti ha ancora dato nessun widget. Quando lo farà, qui troverai la guida per metterli sulla Home del telefono.
@@ -93,17 +93,17 @@ function toRow(d: { id: string; name: string; createdAt: Date; lastUsedAt: Date 
 
 // qr: il riquadro «Sei al computer?» per aprire la pagina sul telefono; non per il dipendente
 // senza widget (sul telefono non troverebbe nulla da fare).
-function Layout({ children, admin, qr = true }: { children: React.ReactNode; admin: boolean; qr?: boolean }) {
+function Layout({ children, admin, qr = true, back }: { children: React.ReactNode; admin: boolean; qr?: boolean; back?: { href: string; label: string } }) {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         {/* Il dipendente arriva qui da «Le mie ore»: un link per tornarci (come in /installa). */}
         {!admin && (
           <Link
-            href="/mie-ore"
+            href={back?.href ?? "/mie-ore"}
             className="-ml-1 mb-2 inline-flex min-h-11 items-center px-1 text-sm font-medium text-foreground-muted hover:text-foreground"
           >
-            ‹ Le mie ore
+            {back?.label ?? "‹ Le mie ore"}
           </Link>
         )}
         <h1 className="mb-1 text-xl font-semibold tracking-tight">Widget sul telefono</h1>
