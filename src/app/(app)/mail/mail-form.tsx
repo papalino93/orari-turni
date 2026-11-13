@@ -769,7 +769,9 @@ export function MailForm({
 
           <div className="mt-5 rounded-xl border border-border p-4">
             <h3 className="text-sm font-medium">Prova su di te</h3>
-            <p className="mb-2 mt-0.5 text-xs text-foreground-muted">Invia una sola mail al tuo indirizzo per vedere come arriva. Non conta come invio alla lista.</p>
+            <p className="mb-2 mt-0.5 text-xs text-foreground-muted">
+              Scrivi qui la <b>tua</b> email: ti arriva una sola mail, uguale a quella vera{from ? ` e mandata da ${from}` : ""}, per vedere come arriva. Non conta come invio alla lista e la prossima volta l&apos;indirizzo è già scritto.
+            </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <input type="email" value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="Il tuo indirizzo email" aria-label="Il tuo indirizzo email" className={`${field} flex-1`} />
               <button type="button" disabled={!configured || !testTo.trim() || pending} onClick={sendTest} className={ghostBtn}>

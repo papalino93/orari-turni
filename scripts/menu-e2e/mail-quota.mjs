@@ -120,9 +120,11 @@ try {
   await open();
   await p.locator("#sender-company").fill("Prova Vini S.r.l.");
   await p.locator("#sender-vat").fill("01234567890");
-  await p.locator("#sender-test").fill(`me-${RUN}@prova-mail.it`);
+  check("dati del mittente: niente campo per le prove (sta in «Prova su di te»)", (await p.locator("#sender-test").count()) === 0);
   await p.getByRole("button", { name: "Salva i dati del mittente" }).click();
   await p.getByText("Salvato: da ora è nel piè di pagina delle mail.").waitFor();
+  // L'indirizzo delle prove si ricorda dopo una prova riuscita (qui lo si mette come se la prova fosse già partita).
+  DB(`update "MenuSetting" set value = jsonb_set(value::jsonb, '{testEmail}', '"me-${RUN}@prova-mail.it"')::text where id='mailSender'`);
 
   // 6. Invio vero: i cancellati esclusi al passo 1 e dal server, uno rifiutato dal servizio, registro.
   const late = `tardi-${RUN}@prova-mail.it`;
@@ -131,7 +133,7 @@ try {
   check("passo 1: «2 indirizzi esclusi perché si sono cancellati»", /2 indirizzi esclusi perché si sono cancellati/.test(await body()));
   check("passo 1: 5 destinatari pronti", /5\s+destinatari pronti/.test(await body()));
   await toStep2("Prova quota invio");
-  check("prova: indirizzo precompilato dai Dati del mittente", (await p.getByRole("textbox", { name: "Il tuo indirizzo email" }).inputValue()) === `me-${RUN}@prova-mail.it`);
+  check("prova: indirizzo precompilato (ultima prova)", (await p.getByRole("textbox", { name: "Il tuo indirizzo email" }).inputValue()) === `me-${RUN}@prova-mail.it`);
   check("anteprima: piè di pagina con ragione sociale e P. IVA", /Prova Vini S\.r\.l\. · P\. IVA 01234567890/.test(await body()));
   check("anteprima: link «Non voglio più ricevere queste email»", /Non voglio più ricevere queste email/.test(await body()));
 

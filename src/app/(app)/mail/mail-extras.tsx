@@ -132,7 +132,7 @@ export function OptOutBox({ optOuts }: { optOuts: { email: string; at: string; s
 type Sender = { company: string; vat: string; privacyUrl: string; testEmail: string };
 
 // «Dati del mittente»: vanno nel piè di pagina di ogni mail (la legge chiede di sapere chi scrive).
-export function SenderBox({ sender, address }: { sender: Sender; address: string }) {
+export function SenderBox({ sender, address, from, replyTo }: { sender: Sender; address: string; from: string | null; replyTo: string | null }) {
   const [v, setV] = useState(sender);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -160,6 +160,18 @@ export function SenderBox({ sender, address }: { sender: Sender; address: string
       <p className="mt-1 text-sm text-foreground-muted">
         Vanno in fondo a ogni mail, insieme a nome e indirizzo del locale ({address || "da scrivere in Gestione menù → Orari e contatti"}).
       </p>
+      {from && (
+        <dl className="mt-3 grid gap-x-3 gap-y-1 rounded-xl bg-surface-2/60 px-4 py-3 text-sm sm:grid-cols-[auto_1fr]">
+          <dt className="text-foreground-muted">Le mail partono da</dt>
+          <dd className="min-w-0 font-medium [overflow-wrap:anywhere]">{from}</dd>
+          {replyTo && (
+            <>
+              <dt className="text-foreground-muted">Le risposte arrivano a</dt>
+              <dd className="min-w-0 font-medium [overflow-wrap:anywhere]">{replyTo}</dd>
+            </>
+          )}
+        </dl>
+      )}
       <form onSubmit={submit} className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="sender-company" className="mb-1 block text-sm font-medium">
@@ -172,12 +184,6 @@ export function SenderBox({ sender, address }: { sender: Sender; address: string
             Partita IVA
           </label>
           <input id="sender-vat" value={v.vat} onChange={set("vat")} maxLength={30} inputMode="numeric" placeholder="Es. 01234567890" className={field} />
-        </div>
-        <div className="sm:col-span-2">
-          <label htmlFor="sender-test" className="mb-1 block text-sm font-medium">
-            Il tuo indirizzo per le prove
-          </label>
-          <input id="sender-test" type="email" value={v.testEmail} onChange={set("testEmail")} placeholder="Dove ricevere «Invia la prova»" className={field} />
         </div>
         <div className="sm:col-span-2">
           <label htmlFor="sender-privacy" className="mb-1 block text-sm font-medium">
