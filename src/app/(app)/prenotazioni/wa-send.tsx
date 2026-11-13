@@ -167,7 +167,7 @@ export function WhatsappButton({
           </button>
         </span>
       );
-    if (other) return <span className="shrink-0 text-right text-xs font-medium text-gold" data-testid="wa-occupato">In invio da {other.by}…</span>;
+    if (other) return <span className="min-h-8 shrink-0 py-1 text-right text-xs font-medium text-gold" data-testid="wa-occupato">In invio da {other.by}…</span>;
     return (
       <span className="flex shrink-0 flex-col items-end gap-1">
         <a

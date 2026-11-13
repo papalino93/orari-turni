@@ -149,8 +149,8 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
           </button>
         </div>
 
-        {/* Totali */}
-        <div className="mt-3 border-t border-border pt-3">
+        {/* Totali (senza prenotazioni lo dice già il riquadro vuoto qui sotto) */}
+        <div className={`mt-3 border-t border-border pt-3 ${live.length === 0 && cancelled.length === 0 ? "hidden" : ""}`}>
           <p className="text-foreground" data-testid="agenda-totali">
             <span className="text-lg font-semibold tabular-nums">{totalsText}</span>
           </p>

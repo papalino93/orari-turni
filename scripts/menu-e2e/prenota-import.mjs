@@ -313,8 +313,10 @@ if (dbOk && process.argv.includes("--browser")) {
         await wait(400);
         await p.screenshot({ path: path.join(shots, `${label}-${name}.png`), fullPage: false });
       };
-      const open = p.getByRole("button", { name: "Importa dal librone" });
-      check(`[${tag}] pulsante «Importa dal librone» accanto a «+ Nuova prenotazione»`, (await open.count()) === 1 && (await p.getByRole("button", { name: "+ Nuova prenotazione" }).count()) >= 1);
+      // «Importa dal librone» sta nel menù «⋯» della barra, accanto a «+ Prenotazione».
+      await p.getByRole("button", { name: "Altre azioni" }).click();
+      const open = p.getByRole("menuitem", { name: /^Importa dal librone/ });
+      check(`[${tag}] «⋯» → «Importa dal librone», con «+ Prenotazione» nella barra`, (await open.count()) === 1 && (await p.getByRole("button", { name: "Nuova prenotazione" }).count()) >= 1);
       if (first && shots) await p.screenshot({ path: path.join(shots, `${label}-0-pagina.png`) });
       await open.click();
       const sheet = p.getByRole("dialog", { name: "Importa dal librone" });
@@ -378,8 +380,9 @@ if (dbOk && process.argv.includes("--browser")) {
         await sheet.waitFor({ state: "detached" });
         check("riga corretta e segnata → «Segnata 1 prenotazione», il foglio si chiude", true);
         // Nella pagina: si trova con la ricerca, con «Dal librone».
-        await p.getByRole("button", { name: "Cerca" }).click();
-        await p.getByLabel("Cerca per nome, telefono o codice").fill(`Prova Import Bianchi ${tag}`);
+        await p.getByRole("button", { name: "Altre azioni" }).click();
+        await p.getByRole("menuitem", { name: /^Cerca/ }).click();
+        await p.getByRole("dialog", { name: "Cerca una prenotazione" }).getByRole("searchbox").fill(`Prova Import Bianchi ${tag}`);
         const res = p.getByRole("region", { name: "Risultati della ricerca" });
         await res.getByText(`Prova Import Bianchi ${tag}`).first().waitFor();
         check("nella pagina: la prenotazione importata dice «Dal librone · …»", /Dal librone/.test(await res.innerText()), (await res.innerText()).slice(0, 200));

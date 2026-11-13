@@ -423,7 +423,7 @@ try {
     if (label === L.tab) return;
     if (label === "Stasera") {
       await p.goto(`${BASE}/prenotazioni?vista=oggi`, { waitUntil: "networkidle", timeout: 180000 });
-      await p.getByTestId("agenda-totali").waitFor();
+      await p.getByTestId("agenda-orari").waitFor();
       p.scope = agenda(p);
       return;
     }

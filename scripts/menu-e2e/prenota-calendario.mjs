@@ -2,7 +2,7 @@
 // vista di partenza per dispositivo e vista ricordata, «Oggi», frecce, tastiera, scelta della data,
 // totali (confermate, da confermare, da definire; le prove non contano), fasce di mezz'ora, dopo
 // mezzanotte, cambio d'ora, eventi del menù che compaiono da soli, orari e giorni chiusi, «N in più»,
-// giorno che si apre dalla settimana e dal mese, dettaglio, «+ Segna in questo giorno», prenotazione
+// giorno che si apre dalla settimana e dal mese, dettaglio, «+ Prenotazione» sul giorno aperto, prenotazione
 // «da definire» (creazione, avvisi, conferma bloccata, «Completa i dati»), menù (foglio, riga, ricerca),
 // note del giorno, «In servizio», giorno da 120 prenotazioni veloce, niente scorrimento orizzontale.
 // Dati: scripts/menu-e2e/agenda-seed.mjs (id «agv_…»), cancellati alla fine; impostazione «bookings»
@@ -298,7 +298,9 @@ try {
   check("giorno chiuso: «Chiuso · Inventario»", /Chiuso/.test(ct) && (!S.closedSeeded || /Inventario/.test(ct)), ct);
   await pick(P, FULLREQ);
   await P.waitForTimeout(800);
-  check("richieste online chiuse: segnalato in modo discreto, con «Riapri le richieste»", (await agenda(P).innerText()).includes("Richieste online chiuse") && (await agenda(P).getByRole("button", { name: "Riapri le richieste" }).count()) === 1);
+  await agenda(P).getByRole("button", { name: "Azioni del giorno" }).click();
+  check("richieste online chiuse: segno discreto «Richieste chiuse», e nel ⋯ del giorno «Riapri le richieste online»", (await agenda(P).getByTestId("agenda-orari").locator("..").innerText()).includes("Richieste chiuse") && (await P.getByRole("menuitem", { name: /^Riapri le richieste online/ }).count()) === 1);
+  await P.keyboard.press("Escape");
 
   // ================= Cambio d'ora =================
   await pick(P, "2027-03-28");
@@ -392,11 +394,11 @@ try {
   // ================= «+ Segna in questo giorno», da definire, Completa i dati =================
   await pick(P, FREE);
   await P.waitForTimeout(800);
-  await agenda(P).getByRole("button", { name: "+ Segna in questo giorno" }).click();
+  await P.getByRole("button", { name: "Nuova prenotazione" }).first().click();
   let d = P.getByRole("dialog", { name: "Nuova prenotazione" });
   await d.waitFor();
   await d.getByRole("radiogroup", { name: "Scegli il giorno" }).getByRole("radio", { name: "Altro giorno" }).click();
-  check("«+ Segna in questo giorno»: giorno già scelto", (await d.getByLabel("Giorno", { exact: true }).inputValue()) === FREE);
+  check("«+ Prenotazione» con un giorno aperto: giorno già scelto", (await d.getByLabel("Giorno", { exact: true }).inputValue()) === FREE);
   await d.getByRole("radiogroup", { name: "Persone" }).getByRole("radio", { name: "6", exact: true }).click();
   await d.getByRole("radiogroup", { name: "Ora" }).getByRole("radio", { name: "Ancora da definire" }).click();
   check("«Ancora da definire» per l'ora: scelta esplicita con la spiegazione", (await d.getByTestId("avviso-da-definire").innerText()).includes("da completare"));
@@ -415,10 +417,10 @@ try {
   await waitRows(P, "Agv Nuova senza ora");
   check("in agenda: nella fascia «Ora da definire» con «Manca l'ora» e il menù", (await agenda(P).locator('section[data-gruppo="da-definire"]').innerText()).includes("Agv Nuova senza ora") && /Manca l'ora/.test(await rows(P).filter({ hasText: "Agv Nuova senza ora" }).innerText()) && /Menù da 25 €/.test(await rows(P).filter({ hasText: "Agv Nuova senza ora" }).innerText()));
   await bar.getByRole("button", { name: "Chiudi il messaggio" }).click().catch(() => {});
-  await P.getByRole("tab", { name: /^Da gestire/ }).click();
-  const dc = P.getByTestId("da-completare");
+  await P.getByTestId("pulsante-richieste").click();
+  const dc = P.getByRole("dialog", { name: "Richieste" }).getByTestId("da-completare");
   await dc.waitFor();
-  check("«Da gestire» → «Da completare (N)» con la prenotazione", (await dc.innerText()).includes("Agv Nuova senza ora") && /Da completare \(\d+\)/i.test(await dc.innerText()));
+  check("«Richieste» → «Da completare (N)» con la prenotazione", (await dc.innerText()).includes("Agv Nuova senza ora") && /Da completare \(\d+\)/i.test(await dc.innerText()));
   const dcText = await dc.innerText();
   const pos = ["Agv Oggi senza ora", "Agv Arianna", "Agv Nuova senza ora"].map((n) => dcText.indexOf(n));
   check("«Da completare» in ordine di giorno", pos.every((x, i) => x >= 0 && (i === 0 || x > pos[i - 1])), pos.join(","));
@@ -443,7 +445,10 @@ try {
   await d.getByRole("button", { name: "Fatto" }).click();
 
   // ================= Import con una riga da completare =================
-  await P.getByRole("button", { name: "Importa dal librone" }).click();
+  // «Importa dal librone» sta nel menù «⋯» della barra.
+  if (await P.getByRole("dialog", { name: "Richieste" }).count()) await P.getByRole("dialog", { name: "Richieste" }).getByRole("button", { name: "Chiudi", exact: true }).click();
+  await P.getByRole("button", { name: "Altre azioni" }).click();
+  await P.getByRole("menuitem", { name: /^Importa dal librone/ }).click();
   const imp = P.getByRole("dialog", { name: "Importa dal librone" });
   const dmy = (x) => `${Number(x.slice(8))}/${Number(x.slice(5, 7))}`;
   await imp.getByLabel("Prenotazioni da importare").fill(`${dmy(FREE)} 21:00 4 Agv Import completo menu 25€\n${dmy(FREE)} Agv Import Arianna 366 111 2233 menù da 25 €`);

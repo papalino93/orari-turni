@@ -116,7 +116,7 @@ try {
     if (label === "Stasera") {
       await p.goto(`${BASE}/prenotazioni?vista=oggi`, { waitUntil: "networkidle", timeout: 180000 });
       p.scope = p.getByRole("region", { name: "Agenda" });
-      await p.getByTestId("agenda-totali").waitFor();
+      await p.getByTestId("agenda-orari").waitFor();
       return;
     }
     if (await p.getByRole("dialog", { name: "Richieste" }).count()) await p.getByRole("dialog", { name: "Richieste" }).getByRole("button", { name: "Chiudi" }).click();
@@ -530,7 +530,7 @@ try {
   // Chiudere le richieste di un altro giorno: lo stesso menù nel Giorno di quel giorno (niente più modulo a parte).
   await A.goto(`${BASE}/prenotazioni?vista=oggi`, { waitUntil: "networkidle", timeout: 180000 });
   await A.getByTestId("agenda-barra").locator('input[type="date"]').fill(D2.day);
-  await A.getByTestId("agenda-totali").waitFor();
+  await A.getByTestId("agenda-orari").waitFor();
   await A.waitForTimeout(800);
   await dayMenu().click();
   await A.getByTestId("chiudi-richieste").click();
