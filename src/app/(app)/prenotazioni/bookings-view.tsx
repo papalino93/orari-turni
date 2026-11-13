@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { runWithToast, showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
-import { addDays, agendaTotals, availability, dayLong, pausedNow, peopleText, SOURCE_LABEL, switchesText, tableText, type BookingSettings } from "@/lib/booking/rules";
+import { addDays, agendaTotals, availability, dayLong, isIncomplete, missingText, pausedNow, peopleText, SOURCE_LABEL, switchesText, tableText, type BookingSettings } from "@/lib/booking/rules";
 import { whatsappPending } from "@/lib/booking/whatsapp-queue";
 import type { MessageKind } from "@/lib/booking/messages";
 import type { Hours } from "@/lib/menu-venue";
@@ -15,7 +15,8 @@ import { ALLERGY_TEXT, BookingSheet, StatusChip, TestChip } from "./booking-shee
 import { SettingsSheet } from "./settings-sheet";
 import { BellIcon, LocalPhoneBox, PushBox, useLocalPhone, usePush, WhatsappIcon } from "./device";
 import { clock, dayLabel, duration, originShort, phoneDisplay, REPLY_SHORT, replyHref, sourceText, telLink, viewOf } from "./format";
-import { Agenda, BookingForm, type SavedInfo } from "./agenda";
+import { BookingForm, type SavedInfo } from "./agenda";
+import { AgendaCalendar } from "./calendar";
 import { ImportSheet } from "./import-sheet";
 import { centerInRow, edgeFade } from "@/lib/edge-fade";
 import type { BookingItem, BookingStatsData } from "./types";
@@ -39,6 +40,8 @@ export function BookingsView({
   fullDays,
   settings,
   hours,
+  menus = [],
+  phoneUA = false,
   stats,
   isOwner,
   mailReady,
@@ -53,6 +56,9 @@ export function BookingsView({
   fullDays: string[];
   settings: BookingSettings;
   hours: Hours;
+  // Menù già usati (suggerimenti nel foglio) e telefono secondo il browser (vista di partenza dell'agenda).
+  menus?: string[];
+  phoneUA?: boolean;
   stats: BookingStatsData;
   isOwner: boolean;
   mailReady: boolean;
@@ -174,12 +180,17 @@ export function BookingsView({
     // Annullate che erano in agenda (segnate a mano o confermate): restano barrate in fondo al giorno.
     const cancelled = rows.filter((b) => b.status === "CANCELLED" && (b.manual || b.log.some((l) => l.kind === "CONFIRMED" || l.kind === "ACCEPTED")));
     const upcoming = live.filter((x) => x.v === "CONFIRMED" && x.b.day > today).map((x) => x.b);
+    // Prenotazioni vere con ora o persone ancora da definire, da oggi in poi (le prove no, con l'agenda accesa).
+    const incomplete = live
+      .filter((x) => x.v === "CONFIRMED" && x.b.day >= today && isIncomplete(x.b) && (!settings.agendaEnabled || !x.b.isTest))
+      .map((x) => x.b)
+      .sort((a, b) => a.startsAt - b.startsAt);
     const archive = live
       .filter((x) => x.v === "DECLINED" || x.v === "CANCELLED" || x.v === "EXPIRED" || (x.v === "CONFIRMED" && x.b.day < today))
       .map((x) => x.b)
       .sort((a, b) => b.startsAt - a.startsAt);
-    return { pending, proposed, wa, waDone, tonight, tonightPending, confirmed, cancelled, upcoming, archive };
-  }, [rows, now, today, waOpened]);
+    return { pending, proposed, wa, waDone, tonight, tonightPending, confirmed, cancelled, upcoming, archive, incomplete };
+  }, [rows, now, today, waOpened, settings.agendaEnabled]);
 
   // Una nuova richiesta arrivata con la pagina aperta: un messaggio, oltre al numero.
   const seen = useRef<Set<string> | null>(null);
@@ -212,16 +223,30 @@ export function BookingsView({
     centerInRow(row, row?.querySelector<HTMLElement>('[aria-selected="true"]') ?? null, true);
   }, [tab, searching]);
 
+  // Una prenotazione aperta dall'agenda ma fuori da quelle caricate dalla pagina (più vecchia di 30
+  // giorni): si legge intera, con la cronologia.
+  const [fetched, setFetched] = useState<{ id: string; booking: BookingItem | null } | null>(null);
+  const rowsRef = useRef(rows);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
   const open = useCallback((id: string) => {
     setOpenId(id);
     setSheetKey((k) => k + 1);
+    if (rowsRef.current.some((r) => r.id === id)) return;
+    setFetched({ id, booking: null });
+    fetch(`/prenotazioni/agenda?id=${encodeURIComponent(id)}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { booking?: BookingItem }) => setFetched({ id, booking: j.booking ?? null }))
+      .catch(() => setFetched({ id, booking: null }));
   }, []);
   const newBooking = useCallback((day: string) => {
     // Il messaggio «✓ Segnata…» di prima si chiude: quello nuovo arriva dopo il salvataggio.
     setJustSaved(null);
     setForm({ booking: null, day, key: Date.now() });
   }, []);
-  const opened = openId ? (rows.find((r) => r.id === openId) ?? null) : null;
+  const opened = openId ? (rows.find((r) => r.id === openId) ?? (fetched?.id === openId ? fetched.booking : null)) : null;
+  const loadingOpened = Boolean(openId && !opened && fetched?.id === openId && fetched.booking === null && !rows.some((r) => r.id === openId));
   const next = lists.pending.find((b) => b.id !== openId) ?? null;
 
   const todayClosed = fullDays.includes(today);
@@ -309,14 +334,20 @@ export function BookingsView({
   const q = query.trim().toLowerCase();
   const results = q
     ? rows
-        .filter((b) => b.name.toLowerCase().includes(q) || b.code.toLowerCase().includes(q) || (q.replace(/\D/g, "").length >= 3 && b.phone.includes(q.replace(/\D/g, ""))))
+        .filter(
+          (b) =>
+            b.name.toLowerCase().includes(q) ||
+            b.code.toLowerCase().includes(q) ||
+            (b.menu ?? "").toLowerCase().includes(q) ||
+            (q.replace(/\D/g, "").length >= 3 && b.phone.includes(q.replace(/\D/g, ""))),
+        )
         .sort((a, b) => b.startsAt - a.startsAt)
     : [];
 
   // Come il pallino del menù in alto e Impostazioni: solo le richieste da confermare.
   const TABS: { id: Tab; label: string; count?: number }[] = [
     { id: "agenda", label: "Agenda" },
-    { id: "todo", label: "Da gestire", count: lists.pending.length },
+    { id: "todo", label: "Da gestire", count: lists.pending.length + lists.incomplete.length },
     { id: "tonight", label: "Stasera", count: lists.tonight.length },
     { id: "next", label: "Prossimi giorni" },
     { id: "archive", label: "Archivio" },
@@ -324,7 +355,7 @@ export function BookingsView({
   ];
 
   return (
-    <div className="app-wide mx-auto max-w-5xl">
+    <div className="app-wide mx-auto max-w-6xl">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight">Prenotazioni</h1>
@@ -618,6 +649,20 @@ export function BookingsView({
                   )}
                 </section>
 
+                {lists.incomplete.length > 0 && (
+                  <section aria-labelledby="da-completare-titolo" data-testid="da-completare">
+                    <h2 id="da-completare-titolo" className="mb-1 px-1 text-xs font-semibold uppercase tracking-wider text-gold">
+                      Da completare ({lists.incomplete.length})
+                    </h2>
+                    <p className="mb-2 px-1 text-xs text-foreground-muted">Prenotazioni vere con ora o persone ancora da definire: chiedile al cliente e completale.</p>
+                    <CardList>
+                      {lists.incomplete.map((b) => (
+                        <RequestCard key={b.id} b={b} now={now} today={today} onOpen={open} />
+                      ))}
+                    </CardList>
+                  </section>
+                )}
+
                 {lists.proposed.length > 0 && (
                   <section aria-labelledby="proposte-titolo">
                     <h2 id="proposte-titolo" className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted">
@@ -635,7 +680,7 @@ export function BookingsView({
 
             {tab === "tonight" && <Tonight rows={lists.tonight} pending={lists.tonightPending} countTests={!settings.agendaEnabled} now={now} today={today} onOpen={open} />}
 
-            {tab === "agenda" && (lists.pending.length > 0 || lists.wa.length > 0) && (
+            {tab === "agenda" && (lists.pending.length > 0 || lists.wa.length > 0 || lists.incomplete.length > 0) && (
               <button
                 type="button"
                 onClick={() => setTab("todo")}
@@ -645,6 +690,7 @@ export function BookingsView({
                   {[
                     lists.pending.length ? `${lists.pending.length} ${lists.pending.length === 1 ? "richiesta online da confermare" : "richieste online da confermare"}` : "",
                     lists.wa.length ? `${lists.wa.length} ${lists.wa.length === 1 ? "messaggio da mandare su WhatsApp" : "messaggi da mandare su WhatsApp"}` : "",
+                    lists.incomplete.length ? `${lists.incomplete.length} ${lists.incomplete.length === 1 ? "prenotazione da completare" : "prenotazioni da completare"}` : "",
                   ]
                     .filter(Boolean)
                     .join(" · ")}
@@ -652,7 +698,24 @@ export function BookingsView({
                 <span className="shrink-0 text-accent">Apri ›</span>
               </button>
             )}
-            {tab === "agenda" && <Agenda rows={lists.confirmed} cancelled={lists.cancelled} countTests={!settings.agendaEnabled} day={agendaDay} setDay={setAgendaDay} today={today} now={now} onOpen={open} onNew={newBooking} />}
+            {tab === "agenda" && (
+              <AgendaCalendar
+                today={today}
+                now={now}
+                version={serverNow}
+                settings={settings}
+                hours={hours}
+                countTests={!settings.agendaEnabled}
+                isOwner={isOwner}
+                phoneUA={phoneUA}
+                busy={busy}
+                onOpen={open}
+                onNew={newBooking}
+                onCloseRequests={requestClose}
+                onReopenRequests={(d) => closeDay(d, false)}
+                onDayChange={setAgendaDay}
+              />
+            )}
 
             {tab === "next" && (
               <Upcoming rows={lists.upcoming} pending={lists.pending} fullDays={fullDays} today={today} settings={settings} now={now} busy={busy} onOpen={open} onClose={requestClose} onReopen={(d) => closeDay(d, false)} />
@@ -677,7 +740,14 @@ export function BookingsView({
         </>
       )}
 
-      {opened !== undefined && openId && (
+      {loadingOpened && (
+        <Sheet title="Prenotazione" onClose={() => setOpenId(null)}>
+          <p className="text-sm text-foreground-muted" aria-busy="true">
+            Un attimo…
+          </p>
+        </Sheet>
+      )}
+      {openId && !loadingOpened && (
         <BookingSheet
           key={sheetKey}
           booking={opened}
@@ -712,6 +782,7 @@ export function BookingsView({
           canWhatsapp={canWhatsapp}
           confirmed={lists.confirmed}
           countTests={!settings.agendaEnabled}
+          menus={menus}
           onClose={() => setForm(null)}
           onShow={(id) => {
             setForm(null);
@@ -846,7 +917,8 @@ function CardList({ children, single = false }: { children: React.ReactNode; sin
 
 // Numero di persone accanto al nome: sul telefono compatto («4» con l'omino), così il nome
 // ha spazio; da tablet in su per esteso («4 persone»).
-function People({ n }: { n: number }) {
+function People({ n, unknown = false }: { n: number; unknown?: boolean }) {
+  if (unknown) return <span className="shrink-0 text-sm font-semibold text-gold">persone ?</span>;
   return (
     <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
       <span className="inline-flex items-center gap-1 sm:hidden" aria-hidden>
@@ -886,16 +958,22 @@ function RequestCard({ b, now, today, onOpen, showStatus = false }: { b: Booking
       >
         <span className={`flex w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-xl px-1 py-2 sm:w-24 ${day === "Oggi" ? "bg-accent/15" : "bg-surface-2"}`}>
           <span className={`text-center text-[11px] font-semibold uppercase leading-tight tracking-wide ${day === "Oggi" ? "text-accent-ink" : "text-foreground-muted"}`}>{day}</span>
-          <span className="text-lg font-semibold tabular-nums leading-tight text-foreground">{v === "PROPOSED" && b.proposedTime ? b.proposedTime : b.time}</span>
+          {b.timeUnknown ? (
+            <span className="text-center text-[12px] font-semibold leading-tight text-gold">ora da definire</span>
+          ) : (
+            <span className="text-lg font-semibold tabular-nums leading-tight text-foreground">{v === "PROPOSED" && b.proposedTime ? b.proposedTime : b.time}</span>
+          )}
         </span>
         <span className="min-w-0 flex-1 py-0.5">
           <span className="flex items-baseline justify-between gap-2">
             <span className="line-clamp-2 min-w-0 text-[15px] font-semibold leading-snug text-foreground [overflow-wrap:anywhere] sm:truncate">{b.name}</span>
-            <People n={b.people} />
+            <People n={b.people} unknown={b.peopleUnknown} />
           </span>
           {b.note && <span className="mt-0.5 block truncate text-sm text-foreground-muted">«{b.note}»</span>}
           <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             {(showStatus || v === "PROPOSED") && <StatusChip b={b} now={now} />}
+            {missingText(b) && b.status === "CONFIRMED" && <MissingChip b={b} />}
+            {b.menu && <span className="rounded-md bg-gold/10 px-1.5 py-0.5 font-semibold text-gold ring-1 ring-inset ring-gold/25">{b.menu}</span>}
             {b.isTest && <TestChip />}
             {b.allergies && <span className="rounded-full bg-danger-bg px-2 py-0.5 font-semibold text-danger">{ALLERGY_TEXT}</span>}
             {v === "PENDING" &&
@@ -1055,19 +1133,21 @@ function TonightRow({ b, now, onOpen }: { b: BookingItem; now: number; today: st
       setBusy(false);
     }
   }
-  const late = !b.arrivedAt && !b.noShowAt && b.startsAt < now;
+  const late = !b.timeUnknown && !b.arrivedAt && !b.noShowAt && b.startsAt < now;
   return (
     <li className={`rounded-2xl border bg-surface p-3 shadow-sm ${b.arrivedAt ? "border-success/30 opacity-80" : b.noShowAt ? "border-border opacity-60" : "border-border"}`}>
       <div className="flex items-start gap-2">
         <button type="button" onClick={() => onOpen(b.id)} className="flex min-w-0 flex-1 items-start gap-3 text-left">
-          <span className="w-14 shrink-0 text-xl font-semibold tabular-nums text-foreground">{b.time}</span>
+          <span className={`w-14 shrink-0 font-semibold tabular-nums ${b.timeUnknown ? "text-sm leading-tight text-gold" : "text-xl text-foreground"}`}>{b.timeUnknown ? "ora ?" : b.time}</span>
           <span className="min-w-0 flex-1">
             <span className="flex items-baseline justify-between gap-2">
               <span className="line-clamp-2 min-w-0 text-[15px] font-semibold leading-snug text-foreground [overflow-wrap:anywhere] sm:truncate">{b.name}</span>
-              <People n={b.people} />
+              <People n={b.people} unknown={b.peopleUnknown} />
             </span>
             {b.note && <span className="mt-0.5 block text-sm text-foreground-muted">«{b.note}»</span>}
             <span className="mt-1 flex flex-wrap gap-1.5 text-xs">
+              {missingText(b) && <MissingChip b={b} />}
+              {b.menu && <span className="rounded-md bg-gold/10 px-1.5 py-0.5 font-semibold text-gold ring-1 ring-inset ring-gold/25">{b.menu}</span>}
               {b.table && <span className="rounded-md bg-accent/10 px-1.5 py-0.5 font-semibold text-accent-ink">{tableText(b.table)}</span>}
               {b.isTest && <TestChip />}
               {b.allergies && <span className="rounded-full bg-danger-bg px-2 py-0.5 font-semibold text-danger">{ALLERGY_TEXT}</span>}
@@ -1099,11 +1179,11 @@ function TonightRow({ b, now, onOpen }: { b: BookingItem; now: number; today: st
               type="button"
               disabled={busy}
               onClick={() => mark(true)}
-              className={`min-h-11 rounded-xl border border-success/40 text-sm font-semibold text-success hover:bg-success-bg disabled:opacity-60 ${b.startsAt <= now ? "" : "col-span-2"}`}
+              className={`min-h-11 rounded-xl border border-success/40 text-sm font-semibold text-success hover:bg-success-bg disabled:opacity-60 ${b.startsAt <= now && !b.timeUnknown ? "" : "col-span-2"}`}
             >
               ✓ Arrivati
             </button>
-            {b.startsAt <= now && (
+            {b.startsAt <= now && !b.timeUnknown && (
               <button type="button" disabled={busy} onClick={() => mark(false)} className="min-h-11 rounded-xl border border-border text-sm font-medium text-foreground-muted hover:border-danger hover:text-danger disabled:opacity-60">
                 Non venuti
               </button>
@@ -1113,6 +1193,11 @@ function TonightRow({ b, now, onOpen }: { b: BookingItem; now: number; today: st
       </div>
     </li>
   );
+}
+
+// «Mancano: ora, persone» in giallo: prenotazione vera da completare.
+export function MissingChip({ b }: { b: Pick<BookingItem, "timeUnknown" | "peopleUnknown"> }) {
+  return <span className="rounded-full bg-gold/20 px-2 py-0.5 font-semibold text-gold ring-1 ring-inset ring-gold/40">{missingText(b)}</span>;
 }
 
 function PhoneIcon() {

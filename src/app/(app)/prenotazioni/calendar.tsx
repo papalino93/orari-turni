@@ -69,55 +69,53 @@ function agendaUrl(view: AgendaView, from: string, to: string) {
 function useAgendaData(view: AgendaView, anchor: string, version: number) {
   const { from, to } = periodRange(view, anchor);
   const key = `${view}:${from}:${to}`;
-  const cache = useRef(new Map<string, Loaded>());
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Periodi già letti (anche quelli accanto, letti in anticipo): le frecce rispondono subito.
+  const [store, setStore] = useState<Record<string, Loaded>>({});
+  const storeRef = useRef(store);
+  useEffect(() => {
+    storeRef.current = store;
+  }, [store]);
+  const [error, setError] = useState<{ key: string; text: string } | null>(null);
   const [retry, setRetry] = useState(0);
 
-  const fetchRange = useCallback(async (v: AgendaView, f: string, t: string, ver: number): Promise<Loaded> => {
+  const fetchRange = useCallback(async (v: AgendaView, f: string, t: string, ver: number) => {
     const r = await fetch(agendaUrl(v, f, t), { cache: "no-store", headers: { accept: "application/json" } });
     const json = (await r.json().catch(() => null)) as (AgendaData & { error?: string }) | null;
     if (!r.ok || !json || json.error) throw new Error(json?.error ?? "Non riesco a caricare l'agenda.");
-    const l = { key: `${v}:${f}:${t}`, data: json, version: ver };
-    cache.current.set(l.key, l);
-    // Non più di una trentina di periodi in memoria.
-    if (cache.current.size > 30) cache.current.delete(cache.current.keys().next().value as string);
-    return l;
+    const l: Loaded = { key: `${v}:${f}:${t}`, data: json, version: ver };
+    setStore((s) => {
+      const next = { ...s, [l.key]: l };
+      const keys = Object.keys(next);
+      // Non più di una trentina di periodi in memoria.
+      if (keys.length > 30) delete next[keys[0]];
+      return next;
+    });
   }, []);
 
   useEffect(() => {
     let alive = true;
-    const cached = cache.current.get(key);
-    if (cached && cached.version === version) {
-      setLoaded(cached);
-      setError(null);
-      return;
-    }
-    if (cached) setLoaded(cached);
+    if (storeRef.current[key]?.version === version) return;
     fetchRange(view, from, to, version)
-      .then((l) => {
+      .then(() => {
         if (!alive) return;
-        setLoaded(l);
         setError(null);
-        // I periodi accanto, in anticipo: le frecce rispondono subito.
         if (view !== "month") {
           for (const dir of [1, -1] as const) {
             const near = periodRange(view, shiftPeriod(view, from, dir));
-            const k = `${view}:${near.from}:${near.to}`;
-            if (cache.current.get(k)?.version !== version) fetchRange(view, near.from, near.to, version).catch(() => {});
+            if (storeRef.current[`${view}:${near.from}:${near.to}`]?.version !== version) fetchRange(view, near.from, near.to, version).catch(() => {});
           }
         }
       })
       .catch((e: unknown) => {
-        if (alive) setError(e instanceof Error ? e.message : "Non riesco a caricare l'agenda.");
+        if (alive) setError({ key, text: e instanceof Error ? e.message : "Non riesco a caricare l'agenda." });
       });
     return () => {
       alive = false;
     };
   }, [key, view, from, to, version, retry, fetchRange]);
 
-  const current = loaded && loaded.key === key ? loaded.data : (cache.current.get(key)?.data ?? null);
-  return { data: current, from, to, error: current ? null : error, retry: () => setRetry((n) => n + 1) };
+  const current = store[key]?.data ?? null;
+  return { data: current, from, to, error: !current && error?.key === key ? error.text : null, retry: () => setRetry((n) => n + 1) };
 }
 
 // ---------- Vista scelta (ricordata su questo dispositivo)

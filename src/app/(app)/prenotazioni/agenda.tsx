@@ -1,7 +1,7 @@
 "use client";
 
-// Agenda delle prenotazioni: il «librone» digitale. Tutte le prenotazioni confermate di un giorno
-// (online e segnate a mano), il foglio per segnarne una nuova o modificarla, e la stampa del giorno.
+// Agenda delle prenotazioni: il foglio per segnare una prenotazione nuova o modificarla e la stampa
+// del giorno. Il calendario (Giorno · Settimana · Mese) è in calendar.tsx.
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -11,7 +11,6 @@ import { showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
 import {
   addDays,
-  agendaTotals,
   aroundTime,
   availability,
   bookingsText,
@@ -23,7 +22,6 @@ import {
   peopleText,
   quickDayLabels,
   romeInstant,
-  romeParts,
   SOURCE_LABEL,
   tableText,
   timeToDayMinutes,
@@ -32,11 +30,10 @@ import {
 } from "@/lib/booking/rules";
 import type { Hours } from "@/lib/menu-venue";
 import { addManualBooking, editBooking, markWhatsapp, type AgendaFields, type AgendaOutcome } from "./actions";
-import { NoPhoneChip, TestChip, WhatsappButton } from "./booking-sheet";
-import { clock, dayLabel, originShort, phoneDisplay } from "./format";
+import { WhatsappButton } from "./booking-sheet";
+import { originShort, phoneDisplay } from "./format";
 import type { BookingItem } from "./types";
 
-const ALLERGY_SHORT = "⚠ Allergie";
 const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 // Gli orari del giorno come pulsanti: tutta l'apertura (non solo dalla prima ora prenotabile online),
@@ -53,13 +50,16 @@ type FormState = {
   source: ManualSource;
   name: string;
   phone: string;
+  // «?» = ancora da definire (scelto apposta, non un campo lasciato vuoto).
   people: string;
   day: string;
   time: string;
   table: string;
   note: string;
   allergies: boolean;
+  menu: string;
 };
+const UNKNOWN = "?";
 
 const fieldLabel = "mb-1 block text-xs font-semibold uppercase tracking-wide text-foreground-muted";
 const choice = (on: boolean) =>
@@ -85,6 +85,7 @@ export function BookingForm({
   canWhatsapp,
   confirmed,
   countTests,
+  menus = [],
   onClose,
   onShow,
   onSaved,
@@ -99,6 +100,8 @@ export function BookingForm({
   // Le confermate (per «Alle 20:30 (±1 ora): …» prima di salvare).
   confirmed: BookingItem[];
   countTests: boolean;
+  // Menù già usati (suggerimenti con un tocco).
+  menus?: string[];
   onClose: () => void;
   // Dopo il salvataggio di una modifica: apre la prenotazione.
   onShow: (id: string) => void;
@@ -114,7 +117,7 @@ export function BookingForm({
           source: (MANUAL_SOURCES as readonly string[]).includes(booking.source ?? "") ? (booking.source as ManualSource) : "telefono",
           ...fieldsOf(booking),
         }
-      : { source: "telefono", name: "", phone: "", people: "", day: initialDay, time: "", table: "", note: "", allergies: false },
+      : { source: "telefono", name: "", phone: "", people: "", day: initialDay, time: "", table: "", note: "", allergies: false, menu: "" },
   );
   const [initial, setInitial] = useState(() => JSON.stringify(f));
   // I dati che chi modifica ha davanti (vedi editVersion): dopo un conflitto, quelli nuovi.
@@ -146,13 +149,16 @@ export function BookingForm({
 
   const slots = useMemo(() => (/^\d{4}-\d{2}-\d{2}$/.test(f.day) ? daySlots(f.day, hours, settings) : []), [f.day, hours, settings]);
   // Chiudendo con dati scritti e non salvati, il foglio chiede conferma (come le altre finestre).
-  const dirty = !saved && !gone && (editing ? JSON.stringify(f) !== initial : Boolean(f.name.trim() || f.phone.trim() || f.note.trim() || f.table.trim()));
+  const dirty = !saved && !gone && (editing ? JSON.stringify(f) !== initial : Boolean(f.name.trim() || f.phone.trim() || f.note.trim() || f.table.trim() || f.menu.trim()));
+  const timeUnknown = f.time === UNKNOWN;
+  const peopleUnknown = f.people === UNKNOWN;
   const peopleQuick = [1, 2, 3, 4, 5, 6, 7, 8];
   const dayText = (d: string) => (d === today ? quick.today : d === addDays(today, 1) ? quick.tomorrow : capital(dayLong(d)));
 
   // Quanta gente c'è già intorno a quell'ora e in tutta la giornata (senza le prove, con l'agenda accesa).
   const context = useMemo(() => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f.day) || !/^\d{2}:\d{2}$/.test(f.time)) return null;
+    // (con l'ora da definire niente «±1 ora»: si vede solo la giornata, sotto)
     const at = romeInstant(f.day, timeToDayMinutes(f.time)).getTime();
     return aroundTime(
       confirmed.filter((b) => countTests || !b.isTest),
@@ -174,7 +180,15 @@ export function BookingForm({
   async function save(force = forced, dupOk = false) {
     setBusy(true);
     setErrors(null);
-    const input = { ...f, people: Number(f.people), force, dupOk };
+    const input = {
+      ...f,
+      time: timeUnknown ? "" : f.time,
+      people: peopleUnknown ? 0 : Number(f.people),
+      timeUnknown,
+      peopleUnknown,
+      force,
+      dupOk,
+    };
     try {
       const res = booking ? await editBooking(booking.id, input, version) : await addManualBooking(input);
       if (!res.ok) {
@@ -191,7 +205,7 @@ export function BookingForm({
           onSaved({
             id: out.id,
             name: f.name.trim(),
-            summary: `${f.name.trim()}, ${f.day === today ? `oggi ${f.time}` : dayTimeShort(f.day, f.time)}, ${peopleText(people)}`,
+            summary: `${f.name.trim()}, ${timeUnknown ? `${f.day === today ? "oggi" : dayShort(f.day)}, ora da definire` : f.day === today ? `oggi ${f.time}` : dayTimeShort(f.day, f.time)}, ${peopleUnknown ? "persone da definire" : peopleText(people)}`,
             phone: out.hasPhone,
             whatsappHref: out.whatsappHref,
             isTest: out.isTest,
@@ -265,11 +279,13 @@ export function BookingForm({
         <div className="space-y-3 rounded-xl border border-success/30 bg-success-bg/60 p-4">
           <p className="text-base font-semibold text-success">{saved.unchanged ? "Nessuna modifica" : "✓ Modifiche salvate"}</p>
           <p className="text-sm text-foreground">
-            {dayText(f.day)} alle {f.time} · {peopleText(people)} · {f.name.trim()}
+            {dayText(f.day)} {timeUnknown ? "· ora da definire" : `alle ${f.time}`} · {peopleUnknown ? "persone da definire" : peopleText(people)} · {f.name.trim()}
             {f.table.trim() ? ` · ${tableText(f.table).replace(/^Tavolo /, "tavolo ")}` : ""}
           </p>
           {saved.unchanged ? (
             <p className="text-xs text-foreground-muted">Non hai cambiato niente: la prenotazione resta com&apos;era.</p>
+          ) : (timeUnknown || peopleUnknown) && saved.hasPhone ? (
+            <p className="text-xs text-foreground-muted">La conferma al cliente si manda quando ora e persone sono decise.</p>
           ) : saved.hasPhone && saved.whatsappHref ? (
             canWhatsapp ? (
               <>
@@ -331,6 +347,9 @@ export function BookingForm({
                 {n}
               </button>
             ))}
+            <button type="button" role="radio" aria-checked={peopleUnknown} onClick={() => set("people", UNKNOWN)} className={`${unknownChoice(peopleUnknown)} col-span-8`}>
+              Ancora da definire
+            </button>
           </div>
           <label className="mt-2 flex items-center gap-2 text-sm text-foreground-muted">
             Di più:
@@ -339,7 +358,7 @@ export function BookingForm({
               inputMode="numeric"
               min={1}
               max={60}
-              value={peopleQuick.includes(Number(f.people)) ? "" : f.people}
+              value={peopleQuick.includes(Number(f.people)) || peopleUnknown ? "" : f.people}
               onChange={(e) => set("people", e.target.value)}
               aria-label="Altro numero di persone"
               placeholder="es. 12"
@@ -353,21 +372,26 @@ export function BookingForm({
           <span id="nuova-ora" className={fieldLabel}>
             Ora
           </span>
-          {slots.length > 0 ? (
-            <div role="radiogroup" aria-labelledby="nuova-ora" className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
-              {slots.map((t) => (
-                <button key={t} type="button" role="radio" aria-checked={f.time === t} onClick={() => set("time", t)} className={choice(f.time === t)}>
-                  {t}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-foreground-muted">Quel giorno il locale risulta chiuso: scrivi l&apos;ora qui sotto.</p>
-          )}
+          <div role="radiogroup" aria-labelledby="nuova-ora" className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+            {slots.map((t) => (
+              <button key={t} type="button" role="radio" aria-checked={f.time === t} onClick={() => set("time", t)} className={choice(f.time === t)}>
+                {t}
+              </button>
+            ))}
+            <button type="button" role="radio" aria-checked={timeUnknown} onClick={() => set("time", UNKNOWN)} className={`${unknownChoice(timeUnknown)} col-span-4 sm:col-span-6`}>
+              Ancora da definire
+            </button>
+          </div>
+          {slots.length === 0 && <p className="mt-1.5 text-sm text-foreground-muted">Quel giorno il locale risulta chiuso: scrivi l&apos;ora qui sotto.</p>}
           <label className="mt-2 flex items-center gap-2 text-sm text-foreground-muted">
             Un altro orario:
-            <input type="time" value={slots.includes(f.time) ? "" : f.time} onChange={(e) => set("time", e.target.value)} aria-label="Un altro orario" className={`${inputClass} w-32!`} />
+            <input type="time" value={slots.includes(f.time) || timeUnknown ? "" : f.time} onChange={(e) => set("time", e.target.value)} aria-label="Un altro orario" className={`${inputClass} w-32!`} />
           </label>
+          {(timeUnknown || peopleUnknown) && (
+            <p className="mt-2 rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-sm text-foreground" data-testid="avviso-da-definire">
+              <span className="font-semibold">Si segna lo stesso, «da completare».</span> Resta segnalata in giallo finché non scrivi {timeUnknown && peopleUnknown ? "ora e persone" : timeUnknown ? "l'ora" : "le persone"}; la conferma al cliente si manda dopo.
+            </p>
+          )}
           {err("time")}
         </div>
 
@@ -434,6 +458,27 @@ export function BookingForm({
           <input value={f.phone} onChange={(e) => set("phone", e.target.value)} maxLength={40} type="tel" inputMode="tel" autoComplete="off" placeholder="es. 333 123 4567" className={inputClass} aria-invalid={errors?.field === "phone" || undefined} />
           {err("phone") ?? <span className="mt-1 block text-xs text-foreground-muted">Con il numero puoi mandare la conferma su WhatsApp e avvisare se cambia qualcosa. Si può aggiungere dopo.</span>}
         </label>
+
+        <div>
+          <label className="block">
+            <span className={fieldLabel}>Menù (facoltativo)</span>
+            <input value={f.menu} onChange={(e) => set("menu", e.target.value)} maxLength={60} autoComplete="off" list="menu-usati" placeholder="es. Menù da 25 €" aria-label="Menù" className={inputClass} />
+          </label>
+          <datalist id="menu-usati">
+            {menus.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+          {menus.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Menù già usati">
+              {menus.slice(0, 4).map((m) => (
+                <button key={m} type="button" onClick={() => set("menu", f.menu === m ? "" : m)} aria-pressed={f.menu === m} className={`min-h-9 rounded-full border px-3 text-xs font-medium ${f.menu === m ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground-muted hover:border-accent hover:text-foreground"}`}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
           <label className="block">
@@ -509,164 +554,22 @@ export function BookingForm({
 }
 
 // I campi del modulo da una prenotazione (o dai dati arrivati dopo un conflitto).
-function fieldsOf(b: Pick<BookingItem, "name" | "phone" | "people" | "day" | "time" | "table" | "note" | "allergies"> | AgendaFields): Omit<FormState, "source"> {
+function fieldsOf(b: Pick<BookingItem, "name" | "phone" | "people" | "day" | "time" | "table" | "note" | "allergies" | "timeUnknown" | "peopleUnknown" | "menu"> | AgendaFields): Omit<FormState, "source"> {
   return {
     name: b.name,
     phone: b.phone ? phoneDisplay(b.phone) : "",
-    people: String(b.people),
+    people: b.peopleUnknown ? UNKNOWN : String(b.people),
     day: b.day,
-    time: b.time,
+    time: b.timeUnknown ? UNKNOWN : b.time,
     table: b.table ?? "",
     note: b.note ?? "",
     allergies: b.allergies,
+    menu: b.menu ?? "",
   };
 }
 
-// ---------- Scheda «Agenda»
-
-export function Agenda({
-  rows,
-  cancelled,
-  countTests,
-  day,
-  setDay,
-  today,
-  now,
-  onOpen,
-  onNew,
-}: {
-  // Le confermate di tutti i giorni caricati (dagli ultimi 30 giorni in poi).
-  rows: BookingItem[];
-  // Le annullate che erano in agenda: in fondo al giorno, barrate (come sul librone).
-  cancelled: BookingItem[];
-  // Con la funzione spenta tutto è di prova e si conta; accesa, le prove non contano nei totali.
-  countTests: boolean;
-  day: string;
-  setDay: (d: string) => void;
-  today: string;
-  now: number;
-  onOpen: (id: string) => void;
-  onNew: (day: string) => void;
-}) {
-  const list = useMemo(() => rows.filter((b) => b.day === day).sort((a, b) => a.startsAt - b.startsAt || a.createdAt - b.createdAt), [rows, day]);
-  const gone = useMemo(() => cancelled.filter((b) => b.day === day).sort((a, b) => a.startsAt - b.startsAt), [cancelled, day]);
-  const counted = list.filter((b) => countTests || !b.isTest);
-  const totals = agendaTotals(counted);
-  const arrived = counted.filter((b) => b.arrivedAt).length;
-  const min = addDays(today, -30);
-  const max = addDays(today, 365);
-  const label = dayLabel(day, today);
-  // Tra mezzanotte e le 5 il giorno dopo è già cominciato: niente «Domani», solo la data.
-  const night = romeParts(new Date(now)).dateKey !== today;
-  const near = label === "Oggi" || label === "Ieri" || (label === "Domani" && !night) ? label : null;
-
-  return (
-    <section aria-label="Agenda" className="space-y-3">
-      <div className="flex items-center gap-1.5">
-        <button type="button" aria-label="Giorno prima" title="Giorno prima" disabled={day <= min} onClick={() => setDay(addDays(day, -1))} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-xl text-foreground hover:border-accent disabled:opacity-40">
-          ‹
-        </button>
-        <label className="relative min-w-0 flex-1">
-          {/* Due righe: «Domani» piccolo sopra, la data intera sotto (niente puntini su telefono). */}
-          <span className="flex min-h-11 flex-col items-center justify-center rounded-full border border-border bg-surface px-4 py-1 text-center leading-tight">
-            {near && <span className="text-xs font-medium text-foreground-muted">{near}</span>}
-            <span className="text-sm font-semibold text-foreground first-letter:uppercase">{dayLong(day)}</span>
-          </span>
-          {/* Il campo data copre l'etichetta: un tocco apre il calendario del telefono. */}
-          <input
-            type="date"
-            value={day}
-            min={min}
-            max={max}
-            onChange={(e) => e.target.value && setDay(e.target.value < min ? min : e.target.value > max ? max : e.target.value)}
-            aria-label="Scegli la data"
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-          />
-        </label>
-        <button type="button" aria-label="Giorno dopo" title="Giorno dopo" disabled={day >= max} onClick={() => setDay(addDays(day, 1))} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-xl text-foreground hover:border-accent disabled:opacity-40">
-          ›
-        </button>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <p className="text-sm text-foreground">
-          <span className="font-semibold">{counted.length ? totals.text : "Nessuna prenotazione"}</span>
-          {day === today && counted.length > 0 && <span className="text-foreground-muted"> · arrivati {arrived} su {counted.length}</span>}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {day !== today && (
-            <button type="button" onClick={() => setDay(today)} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-semibold text-foreground hover:border-accent">
-              Oggi
-            </button>
-          )}
-          <button type="button" onClick={() => window.print()} disabled={!list.length} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground disabled:opacity-50">
-            Stampa il giorno
-          </button>
-        </div>
-      </div>
-
-      {list.length === 0 && gone.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
-          <p className="text-sm font-semibold text-foreground">Nessuna prenotazione {day === today ? "per oggi" : "per questo giorno"}</p>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-foreground-muted">Qui c&apos;è tutto il giorno, come sul librone: le prenotazioni dal sito e quelle segnate a mano.</p>
-        </div>
-      ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-          {list.map((b) => (
-            <AgendaRow key={b.id} b={b} now={now} onOpen={onOpen} />
-          ))}
-          {gone.map((b) => (
-            <AgendaRow key={b.id} b={b} now={now} onOpen={onOpen} cancelled />
-          ))}
-        </ul>
-      )}
-
-      {day >= today && (
-        <button type="button" onClick={() => onNew(day)} className="min-h-11 w-full rounded-xl border border-dashed border-border text-sm font-semibold text-foreground-muted hover:border-accent hover:text-foreground">
-          + Segna in questo giorno
-        </button>
-      )}
-
-      <AgendaPrint day={day} list={list} totals={counted.length ? totals.text : "Nessuna prenotazione"} countTests={countTests} />
-    </section>
-  );
-}
-
-function AgendaRow({ b, now, onOpen, cancelled = false }: { b: BookingItem; now: number; onOpen: (id: string) => void; cancelled?: boolean }) {
-  const late = !cancelled && !b.arrivedAt && !b.noShowAt && b.startsAt < now && b.startsAt > now - 3 * 3600000;
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={() => onOpen(b.id)}
-        className={`flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-surface-2/60 ${cancelled ? "opacity-55" : b.noShowAt ? "opacity-60" : ""}`}
-      >
-        <span className={`w-12 shrink-0 pt-0.5 text-base font-semibold tabular-nums text-foreground ${cancelled ? "line-through" : ""}`}>{b.time}</span>
-        <span className={`w-12 shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-foreground ${cancelled ? "line-through" : ""}`}>
-          {b.people} <span className="text-xs font-normal text-foreground-muted">pers.</span>
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className={`block truncate text-[15px] font-semibold text-foreground ${cancelled ? "line-through" : ""}`}>{b.name}</span>
-          {b.note && !cancelled && <span className="mt-0.5 block text-sm text-foreground-muted [overflow-wrap:anywhere]">«{b.note}»</span>}
-          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            {cancelled && <span className="rounded-full bg-surface-2 px-2 py-0.5 font-semibold text-foreground-muted ring-1 ring-inset ring-border">Annullata</span>}
-            {b.table && !cancelled && <span className="rounded-md bg-accent/10 px-1.5 py-0.5 font-semibold text-accent-ink">{tableText(b.table)}</span>}
-            {b.allergies && !cancelled && <span className="rounded-full bg-danger-bg px-2 py-0.5 font-semibold text-danger">{ALLERGY_SHORT}</span>}
-            {b.isTest && <TestChip />}
-            {b.manual && !b.phone && !cancelled && <NoPhoneChip />}
-            {b.arrivedAt && !cancelled && <span className="font-semibold text-success">✓ Arrivati alle {clock(b.arrivedAt)}</span>}
-            {b.noShowAt && !cancelled && <span className="font-semibold text-danger">Non venuti</span>}
-            {late && <span className="font-medium text-gold">non ancora arrivati</span>}
-            <span className="text-foreground-muted">{originShort(b)}</span>
-          </span>
-        </span>
-        <span aria-hidden className="self-center text-foreground-muted">
-          ›
-        </span>
-      </button>
-    </li>
-  );
-}
+const unknownChoice = (on: boolean) =>
+  `min-h-11 rounded-lg border text-sm font-semibold ${on ? "border-gold bg-gold/20 text-foreground" : "border-dashed border-border bg-surface text-foreground-muted hover:border-gold hover:text-foreground"}`;
 
 // ---------- Stampa del giorno: un foglio A4 pulito, bianco e nero, come una pagina del librone.
 
@@ -682,7 +585,9 @@ function useMounted() {
 // «00:30 (notte)»: sul foglio stampato un orario dopo mezzanotte non si confonde con il pranzo.
 const printTime = (t: string) => (timeToDayMinutes(t) >= 1440 ? `${t} (notte)` : t);
 
-function AgendaPrint({ day, list, totals, countTests }: { day: string; list: BookingItem[]; totals: string; countTests: boolean }) {
+type PrintRow = Pick<BookingItem, "id" | "time" | "people" | "name" | "table" | "phone" | "allergies" | "note" | "manual" | "source" | "createdBy" | "isTest" | "timeUnknown" | "peopleUnknown" | "menu">;
+
+export function AgendaPrint({ day, list, totals, countTests, notes = [], events = [] }: { day: string; list: PrintRow[]; totals: string; countTests: boolean; notes?: string[]; events?: string[] }) {
   const mounted = useMounted();
   if (!mounted) return null;
   return createPortal(
@@ -709,10 +614,21 @@ function AgendaPrint({ day, list, totals, countTests }: { day: string; list: Boo
           #agenda-stampa .presa { font-size: 9pt; min-width: 22mm; }
           #agenda-stampa .b { font-weight: 700; }
           #agenda-stampa .foot { margin-top: 3mm; font-size: 8pt; color: #444 !important; }
+          #agenda-stampa .giorno { margin: 0 0 3mm; font-size: 10.5pt; font-weight: 700; }
         }
       `}</style>
       <h1>{capital(dayLong(day))}</h1>
       <p className="tot">{totals}</p>
+      {events.map((e) => (
+        <p key={e} className="giorno">
+          Evento: {e}
+        </p>
+      ))}
+      {notes.map((n, i) => (
+        <p key={i} className="giorno">
+          ✎ {n}
+        </p>
+      ))}
       <table>
         <thead>
           <tr>
@@ -728,13 +644,14 @@ function AgendaPrint({ day, list, totals, countTests }: { day: string; list: Boo
         <tbody>
           {list.map((b) => (
             <tr key={b.id}>
-              <td className="num b">{printTime(b.time)}</td>
-              <td className="num b">{b.people}</td>
+              <td className="num b">{b.timeUnknown ? "da definire" : printTime(b.time)}</td>
+              <td className="num b">{b.peopleUnknown ? "?" : b.people}</td>
               <td className="b nome">{b.name}</td>
               <td>{b.table ?? ""}</td>
               <td className="num">{b.phone ? phoneDisplay(b.phone) : ""}</td>
               <td className="nota">
                 {b.allergies ? <strong>⚠ Allergie. </strong> : null}
+                {b.menu ? <strong>{b.menu}. </strong> : null}
                 {b.note ?? ""}
               </td>
               <td className="presa">

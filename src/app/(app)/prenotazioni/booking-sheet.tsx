@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
-import { aroundTime, availability, bookingsText, dayLong, peopleText, whatsappReachable, type BookingSettings } from "@/lib/booking/rules";
+import { aroundTime, availability, bookingsText, dayLong, isIncomplete, missingText, peopleText, whatsappReachable, type BookingSettings } from "@/lib/booking/rules";
 import { customerMessage, type MessageKind } from "@/lib/booking/messages";
 import { whatsappPending } from "@/lib/booking/whatsapp-queue";
 import type { Hours } from "@/lib/menu-venue";
@@ -148,12 +148,13 @@ export function BookingSheet({
   if (!b) {
     return (
       <Sheet title="Richiesta" onClose={onClose}>
-        <p className="text-sm text-foreground-muted">Questa richiesta non c&apos;è più (è più vecchia di 30 giorni o è stata cancellata).</p>
+        <p className="text-sm text-foreground-muted">Questa prenotazione non c&apos;è più: è stata cancellata, oppure è più vecchia di 6 mesi.</p>
       </Sheet>
     );
   }
 
   const v = viewOf(b, now);
+  const incomplete = isIncomplete(b);
   const sameDay = rows.filter((r) => r.day === b.day && r.status === "CONFIRMED" && r.id !== b.id && (countTests || !r.isTest));
   const sameDayPeople = sameDay.reduce((s, r) => s + r.people, 0);
   // Per decidere: quanta gente c'è già intorno all'ora chiesta (±1 ora) e in tutta la serata.
@@ -372,16 +373,32 @@ export function BookingSheet({
               <>
                 <span className="text-foreground-muted line-through decoration-2">{b.time}</span> {b.proposedTime}
               </>
+            ) : b.timeUnknown ? (
+              <span className="text-gold">Ora da definire</span>
             ) : (
               b.time
             )}
             <span className="font-normal text-foreground-muted"> · </span>
-            {peopleText(b.people)}
+            {b.peopleUnknown ? <span className="text-gold">persone da definire</span> : peopleText(b.people)}
           </p>
+          {b.menu && <p className="mt-1.5 inline-flex rounded-md bg-gold/10 px-2 py-0.5 text-sm font-semibold text-gold ring-1 ring-inset ring-gold/25">{b.menu}</p>}
           {b.status === "PROPOSED" && !result && <p className="mt-1 text-sm text-foreground-muted">Proposto alle {b.proposedTime}: aspettiamo la risposta del cliente.</p>}
           {b.arrivedAt && <p className="mt-1 text-sm font-medium text-success">✓ Arrivati alle {clock(b.arrivedAt)}</p>}
           {b.noShowAt && <p className="mt-1 text-sm font-medium text-danger">Non venuti</p>}
         </div>
+
+        {/* Prenotazione vera ma incompleta: si completa appena il cliente lo dice. */}
+        {!result && incomplete && v === "CONFIRMED" && (
+          <div className="space-y-2 rounded-xl border border-gold/40 bg-gold/10 px-3 py-3" data-testid="da-completare-dettaglio">
+            <p className="text-sm font-semibold text-foreground">{missingText(b)}</p>
+            <p className="text-xs text-foreground-muted">È una prenotazione vera: resta segnalata finché non la completi. La conferma al cliente si manda dopo.</p>
+            {b.day >= today && (
+              <button type="button" disabled={busy} onClick={() => onEdit(b)} className={`${bigBtn} bg-accent text-accent-foreground hover:bg-accent-hover`}>
+                Completa i dati
+              </button>
+            )}
+          </div>
+        )}
 
         {b.allergies && (
           <p className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger-bg px-3 py-2.5 text-sm font-medium text-danger">
@@ -575,7 +592,7 @@ export function BookingSheet({
         )}
 
         {/* Già gestita: rimandare il messaggio, arrivi, annullare */}
-        {!result && v === "CONFIRMED" && panel === null && b.day >= today && (
+        {!result && v === "CONFIRMED" && panel === null && b.day >= today && !incomplete && (
           <button type="button" disabled={busy} onClick={() => onEdit(b)} className={`${bigBtn} border border-border text-foreground hover:border-accent`}>
             <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
@@ -624,10 +641,10 @@ export function BookingSheet({
                   </button>
                 ) : (
                   <>
-                    <button type="button" disabled={busy} onClick={() => arrival(true)} className={`${bigBtn} border border-success/40 text-success hover:bg-success-bg ${b.startsAt > now ? "col-span-2" : ""}`}>
+                    <button type="button" disabled={busy} onClick={() => arrival(true)} className={`${bigBtn} border border-success/40 text-success hover:bg-success-bg ${b.startsAt > now || b.timeUnknown ? "col-span-2" : ""}`}>
                       ✓ Arrivati
                     </button>
-                    {b.startsAt <= now && (
+                    {b.startsAt <= now && !b.timeUnknown && (
                       <button type="button" disabled={busy} onClick={() => arrival(false)} className={`${bigBtn} border border-border text-foreground-muted hover:border-danger hover:text-danger`}>
                         Non venuti
                       </button>
@@ -638,7 +655,12 @@ export function BookingSheet({
             )}
 
             {/* Agenda: la conferma al cliente è facoltativa e non è ancora partita. */}
-            {b.manual && v === "CONFIRMED" && !pendingWa && !confirmationSent(b) && b.phone && b.startsAt > now && resendHref("confirmed") && (
+            {b.manual && v === "CONFIRMED" && incomplete && b.phone && b.day >= today && (
+              <p className="rounded-xl border border-border px-3 py-2.5 text-xs text-foreground-muted" data-testid="conferma-bloccata">
+                La conferma su WhatsApp si manda quando ora e persone sono decise: così il cliente non riceve un orario sbagliato.
+              </p>
+            )}
+            {b.manual && v === "CONFIRMED" && !incomplete && !pendingWa && !confirmationSent(b) && b.phone && b.startsAt > now && resendHref("confirmed") && (
               <div className="space-y-1.5 rounded-xl border border-border p-3">
                 {canWhatsapp ? (
                   <WhatsappButton href={resendHref("confirmed")!} bookingId={b.id} label="Manda la conferma su WhatsApp" compact onOpened={() => onWaOpened(b.id, "confirmed")} />
@@ -651,7 +673,7 @@ export function BookingSheet({
               </div>
             )}
 
-            {canWhatsapp && !pendingWa && !(b.manual && !confirmationSent(b)) && (v === "CONFIRMED" || v === "PROPOSED" || v === "DECLINED") && resendHref(v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined") && (
+            {canWhatsapp && !pendingWa && !(b.manual && !confirmationSent(b)) && !(v === "CONFIRMED" && incomplete) && (v === "CONFIRMED" || v === "PROPOSED" || v === "DECLINED") && resendHref(v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined") && (
               <a
                 href={resendHref(v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined")!}
                 target="_blank"
@@ -662,7 +684,7 @@ export function BookingSheet({
               </a>
             )}
 
-            {v === "CONFIRMED" && panel === null && b.startsAt > now - 3 * 3600000 && (
+            {v === "CONFIRMED" && panel === null && (b.timeUnknown ? b.day >= today : b.startsAt > now - 3 * 3600000) && (
               <button type="button" disabled={busy} onClick={() => openPanel("cancel")} className="min-h-11 w-full rounded-xl text-sm font-medium text-danger hover:bg-danger-bg">
                 Annulla la prenotazione
               </button>
