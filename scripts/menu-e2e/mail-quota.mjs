@@ -118,6 +118,8 @@ try {
 
   // 5. Dati del mittente: indirizzo delle prove precompilato, ragione sociale nel piè di pagina.
   await open();
+  // Con ragione sociale e P. IVA già presenti il riquadro è chiuso: si apre.
+  if (!(await p.locator("#sender-company").isVisible())) await p.getByText("Dati del mittente", { exact: true }).click();
   await p.locator("#sender-company").fill("Prova Vini S.r.l.");
   await p.locator("#sender-vat").fill("01234567890");
   check("dati del mittente: niente campo per le prove (sta in «Prova su di te»)", (await p.locator("#sender-test").count()) === 0);

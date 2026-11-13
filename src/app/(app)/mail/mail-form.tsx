@@ -891,15 +891,27 @@ function MailPreview({
         <p className="break-words">A: {sample?.email ?? "—"}</p>
         <p className="break-words font-medium text-foreground">Oggetto: {subject.trim() || "—"}</p>
       </div>
-      <div className="whitespace-pre-wrap break-words px-4 py-4">
-        {body.trim() ? applyHeader(body.trim(), sample?.header ?? "") : "Qui comparirà il tuo testo…"}
-        <div className="mt-4 whitespace-normal border-t border-border pt-2 text-xs text-foreground-muted">
-          {foot.lines.map((l) => (
-            <p key={l}>{l}</p>
-          ))}
-          <p className="mt-1.5">
-            <span className="underline">Informativa sulla privacy</span> · <span className="underline">Non voglio più ricevere queste email</span>
-          </p>
+      {/* Come nella mail vera: fondo crema, scheda bianca, logo in cima, piè di pagina riga per riga. */}
+      <div className="bg-[#f4efe7] px-3 py-4">
+        <div className="mx-auto max-w-[560px] rounded-xl bg-white px-5 pb-6 pt-5 text-[#2b1a1c]">
+          {/* eslint-disable-next-line @next/next/no-img-element -- anteprima fedele della mail, non un'immagine della pagina */}
+          <img src="/menu/logo-mail.png" alt="L'Angolo del Vino" width={150} height={43} className="mx-auto block h-auto w-[150px]" />
+          <div className="mx-auto mt-4 h-px w-14 bg-[#c9a96e]" />
+          <div className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+            {body.trim() ? applyHeader(body.trim(), sample?.header ?? "") : "Qui comparirà il tuo testo…"}
+          </div>
+          <div className="mt-6 border-t border-[#eae3d8] pt-4 text-xs leading-relaxed text-[#7a6f68]">
+            {foot.lines.map((l, i) => (
+              <p key={l} className={i === 0 ? "font-semibold text-[#4a3f3a]" : i === foot.lines.length - 1 ? "mt-2" : "whitespace-nowrap"}>
+                {l}
+              </p>
+            ))}
+            <p className="mt-2 text-[#6B1020]">
+              <span className="underline">Informativa sulla privacy</span>
+              <br />
+              <span className="underline">Non voglio più ricevere queste email</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
