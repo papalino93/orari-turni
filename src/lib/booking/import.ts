@@ -238,7 +238,7 @@ type Parsed = Omit<ImportRow, "line" | "text" | "dayFrom" | "repeatOf"> & { week
 function parseLine(raw: string, today: string): Parsed {
   const fielded = /[\t;|]/.test(raw);
   const fields = fielded ? raw.split(/[\t;|]/) : [raw];
-  let toks: { t: string; f: number }[] = [];
+  const toks: { t: string; f: number }[] = [];
   fields.forEach((fld, f) => {
     for (const t of fld.trim().split(/\s+/).filter(Boolean)) toks.push({ t, f });
   });

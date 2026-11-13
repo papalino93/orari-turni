@@ -16,6 +16,7 @@ import { SettingsSheet } from "./settings-sheet";
 import { BellIcon, LocalPhoneBox, PushBox, useLocalPhone, usePush, WhatsappIcon } from "./device";
 import { clock, dayLabel, duration, originShort, phoneDisplay, REPLY_SHORT, replyHref, sourceText, telLink, viewOf } from "./format";
 import { Agenda, BookingForm, type SavedInfo } from "./agenda";
+import { ImportSheet } from "./import-sheet";
 import { centerInRow, edgeFade } from "@/lib/edge-fade";
 import type { BookingItem, BookingStatsData } from "./types";
 
@@ -90,6 +91,8 @@ export function BookingsView({
   const [agendaDay, setAgendaDay] = useState(today);
   const [form, setForm] = useState<{ booking: BookingItem | null; day: string; key: number } | null>(null);
   const [showDevice, setShowDevice] = useState(false);
+  // «Importa dal librone»: tante prenotazioni insieme da una lista incollata.
+  const [showImport, setShowImport] = useState(false);
   // Un interruttore toccato (da confermare) e, dopo, la domanda sulle prenotazioni di prova.
   const [askSwitch, setAskSwitch] = useState<{ which: "agenda" | "online"; on: boolean } | null>(null);
   const [askTests, setAskTests] = useState<{ which: "agenda" | "online"; on: boolean; tests: number; keepable: number } | null>(null);
@@ -350,13 +353,25 @@ export function BookingsView({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => newBooking(tab === "agenda" && agendaDay >= today ? agendaDay : today)}
-        className="mb-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 text-[15px] font-semibold text-accent-foreground shadow-sm hover:bg-accent-hover sm:w-auto"
-      >
-        + Nuova prenotazione
-      </button>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <button
+          type="button"
+          onClick={() => newBooking(tab === "agenda" && agendaDay >= today ? agendaDay : today)}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 text-[15px] font-semibold text-accent-foreground shadow-sm hover:bg-accent-hover sm:w-auto"
+        >
+          + Nuova prenotazione
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setJustSaved(null);
+            setShowImport(true);
+          }}
+          className="flex min-h-11 w-full items-center justify-center rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground hover:border-accent sm:min-h-12 sm:w-auto"
+        >
+          Importa dal librone
+        </button>
+      </div>
 
       {preview && (
         <p role="status" className="mb-4 rounded-2xl border border-danger/30 bg-danger-bg px-4 py-3 text-sm text-foreground">
@@ -708,6 +723,8 @@ export function BookingsView({
           }}
         />
       )}
+
+      {showImport && <ImportSheet now={now} testMode={!settings.agendaEnabled} onClose={() => setShowImport(false)} />}
 
       {justSaved && (
         <SavedBar
