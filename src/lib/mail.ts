@@ -304,9 +304,10 @@ export async function optedOutAmong(emails: string[]): Promise<Set<string>> {
 // ---------- Dati del mittente (piè di pagina di legge), salvati in MenuSetting "mailSender"
 
 export type MailSender = { company: string; vat: string; privacyUrl: string; testEmail: string };
+// Dati del registro delle imprese (si possono cambiare dalla pagina Mail → «Dati del mittente»).
 const SENDER_DEFAULTS: MailSender = {
-  company: process.env.MAIL_COMPANY ?? "",
-  vat: process.env.MAIL_VAT ?? "",
+  company: process.env.MAIL_COMPANY ?? "L'Angolo del Vino di Ticonosco Andrea",
+  vat: process.env.MAIL_VAT ?? "06838060488",
   privacyUrl: "",
   testEmail: "",
 };
