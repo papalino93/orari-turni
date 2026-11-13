@@ -266,12 +266,9 @@ async function browserTests() {
       check("tornando a WhatsApp il campo email sparisce", (await p.getByLabel("Email", { exact: true }).count()) === 0);
     } else check("scelta WhatsApp/Email presente (MAIL_PROVIDER=log)", false);
     // Nota e allergie
-    await p.getByRole("button", { name: "Aggiungi una nota" }).click();
-    await p.getByLabel("Nota", { exact: true }).fill("Prova C nota: seggiolone");
-    check("nota: contatore dei caratteri", /24\/300/.test(await p.locator("#campo-note").innerText()));
-    const sw = p.getByRole("switch", { name: /allergie o intolleranze/ });
-    await sw.click();
-    check("allergie: interruttore acceso, «Sì: ne parliamo al tavolo.»", (await sw.getAttribute("aria-checked")) === "true" && /Sì: ne parliamo al tavolo/.test(await sw.innerText()));
+    check("note: campo sempre visibile, niente domanda sulle allergie", (await p.getByLabel(/^Note/).count()) === 1 && (await p.getByRole("switch", { name: /allergie/ }).count()) === 0);
+    await p.getByLabel(/^Note/).fill("Prova C nota: seggiolone, allergia alle noci");
+    check("note: contatore dei caratteri", /44\/300/.test(await p.locator("#campo-note-aiuto").innerText()));
     await send(p);
     check("errore: privacy non spuntata", /spunta la casella/.test(await alerts(p)));
     // Informativa nella finestra, senza perdere i dati
@@ -288,7 +285,7 @@ async function browserTests() {
     await p.waitForURL(/\/menu\/prenota\/r\/[\w-]+$/, { timeout: 30000 });
     statusUrl = p.url();
     const row = DB(`select people||'|'||day||'|'||time||'|'||allergies||'|'||coalesce(note,'')||'|'||source||'|'||contact||'|'||status||'|'||code from "BookingRequest" where name='Prova C Cliente'`);
-    check("salvata: 2 persone, giorno e ora scelti, allergie, nota, dal menù, WhatsApp, in attesa", row.startsWith(`2|${D1.day}|${D1.slots[1]}|true|Prova C nota: seggiolone|menu|whatsapp|PENDING|`), row);
+    check("salvata: 2 persone, giorno e ora scelti, allergie riconosciute dalla nota, nota, dal menù, WhatsApp, in attesa", row.startsWith(`2|${D1.day}|${D1.slots[1]}|true|Prova C nota: seggiolone, allergia alle noci|menu|whatsapp|PENDING|`), row);
     const code = row.split("|").pop();
     const body = await p.locator("main").innerText();
     const readable = phone.replace(/\s/g, "").replace(/^(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3");
