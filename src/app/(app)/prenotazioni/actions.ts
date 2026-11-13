@@ -39,6 +39,7 @@ import {
   type ImportLineResult,
 } from "@/lib/booking/service";
 import { IMPORT_MAX_CHARS } from "@/lib/booking/import";
+import { addDayNote, removeDayNote, updateDayNote } from "@/lib/booking/agenda-server";
 import { sendPushToStaff } from "@/lib/booking/push";
 
 // Ogni azione è un indirizzo pubblico: la prima cosa è sempre requireAgendaManager()
@@ -144,7 +145,20 @@ export async function setArrival(idInput: string, arrived: boolean | null): Prom
 // Esito del salvataggio: salvata (con il messaggio WhatsApp già pronto, se c'è il telefono)
 // oppure una domanda da confermare («Quel giorno risulta chiuso: segnarla lo stesso?»).
 // I campi del foglio «Modifica» come li ha adesso il database (dopo un conflitto si ricaricano).
-export type AgendaFields = { name: string; phone: string; people: number; day: string; time: string; table: string; note: string; allergies: boolean; version: string };
+export type AgendaFields = {
+  name: string;
+  phone: string;
+  people: number;
+  day: string;
+  time: string;
+  table: string;
+  note: string;
+  allergies: boolean;
+  timeUnknown: boolean;
+  peopleUnknown: boolean;
+  menu: string;
+  version: string;
+};
 
 export type AgendaOutcome =
   | { saved: true; id: string; whatsappHref: string | null; hasPhone: boolean; unchanged: boolean; isTest: boolean }
@@ -160,7 +174,20 @@ function agendaOutcome(r: ManualResult): AgendaOutcome {
     return {
       saved: false,
       error: r.error,
-      conflict: { name: c.name, phone: c.phone, people: c.people, day: c.day, time: c.time, table: c.table ?? "", note: c.note ?? "", allergies: c.allergies, version: editVersion(c) },
+      conflict: {
+        name: c.name,
+        phone: c.phone,
+        people: c.people,
+        day: c.day,
+        time: c.time,
+        table: c.table ?? "",
+        note: c.note ?? "",
+        allergies: c.allergies,
+        timeUnknown: c.timeUnknown,
+        peopleUnknown: c.peopleUnknown,
+        menu: c.menu ?? "",
+        version: editVersion(c),
+      },
     };
   }
   if ("gone" in r) return { saved: false, error: r.error, gone: true };
@@ -169,8 +196,8 @@ function agendaOutcome(r: ManualResult): AgendaOutcome {
 
 const manualFields = (input: ManualInput): ManualInput => {
   if (!input || typeof input !== "object") throw new ValidationError("Dati non validi.");
-  const { day, time, people, name, phone, table, note, allergies, source, force, dupOk } = input;
-  return { day, time, people, name, phone, table, note, allergies, source, force, dupOk };
+  const { day, time, people, name, phone, table, note, allergies, source, force, dupOk, timeUnknown, peopleUnknown, menu } = input;
+  return { day, time, people, name, phone, table, note, allergies, source, force, dupOk, timeUnknown, peopleUnknown, menu };
 };
 
 export async function addManualBooking(input: ManualInput): Promise<ActionResult<AgendaOutcome>> {
@@ -288,6 +315,34 @@ export async function setDayClosed(dayInput: string, full: boolean): Promise<Act
     }
     await setDayFull(dayInput, Boolean(full), { name: m.name }, null);
     refresh();
+  });
+}
+
+// ---------- Note del giorno nell'agenda («EVENTO DAINELLI», un promemoria)
+
+export async function saveDayNote(input: { id?: string | null; day?: string; text: string }): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const m = await requireAgendaManager();
+    await guardPreview();
+    if (!input || typeof input !== "object") throw new ValidationError("Dati non validi.");
+    if (input.id) {
+      if (typeof input.id !== "string" || !ID.test(input.id)) throw new ValidationError("Nota non trovata: ricarica la pagina.");
+      const r = await updateDayNote(input.id, input.text, m.name);
+      if (!r.ok) throw new ValidationError(r.error);
+      return { id: input.id };
+    }
+    const r = await addDayNote(String(input.day ?? ""), input.text, m.name);
+    if (!r.ok) throw new ValidationError(r.error);
+    return { id: r.id };
+  });
+}
+
+export async function deleteDayNote(idInput: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireAgendaManager();
+    await guardPreview();
+    if (typeof idInput !== "string" || !ID.test(idInput)) throw new ValidationError("Nota non trovata: ricarica la pagina.");
+    await removeDayNote(idInput);
   });
 }
 

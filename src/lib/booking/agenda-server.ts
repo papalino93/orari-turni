@@ -1,6 +1,7 @@
 // Agenda a calendario: dati di un periodo (solo i giorni in vista, senza cronologia) e note del giorno.
 // Solo server. La pagina /prenotazioni carica il resto (Da gestire, Stasera, …) come prima.
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { addDays, businessDay } from "@/lib/booking/rules";
 import { closuresBetween } from "@/lib/booking/service";
@@ -39,7 +40,7 @@ const LIGHT_SELECT = {
   promo: { select: { title: true } },
   // Per le annullate: erano in agenda (confermate prima)?
   log: { where: { kind: { in: ["CONFIRMED", "ACCEPTED"] } }, select: { kind: true }, take: 1 },
-} as const;
+} satisfies Prisma.BookingRequestSelect;
 
 export async function loadAgenda(
   from: string,

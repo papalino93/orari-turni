@@ -4,9 +4,11 @@ import { getBookingManager } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
 import { loadVenue } from "@/lib/menu";
 import { mailConfigured } from "@/lib/mail";
-import { bookingStats, listBookings, loadBookingSettings, siteOrigin, statusPath } from "@/lib/booking/service";
+import { bookingStats, listBookings, loadBookingSettings, siteOrigin } from "@/lib/booking/service";
+import { menuSuggestions } from "@/lib/booking/agenda-server";
 import { pushPublicKey } from "@/lib/booking/push";
 import { BookingsView } from "./bookings-view";
+import { toBookingItem } from "./items";
 import type { BookingItem } from "./types";
 
 export const metadata = { title: "Prenotazioni" };
@@ -57,7 +59,7 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const origin = siteOrigin(host ? `${h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}` : null);
-  const [list, stats, venue, subs] = await Promise.all([
+  const [list, stats, venue, subs, menus] = await Promise.all([
     listBookings(now),
     bookingStats(now),
     loadVenue(),
@@ -65,41 +67,10 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
       where: manager.employeeId ? { employeeId: manager.employeeId } : { username: manager.username },
       select: { endpoint: true, localPhone: true },
     }),
+    menuSuggestions(),
   ]);
 
-  const rows: BookingItem[] = list.rows.map((b) => ({
-    id: b.id,
-    code: b.code,
-    status: b.status,
-    day: b.day,
-    time: b.time,
-    startsAt: b.startsAt.getTime(),
-    people: b.people,
-    name: b.name,
-    phone: b.phone,
-    email: b.email,
-    contact: b.contact,
-    note: b.note,
-    allergies: b.allergies,
-    source: b.source,
-    promoTitle: b.promo?.title ?? null,
-    proposedTime: b.proposedTime,
-    proposedStartsAt: b.proposedStartsAt?.getTime() ?? null,
-    staffMessage: b.staffMessage,
-    handledAt: b.handledAt?.getTime() ?? null,
-    handledBy: b.handledBy,
-    cancelledBy: b.cancelledBy,
-    arrivedAt: b.arrivedAt?.getTime() ?? null,
-    noShowAt: b.noShowAt?.getTime() ?? null,
-    isTest: b.isTest,
-    table: b.table,
-    createdBy: b.createdBy,
-    manual: b.manual,
-    createdAt: b.createdAt.getTime(),
-    updatedAt: b.updatedAt.getTime(),
-    statusUrl: `${origin}${statusPath(b.id)}`,
-    log: b.log.map((l) => ({ at: l.at.getTime(), actor: l.actor, kind: l.kind, message: l.message })),
-  }));
+  const rows: BookingItem[] = list.rows.map((b) => toBookingItem(b, origin));
 
   return (
     <BookingsView
@@ -109,6 +80,8 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
       fullDays={list.fullDays.map((d) => d.day)}
       settings={settings}
       hours={venue.hours}
+      menus={menus}
+      phoneUA={/iPhone|Android.+Mobile|Mobile Safari/i.test(h.get("user-agent") ?? "")}
       stats={stats}
       isOwner={manager.role === "ADMIN"}
       mailReady={mailConfigured()}
