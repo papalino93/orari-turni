@@ -602,7 +602,7 @@ try {
   const list = await S.listBookings();
   check("listBookings: contiene le richieste di prova, in ordine di orario", list.rows.some((r) => r.id === m1.id) && list.rows.every((r, i) => i === 0 || r.startsAt >= list.rows[i - 1].startsAt));
   const stats = await S.bookingStats();
-  check("bookingStats: conta senza le richieste «di prova», tempo di risposta calcolato", stats.total === Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and "createdAt" >= now() - interval '90 days'`)) && stats.medianResponseMinutes !== null && stats.bySource.some(([s]) => s === "google"));
+  check("bookingStats: conta senza le richieste «di prova», tempo di risposta calcolato", stats.total === Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and manual=false and "createdAt" >= now() - interval '90 days'`)) && stats.medianResponseMinutes !== null && stats.bySource.some(([s]) => s === "google"));
 
   // ================= Sabato: agenda, prove, doppioni, avvisi, freno, anteprime
   coolDown();
