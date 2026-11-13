@@ -141,7 +141,7 @@ export function ImportSheet({ now, testMode, onClose }: { now: number; testMode:
           <p>
             Una prenotazione per riga: <strong>giorno, ora, persone, nome</strong>. Telefono e nota se ci sono.
           </p>
-          <pre className="overflow-x-auto rounded-xl bg-surface-2 px-3 py-2 font-mono text-[13px] leading-relaxed whitespace-pre text-foreground">
+          <pre className="overflow-x-auto rounded-xl bg-surface-2 px-3 py-2 font-mono text-[12px] sm:text-[13px] leading-relaxed whitespace-pre text-foreground">
             {`${dm(ex1)} 20:30 4 Rossi 333 123 4567 seggiolone\n${WEEKDAY_SHORT[weekdayOf(ex2)]} ${dm(ex2)}; 21:00; 2; Bianchi`}
           </pre>
           <p className="text-xs text-foreground-muted">
@@ -213,14 +213,14 @@ export function ImportSheet({ now, testMode, onClose }: { now: number; testMode:
         {testMode && <p className="px-1 text-xs text-foreground-muted">L&apos;agenda è spenta: quelle che importi sono di prova.</p>}
 
         <div className="sticky bottom-0 z-10 -mx-5 flex gap-2 border-t border-border bg-surface px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
-          <button type="button" onClick={onClose} className="min-h-12 shrink-0 rounded-full border border-border px-5 text-sm font-medium text-foreground-muted hover:text-foreground sm:min-h-11">
+          <button type="button" onClick={onClose} className="min-h-12 shrink-0 rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:text-foreground sm:min-h-11 sm:px-5">
             Annulla
           </button>
           <button
             type="button"
             disabled={!n || busy || tooMany}
             onClick={save}
-            className="min-h-12 flex-1 rounded-full bg-accent px-6 text-[15px] font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-50 sm:flex-none"
+            className="min-h-12 min-w-0 flex-1 rounded-full bg-accent px-3 text-sm font-semibold whitespace-nowrap text-accent-foreground hover:bg-accent-hover disabled:opacity-50 sm:min-h-11 sm:flex-none sm:px-6 sm:text-[15px]"
           >
             {busy ? "Un attimo…" : n ? `Segna ${n} ${bookingsWord(n)} in agenda` : "Segna in agenda"}
           </button>
@@ -258,11 +258,12 @@ function PreviewRow({ r, server, kept, onKeep }: { r: ImportRow; server: ServerR
   const repeat = r.repeatOf !== null;
   const dup = !bad && !repeat && server?.dup ? server.dup : null;
   const state = bad ? "error" : repeat ? "repeat" : dup ? (kept ? "dup-kept" : "dup") : "ok";
-  const bar = bad ? "border-l-danger" : repeat || (dup && !kept) ? "border-l-gold" : "border-l-success";
+  const bar = bad ? "bg-danger" : repeat || (dup && !kept) ? "bg-gold" : "bg-success";
   const missing = (t: string) => <span className="font-semibold text-danger">{t}</span>;
   const warnings = [...r.warnings, ...(server?.warning && !bad && !repeat ? [server.warning] : [])];
   return (
-    <li data-testid="import-row" data-line={r.line} data-state={state} className={`border-l-4 px-3 py-2.5 ${bar} ${repeat ? "opacity-70" : ""}`}>
+    <li data-testid="import-row" data-line={r.line} data-state={state} className={`relative py-2.5 pr-3 pl-4 ${repeat ? "opacity-70" : ""}`}>
+      <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${bar}`} />
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <span className="text-xs tabular-nums text-foreground-muted">Riga {r.line}</span>
         <span className="text-sm font-semibold tabular-nums text-foreground">
@@ -289,7 +290,7 @@ function PreviewRow({ r, server, kept, onKeep }: { r: ImportRow; server: ServerR
         </p>
       ))}
       {dup && (
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-gold/10 px-2.5 py-1.5">
+        <div className="mt-1.5 flex flex-col gap-x-3 gap-y-0.5 rounded-lg bg-gold/10 px-2.5 py-1.5 sm:flex-row sm:items-center">
           <p className="min-w-0 flex-1 text-sm text-foreground">
             {dup}: {kept ? "la segno lo stesso" : "non la segno"}
           </p>
