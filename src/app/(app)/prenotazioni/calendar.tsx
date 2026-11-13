@@ -473,8 +473,14 @@ function WeekView({
         <div role="row" className="grid grid-cols-7 border-b border-border bg-surface-2/40">
           {week.map(({ day, info }, i) => (
             <div role="gridcell" key={day} className={`min-w-0 space-y-1 px-1.5 py-1.5 ${i ? "border-l border-border" : ""}`}>
-              <p className={`truncate text-center text-[10.5px] tabular-nums ${info.closed ? "font-semibold text-danger" : "text-foreground-muted"}`} title={info.closed ? info.closedText : (info.hours ?? "")}>
-                {info.closed ? info.closedText : info.hours}
+              <p className={`text-center text-[10.5px] leading-snug tabular-nums ${info.closed ? "truncate font-semibold text-danger" : "text-foreground-muted"}`} title={info.closed ? info.closedText : (info.hours ?? "")}>
+                {info.closed
+                  ? info.closedText
+                  : (info.hours ?? "").split(" · ").map((r) => (
+                      <span key={r} className="block xl:inline xl:[&+span]:before:content-['_·_']">
+                        {r}
+                      </span>
+                    ))}
               </p>
               {info.requestsClosed && <p className="truncate text-center text-[10.5px] text-foreground-muted">Richieste chiuse</p>}
               {info.events.map((ev) => (
@@ -495,8 +501,15 @@ function WeekView({
             return (
               <div role="gridcell" key={day} className={`flex min-h-64 min-w-0 flex-col gap-1 px-1.5 pb-2 pt-2 ${i ? "border-l border-border" : ""} ${day < today ? "bg-surface-2/25" : ""}`}>
                 <button type="button" onClick={(e) => onDay(day, e)} className="-mx-0.5 rounded-md px-0.5 pb-1 text-left hover:bg-surface-2/60" aria-label={`${dayAria(day)}: ${sumAria(sum)}`}>
-                  <span className="flex items-baseline justify-between gap-1 text-[12px] tabular-nums">
-                    <span className="truncate font-semibold text-foreground">{sum.count ? `${sum.count} · ${sum.people} pers.` : "—"}</span>
+                  <span className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 text-[12px] tabular-nums">
+                    {sum.count ? (
+                      <span className="font-semibold text-foreground">
+                        <span className="whitespace-nowrap">{sum.count} ·</span> <span className="whitespace-nowrap">{sum.people} pers.</span>
+                      </span>
+                    ) : (
+                      <span className="text-foreground-muted">—</span>
+                    )}
+                    {sum.pending > 0 && <span className="whitespace-nowrap text-[11px] font-semibold text-gold">+{sum.pending}</span>}
                     {sum.incomplete > 0 && <IncompleteDot n={sum.incomplete} />}
                   </span>
                   <FullnessBar people={sum.people} capacity={capacity} className="mt-1" />
@@ -535,13 +548,16 @@ function WeekChip({ b, countTests, onOpen }: { b: AgendaBooking; countTests: boo
       onClick={() => onOpen(b.id)}
       aria-label={label}
       title={label}
-      className={`flex min-h-7 w-full min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-left text-[12px] leading-tight hover:brightness-95 dark:hover:brightness-125 ${tone} ${b.arrivedAt || (b.isTest && !countTests) ? "opacity-60" : ""}`}
+      className={`flex min-h-7 w-full min-w-0 flex-col items-stretch rounded-md px-1.5 py-0.5 text-left text-[12px] leading-tight hover:brightness-95 lg:flex-row lg:items-center lg:gap-1 dark:hover:brightness-125 ${tone} ${b.arrivedAt || (b.isTest && !countTests) ? "opacity-60" : ""}`}
     >
-      <span className={`shrink-0 font-semibold tabular-nums ${b.timeUnknown ? "text-gold" : "text-foreground"}`}>{time}</span>
-      <span className={`shrink-0 tabular-nums ${b.peopleUnknown ? "font-semibold text-gold" : "text-foreground-muted"}`}>{b.peopleUnknown ? "?" : b.people}</span>
+      {/* Tablet: ora e persone sopra, il nome sotto (le colonne sono strette); computer: una riga. */}
+      <span className="flex shrink-0 items-center gap-1">
+        <span className={`font-semibold tabular-nums ${b.timeUnknown ? "text-gold" : "text-foreground"}`}>{time}</span>
+        <span className={`tabular-nums ${b.peopleUnknown ? "font-semibold text-gold" : "text-foreground-muted"}`}>{b.peopleUnknown ? "?" : b.people}</span>
+        {b.allergies && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger lg:order-last" />}
+        {b.arrivedAt && <span aria-hidden className="shrink-0 text-success">✓</span>}
+      </span>
       <span className="min-w-0 flex-1 truncate text-foreground">{b.name}</span>
-      {b.allergies && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />}
-      {b.arrivedAt && <span aria-hidden className="shrink-0 text-success">✓</span>}
     </button>
   );
 }
@@ -600,8 +616,8 @@ function MonthView({
                       {Number(day.slice(8, 10))}
                     </span>
                     <span className="flex items-center gap-0.5">
-                      {sum.incomplete > 0 && <span aria-hidden title="Dati da completare" className="h-2 w-2 rounded-full bg-gold ring-2 ring-gold/25" />}
-                      {info.notes.length > 0 && <span aria-hidden title="Nota del giorno" className="text-[10px] leading-none text-gold">✎</span>}
+                      {sum.incomplete > 0 && <span aria-hidden title="Dati da completare" className="h-2 w-2 shrink-0 rounded-full bg-gold ring-2 ring-gold/25" />}
+                      {info.notes.length > 0 && <span aria-hidden title="Nota del giorno" className="text-[10px] leading-none text-gold max-sm:hidden">✎</span>}
                     </span>
                   </span>
                   {info.closed ? (
@@ -609,7 +625,8 @@ function MonthView({
                   ) : sum.count ? (
                     <span className="text-[11px] leading-tight tabular-nums text-foreground sm:text-[12px]">
                       <span className="font-semibold">{sum.count}</span>
-                      <span className="text-foreground-muted max-sm:block"> · {sum.people} p.</span>
+                      <span className="text-foreground-muted max-sm:hidden"> · </span>
+                      <span className="text-foreground-muted max-sm:block">{sum.people} p.</span>
                     </span>
                   ) : null}
                   {sum.pending > 0 && <span className="truncate text-[10.5px] font-semibold text-gold max-sm:hidden">+{sum.pending} da conf.</span>}
