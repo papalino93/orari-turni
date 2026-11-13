@@ -238,7 +238,7 @@ export function AgendaCalendar(props: CalendarProps) {
             onClick={() => setAnchor(today)}
             aria-current={showsToday ? "date" : undefined}
             title="Oggi (tasto T)"
-            className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${showsToday ? "border-border bg-surface text-foreground-muted" : "border-accent/50 bg-surface text-foreground hover:border-accent"}`}
+            className={`min-h-11 rounded-full px-4 text-sm font-semibold ring-1 ring-inset ${showsToday ? "bg-surface text-foreground-muted ring-border" : "bg-surface text-foreground ring-accent/60 hover:ring-accent"}`}
           >
             Oggi
           </button>
@@ -300,7 +300,7 @@ function NavButton({ label, disabled, onClick, children }: { label: string; disa
       title={`${label} (tasto ${label.endsWith("prima") ? "←" : "→"})`}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface text-foreground hover:border-accent disabled:opacity-40"
+      className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-foreground ring-1 ring-inset ring-border hover:ring-accent disabled:opacity-40"
     >
       <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         {children}
@@ -360,7 +360,7 @@ function dayInfo(data: AgendaData, day: string, hours: Hours) {
   };
 }
 
-const EMPTY: DaySummary = { count: 0, people: 0, peopleUnknown: 0, incomplete: 0, arrived: 0, allergies: 0, pending: 0 };
+const EMPTY: DaySummary = { count: 0, people: 0, peopleUnknown: 0, timeUnknown: 0, incomplete: 0, arrived: 0, allergies: 0, pending: 0 };
 
 // ---------- Settimana
 
@@ -413,7 +413,7 @@ function WeekView({
                 type="button"
                 onClick={(e) => onDay(day, e)}
                 aria-label={`Apri ${dayAria(day)}: ${sumAria(sum)}`}
-                className={`flex w-full items-stretch gap-3 rounded-2xl border bg-surface p-3 text-left hover:border-accent ${isToday ? "border-accent/50" : "border-border"} ${day < today ? "opacity-80" : ""}`}
+                className={`flex w-full items-stretch gap-3 rounded-2xl bg-surface p-3 text-left shadow-[var(--shadow-card)] ring-1 ring-inset hover:ring-accent/60 ${isToday ? "ring-accent/60" : "ring-border"} ${day < today ? "opacity-80" : ""}`}
               >
                 <DateBadge day={day} today={today} />
                 <span className="min-w-0 flex-1 space-y-1">
@@ -522,11 +522,12 @@ function WeekChip({ b, countTests, onOpen }: { b: AgendaBooking; countTests: boo
   const pending = b.status !== "CONFIRMED";
   const incomplete = b.timeUnknown || b.peopleUnknown;
   const time = b.timeUnknown ? "?" : b.status === "PROPOSED" && b.proposedTime ? b.proposedTime : b.time;
+  // (colori dei bordi con ombre e contorni: nell'app il colore dei bordi è fissato per tutti)
   const tone = pending
-    ? "border border-dashed border-gold/70 bg-gold/[0.05]"
+    ? "outline-dashed outline-[1.5px] -outline-offset-[1.5px] outline-gold/70 bg-gold/[0.05]"
     : incomplete
-      ? "border-l-[3px] border-gold bg-gold/[0.1]"
-      : "border-l-[3px] border-accent/70 bg-accent/[0.07]";
+      ? "shadow-[inset_3px_0_0_var(--gold)] bg-gold/[0.12]"
+      : "shadow-[inset_3px_0_0_var(--accent)] bg-accent/[0.07]";
   const label = `${b.timeUnknown ? "Ora da definire" : time}, ${b.peopleUnknown ? "persone da definire" : `${b.people} persone`}, ${b.name}${pending ? ", da confermare" : ""}${b.allergies ? ", allergie" : ""}${incomplete ? ", dati da completare" : ""}`;
   return (
     <button

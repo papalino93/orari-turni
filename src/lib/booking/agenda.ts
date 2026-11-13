@@ -53,6 +53,7 @@ export type DaySummary = {
   people: number;
   // Delle confermate: quante con persone o ora da definire.
   peopleUnknown: number;
+  timeUnknown: number;
   incomplete: number;
   arrived: number;
   allergies: number;
@@ -152,12 +153,13 @@ export function isOpenRequest(b: Pick<AgendaBooking, "status" | "startsAt" | "pr
 }
 
 export function summarize(rows: AgendaBooking[], countTests: boolean, now: number): DaySummary {
-  const s: DaySummary = { count: 0, people: 0, peopleUnknown: 0, incomplete: 0, arrived: 0, allergies: 0, pending: 0 };
+  const s: DaySummary = { count: 0, people: 0, peopleUnknown: 0, timeUnknown: 0, incomplete: 0, arrived: 0, allergies: 0, pending: 0 };
   for (const b of rows) {
     if (b.status === "CONFIRMED" && counts(b, countTests)) {
       s.count++;
       if (!b.peopleUnknown) s.people += b.people;
       else s.peopleUnknown++;
+      if (b.timeUnknown) s.timeUnknown++;
       if (isIncomplete(b)) s.incomplete++;
       if (b.arrivedAt) s.arrived++;
       if (b.allergies) s.allergies++;

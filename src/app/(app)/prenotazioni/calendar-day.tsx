@@ -109,7 +109,7 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, bu
               key={n.id}
               type="button"
               onClick={() => setNoteEdit({ note: n })}
-              className="flex w-full items-start gap-2 rounded-xl border border-gold/30 bg-gold/[0.08] px-3 py-2 text-left hover:border-gold"
+              className="flex w-full items-start gap-2 rounded-xl bg-gold/[0.08] px-3 py-2 text-left ring-1 ring-inset ring-gold/35 hover:ring-gold"
               aria-label={`Nota del giorno: ${n.text}. Tocca per cambiarla`}
             >
               <span aria-hidden className="pt-0.5 text-gold">✎</span>
@@ -137,7 +137,7 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, bu
             )}
             {sum.pending > 0 && <span className="font-semibold text-gold">+ {sum.pending} da confermare</span>}
             {sum.peopleUnknown > 0 && <span className="font-semibold text-gold">+ {sum.peopleUnknown} con persone da definire</span>}
-            {sum.incomplete - sum.peopleUnknown > 0 && <span className="font-semibold text-gold">{sum.incomplete - sum.peopleUnknown} con l&apos;ora da definire</span>}
+            {sum.timeUnknown > 0 && <span className="font-semibold text-gold">{sum.timeUnknown} con l&apos;ora da definire</span>}
           </p>
           {sum.count > 0 && (
             <div className="mt-2 flex items-center gap-3">
@@ -202,9 +202,9 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, bu
             {i === nowIndex && <NowLine minutes={nowMin!} />}
             <section data-gruppo={g.key} aria-label={`${g.label}: ${bookingsText(g.rows.length)}`} className="scroll-mt-[calc(4.5rem+env(safe-area-inset-top))]">
               <h3
-                className={`sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 -mx-1 flex items-baseline gap-2 rounded-lg px-2 py-1.5 backdrop-blur-md ${g.minutes < 0 ? "bg-gold/15" : "bg-background/85"}`}
+                className={`sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 -mx-1 flex flex-wrap items-baseline gap-x-2 rounded-lg px-2 py-1.5 backdrop-blur-md ${g.minutes < 0 ? "bg-gold/15" : "bg-background/85"}`}
               >
-                <span className={`font-serif text-lg font-semibold tabular-nums ${g.minutes < 0 ? "text-gold" : "text-foreground"}`}>
+                <span className={`whitespace-nowrap font-serif text-lg font-semibold tabular-nums ${g.minutes < 0 ? "text-gold" : "text-foreground"}`}>
                   {g.label}
                   {g.minutes >= 1440 && <span className="ml-1 font-sans text-xs font-normal text-foreground-muted">dopo mezzanotte</span>}
                 </span>
@@ -289,18 +289,19 @@ function DayRow({
     }
   }
 
+  // Contorni con ring/outline: nell'app il colore dei bordi è fissato per tutti.
   const frame = request
-    ? "border-dashed border-gold/70 bg-gold/[0.04]"
+    ? "outline-dashed outline-[1.5px] -outline-offset-[1.5px] outline-gold/75 bg-gold/[0.04]"
     : missing && !cancelled
-      ? "border-gold/50 bg-surface"
+      ? "ring-1 ring-inset ring-gold/55 bg-surface"
       : b.arrivedAt
-        ? "border-success/30 bg-surface"
-        : "border-border bg-surface";
+        ? "ring-1 ring-inset ring-success/40 bg-surface"
+        : "ring-1 ring-inset ring-border bg-surface";
   return (
-    <li className={`relative flex items-stretch gap-3 rounded-xl border px-3 py-2.5 transition-colors hover:border-accent ${frame} ${cancelled ? "opacity-55" : b.noShowAt || test ? "opacity-65" : ""}`} data-testid="agenda-riga">
+    <li className={`relative flex items-stretch gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-surface-2/50 ${frame} ${cancelled ? "opacity-55" : b.noShowAt || test ? "opacity-65" : ""}`} data-testid="agenda-riga">
       {missing && !cancelled && <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-gold" />}
       {/* Persone, grandi (come sul librone) */}
-      <span className={`flex w-11 shrink-0 flex-col items-center justify-center rounded-lg py-0.5 ${b.peopleUnknown ? "bg-gold/15 text-gold" : "bg-surface-2 text-foreground"} ${cancelled ? "line-through" : ""}`}>
+      <span className={`flex w-11 shrink-0 flex-col items-center justify-center self-start rounded-lg py-1.5 ${b.peopleUnknown ? "bg-gold/15 text-gold" : "bg-surface-2 text-foreground"} ${cancelled ? "line-through" : ""}`}>
         <span className="font-serif text-2xl font-semibold leading-none tabular-nums">{b.peopleUnknown ? "?" : b.people}</span>
         <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide opacity-75">pers.</span>
       </span>
@@ -314,7 +315,7 @@ function DayRow({
         </span>
         <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
           {b.phone ? (
-            <a href={telLink(b.phone)} className="relative z-[1] inline-flex min-h-7 items-center gap-1 tabular-nums text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground" aria-label={`Chiama ${b.name}: ${phoneDisplay(b.phone)}`}>
+            <a href={telLink(b.phone)} className="relative z-[1] inline-flex min-h-6 items-center tabular-nums text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground" aria-label={`Chiama ${b.name}: ${phoneDisplay(b.phone)}`}>
               {phoneDisplay(b.phone)}
             </a>
           ) : (
@@ -326,15 +327,13 @@ function DayRow({
           {missing && !cancelled && <span className="rounded-full bg-gold/20 px-2 py-0.5 text-xs font-semibold text-gold ring-1 ring-inset ring-gold/40">{missing}</span>}
           {request && <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs font-semibold text-gold ring-1 ring-inset ring-gold/30">{b.status === "PROPOSED" ? `Proposto alle ${b.proposedTime}: aspetta il cliente` : "Da confermare"}</span>}
           {test && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-foreground-muted ring-1 ring-inset ring-border">Di prova</span>}
+          {cancelled && <span className="text-xs font-semibold text-foreground-muted">Annullata</span>}
+          {b.arrivedAt && !cancelled && <span className="text-xs font-semibold text-success">✓ Arrivati alle {clock(b.arrivedAt)}</span>}
+          {b.noShowAt && !cancelled && <span className="text-xs font-semibold text-danger">Non venuti</span>}
+          {late && <span className="text-xs font-medium text-gold">non ancora arrivati</span>}
+          <span className="text-xs text-foreground-muted">{request ? "Online" : originShort(b)}</span>
         </span>
         {b.note && !cancelled && <span className="mt-0.5 block truncate text-sm text-foreground-muted">«{b.note}»</span>}
-        <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
-          {cancelled && <span className="font-semibold text-foreground-muted">Annullata</span>}
-          {b.arrivedAt && !cancelled && <span className="font-semibold text-success">✓ Arrivati alle {clock(b.arrivedAt)}</span>}
-          {b.noShowAt && !cancelled && <span className="font-semibold text-danger">Non venuti</span>}
-          {late && <span className="font-medium text-gold">non ancora arrivati</span>}
-          <span className="text-foreground-muted">{request ? "Online" : originShort(b)}</span>
-        </span>
       </span>
       {/* Oggi: «arrivati» con un tocco, senza aprire la prenotazione. */}
       {isToday && b.status === "CONFIRMED" && !cancelled && !b.noShowAt && (
@@ -345,7 +344,7 @@ function DayRow({
           aria-pressed={Boolean(b.arrivedAt)}
           aria-label={b.arrivedAt ? `Togli «arrivati» a ${b.name}` : `Segna arrivati: ${b.name}`}
           title={b.arrivedAt ? "Togli il segno «arrivati»" : "Segna arrivati"}
-          className={`relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full border text-lg disabled:opacity-50 ${b.arrivedAt ? "border-success bg-success text-white" : "border-success/40 text-success hover:bg-success-bg"}`}
+          className={`relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full text-lg ring-1 ring-inset disabled:opacity-50 ${b.arrivedAt ? "bg-success text-white ring-success" : "text-success ring-success/45 hover:bg-success-bg"}`}
         >
           ✓
         </button>
@@ -399,9 +398,9 @@ function LoadStrip({ groups, capacity, nowMin, onPick }: { groups: ReturnType<ty
         })}
       </div>
       <div className="mt-1 flex gap-[3px] text-[10px] tabular-nums text-foreground-muted">
-        {slots.map((s, i) => (
+        {slots.map((s) => (
           <span key={s.slot} className="min-w-0 flex-1 overflow-visible whitespace-nowrap text-left">
-            {s.slot % 60 === 0 && (slots.length <= 12 || i % 2 === 0) ? slotLabel(s.slot) : ""}
+            {s.slot % 60 === 0 && (slots.length <= 12 || (s.slot / 60) % 2 === 0) ? slotLabel(s.slot) : ""}
           </span>
         ))}
       </div>
