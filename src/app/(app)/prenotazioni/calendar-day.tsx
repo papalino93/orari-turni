@@ -28,13 +28,14 @@ import {
 import { rangesFor } from "@/lib/menu-venue";
 import { deleteDayNote, saveDayNote, setArrival } from "./actions";
 import { AgendaPrint } from "./agenda";
-import { EventPill, FullnessBar, type CalendarProps } from "./calendar";
+import { ClosedChip, EventPill, FullnessBar, PeriodEmpty, type CalendarProps } from "./calendar";
+import { MoreMenu } from "./panel";
 import { clock, originShort, phoneDisplay, telLink } from "./format";
 
 type DayProps = CalendarProps & { day: string; data: AgendaData; capacity: number };
 
 // Le fasce passate di oggi si possono chiudere (restano un tocco più in là).
-export function DayView({ day, data, capacity, today, now, hours, countTests, busy, onOpen, onNew, onCloseRequests, onReopenRequests }: DayProps) {
+export function DayView({ day, data, capacity, today, now, hours, countTests, onOpen, onNew, onImport, onCloseRequests, onReopenRequests }: DayProps) {
   const [query, setQuery] = useState("");
   const [showPast, setShowPast] = useState(false);
   const [noteEdit, setNoteEdit] = useState<{ note: AgendaNote | null } | null>(null);
@@ -83,13 +84,37 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, bu
   return (
     <div className="space-y-3">
       {/* Intestazione del giorno */}
-      <div className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
-          <span className={`inline-flex items-center gap-1.5 tabular-nums ${closed ? "font-semibold text-danger" : "text-foreground-muted"}`} data-testid="agenda-orari">
-            <ClockIcon />
-            {closed ? `Chiuso${closure?.kind === "closed" && closure.reason ? ` · ${closure.reason}` : ""}` : ranges.map((r) => `${r.open}–${r.close}`).join(" · ")}
-          </span>
-          {requestsClosed && !closed && <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-medium text-foreground-muted ring-1 ring-inset ring-border">Richieste online chiuse</span>}
+      <div className="rounded-2xl border border-border bg-surface p-4 shadow-[var(--shadow-card)] sm:p-5">
+        <div className="flex items-start gap-2">
+          <div className="flex min-h-10 min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
+            <span className={`inline-flex items-center gap-1.5 tabular-nums ${closed ? "font-semibold text-danger" : "text-foreground-muted"}`} data-testid="agenda-orari">
+              <ClockIcon />
+              {closed ? `Chiuso${closure?.kind === "closed" && closure.reason ? ` · ${closure.reason}` : ""}` : ranges.map((r) => `${r.open}–${r.close}`).join(" · ")}
+            </span>
+            {requestsClosed && !closed && <ClosedChip />}
+          </div>
+          {/* Le azioni del giorno: stampa, chiudere o riaprire le richieste online, una nota. */}
+          <MoreMenu
+            small
+            label="Azioni del giorno"
+            items={[
+              { label: "+ Nota del giorno", hint: "Un promemoria in cima al giorno", onSelect: () => setNoteEdit({ note: null }) },
+              ...(printList.length ? [{ label: "Stampa il giorno", hint: "Il foglio con tutte le prenotazioni", onSelect: () => window.print() }] : []),
+              ...(!past && !closed
+                ? [
+                    { kind: "separator" as const },
+                    requestsClosed
+                      ? { label: "Riapri le richieste online", hint: "I clienti possono di nuovo chiedere un tavolo per questo giorno", onSelect: () => onReopenRequests(day), testId: "riapri-richieste" }
+                      : {
+                          label: "Chiudi le richieste online per questo giorno",
+                          hint: isToday ? "Stasera siete al completo: i clienti vedono «Completo»" : "I clienti vedono questo giorno come «Completo»",
+                          onSelect: () => onCloseRequests(day),
+                          testId: "chiudi-richieste",
+                        },
+                  ]
+                : []),
+            ]}
+          />
         </div>
 
         {events.length > 0 && (
@@ -149,44 +174,22 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, bu
         </div>
       </div>
 
-      {/* Azioni del giorno */}
-      <div className="flex flex-wrap items-center gap-2">
-        {!past && (
-          <button type="button" onClick={() => onNew(day)} className="min-h-11 flex-1 rounded-full bg-accent px-5 text-sm font-semibold text-accent-foreground hover:bg-accent-hover sm:flex-none">
-            + Segna in questo giorno
-          </button>
-        )}
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Cerca nel giorno"
-          aria-label="Cerca nel giorno: nome, telefono, nota o menù"
-          className={`${inputClass} min-h-11 w-full! sm:w-56! sm:flex-1 rounded-full! px-4`}
-        />
-        <button type="button" onClick={() => window.print()} disabled={!printList.length} className="min-h-11 rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground hover:border-accent disabled:opacity-50">
-          Stampa il giorno
-        </button>
-        {!past &&
-          !closed &&
-          (requestsClosed ? (
-            <button type="button" disabled={busy} onClick={() => onReopenRequests(day)} className="min-h-11 rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground hover:border-accent disabled:opacity-60">
-              Riapri le richieste
-            </button>
-          ) : (
-            <button type="button" disabled={busy} onClick={() => onCloseRequests(day)} className="min-h-11 rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground-muted hover:border-danger hover:text-danger disabled:opacity-60">
-              Chiudi le richieste
-            </button>
-          ))}
-      </div>
+      {/* Cerca nel giorno: utile nelle serate piene. */}
+      {live.length > 8 && (
+        <label className="relative block">
+          <span className="sr-only">Cerca nel giorno: nome, telefono, nota o menù</span>
+          <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
+          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca nel giorno" className={`${inputClass} min-h-11 rounded-full! pl-10`} />
+        </label>
+      )}
 
       {/* Prenotazioni per fascia oraria */}
       <div ref={listRef} className="space-y-3">
         {live.length === 0 && cancelled.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
-            <p className="text-sm font-semibold text-foreground">Nessuna prenotazione {isToday ? "per oggi" : "per questo giorno"}</p>
-            <p className="mx-auto mt-1 max-w-sm text-sm text-foreground-muted">Qui c&apos;è tutto il giorno, come sul librone: le prenotazioni dal sito e quelle segnate a mano.</p>
-          </div>
+          <PeriodEmpty what={isToday ? "today" : "day"} past={past} onNew={() => onNew(day)} onImport={onImport} />
         ) : shown.length === 0 && query ? (
           <p className="rounded-2xl border border-dashed border-border px-5 py-6 text-center text-sm text-foreground-muted">Nessuna prenotazione trovata per «{query.trim()}».</p>
         ) : null}

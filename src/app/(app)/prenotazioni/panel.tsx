@@ -3,15 +3,23 @@
 // Pannello «Richieste» (a destra sul computer, dal basso su telefono e tablet) e il menù «⋯».
 
 import { useEffect, useId, useRef, useState } from "react";
-import { useEscapeToClose } from "@/lib/use-escape-to-close";
 import { useBackdropClose } from "@/lib/use-backdrop-close";
 import { DotsIcon } from "./lists";
 
 export function SidePanel({ title, subtitle, onClose, children, testId }: { title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; testId?: string }) {
-  useEscapeToClose(onClose);
   const backdrop = useBackdropClose(onClose);
   const titleId = useId();
   const ref = useRef<HTMLDivElement>(null);
+  // Esc chiude il pannello solo se non c'è un foglio aperto sopra (una prenotazione aperta dal pannello).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const dialogs = document.querySelectorAll("[role=dialog], [role=alertdialog]");
+      if (dialogs[dialogs.length - 1] === ref.current) onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
   useEffect(() => {
     // Il fuoco va nel pannello (lettori di schermo e tastiera), e torna dov'era alla chiusura.
     const before = document.activeElement as HTMLElement | null;

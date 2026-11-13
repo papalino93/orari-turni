@@ -142,7 +142,6 @@ function useView(phoneUA: boolean, forced: AgendaView | null): [AgendaView, (v: 
     }
     const phone = window.matchMedia("(max-width: 767px)").matches;
     const next: AgendaView = stored === "day" || stored === "week" || stored === "month" ? stored : phone ? "day" : "week";
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- la vista ricordata è solo nel browser
     setViewState(next);
   }, []);
   const setView = useCallback((v: AgendaView) => {
@@ -218,7 +217,7 @@ export function AgendaCalendar(props: CalendarProps) {
 
   const titleBlock = (
     // Titolo del periodo: un tocco apre il calendario per saltare a un giorno.
-    <div className="relative order-1 min-w-0 flex-1 md:order-2 xl:flex-none">
+    <div className="relative order-1 min-w-0 flex-1 md:order-2 2xl:flex-none">
       <span className="flex min-h-11 items-center gap-1.5 rounded-xl px-1 md:px-2">
         <span className="min-w-0">
           {near && <span className="block text-[11px] font-semibold uppercase leading-tight tracking-wider text-accent-ink">{near}</span>}
@@ -279,8 +278,8 @@ export function AgendaCalendar(props: CalendarProps) {
             {bar.status}
           </div>
         )}
-        <div aria-hidden className="order-4 h-0 basis-full xl:hidden" />
-        <div role="radiogroup" aria-label="Vista dell'agenda" className="order-5 grid min-w-0 flex-1 grid-cols-3 rounded-full bg-surface-2/80 p-1 ring-1 ring-inset ring-border md:flex-none xl:ml-2">
+        <div aria-hidden className="order-4 h-0 basis-full 2xl:hidden" />
+        <div role="radiogroup" aria-label="Vista dell'agenda" className="order-5 grid min-w-0 flex-1 grid-cols-3 rounded-full bg-surface-2/80 p-[3px] ring-1 ring-inset ring-border md:flex-none 2xl:ml-2">
           {VIEWS.map((v) => (
             <button
               key={v.id}
@@ -289,14 +288,14 @@ export function AgendaCalendar(props: CalendarProps) {
               aria-checked={view === v.id}
               aria-label={v.label}
               onClick={() => setView(v.id)}
-              className={`min-h-9 rounded-full px-2 text-[13px] font-semibold transition-colors sm:px-4 sm:text-sm ${view === v.id ? "bg-accent text-accent-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"}`}
+              className={`min-h-[2.375rem] rounded-full px-1.5 text-[13px] font-semibold transition-colors sm:px-4 sm:text-sm ${view === v.id ? "bg-accent text-accent-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"}`}
             >
               <span className="sm:hidden">{v.short}</span>
               <span className="max-sm:hidden">{v.label}</span>
             </button>
           ))}
         </div>
-        <div className="order-6 flex shrink-0 items-center gap-1.5 md:ml-auto md:gap-2 xl:ml-0">
+        <div className="order-6 flex shrink-0 items-center gap-1.5 md:ml-auto md:gap-2 2xl:ml-0">
           {bar?.requests}
           {bar?.add && <span className="hidden md:contents">{bar.add}</span>}
           {bar?.more}
@@ -761,7 +760,7 @@ export function ClosedChip({ tiny = false }: { tiny?: boolean }) {
   return (
     <span
       title="Richieste online chiuse per questo giorno"
-      className={`inline-flex max-w-full shrink-0 items-center gap-1 rounded-full bg-danger-bg font-semibold text-danger ring-1 ring-inset ring-danger/25 ${tiny ? "px-1 py-px text-[10px]" : "px-2 py-0.5 text-[10.5px]"}`}
+      className={`inline-flex w-fit max-w-full shrink-0 items-center gap-1 self-start rounded-full bg-danger-bg font-semibold text-danger ring-1 ring-inset ring-danger/25 ${tiny ? "px-1 py-px text-[10px]" : "px-2 py-0.5 text-[10.5px]"}`}
     >
       <svg aria-hidden width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
         <rect x="5" y="11" width="14" height="10" rx="2" />

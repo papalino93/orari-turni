@@ -281,10 +281,10 @@ export async function dataDaFare() {
   const righe = [
     // Le prenotazioni per prime (un cliente aspetta la risposta), e solo quando ce ne sono.
     ...(prenotazioni.richieste > 0
-      ? [{ n: prenotazioni.richieste, testo: prenotazioni.richieste === 1 ? "richiesta di prenotazione" : "richieste di prenotazione", breve: "prenotazioni", livello: "rosso", link: "/prenotazioni" }]
+      ? [{ n: prenotazioni.richieste, testo: prenotazioni.richieste === 1 ? "richiesta di prenotazione" : "richieste di prenotazione", breve: "prenotazioni", livello: "rosso", link: "/prenotazioni?richieste=1" }]
       : []),
     ...(prenotazioni.whatsapp > 0
-      ? [{ n: prenotazioni.whatsapp, testo: prenotazioni.whatsapp === 1 ? "risposta da mandare su WhatsApp" : "risposte da mandare su WhatsApp", breve: "whatsapp", livello: "ambra", link: "/prenotazioni" }]
+      ? [{ n: prenotazioni.whatsapp, testo: prenotazioni.whatsapp === 1 ? "risposta da mandare su WhatsApp" : "risposte da mandare su WhatsApp", breve: "whatsapp", livello: "ambra", link: "/prenotazioni?richieste=1" }]
       : []),
     { n: allergeni, testo: "allergeni da compilare", breve: "allergeni", livello: allergeni > 0 ? "rosso" : "verde", link: "/gestione-menu" },
     { n: daPreparare, testo: "orari della settimana prossima da fare", breve: "da preparare", livello: daPreparare > 0 ? "ambra" : "verde", link: `/orari?date=${nextMon}` },

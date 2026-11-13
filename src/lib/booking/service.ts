@@ -381,7 +381,7 @@ export async function clearPause(): Promise<void> {
 async function notifyOwner(title: string, body: string): Promise<void> {
   if (isPreview()) return;
   const settings = await loadBookingSettings();
-  await sendPushToStaff({ title, body, url: "/prenotazioni", tag: "booking-pause" }, undefined, "owner").catch(() => {});
+  await sendPushToStaff({ title, body, url: "/prenotazioni?apri=impostazioni", tag: "booking-pause" }, undefined, "owner").catch(() => {});
   if (settings.notifyEmail && isValidEmail(settings.notifyEmail) && mailConfigured()) {
     // Conta sulla quota del giorno (con la riserva per le prenotazioni).
     await sendTransactional([{ to: settings.notifyEmail, subject: oneLine(`${title}: ${body}`).slice(0, 180), text: body, html: `<p>${escapeHtml(body)}</p>` }])

@@ -8,7 +8,7 @@ import { bookingStats, listBookings, loadBookingSettings, siteOrigin } from "@/l
 import { menuSuggestions } from "@/lib/booking/agenda-server";
 import { effectiveMode, venueDeviceExists, venueWho, whatsappRole, whoChoices, VENUE_LABEL } from "@/lib/booking/venue";
 import { pushPublicKey } from "@/lib/booking/push";
-import { BookingsView } from "./bookings-view";
+import { BookingsView, type PageLink } from "./bookings-view";
 import { toBookingItem } from "./items";
 import type { BookingItem } from "./types";
 
@@ -16,7 +16,30 @@ export const metadata = { title: "Prenotazioni" };
 
 // Richieste di tavolo dal sito. Il Proxy lascia arrivare qui ogni login (non conosce i permessi):
 // decide la pagina, con il permesso letto dal database a ogni apertura.
-export default async function PrenotazioniPage({ searchParams }: { searchParams: Promise<{ r?: string | string[] }> }) {
+type Params = { r?: string | string[]; richieste?: string | string[]; vista?: string | string[]; tab?: string | string[]; apri?: string | string[] };
+
+// Dove portare chi arriva da un link (widget, notifica, segnalibro), anche con i vecchi ?tab=… delle schede:
+// «Da gestire» → pannello Richieste, «Stasera» → Giorno di oggi, «Prossimi giorni» → Settimana,
+// «Archivio» → Cerca, «Numeri» → Numeri.
+function pageLink(p: Params): PageLink | null {
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+  const tab = one(p.tab);
+  const vista = one(p.vista);
+  const apri = one(p.apri);
+  if (one(p.richieste) === "1" || tab === "todo" || apri === "richieste") return { panel: "richieste" };
+  if (tab === "archive" || apri === "cerca") return { panel: "cerca" };
+  if (tab === "numbers" || apri === "numeri") return { panel: "numeri" };
+  if (apri === "impostazioni") return { panel: "impostazioni" };
+  if (apri === "avvisi") return { panel: "avvisi" };
+  if (tab === "tonight" || vista === "oggi") return { view: "day", today: true };
+  if (tab === "next" || vista === "settimana") return { view: "week" };
+  if (vista === "mese") return { view: "month" };
+  if (vista === "giorno") return { view: "day" };
+  if (tab === "agenda") return { view: undefined };
+  return null;
+}
+
+export default async function PrenotazioniPage({ searchParams }: { searchParams: Promise<Params> }) {
   const manager = await getBookingManager();
   if (!manager) {
     return (
@@ -56,7 +79,9 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
   }
 
   const now = new Date();
-  const { r } = await searchParams;
+  const params = await searchParams;
+  const { r } = params;
+  const link = pageLink(params);
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const origin = siteOrigin(host ? `${h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}` : null);
@@ -98,7 +123,8 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
       push={{ publicKey: pushPublicKey(), myEndpoints: subs.map((s) => s.endpoint), localPhoneEndpoints: subs.filter((s) => s.localPhone).map((s) => s.endpoint) }}
       preview={process.env.VERCEL_ENV === "preview"}
       googleLink={`${origin}/prenota?da=google`}
-      openRequest={typeof r === "string" && /^[a-z0-9]{10,40}$/i.test(r) ? r : null}
+      openRequest={typeof r === "string" && /^[a-z0-9_]{10,40}$/i.test(r) ? r : null}
+      link={link}
     />
   );
 }
