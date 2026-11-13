@@ -61,7 +61,8 @@ try {
   const toStep2 = async (subject) => {
     await p.getByRole("button", { name: "Avanti: scrivi il messaggio" }).click();
     await p.locator("#mail-subject").fill(subject);
-    await p.locator("#mail-body").fill("Spett.le {intestazione},\n\nCiao!");
+    await p.locator("#mail-greeting").fill("Spett.le");
+    await p.locator("#mail-body").fill("Ciao!");
     await p.getByRole("button", { name: "Avanti: controlla" }).click();
   };
   const consent = () => p.getByRole("checkbox", { name: /Confermo/ });

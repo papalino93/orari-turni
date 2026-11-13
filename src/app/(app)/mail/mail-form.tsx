@@ -7,7 +7,6 @@ import {
   checkTypedRows,
   guessColumns,
   HEADER_TAG,
-  HEADER_TAG_RE,
   mailFooter,
   parseRecipients,
   tableToRecipients,
@@ -19,7 +18,8 @@ import { sendMailChunk, sendMailTest, startMailSend } from "./actions";
 import { newRow, PasteReading, RecipientsTable, type Row } from "./recipients-table";
 
 const CHUNK = 50;
-const DEFAULT_BODY = `Spett.le ${HEADER_TAG},\n\n`;
+const DEFAULT_BODY = "";
+const GREETINGS = ["Gentile", "Spett.le", "Caro / Cara", "Ciao"];
 const SAMPLE_CSV = "\uFEFFemail;nome\nmario.rossi@esempio.it;Dott. Rossi\nlaura.bianchi@esempio.it;Laura\n";
 
 const field =
@@ -121,6 +121,11 @@ export function MailForm({
   const [onlyDocumented, setOnlyDocumented] = useState(true);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState(DEFAULT_BODY);
+  // Saluto in un campo a parte: «Gentile» + il nome di ognuno. Il testo vero comincia dopo.
+  const [greeting, setGreeting] = useState("Gentile");
+  const [withName, setWithName] = useState(true);
+  const greetingLine = greeting.trim() ? `${greeting.trim()}${withName ? ` ${HEADER_TAG}` : ""},` : "";
+  const composed = [greetingLine, body.trim()].filter(Boolean).join("\n\n");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [previewAt, setPreviewAt] = useState(0);
   const [typedTest, setTestTo] = useState<string | null>(null);
@@ -233,17 +238,6 @@ export function MailForm({
   }
 
   // Inserisce il segnaposto dove si trova il cursore nel testo.
-  function insertTag() {
-    const el = bodyRef.current;
-    const at = el?.selectionStart ?? body.length;
-    const end = el?.selectionEnd ?? at;
-    setBody(body.slice(0, at) + HEADER_TAG + body.slice(end));
-    requestAnimationFrame(() => {
-      el?.focus();
-      el?.setSelectionRange(at + HEADER_TAG.length, at + HEADER_TAG.length);
-    });
-  }
-
   function reset() {
     setStep(0);
     setFileText("");
@@ -253,6 +247,8 @@ export function MailForm({
     setFileName("");
     setSubject("");
     setBody(DEFAULT_BODY);
+    setGreeting("Gentile");
+    setWithName(true);
     setConsentFor(null);
     setConfirming(false);
     setResume(null);
@@ -274,7 +270,7 @@ export function MailForm({
         setProgress({ sent: i, total: job.list.length });
         let res: Awaited<ReturnType<typeof sendMailChunk>>;
         try {
-          res = await sendMailChunk({ sendId: job.sendId, index: i / CHUNK, recipients: job.list.slice(i, i + CHUNK), subject, body });
+          res = await sendMailChunk({ sendId: job.sendId, index: i / CHUNK, recipients: job.list.slice(i, i + CHUNK), subject, body: composed });
         } catch {
           res = { ok: false, error: "La connessione si è interrotta." };
         }
@@ -310,7 +306,7 @@ export function MailForm({
     startTransition(async () => {
       let res: Awaited<ReturnType<typeof sendMailTest>>;
       try {
-        res = await sendMailTest({ to, header: sample.header, subject, body });
+        res = await sendMailTest({ to, header: sample.header, subject, body: composed });
       } catch {
         res = { ok: false, error: "La connessione si è interrotta: riprova." };
       }
@@ -682,10 +678,7 @@ export function MailForm({
       {step === 1 && (
         <section className={card}>
           <h2 className="text-base font-semibold">Cosa vuoi dire?</h2>
-          <p className="mt-1 text-sm text-foreground-muted">
-            Il testo è uguale per tutti. Se vuoi che ognuno veda <b>il suo nome</b> (quello scritto nell&apos;elenco, es. «Dott. Rossi»,
-            «Studio Lenzi»), metti il cursore dove va e tocca <b>«+ Nome della persona»</b>.
-          </p>
+          <p className="mt-1 text-sm text-foreground-muted">Scrivi una volta sola: ognuno riceve la sua mail, con il suo nome nel saluto.</p>
 
           <label className="mb-1 mt-4 block text-sm font-medium" htmlFor="mail-subject">
             Oggetto
@@ -695,11 +688,47 @@ export function MailForm({
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             maxLength={200}
-            placeholder="Es. Regali di Natale dall'Angolo del Vino"
+            placeholder="Es. Le confezioni regalo dell'Angolo del Vino"
             className={field}
           />
 
-          <label className="mb-1 mt-4 block text-sm font-medium" htmlFor="mail-body">
+          <fieldset className="mt-5 rounded-xl border border-border p-4">
+            <legend className="px-1 text-sm font-medium">Saluto</legend>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                id="mail-greeting"
+                aria-label="Saluto"
+                value={greeting}
+                onChange={(e) => setGreeting(e.target.value)}
+                maxLength={40}
+                placeholder="Es. Gentile"
+                className={`${field} max-w-[11rem]`}
+              />
+              {GREETINGS.map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setGreeting(g === "Caro / Cara" ? "Caro" : g)}
+                  className={`min-h-11 rounded-full border px-3.5 text-sm ${greeting === g || (g === "Caro / Cara" && greeting === "Caro") ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground-muted hover:border-accent"}`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+            <label className="mt-3 flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+              <input type="checkbox" checked={withName} onChange={(e) => setWithName(e.target.checked)} className="h-4 w-4 accent-accent" />
+              <span>Dopo il saluto, il nome di ognuno (quello scritto nell&apos;elenco)</span>
+            </label>
+            {greetingLine && (
+              <div className="mt-2 rounded-lg bg-surface-2/60 px-3 py-2.5 text-sm" aria-live="polite">
+                <span className="text-foreground-muted">La mail comincerà così: </span>
+                <b className="[overflow-wrap:anywhere]">«{applyHeader(greetingLine, sample?.header || "Dott. Rossi")}»</b>
+                {withName && <span className="mt-0.5 block text-xs text-foreground-muted">Chi nell&apos;elenco non ha un nome riceve «{applyHeader(greetingLine, "")}».</span>}
+              </div>
+            )}
+          </fieldset>
+
+          <label className="mb-1 mt-5 block text-sm font-medium" htmlFor="mail-body">
             Testo della mail
           </label>
           <textarea
@@ -708,37 +737,12 @@ export function MailForm({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={9}
-            placeholder={"Scrivi qui il messaggio. Una riga vuota separa i paragrafi."}
+            placeholder={"Scrivi qui il messaggio, dopo il saluto. Una riga vuota separa i paragrafi."}
             className={field}
           />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button type="button" onClick={insertTag} className="min-h-11 rounded-full border border-border px-4 text-sm font-medium hover:border-accent">
-              + Nome della persona
-            </button>
-            <span className="text-xs text-foreground-muted">Nel testo compare come {HEADER_TAG}: al momento dell&apos;invio diventa il nome di ognuno.</span>
-          </div>
-          {body.trim() && (
-            <div className="mt-3 rounded-xl bg-surface-2/60 px-4 py-3 text-sm" aria-live="polite">
-              {HEADER_TAG_RE.test(body) ? (
-                <>
-                  <p className="text-xs text-foreground-muted">
-                    Così inizia la mail{sample?.header ? <> per <b className="text-foreground">{sample.email}</b></> : null}:
-                  </p>
-                  <p className="mt-1 font-medium [overflow-wrap:anywhere]">
-                    «{applyHeader(body.split(/\n/).find((l) => HEADER_TAG_RE.test(l)) ?? "", sample?.header || "Dott. Rossi").trim()}»
-                  </p>
-                  {sample && !sample.header && <p className="mt-1 text-xs text-foreground-muted">Chi nell&apos;elenco non ha un nome riceve la riga senza nome.</p>}
-                </>
-              ) : (
-                <p className="text-foreground-muted">
-                  Tutti riceveranno lo <b className="text-foreground">stesso identico testo</b>, senza il loro nome. Va bene così, oppure tocca «+ Nome della persona».
-                </p>
-              )}
-            </div>
-          )}
 
           <div className="mt-5">
-            <MailPreview from={from} sample={sample} subject={subject} body={body} footer={footer} />
+            <MailPreview from={from} sample={sample} subject={subject} body={composed} footer={footer} />
           </div>
 
           <div className="mt-5 flex justify-between gap-3">
@@ -782,7 +786,7 @@ export function MailForm({
                 </button>
               </span>
             </div>
-            <MailPreview from={from} sample={sample} subject={subject} body={body} footer={footer} />
+            <MailPreview from={from} sample={sample} subject={subject} body={composed} footer={footer} />
           </div>
 
           <div className="mt-5 rounded-xl border border-border p-4">

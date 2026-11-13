@@ -128,7 +128,8 @@ try {
   // Prova e invio veri.
   await p.getByRole("button", { name: "Avanti: scrivi il messaggio" }).click();
   await p.locator("#mail-subject").fill(`Prova tabella ${RUN}`);
-  await p.locator("#mail-body").fill("Gentile {intestazione},\n\nCiao!");
+  await p.locator("#mail-body").fill("Ciao!");
+  check("saluto: «La mail comincerà così» con il nome", /La mail comincerà così: «Gentile /.test(await p.locator("main").innerText()));
   check("anteprima: il nome della prima riga", /Gentile Dott\. Rossi,/.test(await text(p)));
   await p.getByRole("button", { name: "Avanti: controlla" }).click();
   await p.getByRole("textbox", { name: "Il tuo indirizzo email" }).fill(at("io"));
