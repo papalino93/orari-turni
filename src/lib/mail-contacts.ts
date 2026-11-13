@@ -4,7 +4,7 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { isValidEmail } from "@/lib/mail-text";
-import { BOOKING_OPTIN_TEXT, cleanEmail, cleanName, SITE_GROUP_NAME, type Consent, type RContact, type RubricaData } from "@/lib/mail-rubrica";
+import { BOOKING_OPTIN_TEXT, cleanEmail, GROUP_COLORS, cleanName, SITE_GROUP_NAME, type Consent, type RContact, type RubricaData } from "@/lib/mail-rubrica";
 
 // Dopo quanti giorni un contatto eliminato (che si poteva ancora rimettere) si cancella davvero.
 export const PURGE_DAYS = 30;
@@ -75,13 +75,15 @@ export async function contactCount(): Promise<number> {
 }
 
 // Un gruppo per nome (senza badare alle maiuscole); se non c'è lo crea in fondo.
-export async function ensureGroup(name: string, color = "vino"): Promise<string> {
+// Senza colore: il prossimo della tavolozza, così i gruppi nuovi non sono tutti uguali.
+export async function ensureGroup(name: string, color?: string): Promise<string> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`mail-group:${name.toLowerCase()}`}))`;
     const found = await tx.mailGroup.findFirst({ where: { name: { equals: name, mode: "insensitive" } }, select: { id: true } });
     if (found) return found.id;
     const last = await tx.mailGroup.aggregate({ _max: { sortOrder: true } });
-    const g = await tx.mailGroup.create({ data: { name, color, sortOrder: (last._max.sortOrder ?? -1) + 1 } });
+    const count = await tx.mailGroup.count();
+    const g = await tx.mailGroup.create({ data: { name, color: color ?? GROUP_COLORS[count % GROUP_COLORS.length].id, sortOrder: (last._max.sortOrder ?? -1) + 1 } });
     return g.id;
   });
 }

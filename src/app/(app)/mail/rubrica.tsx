@@ -11,6 +11,7 @@ import { ImportSheet } from "./import-sheet";
 import {
   card,
   checkbox,
+  dangerBtn,
   DisplayName,
   field,
   filterIndex,
@@ -56,6 +57,9 @@ export function Rubrica() {
   const [open, setOpen] = useState<Open>(null);
   const [busy, setBusy] = useState(false);
   const query = useDeferredValue(q);
+  // Sul telefono gruppo, ordine e «chi» stanno dietro «Filtri»: la lista comincia subito.
+  const [showFilters, setShowFilters] = useState(false);
+  const activeFilters = Number(Boolean(group)) + Number(status !== "tutti") + Number(sort !== "nome");
 
   const groups = useMemo(() => data?.groups ?? [], [data]);
   const groupMap = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups]);
@@ -118,10 +122,10 @@ export function Rubrica() {
   }
 
   const header = (
-    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h2 className="text-base font-semibold">Rubrica</h2>
-        <p className="mt-0.5 text-sm text-foreground-muted">
+        <h2 className="sr-only">Rubrica</h2>
+        <p className="text-sm text-foreground-muted">
           {data
             ? total === 0
               ? "Le persone a cui scrivi, in un posto solo."
@@ -130,17 +134,17 @@ export function Rubrica() {
         </p>
       </div>
       {data && total > 0 && (
-        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-          <button type="button" onClick={() => setOpen({ kind: "contact", id: null })} className={`${primaryBtn} col-span-3 sm:order-last`}>
-            + Nuovo contatto
+        <div className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+          <button type="button" onClick={() => setOpen({ kind: "contact", id: null })} className={`${primaryBtn} px-2 sm:order-last sm:px-4`}>
+            + Nuovo<span className="hidden sm:inline">&nbsp;contatto</span>
           </button>
-          <button type="button" onClick={() => setOpen({ kind: "import" })} className={ghostBtn}>
+          <button type="button" onClick={() => setOpen({ kind: "import" })} className={`${ghostBtn} px-2 sm:px-4`}>
             Importa
           </button>
-          <button type="button" onClick={() => setOpen({ kind: "groups" })} className={ghostBtn}>
+          <button type="button" onClick={() => setOpen({ kind: "groups" })} className={`${ghostBtn} px-2 sm:px-4`}>
             Gruppi
           </button>
-          <button type="button" onClick={() => setOpen({ kind: "export" })} className={ghostBtn}>
+          <button type="button" onClick={() => setOpen({ kind: "export" })} className={`${ghostBtn} px-2 sm:px-4`}>
             Scarica
           </button>
         </div>
@@ -170,8 +174,21 @@ export function Rubrica() {
     body = (
       <>
         <div className="flex flex-col gap-3">
-          <SearchBox id="rubrica-cerca" labelText="Cerca nella rubrica" value={q} onChange={(v) => (setQ(v), resetPage())} />
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="flex gap-2">
+            <div className="min-w-0 flex-1">
+              <SearchBox id="rubrica-cerca" labelText="Cerca nella rubrica" value={q} onChange={(v) => (setQ(v), resetPage())} />
+            </div>
+            <button
+              type="button"
+              aria-expanded={showFilters}
+              aria-controls="rubrica-filtri"
+              onClick={() => setShowFilters((x) => !x)}
+              className={`${ghostBtn} shrink-0 px-3 sm:hidden ${activeFilters ? "border-accent text-accent-ink" : ""}`}
+            >
+              Filtri{activeFilters ? ` (${activeFilters})` : ""}
+            </button>
+          </div>
+          <div id="rubrica-filtri" className={`${showFilters ? "grid" : "hidden"} grid-cols-2 gap-2 sm:grid sm:grid-cols-3`}>
             <div className="min-w-0">
               <label htmlFor="rubrica-gruppo" className="mb-1 block text-xs font-medium text-foreground-muted">
                 Gruppo
@@ -259,23 +276,31 @@ export function Rubrica() {
             aria-label="Contatti scelti"
             className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 mt-4 rounded-2xl border border-border bg-surface/95 p-3 shadow-[var(--shadow-raised)] backdrop-blur md:bottom-4"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold">{plural(chosen.length, "scelto", "scelti")}</p>
-              <button type="button" onClick={() => setSelected(new Set())} className="min-h-11 px-2 text-sm font-medium text-accent-ink hover:underline">
-                Togli la scelta
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelected(new Set())}
+                aria-label="Togli la scelta"
+                title="Togli la scelta"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-foreground-muted hover:bg-surface-2 hover:text-foreground"
+              >
+                <svg aria-hidden width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                  <path d="M5 5l14 14M19 5L5 19" />
+                </svg>
               </button>
-            </div>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-              <button type="button" disabled={canReceive.length === 0} onClick={() => writeTo(canReceive.map((c) => c.id))} className={`${primaryBtn} col-span-2`}>
+              <p className="shrink-0 text-sm font-semibold">{plural(chosen.length, "scelto", "scelti")}</p>
+              <button type="button" disabled={canReceive.length === 0} onClick={() => writeTo(canReceive.map((c) => c.id))} className={`${primaryBtn} ml-auto min-w-0 flex-1 sm:flex-none`}>
                 Scrivi a questi ({n(canReceive.length)})
               </button>
-              <button type="button" onClick={() => setOpen({ kind: "add" })} className={ghostBtn}>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 sm:flex sm:justify-end">
+              <button type="button" onClick={() => setOpen({ kind: "add" })} className={`${ghostBtn} px-2 text-[13px] leading-tight sm:px-4 sm:text-sm`}>
                 Aggiungi a un gruppo
               </button>
-              <button type="button" disabled={!chosen.some((c) => c.groups.length)} onClick={() => setOpen({ kind: "remove" })} className={ghostBtn}>
+              <button type="button" disabled={!chosen.some((c) => c.groups.length)} onClick={() => setOpen({ kind: "remove" })} className={`${ghostBtn} px-2 text-[13px] leading-tight sm:px-4 sm:text-sm`}>
                 Togli dal gruppo
               </button>
-              <button type="button" onClick={() => setOpen({ kind: "delete" })} className={`${ghostBtn} col-span-2 text-danger sm:ml-auto`}>
+              <button type="button" onClick={() => setOpen({ kind: "delete" })} className={`${dangerBtn} px-2 text-[13px] sm:px-4 sm:text-sm`}>
                 Elimina
               </button>
             </div>

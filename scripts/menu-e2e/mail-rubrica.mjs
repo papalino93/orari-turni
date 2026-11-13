@@ -451,7 +451,7 @@ try {
       await pickMode(s, "Dalla rubrica");
       await s.locator("#mail-rubrica-cerca").fill(DOMAIN);
       check(`${label}: «Dalla rubrica» senza scorrimento di lato`, await noSideScroll(s));
-      await shot(s, `passo1-dalla-rubrica-${label}`, false);
+      await shot(s, `passo1-dalla-rubrica-${label}`);
     }
     await s.context().close();
   }

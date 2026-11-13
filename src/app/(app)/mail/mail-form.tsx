@@ -870,6 +870,9 @@ export function MailForm({
             </div>
           )}
           {overLimit && <p className="mt-3 text-sm text-danger">Troppi destinatari per oggi: torna indietro e riduci la lista.</p>}
+          {!consent && !overLimit && recipients.length > 0 && (
+            <p className="mt-3 text-right text-xs text-foreground-muted">Per inviare, scegli qui sopra perché puoi scrivergli.</p>
+          )}
 
           <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
             <button type="button" onClick={() => setStep(1)} disabled={pending} className={ghostBtn}>

@@ -135,7 +135,7 @@ export function RubricaPicker() {
                   </span>
                   <span className="block truncate text-xs text-foreground-muted">{c.email}</span>
                 </span>
-                <span className="hidden max-w-[40%] sm:block">
+                <span className="hidden max-w-[40%] sm:flex sm:justify-end">
                   <GroupChips ids={c.groups} groups={groupMap} />
                 </span>
               </label>

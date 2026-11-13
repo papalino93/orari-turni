@@ -4,7 +4,7 @@ import { useMemo, useState, useSyncExternalStore, type DragEvent } from "react";
 import { Sheet } from "@/app/(app)/gestione-menu/sheet";
 import { useToast } from "@/components/toast";
 import { FORMAT_LABEL, fromPicker, parseContactsText, parsePasted, parseTable, planImport, type ParsedImport, type PickedContact } from "@/lib/contact-import";
-import { n, type Consent, type ContactSource } from "@/lib/mail-rubrica";
+import { GROUP_COLORS, n, type Consent, type ContactSource } from "@/lib/mail-rubrica";
 import { readXlsxGrid } from "@/lib/xlsx";
 import { useMail } from "./mail-store";
 import { importContacts, saveGroup } from "./rubrica-actions";
@@ -145,7 +145,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
 
   async function createGroup() {
     if (!newGroup.trim()) return;
-    const res = await saveGroup({ name: newGroup, color: "vino" }).catch(() => null);
+    const res = await saveGroup({ name: newGroup, color: GROUP_COLORS[groups.length % GROUP_COLORS.length].id }).catch(() => null);
     if (!res?.ok) return setError(res?.error ?? "Non sono riuscito a creare il gruppo.");
     await reload();
     setExtra(new Set([...extra, res.data.id]));
@@ -249,7 +249,12 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
       </p>
       <div className="mt-2 rounded-xl bg-surface-2 p-4" aria-live="polite">
         <p className="text-base font-semibold" data-testid="anteprima-conti">
-          {summary.join(" · ")}
+          {summary.map((part, i) => (
+            <span key={part}>
+              <span className="whitespace-nowrap">{part}</span>
+              {i < summary.length - 1 && " · "}
+            </span>
+          ))}
         </p>
         {c.riempie > 0 && <p className="mt-1 text-xs text-foreground-muted">{plural(c.riempie, "contatto in rubrica senza nome prende", "contatti in rubrica senza nome prendono")} quello del file.</p>}
         {c.nonvuole > 0 && <p className="mt-1 text-xs text-foreground-muted">Chi non vuole più email non viene aggiunto né riattivato.</p>}

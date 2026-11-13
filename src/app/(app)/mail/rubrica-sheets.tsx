@@ -460,7 +460,7 @@ function GroupEditor({ group, groups, onDone, onDelete }: { group: RGroup | null
         <legend className={label}>Colore</legend>
         <div className="flex flex-wrap gap-1">
           {GROUP_COLORS.map((c) => (
-            <label key={c.id} className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent">
+            <label key={c.id} title={c.label} className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent">
               <input type="radio" name={`gruppo-colore-${id}`} checked={color === c.id} onChange={() => setColor(c.id)} aria-label={c.label} className="sr-only" />
               <span aria-hidden className={`h-7 w-7 rounded-full ${color === c.id ? "ring-2 ring-foreground ring-offset-2 ring-offset-surface" : ""}`} style={{ background: c.hex }} />
             </label>

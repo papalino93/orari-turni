@@ -16,6 +16,8 @@ const reset = () => {
   DB(`delete from "MailDay" where day='${today}'`);
   DB(`delete from "MailOptOut" where email like '%@prova-tabella.it'`);
   DB(`delete from "MailSend" where subject like 'Prova tabella%'`);
+  // Chi riceve un invio entra nella rubrica: si toglie anche da lì.
+  DB(`delete from "MailContact" where email like '%@prova-tabella.it'`);
 };
 const at = (name) => `${name}-${RUN}@prova-tabella.it`;
 reset();
@@ -38,9 +40,12 @@ async function page(w, h, theme = "light") {
   await login(p, "andrea", ADMIN_PW);
   return p;
 }
+// Con qualcuno in rubrica il passo 1 parte da «Dalla rubrica» (senza, da «Scrivili qui»): qui si usa la tabella.
 const open = async (p) => {
   await p.goto(`${BASE}/mail`, { waitUntil: "networkidle", timeout: 180000 });
   await p.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+  const typed = p.getByRole("radio", { name: /Scrivili qui/ });
+  if (!(await typed.isChecked())) await typed.locator("xpath=..").click();
 };
 const email = (p, n) => p.getByLabel(`Email della riga ${n}`, { exact: true });
 const name = (p, n) => p.getByLabel(`Nome o azienda della riga ${n}`, { exact: true });
@@ -136,7 +141,7 @@ try {
   await p.getByRole("button", { name: "Invia la prova" }).click();
   await p.getByText(`Prova inviata a ${at("io")}`).waitFor({ timeout: 60000 });
   check("«Invia la prova» parte", true);
-  await p.getByRole("checkbox", { name: /Confermo/ }).check();
+  await p.getByRole("radio", { name: "Sono clienti o contatti già avuti" }).check();
   await p.getByRole("button", { name: "Invia a 5 persone" }).click();
   await p.getByRole("button", { name: "Sì, invia" }).click();
   await p.getByText("5 mail inviate").waitFor({ timeout: 60000 });
