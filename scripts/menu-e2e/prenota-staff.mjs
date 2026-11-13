@@ -97,11 +97,14 @@ try {
     await login(p, user, pw);
     return { ctx, p };
   };
-  const goList = async (p) => {
+  // La pagina si apre sull'agenda: queste prove lavorano su «Da gestire» (todo = false: resta sull'agenda).
+  const goList = async (p, todo = true) => {
     await p.goto(`${BASE}/prenotazioni`, { waitUntil: "networkidle", timeout: 180000 });
     // L'invito alle notifiche non serve qui.
     const later = p.getByRole("button", { name: "Non ora" });
     if (await later.count()) await later.click();
+    const todoTab = p.getByRole("tab", { name: /^Da gestire/ });
+    if (todo && (await todoTab.count())) await todoTab.click();
   };
   const tab = async (p, label) => p.getByRole("tab", { name: new RegExp(`^${label}`) }).click();
   const card = (p, name) => p.getByRole("tabpanel").getByRole("button", { name: new RegExp(name) }).first();
@@ -176,7 +179,9 @@ try {
     erase: await make("Prova C Dati"),
   };
 
-  await goList(A);
+  await goList(A, false);
+  check("la pagina si apre sull'agenda (prima scheda)", (await A.getByRole("tab", { name: /^Agenda/ }).getAttribute("aria-selected")) === "true");
+  await A.getByRole("tab", { name: /^Da gestire/ }).click();
   const navLink = A.getByRole("link", { name: /^Prenotazioni/ }).first();
   const pending = Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and status='PENDING' and "startsAt">=now()`));
   check("menù in alto: il numero delle richieste da confermare", new RegExp(`${pending} (richiest[ae] )?da confermare`).test((await navLink.getAttribute("aria-label")) ?? (await navLink.innerText())), `${await navLink.getAttribute("aria-label")} (attese ${pending})`);
@@ -184,7 +189,7 @@ try {
   const todoN = Number((await todo.innerText()).match(/\d+/)?.[0] ?? 0);
   // Il numero della scheda = solo le richieste da confermare (come il pallino del menù in alto); le prove del titolare comprese.
   const pendingAll = Number(DB(`select count(*) from "BookingRequest" where status='PENDING' and "startsAt">=now() and day >= '${TODAY}'`));
-  check("scheda «Da gestire» aperta, con il numero delle richieste da confermare", (await todo.getAttribute("aria-selected")) === "true" && todoN === pendingAll, `${await todo.innerText()} (da confermare ${pendingAll})`);
+  check("scheda «Da gestire», con il numero delle richieste da confermare", (await todo.getAttribute("aria-selected")) === "true" && todoN === pendingAll, `${await todo.innerText()} (da confermare ${pendingAll})`);
   check("titolo «Da confermare (N)» sopra le richieste", (await A.getByRole("heading", { name: `Da confermare (${pendingAll})` }).count()) === 1);
   for (const r of Object.values(R)) check(`«Da gestire»: c'è «${r.name}»`, (await card(A, r.name).count()) === 1);
   const confCard = await card(A, "Prova C Conferma").innerText();
