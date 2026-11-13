@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
-import { importable, importCounts, importSig, parseImport, IMPORT_MAX_ROWS, type ImportRow } from "@/lib/booking/import";
+import { E_PEOPLE, importable, importCounts, importSig, parseImport, IMPORT_MAX_ROWS, W_PEOPLE, W_TIME, type ImportRow } from "@/lib/booking/import";
 import { addDays, businessDay, dayShort, timeToDayMinutes, weekdayOf } from "@/lib/booking/rules";
 import { checkImport, importBookings, type ImportOutcome } from "./actions";
 import { phoneDisplay } from "./format";
@@ -139,7 +139,7 @@ export function ImportSheet({ now, testMode, onClose }: { now: number; testMode:
       <div className="space-y-4" data-testid="importa-librone">
         <div className="space-y-2 text-sm text-foreground">
           <p>
-            Una prenotazione per riga: <strong>giorno, ora, persone, nome</strong>. Telefono e nota se ci sono.
+            Una prenotazione per riga: <strong>giorno, ora, persone, nome</strong>. Telefono, menù e nota se ci sono. Se ora o persone non si sanno ancora, la segno «da completare».
           </p>
           <pre className="overflow-x-auto rounded-xl bg-surface-2 px-3 py-2 font-mono text-[12px] sm:text-[13px] leading-relaxed whitespace-pre text-foreground">
             {`${dm(ex1)} 20:30 4 Rossi 333 123 4567 seggiolone\n${WEEKDAY_SHORT[weekdayOf(ex2)]} ${dm(ex2)}; 21:00; 2; Bianchi`}
@@ -176,6 +176,7 @@ export function ImportSheet({ now, testMode, onClose }: { now: number; testMode:
               <span className="font-semibold">Come le ho lette:</span>{" "}
               {[
                 `${n} da segnare`,
+                toSave.filter((r) => r.time === null || r.people === null).length ? `${toSave.filter((r) => r.time === null || r.people === null).length} da completare` : "",
                 counts.errors ? `${counts.errors} da correggere` : "",
                 dupSkipped ? `${dupSkipped} già in agenda` : "",
                 counts.repeats ? `${counts.repeats} ${counts.repeats === 1 ? "ripetuta" : "ripetute"}` : "",
@@ -257,24 +258,32 @@ function PreviewRow({ r, server, kept, onKeep }: { r: ImportRow; server: ServerR
   const bad = r.errors.length > 0;
   const repeat = r.repeatOf !== null;
   const dup = !bad && !repeat && server?.dup ? server.dup : null;
-  const state = bad ? "error" : repeat ? "repeat" : dup ? (kept ? "dup-kept" : "dup") : "ok";
-  const bar = bad ? "bg-danger" : repeat || (dup && !kept) ? "bg-gold" : "bg-success";
+  // Senza ora o senza persone si segna lo stesso, «da completare» (in giallo, non un errore).
+  const incomplete = !bad && (r.time === null || r.people === null);
+  const state = bad ? "error" : repeat ? "repeat" : dup ? (kept ? "dup-kept" : "dup") : incomplete ? "incomplete" : "ok";
+  const bar = bad ? "bg-danger" : repeat || (dup && !kept) || incomplete ? "bg-gold" : "bg-success";
   const missing = (t: string) => <span className="font-semibold text-danger">{t}</span>;
-  const warnings = [...r.warnings, ...(server?.warning && !bad && !repeat ? [server.warning] : [])];
+  const later = (t: string) => <span className="font-semibold text-gold">{t}</span>;
+  const warnings = [
+    ...(incomplete ? [`Da completare: ${[r.time === null ? "ora" : "", r.people === null ? "persone" : ""].filter(Boolean).join(" e ")} da definire. La segno lo stesso.`] : []),
+    ...r.warnings.filter((w) => w !== W_TIME && w !== W_PEOPLE),
+    ...(server?.warning && !bad && !repeat ? [server.warning] : []),
+  ];
   return (
     <li data-testid="import-row" data-line={r.line} data-state={state} className={`relative py-2.5 pr-3 pl-4 ${repeat ? "opacity-70" : ""}`}>
       <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${bar}`} />
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <span className="text-xs tabular-nums text-foreground-muted">Riga {r.line}</span>
         <span className="text-sm font-semibold tabular-nums text-foreground">
-          {r.day ? dayShort(r.day) : missing("Giorno?")} · {r.time ? (timeToDayMinutes(r.time) >= 1440 ? `${r.time} (notte)` : r.time) : missing("Ora?")} ·{" "}
-          {r.people !== null ? `${r.people} pers.` : missing("Persone?")}
+          {r.day ? dayShort(r.day) : missing("Giorno?")} · {r.time ? (timeToDayMinutes(r.time) >= 1440 ? `${r.time} (notte)` : r.time) : later("ora da definire")} ·{" "}
+          {r.people !== null ? `${r.people} pers.` : r.errors.includes(E_PEOPLE) ? missing("Persone?") : later("persone da definire")}
         </span>
       </div>
       <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
         {r.name ? <span className="font-semibold text-foreground [overflow-wrap:anywhere]">{r.name}</span> : missing("Nome?")}
         {r.phone && <span className="tabular-nums text-foreground-muted">{r.phoneIntl ? phoneDisplay(r.phoneIntl) : r.phone}</span>}
         {r.table && <span className="rounded-md bg-accent/10 px-1.5 py-0.5 text-xs font-semibold text-accent-ink">Tavolo {r.table}</span>}
+        {r.menu && <span className="rounded-md bg-gold/10 px-1.5 py-0.5 text-xs font-semibold text-gold ring-1 ring-inset ring-gold/25">{r.menu}</span>}
         {r.allergies && <span className="rounded-full bg-danger-bg px-2 py-0.5 text-xs font-semibold text-danger">⚠ Allergie</span>}
       </p>
       {r.note && <p className="mt-0.5 text-sm text-foreground-muted [overflow-wrap:anywhere]">«{r.note}»</p>}

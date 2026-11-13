@@ -36,7 +36,8 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
 
   const now = new Date();
   const view: BookingView = viewStatus(b, now);
-  const when = `${cap(dayRelative(b.day, now))} alle ${b.time}`;
+  // Prenotazione segnata in agenda con ora o persone ancora da definire: mai un orario inventato.
+  const when = b.timeUnknown ? cap(dayRelative(b.day, now)) : `${cap(dayRelative(b.day, now))} alle ${b.time}`;
   const started = b.startsAt.getTime() <= now.getTime();
   // Per oggi, ancora senza risposta: nei primi 15 minuti «ti rispondiamo appena possibile»; dopo,
   // se manca meno di un'ora e mezza, meglio telefonare.
@@ -77,7 +78,7 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
       case "CONFIRMED":
         return started
           ? { icon: "ok", kicker: "Confermata", title: "Grazie della visita", text: `Il tavolo era per ${dayLong(b.day)} alle ${b.time}. Speriamo di rivederti presto!` }
-          : { icon: "ok", kicker: "Confermata", title: "Ti aspettiamo", text: `${when}, tavolo per ${peopleText(b.people)}.` };
+          : { icon: "ok", kicker: "Confermata", title: "Ti aspettiamo", text: b.peopleUnknown ? `${when}.` : `${when}, tavolo per ${peopleText(b.people)}.` };
       case "DECLINED":
         return b.cancelledBy === "cliente"
           ? {
@@ -165,7 +166,7 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
           </div>
         )}
 
-        {view === "CONFIRMED" && !started && (
+        {view === "CONFIRMED" && !started && !b.timeUnknown && (
           <div className="mt-7 flex flex-col items-center gap-2.5">
             <a href={`/menu/prenota/r/${token}/calendario`} className={`${pillOutline} min-w-[240px]`}>
               Aggiungi al calendario
@@ -175,13 +176,13 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
 
         <dl className="mt-9 overflow-hidden rounded-2xl border bg-[#FBF7EF]">
           <Row label="Giorno">{cap(dayLong(b.day))}</Row>
-          <Row label={view === "PROPOSED" ? "Ora chiesta" : "Ora"}>{b.time}</Row>
+          <Row label={view === "PROPOSED" ? "Ora chiesta" : "Ora"}>{b.timeUnknown ? "da definire" : b.time}</Row>
           {view === "PROPOSED" && b.proposedTime && (
             <Row label="Ora proposta">
               <strong className="font-medium text-[#6B1020]">{b.proposedTime}</strong>
             </Row>
           )}
-          <Row label="Persone">{b.people}</Row>
+          <Row label="Persone">{b.peopleUnknown ? "da definire" : b.people}</Row>
           <Row label="Nome">{b.name}</Row>
           {/* Le prenotazioni segnate a mano di chi è passato di persona possono non avere il telefono. */}
           {b.phone && <Row label="Telefono">{phoneMasked(b.phone)}</Row>}

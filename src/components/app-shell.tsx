@@ -72,7 +72,7 @@ export function AppShell({
   // «Ferie» si accende da Impostazioni, come «Mail».
   showFerie: boolean;
   // Voce «Prenotazioni» con le richieste da confermare e i messaggi da mandare su WhatsApp; null = non si mostra.
-  bookings: { pending: number; whatsapp: number } | null;
+  bookings: { pending: number; whatsapp: number; incomplete?: number } | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -85,11 +85,14 @@ export function AppShell({
   // Subito dopo «Orari» (o «Le mie ore»): è la cosa da guardare più spesso durante la serata.
   const navItems: NavItem[] = bookings ? [baseItems[0], BOOKINGS_NAV_ITEM, ...baseItems.slice(1)] : baseItems;
   // Il pallino conta le cose da fare: richieste da confermare + risposte da mandare su WhatsApp.
-  const todo = bookings ? bookings.pending + bookings.whatsapp : 0;
+  // Richieste da confermare, messaggi da mandare e prenotazioni da completare: tre insiemi separati
+  // (una prenotazione da completare è già confermata e non ha messaggi in coda), niente doppioni.
+  const todo = bookings ? bookings.pending + bookings.whatsapp + (bookings.incomplete ?? 0) : 0;
   const todoText = bookings
     ? [
         bookings.pending ? `${bookings.pending} ${bookings.pending === 1 ? "richiesta" : "richieste"} da confermare` : "",
         bookings.whatsapp ? `${bookings.whatsapp} ${bookings.whatsapp === 1 ? "messaggio" : "messaggi"} da mandare su WhatsApp` : "",
+        bookings.incomplete ? `${bookings.incomplete} ${bookings.incomplete === 1 ? "prenotazione" : "prenotazioni"} da completare` : "",
       ]
         .filter(Boolean)
         .join(", ")

@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const features = role === "ADMIN" ? await loadFeatures() : { mail: false, ferie: false };
   // La voce «Prenotazioni» compare con l'agenda accesa (spenta, il titolare la raggiunge da
   // Impostazioni), con il numero delle cose da fare: richieste da confermare e messaggi da mandare.
-  let bookings: { pending: number; whatsapp: number } | null = null;
+  let bookings: { pending: number; whatsapp: number; incomplete: number } | null = null;
   if (canManageBookings && (await loadBookingSettings()).agendaEnabled) bookings = await bookingsToDo();
 
   return (
