@@ -732,9 +732,78 @@ model MailSend {
   excluded   Int             @default(0)
   // "IN_CORSO" | "INVIATA" | "PARZIALE" | "NON_PARTITA"
   status     String          @default("IN_CORSO")
+  // Perché si può scrivere a chi non era ancora in rubrica, dichiarato al passo 3:
+  // "chiesto" | "cliente" | "altro" (null negli invii di prima della rubrica).
+  basis      String?
   chunks     MailSendChunk[]
+  people     MailSendRecipient[]
 
   @@index([createdAt])
+}
+
+// A chi è andato ogni invio (per «Invii» e per la scheda del contatto). Cancellato insieme al
+// contatto quando una persona chiede di cancellare i suoi dati.
+model MailSendRecipient {
+  sendId    String
+  email     String
+  // "sent" | "failed" | "excluded" (si era cancellata)
+  status    String
+  createdAt DateTime @default(now())
+  send      MailSend @relation(fields: [sendId], references: [id], onDelete: Cascade)
+
+  @@id([sendId, email])
+  @@index([email])
+}
+
+// Mail: la rubrica. Una persona per indirizzo (in minuscolo, senza spazi). Si riempie da sola con
+// gli invii e con chi lo chiede prenotando dal sito, oppure a mano e importando. Chi non vuole più
+// email resta in MailOptOut (legato per indirizzo): non si sceglie e nessuna importazione lo riattiva.
+model MailContact {
+  id          String             @id @default(cuid())
+  email       String             @unique
+  // «Nome o azienda»: quello che va dopo il saluto. Vuoto = solo il saluto.
+  name        String             @default("")
+  phone       String?
+  notes       String?
+  // Da dove arriva: "mano" | "file" | "incollato" | "telefono" | "sito" | "invio"
+  source      String             @default("mano")
+  // Perché possiamo scrivergli: "chiesto" (l'ha chiesto, es. dal sito) | "cliente" (cliente o
+  // contatto già avuto) | "altro"; con quando e una nota (es. il testo della casella spuntata).
+  consent     String             @default("altro")
+  consentAt   DateTime           @default(now())
+  consentNote String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  lastSentAt  DateTime?
+  sentCount   Int                @default(0)
+  // Eliminato (si può annullare); dopo 30 giorni si cancella davvero.
+  deletedAt   DateTime?
+  groups      MailContactGroup[]
+
+  @@index([deletedAt])
+}
+
+// Gruppi della rubrica («Clienti dal sito», «Aziende»…). Eliminare un gruppo non elimina i contatti.
+model MailGroup {
+  id        String             @id @default(cuid())
+  name      String
+  // Uno dei colori della tavolozza (mail-rubrica.ts): "vino" | "oro" | "verde" | "blu" | "viola" | "grigio"
+  color     String             @default("vino")
+  sortOrder Int                @default(0)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  contacts  MailContactGroup[]
+}
+
+model MailContactGroup {
+  contactId String
+  groupId   String
+  createdAt DateTime    @default(now())
+  contact   MailContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  group     MailGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, groupId])
+  @@index([groupId])
 }
 
 // Un gruppo (fino a 50) di un invio: la chiave (invio, numero del gruppo) impedisce di rispedirlo con «Riprova».
