@@ -1,7 +1,9 @@
 # Carta dei vini dell'enoteca: analisi e proposta
 
-> Stato: **analisi**, niente ancora sviluppato. Si comincia dopo che prenotazioni e Mail sono
-> in uso e stabili. Le domande per il titolare sono in fondo (§ 9).
+> Stato: **in pausa** (13 novembre 2026). Oggi l'enoteca non ha un inventario né un elenco dei
+> vini da cui partire, quindi la carta non è attuabile. Si riprende quando esiste una base
+> (anche solo un Excel con produttore, vino, annata, tipo e prezzo). Le domande per il titolare
+> sono in fondo (§ 9).
 
 ## 1. Il punto di partenza
 
