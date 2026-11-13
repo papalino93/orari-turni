@@ -25,7 +25,6 @@ import {
   launch,
   newContext,
   login,
-  wait,
   waitServer,
   waitOtherTests,
 } from "./prenota-lib.mjs";

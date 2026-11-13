@@ -19,6 +19,7 @@ export function SettingsSheet({
   onToggle,
   onReopen,
   busy = false,
+  venueExists = false,
   onClose,
 }: {
   settings: BookingSettings;
@@ -29,6 +30,8 @@ export function SettingsSheet({
   // «Riapri ora» dopo la pausa automatica.
   onReopen: () => void;
   busy?: boolean;
+  // C'è già un «Telefono enoteca» collegato (Dipendenti → «+ Telefono dell'enoteca»)?
+  venueExists?: boolean;
   onClose: () => void;
 }) {
   const paused = pausedNow(settings);
@@ -36,6 +39,7 @@ export function SettingsSheet({
   const toast = useToast();
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(settings.step);
+  const [senders, setSenders] = useState(settings.whatsappSenders);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -54,6 +58,7 @@ export function SettingsSheet({
           notifyEmail: String(f.get("notifyEmail") ?? ""),
           capacityHint: Number(f.get("capacityHint") || 0),
           todayUntil: String(f.get("todayUntil") ?? ""),
+          whatsappSenders: senders,
         }),
       "Impostazioni salvate",
     );
@@ -176,6 +181,27 @@ export function SettingsSheet({
             <input name="notifyEmail" type="email" autoComplete="email" defaultValue={settings.notifyEmail} placeholder="nome@esempio.it" className={inputClass} />
           </Field>
           {!mailReady && <p className="-mt-2 rounded-lg bg-gold/10 px-3 py-2 text-xs text-foreground">L&apos;invio delle email non è ancora collegato: per ora gli avvisi arrivano solo sul telefono.</p>}
+
+          <fieldset className="space-y-2" data-testid="chi-manda-whatsapp">
+            <legend className="mb-1 text-sm font-semibold text-foreground">Chi manda i WhatsApp ai clienti</legend>
+            {(
+              [
+                ["venue", "Solo il telefono enoteca (consigliato)", "Il cliente riceve sempre i messaggi dal numero dell'enoteca. Tu li vedi e, se serve, puoi mandarli lo stesso dal tuo WhatsApp."],
+                ["all", "Anche titolare e consulente", "Il primo che tocca «Apri WhatsApp» la prende: gli altri vedono «In invio da…» e non la mandano due volte."],
+              ] as const
+            ).map(([v, label, hint]) => (
+              <label key={v} className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 ring-1 ring-inset ${senders === v ? "bg-accent/[0.06] ring-accent/50" : "ring-border"}`}>
+                <input type="radio" name="whatsappSenders" value={v} checked={senders === v} onChange={() => setSenders(v)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-accent)]" />
+                <span className="text-sm text-foreground">
+                  {label}
+                  <span className="block text-xs text-foreground-muted">{hint}</span>
+                </span>
+              </label>
+            ))}
+            {senders === "venue" && !venueExists && (
+              <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-foreground">Non c&apos;è ancora un telefono enoteca collegato: finché non lo aggiungi (Dipendenti → «+ Telefono dell&apos;enoteca»), i WhatsApp li mandate tu e il consulente.</p>
+            )}
+          </fieldset>
 
           <div className="flex justify-end">
             <button type="submit" disabled={saving} className="min-h-11 rounded-full bg-accent px-6 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-60">

@@ -6,6 +6,7 @@
 
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
+import { parseBookingSettings } from "@/lib/booking/rules";
 
 export function pushConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
@@ -28,19 +29,28 @@ function setup(): boolean {
 
 export type PushPayload = { title: string; body: string; url: string; tag?: string };
 
-// A chi va un avviso: "staff" tutti quelli che gestiscono le prenotazioni; "whatsapp" chi può mandare
-// le risposte su WhatsApp (titolare e consulente, e i dispositivi segnati «telefono del locale»);
-// "owner" solo titolare e consulente.
+// A chi va un avviso: "staff" tutti quelli che gestiscono le prenotazioni; "whatsapp" chi manda le
+// risposte su WhatsApp (il telefono enoteca; titolare e consulente solo se tocca anche a loro, vedi
+// «Chi manda i WhatsApp ai clienti», o se un telefono enoteca non c'è); "owner" solo titolare e consulente.
 export type PushAudience = "staff" | "whatsapp" | "owner";
 
 // Chi riceve: il titolare/consulente (account User) e i dipendenti attivi con il permesso.
 async function recipients(audience: PushAudience = "staff") {
   const subs = await prisma.pushSubscription.findMany({
-    include: { employee: { select: { active: true, canManageBookings: true, username: true } } },
+    include: { employee: { select: { active: true, canManageBookings: true, username: true, isVenueDevice: true } } },
   });
-  return subs
-    .filter((s) => (s.employeeId ? s.employee?.active && s.employee.canManageBookings && s.employee.username : s.username))
-    .filter((s) => audience === "staff" || (s.username && !s.employeeId) || (audience === "whatsapp" && s.localPhone));
+  const valid = subs.filter((s) => (s.employeeId ? s.employee?.active && s.employee.canManageBookings && s.employee.username : s.username));
+  if (audience === "staff") return valid;
+  const owners = valid.filter((s) => s.username && !s.employeeId);
+  if (audience === "owner") return owners;
+  const venue = valid.filter((s) => s.employee?.isVenueDevice);
+  const [row, venueAccounts] = await Promise.all([
+    prisma.menuSetting.findUnique({ where: { id: "bookings" } }),
+    prisma.employee.count({ where: { isVenueDevice: true, active: true, canManageBookings: true } }),
+  ]);
+  // «Solo il telefono enoteca» (se ce n'è uno): i telefoni di titolare e consulente non suonano per niente.
+  const onlyVenue = venueAccounts > 0 && parseBookingSettings(row?.value).whatsappSenders === "venue";
+  return onlyVenue ? venue : [...venue, ...owners];
 }
 
 // Dopo tanti errori di fila l'iscrizione non vale più (telefono cambiato, app tolta): si cancella.
@@ -61,7 +71,7 @@ export async function sendPushToStaff(payload: PushPayload, only?: { endpoint: s
   // Modalità di prova (MAIL_PROVIDER=log in locale): non spedisce, conta solo gli iscritti.
   if (process.env.PUSH_PROVIDER === "log") {
     const subs = await pick();
-    for (const s of subs) console.log(`[notifica di prova] a ${s.username ?? s.employeeId}${s.localPhone ? " (telefono del locale)" : ""}: ${payload.title} · ${payload.body}`);
+    for (const s of subs) console.log(`[notifica di prova] a ${s.username ?? s.employeeId}${s.localPhone ? " (telefono enoteca)" : ""}: ${payload.title} · ${payload.body}`);
     if (subs.length) await prisma.pushSubscription.updateMany({ where: { id: { in: subs.map((s) => s.id) } }, data: { lastOkAt: new Date() } });
     return { sent: subs.length, failed: 0 };
   }

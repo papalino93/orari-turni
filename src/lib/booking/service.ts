@@ -44,7 +44,7 @@ import {
 } from "@/lib/booking/rules";
 import { customerMessage, customerSubject, staffAlert, VENUE_NAME, type MessageKind } from "@/lib/booking/messages";
 import { sendPushToStaff } from "@/lib/booking/push";
-import { whatsappPending } from "@/lib/booking/whatsapp-queue";
+import { CLAIM_MINUTES, lastSent, whatsappPending } from "@/lib/booking/whatsapp-queue";
 import { importable, importSig, parseImport, IMPORT_MAX_ROWS } from "@/lib/booking/import";
 import type { Hours } from "@/lib/menu-venue";
 
@@ -892,9 +892,16 @@ export async function notifyWhatsappQueue(id: string): Promise<void> {
   if (isPreview()) return;
   const b = await prisma.bookingRequest.findUnique({ where: { id }, include: { log: { select: { at: true, actor: true, kind: true, message: true } } } });
   if (!b || b.isTest || !whatsappPending(b, Date.now())) return;
+  const kind = whatsappPending(b, Date.now());
   const time = b.status === "PROPOSED" && b.proposedTime ? b.proposedTime : b.time;
+  const what = kind === "confirmed" ? "conferma" : kind === "proposed" ? "altro orario" : kind === "declined" ? "siamo al completo" : "annullamento";
   const push = await sendPushToStaff(
-    { title: "Da mandare su WhatsApp", body: `Risposta a ${b.name} (${dayTimeShort(b.day, time)})`, url: `/prenotazioni?r=${b.id}`, tag: `booking-wa-${b.id}` },
+    {
+      title: "Da mandare su WhatsApp",
+      body: `Da mandare su WhatsApp: ${what} per ${b.name}, ${dayTimeShort(b.day, time)} — tocca per aprire WhatsApp con il messaggio già scritto`,
+      url: `/prenotazioni?r=${b.id}`,
+      tag: `booking-wa-${b.id}`,
+    },
     undefined,
     "whatsapp",
   ).catch(() => ({ sent: 0, failed: 1 }));
@@ -1142,9 +1149,47 @@ export async function markArrival(id: string, actor: StaffActor, arrived: boolea
   return { ok: true };
 }
 
-// Segna che il messaggio WhatsApp è stato aperto (non si può sapere se è stato davvero inviato).
-export async function markWhatsappOpened(id: string, actor: StaffActor): Promise<void> {
-  await log(id, actor.name, "WHATSAPP_OPENED", null);
+// ---------- WhatsApp ai clienti: una sola coda per tutti, con un lucchetto
+//
+// «Apri WhatsApp» prende in mano la risposta (waClaimBy/waClaimAt, aggiornamento condizionato: in due
+// insieme vince il primo, l'altro legge «In invio da …»); «Mandato» la toglie dalla coda per tutti;
+// «Annulla» la libera; dopo 5 minuti senza «Mandato» torna libera da sola. Se è già stata mandata,
+// non si riapre WhatsApp (il cliente riceverebbe due messaggi) se non con «Rimanda lo stesso».
+
+const hhmmRome = (d: Date) => {
+  const p = romeParts(d);
+  return `${String(Math.floor(p.minutes / 60)).padStart(2, "0")}:${String(p.minutes % 60).padStart(2, "0")}`;
+};
+
+export type ClaimResult = { ok: true } | { ok: false; error: string; claimedBy?: string; sentBy?: string; at?: number };
+
+export async function claimWhatsapp(id: string, actor: string, from: string, force: boolean, now: Date = new Date()): Promise<ClaimResult> {
+  const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { waClaimBy: true, waClaimAt: true, log: { select: { at: true, actor: true, kind: true, message: true } } } });
+  if (!b) return { ok: false, error: "Questa richiesta non c'è più." };
+  const sent = lastSent(b);
+  if (sent && !force) return { ok: false, error: `Già mandato da ${sent.by} alle ${hhmmRome(new Date(sent.at))}`, sentBy: sent.by, at: sent.at };
+  const free = new Date(now.getTime() - CLAIM_MINUTES * 60000);
+  const r = await prisma.bookingRequest.updateMany({
+    where: { id, OR: [{ waClaimAt: null }, { waClaimAt: { lt: free } }, { waClaimBy: actor }] },
+    data: { waClaimBy: actor, waClaimAt: now },
+  });
+  if (!r.count) {
+    const c = await prisma.bookingRequest.findUnique({ where: { id }, select: { waClaimBy: true, waClaimAt: true } });
+    return { ok: false, error: `In invio da ${c?.waClaimBy ?? "qualcun altro"}${c?.waClaimAt ? ` dalle ${hhmmRome(c.waClaimAt)}` : ""}`, claimedBy: c?.waClaimBy ?? undefined, at: c?.waClaimAt?.getTime() };
+  }
+  await log(id, actor, "WHATSAPP_OPENED", `in invio ${from}${force && sent ? " (rimandato)" : ""}`);
+  return { ok: true };
+}
+
+// «Annulla»: la risposta torna libera (solo chi l'aveva presa).
+export async function releaseWhatsapp(id: string, actor: string): Promise<void> {
+  await prisma.bookingRequest.updateMany({ where: { id, waClaimBy: actor }, data: { waClaimBy: null, waClaimAt: null } });
+}
+
+// «Mandato» (from: «dal numero dell'enoteca» / «dal WhatsApp personale»); null = «Segna come già mandata».
+export async function markWhatsappSent(id: string, actor: string, from: string | null): Promise<void> {
+  await log(id, actor, "WHATSAPP_DONE", from);
+  await prisma.bookingRequest.updateMany({ where: { id }, data: { waClaimBy: null, waClaimAt: null } });
 }
 
 // ---------- Serate al completo

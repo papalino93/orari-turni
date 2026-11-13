@@ -55,10 +55,30 @@ export function whatsappPending(b: BookingLike, now: number): MessageKind | null
     (last.logKind === "CANCELLED" && b.status === "CANCELLED" && b.cancelledBy === "locale");
   if (!stillValid) return null;
   const after = log.filter((l) => ms(l.at) >= last.at);
-  if (after.some((l) => l.kind === "WHATSAPP_OPENED" || l.kind === "WHATSAPP_DONE")) return null;
+  // Mandata: «Mandato» (WHATSAPP_DONE). Un «WhatsApp aperto» di prima del lucchetto (senza messaggio)
+  // vale ancora come mandato; adesso aprire vuol dire solo «in invio» finché non si tocca «Mandato».
+  if (after.some((l) => l.kind === "WHATSAPP_DONE" || (l.kind === "WHATSAPP_OPENED" && !l.message))) return null;
   if (b.contact === "email" && after.some((l) => l.kind === "MAIL_OK" && (l.message ?? "").startsWith("Email al cliente"))) return null;
   // Orario già passato: un messaggio adesso non serve più a nessuno.
   const when = b.status === "PROPOSED" && b.proposedStartsAt ? ms(b.proposedStartsAt) : ms(b.startsAt);
   if (when < now) return null;
   return last.kind;
+}
+
+// L'ultimo «Mandato» per la risposta di adesso (o, senza risposte, dalla creazione): chi e quando.
+export function lastSent(b: Pick<BookingLike, "log">): { by: string; at: number } | null {
+  const log = [...b.log].sort((x, y) => ms(x.at) - ms(y.at));
+  let from = 0;
+  for (const l of log) if (RESPONSES[l.kind] && l.actor !== "cliente" && l.actor !== "sistema") from = ms(l.at);
+  const sent = log.filter((l) => ms(l.at) >= from && (l.kind === "WHATSAPP_DONE" || (l.kind === "WHATSAPP_OPENED" && !l.message)));
+  const x = sent[sent.length - 1];
+  return x ? { by: x.actor, at: ms(x.at) } : null;
+}
+
+// Il lucchetto «In invio da …» vale 5 minuti senza «Mandato».
+export const CLAIM_MINUTES = 5;
+export function activeClaim(b: { waClaimBy?: string | null; waClaimAt?: Date | number | string | null }, now: number): { by: string; at: number } | null {
+  if (!b.waClaimBy || !b.waClaimAt) return null;
+  const at = ms(b.waClaimAt);
+  return now - at < CLAIM_MINUTES * 60000 ? { by: b.waClaimBy, at } : null;
 }

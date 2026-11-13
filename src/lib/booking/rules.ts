@@ -32,6 +32,10 @@ export type BookingSettings = {
   notifyEmail: string;
   // Persone già confermate oltre le quali di solito il locale è pieno (0 = non mostrare).
   capacityHint: number;
+  // Chi manda i WhatsApp ai clienti: "venue" solo il telefono enoteca (consigliato: il cliente vede
+  // sempre lo stesso numero), "all" anche titolare e consulente dal loro WhatsApp. Senza un telefono
+  // enoteca collegato mandano comunque titolare e consulente.
+  whatsappSenders: "venue" | "all";
 };
 
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
@@ -47,6 +51,7 @@ export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   daysAhead: 30,
   notifyEmail: "",
   capacityHint: 0,
+  whatsappSenders: "venue",
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -79,6 +84,7 @@ export function parseBookingSettings(raw: string | null | undefined): BookingSet
     daysAhead: int(v.daysAhead, 1, 180, d.daysAhead),
     notifyEmail: typeof v.notifyEmail === "string" ? v.notifyEmail.trim().slice(0, 254) : "",
     capacityHint: int(v.capacityHint, 0, 500, d.capacityHint),
+    whatsappSenders: v.whatsappSenders === "all" ? "all" : "venue",
   };
 }
 

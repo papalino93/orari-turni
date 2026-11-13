@@ -76,6 +76,9 @@ model Employee {
   // Permesso, assegnato dal titolare, di vedere e gestire le richieste di prenotazione
   // (/prenotazioni). Letto dal database a ogni richiesta, come canEditMenu.
   canManageBookings Boolean @default(false)
+  // «Telefono enoteca»: non è una persona ma il telefono che resta in sala (accesso condiviso, solo
+  // prenotazioni). Escluso da orari, ore, ferie, mesi da inviare, widget personali e «In servizio».
+  isVenueDevice     Boolean @default(false)
   // Come User.appInstalledAt: l'app è già installata sul suo telefono.
   appInstalledAt DateTime?
   // Widget sulla Home del telefono (Scriptable) che il titolare gli permette: codici di
@@ -636,6 +639,9 @@ model BookingRequest {
   peopleUnknown Boolean   @default(false)
   // Menù scelto («Menù da 25 €», «Menù degustazione»), testo libero e facoltativo.
   menu      String?
+  // «Da mandare su WhatsApp» condiviso: chi l'ha preso in mano (lucchetto di 5 minuti) e da dove.
+  waClaimBy     String?
+  waClaimAt     DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
