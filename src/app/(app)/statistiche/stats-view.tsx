@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { MenuTabs } from "../gestione-menu/menu-tabs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
@@ -463,8 +464,9 @@ export function StatsView({
   const weekdayMax = Math.max(1, ...data.weekdays.flat().map((d) => d.count));
 
   return (
-    <div className="app-wide mx-auto max-w-5xl space-y-5 px-4 pb-16 pt-6">
+    <div className="app-wide mx-auto max-w-5xl space-y-5 pb-16">
       <div>
+        <MenuTabs current="statistiche" />
         <h1 className="text-xl font-semibold text-foreground">Statistiche del menù</h1>
         <p className="mt-1 text-sm text-foreground-muted">
           Quante persone aprono il menù dal QR, quando, cosa cercano e cosa guardano. Tutto anonimo: niente nomi, niente cookie, nessun dato personale.

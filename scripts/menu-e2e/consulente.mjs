@@ -16,7 +16,7 @@ for (const [path, what] of [["/gestione-menu", /Menù/], ["/statistiche", /Stati
 const guida = await p.request.get(`${BASE}/gestione-menu/guida`);
 check("consulente: scarica la guida", guida.ok() && (guida.headers()["content-type"] ?? "").includes("pdf"));
 await p.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle" });
-check("consulente: voce «Statistiche» nel menù di navigazione", (await p.getByRole("link", { name: "Statistiche" }).count()) > 0);
+check("consulente: «Statistiche» come scheda dentro «Menù»", (await p.getByTestId("schede-menu").getByRole("link", { name: "Statistiche" }).count()) === 1);
 // Una modifica vera: «Esaurito» su un vino e poi di nuovo disponibile
 const first = p.getByRole("button", { name: "Esaurito", exact: true }).first();
 await first.click();

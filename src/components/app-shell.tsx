@@ -33,7 +33,6 @@ const ADMIN_NAV_ITEMS = [
   { href: "/ferie", label: "Ferie", icon: SunIcon },
   { href: "/dipendenti", label: "Dipendenti", icon: PeopleIcon },
   { href: "/gestione-menu", label: "Menù", icon: MenuIcon },
-  { href: "/statistiche", label: "Statistiche", icon: ChartIcon },
   { href: "/mail", label: "Mail", icon: MailIcon },
 ];
 
@@ -79,6 +78,8 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  // «Statistiche» sta dentro «Menù»: su /statistiche la voce accesa è «Menù».
+  const isActive = (href: string) => Boolean(pathname?.startsWith(href) || (href === "/gestione-menu" && pathname?.startsWith("/statistiche")));
   const isAdmin = role === "ADMIN";
   const baseItems: NavItem[] = isAdmin
     ? ADMIN_NAV_ITEMS.filter((item) => (showMail || item.href !== "/mail") && (showFerie || item.href !== "/ferie"))
@@ -169,7 +170,7 @@ export function AppShell({
 
           <nav className={`hidden items-center gap-0.5 lg:gap-1 ${navItems.length > 1 ? "md:flex" : ""}`}>
             {navItems.map((item) => {
-              const active = pathname?.startsWith(item.href);
+              const active = isActive(item.href);
               const Icon = item.icon;
               return (
                 <Link
@@ -262,7 +263,7 @@ export function AppShell({
       {navItems.length > 1 && (
         <nav className="brand-band-bar brand-band-bar-bottom fixed inset-x-0 bottom-0 z-30 flex bg-brand-band md:hidden">
           {navItems.map((item) => {
-            const active = pathname?.startsWith(item.href);
+            const active = isActive(item.href);
             const Icon = item.icon;
             return (
               <Link
@@ -324,17 +325,6 @@ function CalendarIcon({ active }: { active: boolean }) {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2}>
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path d="M3 10h18M8 3v4M16 3v4" />
-    </svg>
-  );
-}
-
-function ChartIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 20h16" />
-      <path d="M7 16v-5" />
-      <path d="M12 16V6" />
-      <path d="M17 16v-8" />
     </svg>
   );
 }

@@ -28,7 +28,7 @@ check("le sezioni vuote non si stampano", empty.every((t) => !text.split("\n").s
 check("data di aggiornamento", /Aggiornato al \d{1,2} \w+ \d{4}/.test(text));
 check("legenda degli allergeni", /1\s*Glutine/.test(text) && /14\s*Molluschi/.test(text));
 check("esaurito di oggi: tolto", !text.includes("Tagliere Classico"));
-check("niente cornice dell'app (barra e menù in basso)", (await page.getByRole("link", { name: "Statistiche" }).count()) === 0);
+check("niente cornice dell'app (barra e menù in basso)", (await page.getByRole("link", { name: "Orari" }).count()) === 0 && (await page.getByRole("link", { name: "Menù" }).count()) === 0);
 await page.getByRole("checkbox", { name: /Togli gli esauriti di oggi/ }).click();
 await page.waitForURL(/esauriti=1/);
 await page.waitForLoadState("networkidle");
