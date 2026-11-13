@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { WideToggle } from "@/components/wide-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AccountMenu } from "@/components/account-menu";
 import { InstallBanner, EmployeeInstallPrompt, InstalledMark } from "@/components/install-banner";
 import { VERSION_LABEL } from "@/lib/version";
 import { BrandMark } from "@/components/brand-mark";
@@ -176,15 +177,28 @@ export function AppShell({
                     <Icon active={!!active} />
                     {badge(item.href)}
                   </span>
-                  {/* Con 5 voci («Mail» o «Ferie» accese) sul tablet verticale le parole non starebbero, con 6
+                  {/* Con 5 voci («Mail» o «Ferie» accese) sul tablet verticale le parole non starebbero, con 7
                       neanche sul computer piccolo: lì solo icone (il nome compare passandoci sopra). */}
-                  <span className={navItems.length > 5 ? "md:max-xl:hidden" : navItems.length > 4 ? "md:max-lg:hidden" : ""}>{item.label}</span>
+                  <span className={navItems.length > 6 ? "md:max-xl:hidden" : navItems.length > 4 ? "md:max-lg:hidden" : ""}>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-1.5 lg:gap-3">
+          {/* Tablet e computer: un solo pulsante col nome (Impostazioni, tema, vista larga, Esci). */}
+          <div className="hidden shrink-0 md:block">
+            <AccountMenu
+              userName={userName}
+              isAdmin={isAdmin}
+              settingsActive={Boolean(pathname?.startsWith("/account") || pathname?.startsWith("/widget") || pathname?.startsWith("/installa"))}
+              onSignOut={async () => {
+                await forgetPushHere();
+                signOut({ callbackUrl: "/login" });
+              }}
+            />
+          </div>
+          {/* Telefono: come prima. */}
+          <div className="flex shrink-0 items-center gap-1.5 md:hidden">
             {isAdmin && (
               <Link
                 href="/account"
