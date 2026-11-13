@@ -76,7 +76,7 @@ ov = await open("/menu/p/extra-uno");
 const page = await pub.locator("main").innerText();
 check("pagina evento: «Dalle 19:00 alle 23:00»", page.includes("Dalle 19:00 alle 23:00"));
 const book = await pub.getByRole("link", { name: "Prenota" }).getAttribute("href");
-check("Prenota: WhatsApp con evento, data e ora", /^https:\/\/wa\.me\/393383277053\?text=/.test(book ?? "") && decodeURIComponent(book).includes("«Serata Uno»") && decodeURIComponent(book).includes("dalle 19:00"), decodeURIComponent(book ?? ""));
+check("Prenota: WhatsApp con evento, data e ora", /^https:\/\/wa\.me\/393312102464\?text=/.test(book ?? "") && decodeURIComponent(book).includes("«Serata Uno»") && decodeURIComponent(book).includes("dalle 19:00"), decodeURIComponent(book ?? ""));
 const cal = await pub.getByRole("link", { name: "Aggiungi al calendario" }).getAttribute("href");
 const ics = await pub.request.get(`${BASE}${cal}`);
 const icsText = await ics.text();

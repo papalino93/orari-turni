@@ -502,7 +502,7 @@ export function ContactsSheet({ contacts, run, onClose }: { contacts: Contacts; 
     <Sheet title="Contatti" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3.5">
         <Field label="Telefono" hint="Serve per «Chiama» e «WhatsApp». Vuoto = i due pulsanti non compaiono.">
-          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={30} className={inputClass} placeholder="es. 338 327 7053" />
+          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={30} className={inputClass} placeholder="es. 331 210 2464" />
         </Field>
         <Field label="Messaggio WhatsApp" hint="Già scritto quando il cliente apre la chat.">
           <textarea value={whatsappMessage} onChange={(e) => setWhatsappMessage(e.target.value)} maxLength={300} rows={2} className={inputClass} />

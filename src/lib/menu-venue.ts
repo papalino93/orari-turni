@@ -40,7 +40,7 @@ export const DEFAULT_HOURS: Hours = {
 };
 
 export const DEFAULT_CONTACTS: Contacts = {
-  phone: "338 327 7053",
+  phone: "331 210 2464",
   whatsappMessage: "Ciao! Vorrei prenotare un tavolo per",
   address: "Via dei Rossi 53/C, 50018 Scandicci FI",
   instagram: "https://www.instagram.com/langolo.del.vino_enoteca/",

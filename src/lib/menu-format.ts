@@ -57,7 +57,7 @@ export function nb(text: string | null | undefined): string {
   return text.replace(/(\d[\d,]*%?) (?=[A-Za-zÀ-ÿ€])/g, "$1\u00A0").replace(/ · /g, "\u00A0· ");
 }
 
-// Numeri di telefono scritti a gruppi («338 327 7053»): mai spezzati su due righe.
+// Numeri di telefono scritti a gruppi («331 210 2464»): mai spezzati su due righe.
 export function nbPhone(text: string): string {
   return text.replace(/\b(\d{2,4})(?: (\d{2,4})){1,3}\b/g, (m) => (m.replace(/\d/g, "").length >= 1 && /^\d{2,4}( \d{2,4}){1,3}$/.test(m) ? m.replace(/ /g, "\u00A0") : m));
 }
