@@ -6,7 +6,7 @@
 // chi e quando, e WhatsApp si apre solo con «Rimanda lo stesso». Da un telefono che non è quello
 // dell'enoteca una riga avvisa sempre che il messaggio parte dal WhatsApp personale.
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { showActionError, useToast } from "@/components/toast";
@@ -29,7 +29,33 @@ export const useWa = () => useContext(WaContext);
 export const PERSONAL_WARNING = "Partirà dal tuo WhatsApp personale, non dal numero del locale: il cliente risponderà a te.";
 const CLAIM_MS = 5 * 60000;
 
-type Claim = { by: string | null; at: number | null };
+type Claim = { by: string | null; at: number | null; device?: string | null };
+
+// Un numero a caso tenuto su questo apparecchio: il lucchetto riconosce l'apparecchio oltre al nome
+// (lo stesso nome dal telefono e dal computer non prende due volte lo stesso messaggio).
+const DEVICE_KEY = "prenotazioni-apparecchio";
+let deviceCache: string | null = null;
+export function deviceId(): string {
+  if (deviceCache) return deviceCache;
+  let id = "";
+  try {
+    id = localStorage.getItem(DEVICE_KEY) ?? "";
+  } catch {
+    /* niente memoria: un numero solo per questa pagina */
+  }
+  if (!/^[a-z0-9]{16,40}$/.test(id)) {
+    const bytes = new Uint8Array(12);
+    crypto.getRandomValues(bytes);
+    id = Array.from(bytes, (x) => x.toString(36).padStart(2, "0")).join("").slice(0, 20);
+    try {
+      localStorage.setItem(DEVICE_KEY, id);
+    } catch {
+      /* resta per questa pagina */
+    }
+  }
+  deviceCache = id;
+  return id;
+}
 
 export function WhatsappButton({
   href,
@@ -60,7 +86,18 @@ export function WhatsappButton({
   const [askOverride, setAskOverride] = useState(false);
   // L'ora di quando il pulsante è comparso (la pagina si aggiorna da sola ogni pochi secondi).
   const [shownAt] = useState(() => Date.now());
-  const other = claim.by && claim.at && shownAt - claim.at < CLAIM_MS && claim.by !== wa.me ? claim : null;
+  // Questo apparecchio (si legge dopo il primo disegno: sul server non c'è).
+  const [here, setHere] = useState<string | null>(null);
+  useEffect(() => {
+    const id = deviceId();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- l'apparecchio si conosce solo nel browser
+    setHere(id);
+    // Preso con il mio nome ma da un altro apparecchio: qui non è «in invio».
+    if (claim.device && claim.device !== id) setState((s) => (s === "open" ? "idle" : s));
+  }, [claim.device]);
+  const sameName = claim.by !== null && claim.by === wa.me;
+  const otherDevice = Boolean(claim.device && here && claim.device !== here);
+  const other = claim.by && claim.at && shownAt - claim.at < CLAIM_MS && (!sameName || otherDevice) ? { ...claim, by: otherDevice && sameName ? `${claim.by} su un altro apparecchio` : claim.by } : null;
 
   // «Apri WhatsApp»: la finestra si apre subito (dentro il tocco, sennò il telefono la blocca) e
   // riceve l'indirizzo solo se la risposta è nostra.
@@ -70,7 +107,7 @@ export function WhatsappButton({
     setState("busy");
     setProblem(null);
     try {
-      const res = await markWhatsapp(bookingId, "opened", { force });
+      const res = await markWhatsapp(bookingId, "opened", { force, device: deviceId() });
       if (!res.ok) {
         win?.close();
         toast.showError(res.error);
@@ -99,7 +136,7 @@ export function WhatsappButton({
   async function finish(how: "sent" | "release") {
     setState("busy");
     try {
-      const res = await markWhatsapp(bookingId, how);
+      const res = await markWhatsapp(bookingId, how, { device: deviceId() });
       if (!res.ok) toast.showError(res.error);
       else toast.showSuccess(how === "sent" ? `Mandato alle ${clock(Date.now())}` : "Lasciato libero: lo può mandare un altro");
       setState("idle");

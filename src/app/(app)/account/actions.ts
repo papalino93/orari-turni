@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/guard";
 import { assert, parseId, runAction, ValidationError, type ActionResult } from "@/lib/validation";
+import { forgetPushFor } from "@/lib/booking/push";
 
 // I due account applicativi condividono gli stessi permessi per scelta di
 // prodotto: chi ha effettuato l'accesso può reimpostare anche la password
@@ -35,6 +36,8 @@ export async function setPassword(userIdInput: string, newPassword: string): Pro
     // lib/auth.ts. Prima un cambio password non toglieva l'accesso a chi
     // aveva già un token valido, fino alla sua scadenza naturale.
     await prisma.user.update({ where: { id: userId }, data: { passwordHash, tokenVersion: { increment: 1 } } });
+    // E si spengono gli avvisi delle prenotazioni sui telefoni di questo accesso (telefono perso).
+    await forgetPushFor({ username: target.username });
     revalidatePath("/account");
   });
 }

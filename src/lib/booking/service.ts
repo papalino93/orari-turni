@@ -45,7 +45,7 @@ import {
 import { customerMessage, customerSubject, staffAlert, VENUE_NAME, type MessageKind } from "@/lib/booking/messages";
 import { bookingMailHtml, staffMailHtml } from "@/lib/booking/mail-html";
 import { sendPushToStaff } from "@/lib/booking/push";
-import { CLAIM_MINUTES, lastSent, whatsappPending } from "@/lib/booking/whatsapp-queue";
+import { activeClaim, CLAIM_MINUTES, lastSent, pendingSince, whatsappPending } from "@/lib/booking/whatsapp-queue";
 import { importable, importSig, parseImport, IMPORT_MAX_ROWS } from "@/lib/booking/import";
 import type { Hours } from "@/lib/menu-venue";
 
@@ -392,6 +392,8 @@ async function notifyOwner(title: string, body: string): Promise<void> {
 
 // Dopo il salvataggio (in after()): avvisi al personale e ricevuta al cliente per email.
 export async function afterCreate(id: string, origin: string | null): Promise<void> {
+  // Anche un buon momento per controllare i WhatsApp fermi da troppo (vedi remindStaleWhatsapp).
+  await remindStaleWhatsapp().catch(() => 0);
   const b = await prisma.bookingRequest.findUnique({ where: { id } });
   if (!b) return;
   if (b.isTest || isPreview()) return;
@@ -910,6 +912,62 @@ export async function notifyWhatsappQueue(id: string): Promise<void> {
   if (push.failed) await log(id, "sistema", "PUSH_FAIL", `${push.failed} ${push.failed === 1 ? "avviso non partito" : "avvisi non partiti"}`);
 }
 
+// ---------- Promemoria: un WhatsApp aspetta da troppo
+//
+// Con «Solo il telefono enoteca», se un messaggio resta «da mandare» per 15 minuti (telefono della sala
+// scarico, spento, dimenticato), un solo avviso a titolare e consulente: «Da 15 minuti c'è un messaggio
+// WhatsApp da mandare a Rossi: il telefono dell'enoteca è acceso?». Su Vercel Hobby non c'è un cron
+// frequente: il controllo parte quando qualcuno apre Prenotazioni, mentre la pagina controlla la lista
+// (ogni 8 secondi se c'è qualcosa da mandare) e quando arriva una richiesta. Una volta per risposta
+// (BookingRequest.waRemindedAt, aggiornato in modo condizionato: due controlli insieme, un avviso solo).
+
+export const REMIND_MINUTES = 15;
+let lastRemindCheck = 0;
+
+export async function remindStaleWhatsapp(now: Date = new Date(), opts: { force?: boolean } = {}): Promise<number> {
+  if (isPreview()) return 0;
+  // Non più di un controllo al minuto per server (la lista si controlla ogni 8 secondi).
+  if (!opts.force && now.getTime() - lastRemindCheck < 60000) return 0;
+  lastRemindCheck = now.getTime();
+  const settings = await loadBookingSettings();
+  if (!settings.agendaEnabled || settings.whatsappSenders !== "venue") return 0;
+  const venues = await prisma.employee.count({ where: { isVenueDevice: true, active: true, canManageBookings: true } });
+  if (!venues) return 0;
+  const since = new Date(now.getTime() - REMIND_MINUTES * 60000);
+  const rows = await prisma.bookingRequest.findMany({
+    where: {
+      isTest: false,
+      day: { gte: addDays(businessDay(now), -1) },
+      status: { in: ["CONFIRMED", "PROPOSED", "DECLINED", "CANCELLED"] },
+      phone: { not: "" },
+      // Solo quelle che hanno avuto una risposta da almeno 15 minuti.
+      log: { some: { kind: { in: ["CONFIRMED", "ACCEPTED", "PROPOSED", "DECLINED", "CANCELLED", "WA_QUEUED"] }, at: { lte: since } } },
+    },
+    include: { log: { select: { at: true, actor: true, kind: true, message: true } } },
+    take: 200,
+  });
+  let sent = 0;
+  for (const b of rows) {
+    const kind = whatsappPending(b, now.getTime());
+    const queued = pendingSince(b);
+    if (!kind || queued === null || now.getTime() - queued < REMIND_MINUTES * 60000) continue;
+    // Qualcuno lo sta mandando adesso: niente promemoria.
+    if (activeClaim(b, now.getTime())) continue;
+    if (b.waRemindedAt && b.waRemindedAt.getTime() >= queued) continue;
+    const won = await prisma.bookingRequest.updateMany({
+      where: { id: b.id, OR: [{ waRemindedAt: null }, { waRemindedAt: { lt: new Date(queued) } }] },
+      data: { waRemindedAt: now },
+    });
+    if (!won.count) continue;
+    const minutes = Math.floor((now.getTime() - queued) / 60000);
+    const body = `Da ${minutes} minuti c'è un messaggio WhatsApp da mandare a ${b.name}: il telefono dell'enoteca è acceso?`;
+    const push = await sendPushToStaff({ title: "WhatsApp ancora da mandare", body, url: `/prenotazioni?r=${b.id}`, tag: `booking-wa-promemoria-${b.id}` }, undefined, "owner").catch(() => ({ sent: 0, failed: 1 }));
+    await log(b.id, "sistema", "WA_REMINDER", push.sent ? `Promemoria al titolare (${push.sent} ${push.sent === 1 ? "telefono" : "telefoni"}): ${body}` : `Promemoria al titolare non arrivato a nessun telefono: ${body}`);
+    sent++;
+  }
+  return sent;
+}
+
 // ---------- Avvisi
 
 async function log(requestId: string, actor: string, kind: string, message?: string | null) {
@@ -1170,33 +1228,41 @@ const hhmmRome = (d: Date) => {
 
 export type ClaimResult = { ok: true } | { ok: false; error: string; claimedBy?: string; sentBy?: string; at?: number };
 
-export async function claimWhatsapp(id: string, actor: string, from: string, force: boolean, now: Date = new Date()): Promise<ClaimResult> {
+// device: un numero a caso tenuto sull'apparecchio (localStorage). Con lo stesso nome su due apparecchi
+// (il titolare dal telefono e dal computer) il messaggio lo prende uno solo; null = apparecchio sconosciuto
+// (pagina vecchia ancora aperta): vale solo il nome, come prima.
+export async function claimWhatsapp(id: string, actor: string, from: string, force: boolean, now: Date = new Date(), device: string | null = null): Promise<ClaimResult> {
   const b = await prisma.bookingRequest.findUnique({ where: { id }, select: { waClaimBy: true, waClaimAt: true, log: { select: { at: true, actor: true, kind: true, message: true } } } });
   if (!b) return { ok: false, error: "Questa richiesta non c'è più." };
   const sent = lastSent(b);
   if (sent && !force) return { ok: false, error: `Già mandato da ${sent.by} alle ${hhmmRome(new Date(sent.at))}`, sentBy: sent.by, at: sent.at };
   const free = new Date(now.getTime() - CLAIM_MINUTES * 60000);
+  const mine = device ? { waClaimBy: actor, OR: [{ waClaimDevice: null }, { waClaimDevice: device }] } : { waClaimBy: actor };
   const r = await prisma.bookingRequest.updateMany({
-    where: { id, OR: [{ waClaimAt: null }, { waClaimAt: { lt: free } }, { waClaimBy: actor }] },
-    data: { waClaimBy: actor, waClaimAt: now },
+    where: { id, OR: [{ waClaimAt: null }, { waClaimAt: { lt: free } }, mine] },
+    data: { waClaimBy: actor, waClaimAt: now, waClaimDevice: device },
   });
   if (!r.count) {
     const c = await prisma.bookingRequest.findUnique({ where: { id }, select: { waClaimBy: true, waClaimAt: true } });
-    return { ok: false, error: `In invio da ${c?.waClaimBy ?? "qualcun altro"}${c?.waClaimAt ? ` dalle ${hhmmRome(c.waClaimAt)}` : ""}`, claimedBy: c?.waClaimBy ?? undefined, at: c?.waClaimAt?.getTime() };
+    const elsewhere = c?.waClaimBy === actor ? " su un altro apparecchio" : "";
+    return { ok: false, error: `In invio da ${c?.waClaimBy ?? "qualcun altro"}${elsewhere}${c?.waClaimAt ? ` dalle ${hhmmRome(c.waClaimAt)}` : ""}`, claimedBy: c?.waClaimBy ?? undefined, at: c?.waClaimAt?.getTime() };
   }
   await log(id, actor, "WHATSAPP_OPENED", `in invio ${from}${force && sent ? " (rimandato)" : ""}`);
   return { ok: true };
 }
 
 // «Annulla»: la risposta torna libera (solo chi l'aveva presa).
-export async function releaseWhatsapp(id: string, actor: string): Promise<void> {
-  await prisma.bookingRequest.updateMany({ where: { id, waClaimBy: actor }, data: { waClaimBy: null, waClaimAt: null } });
+export async function releaseWhatsapp(id: string, actor: string, device: string | null = null): Promise<void> {
+  await prisma.bookingRequest.updateMany({
+    where: { id, waClaimBy: actor, ...(device ? { OR: [{ waClaimDevice: null }, { waClaimDevice: device }] } : {}) },
+    data: { waClaimBy: null, waClaimAt: null, waClaimDevice: null },
+  });
 }
 
 // «Mandato» (from: «dal numero dell'enoteca» / «dal WhatsApp personale»); null = «Segna come già mandata».
 export async function markWhatsappSent(id: string, actor: string, from: string | null): Promise<void> {
   await log(id, actor, "WHATSAPP_DONE", from);
-  await prisma.bookingRequest.updateMany({ where: { id }, data: { waClaimBy: null, waClaimAt: null } });
+  await prisma.bookingRequest.updateMany({ where: { id }, data: { waClaimBy: null, waClaimAt: null, waClaimDevice: null } });
 }
 
 // ---------- Serate al completo

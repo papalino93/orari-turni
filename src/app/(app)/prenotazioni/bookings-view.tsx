@@ -18,7 +18,7 @@ import type { MessageKind } from "@/lib/booking/messages";
 import type { AgendaView } from "@/lib/booking/agenda";
 import type { Hours } from "@/lib/menu-venue";
 import { chooseVenueWho, markWhatsapp, reopenOnline, setBookingSwitch, setDayClosed, setPushLocalPhone, undoNewBooking } from "./actions";
-import { WaContext, type WaInfo } from "./wa-send";
+import { deviceId, WaContext, type WaInfo } from "./wa-send";
 import { BookingSheet } from "./booking-sheet";
 import { SettingsSheet } from "./settings-sheet";
 import { arrivesText, BellIcon, PushBox, usePush, WhatsappIcon, WhatsappInfoBox } from "./device";
@@ -32,6 +32,7 @@ import { RequestsPanel, requestsCount, requestsSummary } from "./requests-panel"
 import { SearchSheet } from "./search-sheet";
 import { NumbersSheet } from "./numbers";
 import type { BookingItem, BookingStatsData } from "./types";
+import type { PushDevice } from "@/lib/booking/push";
 
 // Il suggerimento «Avvisi su questo telefono» si mostra una volta per dispositivo; poi resta in ⋯.
 const PUSH_HINT_KEY = "prenotazioni-avvisi-suggerito";
@@ -65,6 +66,7 @@ export function BookingsView({
   googleLink,
   openRequest,
   link = null,
+  devices = [],
   preview = false,
 }: {
   now: number;
@@ -91,6 +93,8 @@ export function BookingsView({
   openRequest: string | null;
   // ?richieste=1, ?vista=oggi, ?tab=… : il pannello o la vista da aprire.
   link?: PageLink | null;
+  // Telefoni che ricevono gli avvisi (solo per titolare e consulente, nelle Impostazioni).
+  devices?: PushDevice[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -577,7 +581,7 @@ export function BookingsView({
         )}
 
         {panel === "impostazioni" && isOwner && (
-          <SettingsSheet venueExists={wa.venueExists} settings={settings} mailReady={mailReady} googleLink={googleLink} busy={busy} onToggle={askToggle} onReopen={reopen} onClose={() => setPanel(null)} />
+          <SettingsSheet devices={devices} venueExists={wa.venueExists} settings={settings} mailReady={mailReady} googleLink={googleLink} busy={busy} onToggle={askToggle} onReopen={reopen} onClose={() => setPanel(null)} />
         )}
 
         {loadingOpened && (
@@ -860,7 +864,7 @@ function SavedBar({
                 // Stessa coda condivisa: si prende in mano (cronologia «in invio…») e si apre WhatsApp.
                 e.preventDefault();
                 const win = window.open("", "_blank");
-                markWhatsapp(info.id, "opened")
+                markWhatsapp(info.id, "opened", { device: deviceId() })
                   .then((r) => {
                     if (r.ok && r.data.ok) {
                       if (win) win.location.href = info.whatsappHref!;

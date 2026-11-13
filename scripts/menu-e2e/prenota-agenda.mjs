@@ -900,7 +900,9 @@ try {
       const picked = (await first.innerText()).split("\n")[0].trim();
       await first.click();
       await who.waitFor({ state: "detached" });
-      check(`telefono enoteca: «Sei ${picked}» in cima`, (await local.p.getByTestId("chi-sei").first().innerText()).includes(picked));
+      const chip = local.p.getByTestId("chi-sei").filter({ hasText: picked }).first();
+      await chip.waitFor({ timeout: 15000 }).catch(() => {});
+      check(`telefono enoteca: «Sei ${picked}» in cima`, (await chip.count()) === 1 && /^Sei /.test((await chip.getAttribute("aria-label")) ?? ""));
       const d = await fillNew(local.p, { source: L.srcPhone, name: n, phone: nextPhone(), people: 2, day: D2.day, time: D2.slots[2] });
       await saveNew(local.p, d);
       check("telefono enoteca: «Manda conferma» (e non «Conferma dal telefono enoteca»)", (await bar(local.p).getByRole("link", { name: L.waConfirm }).count()) === 1 && (await bar(local.p).getByRole("button", { name: L.waLater }).count()) === 0);

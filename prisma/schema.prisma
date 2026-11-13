@@ -642,6 +642,10 @@ model BookingRequest {
   // «Da mandare su WhatsApp» condiviso: chi l'ha preso in mano (lucchetto di 5 minuti) e da dove.
   waClaimBy     String?
   waClaimAt     DateTime?
+  // L'apparecchio che l'ha presa (un numero a caso tenuto sul dispositivo): stesso nome su due apparecchi non basta.
+  waClaimDevice String?
+  // Promemoria «Da 15 minuti c'è un messaggio WhatsApp da mandare…» al titolare (una volta per risposta).
+  waRemindedAt  DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 

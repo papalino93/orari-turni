@@ -183,7 +183,7 @@ function WaRow({ b, kind, today, now, canSend, onOpen }: { b: BookingItem; kind:
         </span>
         {claim && !canSend && <span className="text-xs font-medium text-gold">In invio da {claim.by}…</span>}
       </button>
-      {href && canSend && <WhatsappButton key={`${b.id}-${b.waClaimAt ?? 0}`} href={href} bookingId={b.id} icon name={b.name} claim={{ by: b.waClaimBy, at: b.waClaimAt }} />}
+      {href && canSend && <WhatsappButton key={`${b.id}-${b.waClaimAt ?? 0}`} href={href} bookingId={b.id} icon name={b.name} claim={{ by: b.waClaimBy, at: b.waClaimAt, device: b.waClaimDevice }} />}
     </li>
   );
 }

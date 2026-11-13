@@ -297,7 +297,7 @@ export async function undoNewBooking(idInput: string): Promise<ActionResult> {
 // - "queue": la conferma di una prenotazione dell'agenda la manda il telefono enoteca.
 export type WhatsappClaim = { ok: true } | { ok: false; text: string; claimedBy?: string; sentBy?: string; at?: number };
 
-export async function markWhatsapp(idInput: string, how: "opened" | "sent" | "release" | "done" | "undo" | "queue", opts?: { force?: boolean }): Promise<ActionResult<WhatsappClaim>> {
+export async function markWhatsapp(idInput: string, how: "opened" | "sent" | "release" | "done" | "undo" | "queue", opts?: { force?: boolean; device?: string }): Promise<ActionResult<WhatsappClaim>> {
   return runAction(async () => {
     const m = await requireAgendaManager();
     const id = parseBookingId(idInput);
@@ -305,6 +305,8 @@ export async function markWhatsapp(idInput: string, how: "opened" | "sent" | "re
     const exists = await prisma.bookingRequest.findUnique({ where: { id }, select: { id: true } });
     if (!exists) throw new ValidationError("Questa richiesta non c'è più.");
     const actor = await who(m);
+    // L'apparecchio (numero a caso tenuto sul dispositivo): il lucchetto riconosce anche quello.
+    const device = typeof opts?.device === "string" && /^[a-z0-9]{8,40}$/i.test(opts.device) ? opts.device : null;
     try {
       if (how === "queue") {
         const r = await queueConfirmation(id, { name: actor });
@@ -314,11 +316,11 @@ export async function markWhatsapp(idInput: string, how: "opened" | "sent" | "re
       if (how === "opened") {
         // Solo chi manda (o titolare/consulente con «Mandalo io dal mio WhatsApp»).
         if (whatsappRole(m, effectiveMode(await loadBookingSettings(), await venueDeviceExists())) === "none") throw new ValidationError("Le risposte su WhatsApp le manda il telefono enoteca.");
-        const r = await claimWhatsapp(id, actor, sentFrom(m), opts?.force === true);
+        const r = await claimWhatsapp(id, actor, sentFrom(m), opts?.force === true, new Date(), device);
         return r.ok ? ({ ok: true } as WhatsappClaim) : ({ ok: false, text: r.error, claimedBy: r.claimedBy, sentBy: r.sentBy, at: r.at } as WhatsappClaim);
       }
       if (how === "sent") await markWhatsappSent(id, actor, sentFrom(m));
-      else if (how === "release") await releaseWhatsapp(id, actor);
+      else if (how === "release") await releaseWhatsapp(id, actor, device);
       else if (how === "done") await markWhatsappSent(id, actor, null);
       else if (how === "undo") {
         const last = await prisma.bookingLog.findFirst({ where: { requestId: id, kind: "WHATSAPP_DONE", actor }, orderBy: { at: "desc" }, select: { id: true } });
@@ -563,6 +565,17 @@ export async function sendTestPush(endpointInput: string): Promise<ActionResult<
     const r = await sendPushToStaff({ title: "Prova riuscita", body: "Così arriva l'avviso di una nuova richiesta di prenotazione.", url: "/prenotazioni", tag: "booking-test" }, { endpoint: endpointInput });
     if (!r.sent) throw new ValidationError("L'avviso non è partito: disattiva e riattiva gli avvisi, poi riprova.");
     return r.sent;
+  });
+}
+
+// «Telefoni che ricevono gli avvisi» (Impostazioni): «Togli» spegne gli avvisi su quell'apparecchio.
+// Solo titolare e consulente; per riaccenderli serve quel telefono («Attiva gli avvisi»).
+export async function removePushDevice(idInput: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireOwner();
+    if (typeof idInput !== "string" || !/^[a-z0-9_]{10,40}$/i.test(idInput)) throw new ValidationError("Apparecchio non trovato: ricarica la pagina.");
+    await prisma.pushSubscription.deleteMany({ where: { id: idInput } });
+    revalidatePath("/prenotazioni");
   });
 }
 

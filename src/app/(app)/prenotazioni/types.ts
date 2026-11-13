@@ -37,6 +37,7 @@ export type BookingItem = {
   // «In invio da …» (lucchetto della risposta su WhatsApp, 5 minuti).
   waClaimBy: string | null;
   waClaimAt: number | null;
+  waClaimDevice: string | null;
   createdAt: number;
   // Per la modifica: se nel frattempo qualcun altro l'ha cambiata, non si sovrascrive.
   updatedAt: number;

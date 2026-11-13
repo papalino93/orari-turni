@@ -586,7 +586,7 @@ export function BookingSheet({
                 {canWhatsapp ? (
                   <>
                     <p className="text-sm font-medium text-foreground">{REPLY_LABEL[pendingWa]}: non è ancora partito su WhatsApp.</p>
-                    {resendHref(pendingWa) && <WhatsappButton href={resendHref(pendingWa)!} bookingId={b.id} claim={{ by: b.waClaimBy, at: b.waClaimAt }} onOpened={() => onWaOpened(b.id, pendingWa)} />}
+                    {resendHref(pendingWa) && <WhatsappButton href={resendHref(pendingWa)!} bookingId={b.id} claim={{ by: b.waClaimBy, at: b.waClaimAt, device: b.waClaimDevice }} onOpened={() => onWaOpened(b.id, pendingWa)} />}
                   </>
                 ) : (
                   <p className="text-sm text-foreground-muted">
@@ -655,7 +655,7 @@ export function BookingSheet({
                     bookingId={b.id}
                     label="Apri WhatsApp"
                     compact
-                    claim={{ by: b.waClaimBy, at: b.waClaimAt }}
+                    claim={{ by: b.waClaimBy, at: b.waClaimAt, device: b.waClaimDevice }}
                   />
                 </div>
               </details>

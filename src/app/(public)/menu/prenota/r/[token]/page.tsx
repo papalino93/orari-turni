@@ -116,7 +116,28 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
           <h1 className="menu-serif m-0 mb-1 text-balance text-[38px] font-medium leading-[1.05] text-[#6B1020]">{head.title}</h1>
           <Ornament color="#9C7A45" />
           <p className="m-0 mt-3 max-w-[440px] text-balance text-[17.5px] leading-normal text-[#3F4540]">{head.text}</p>
+          {/* Il codice in primo piano: chi ci chiama lo trova subito (è anche in fondo, nei dettagli). */}
+          {active && (
+            <p className="menu-sans m-0 mt-2 text-[13px] text-[#5B605A]" data-testid="codice-in-alto">
+              Codice <strong className="font-semibold tracking-[0.14em] text-[#1F2621]">{b.code}</strong>
+            </p>
+          )}
         </div>
+
+        {/* Da quale numero gli scriviamo: un messaggio da un numero sconosciuto si ignora, o finisce nello spam. */}
+        {active && b.contact !== "email" && b.phone && contacts.phone && (
+          <div className="mx-auto mt-6 max-w-[440px] rounded-2xl border !border-[#BFD3C4] bg-[#F1F7F2] px-5 py-4 text-center" data-testid="numero-enoteca">
+            <p className="m-0 text-balance text-[16px] leading-normal text-[#23402D]">
+              Ti scriviamo dal numero WhatsApp dell&apos;enoteca, <strong className="whitespace-nowrap font-semibold">{contacts.phone}</strong>: salvalo in rubrica.
+            </p>
+            {view === "PENDING" && wa && (
+              // La chat parte dal cliente, sul numero del locale: il link della richiesta resta nel suo WhatsApp.
+              <a href={wa} className={`${pillOutline} mt-3 inline-flex min-w-[240px]`}>
+                Mandaci il codice su WhatsApp
+              </a>
+            )}
+          </div>
+        )}
 
         {b.staffMessage && view !== "PENDING" && (
           <figure className="mx-auto mt-6 max-w-[440px] border-y-[3px] border-double !border-[#C9A96E] px-2 py-3.5 text-center">

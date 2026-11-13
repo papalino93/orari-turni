@@ -4,10 +4,10 @@ import { getBookingManager } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
 import { loadVenue } from "@/lib/menu";
 import { mailConfigured } from "@/lib/mail";
-import { bookingStats, listBookings, loadBookingSettings, siteOrigin } from "@/lib/booking/service";
+import { bookingStats, later, listBookings, loadBookingSettings, remindStaleWhatsapp, siteOrigin } from "@/lib/booking/service";
 import { menuSuggestions } from "@/lib/booking/agenda-server";
 import { effectiveMode, venueDeviceExists, venueWho, whatsappRole, whoChoices, VENUE_LABEL } from "@/lib/booking/venue";
-import { pushPublicKey } from "@/lib/booking/push";
+import { listPushDevices, pushPublicKey } from "@/lib/booking/push";
 import { BookingsView, type PageLink } from "./bookings-view";
 import { toBookingItem } from "./items";
 import type { BookingItem } from "./types";
@@ -79,6 +79,8 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
   }
 
   const now = new Date();
+  // WhatsApp fermi da troppo (telefono della sala spento?): promemoria al titolare, dopo la risposta.
+  await later(() => remindStaleWhatsapp(now));
   const params = await searchParams;
   const { r } = params;
   const link = pageLink(params);
@@ -97,6 +99,8 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
     venueDeviceExists(),
     venueWho(manager),
   ]);
+  // Solo titolare e consulente: i telefoni che ricevono gli avvisi (Impostazioni).
+  const devices = manager.role === "ADMIN" ? await listPushDevices() : [];
   const waMode = effectiveMode(settings, venueExists);
   // Sul telefono enoteca: chi lo sta usando («Chi sei?»), con prima chi è in turno oggi.
   const venueDevice = manager.venueDevice
@@ -125,6 +129,7 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
       googleLink={`${origin}/prenota?da=google`}
       openRequest={typeof r === "string" && /^[a-z0-9_]{10,40}$/i.test(r) ? r : null}
       link={link}
+      devices={devices}
     />
   );
 }

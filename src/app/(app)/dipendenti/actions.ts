@@ -16,6 +16,7 @@ import {
 } from "@/lib/validation";
 import { toDateKey } from "@/lib/week";
 import { VENUE_WIDGET_IDS } from "@/lib/widgets";
+import { forgetPushFor } from "@/lib/booking/push";
 import { encryptEmployeePassword, generateEmployeePassword, generateEmployeeUsername } from "@/lib/employee-credentials";
 
 const ROLES = ["EMPLOYEE", "OWNER"] as const;
@@ -143,6 +144,8 @@ export async function updateEmployee(
 
     if (Object.keys(data).length === 0) return;
     await prisma.employee.update({ where: { id }, data });
+    // Credenziali tolte: anche gli avvisi delle prenotazioni su quei telefoni si spengono.
+    if (data.tokenVersion) await forgetPushFor({ employeeId: id });
     revalidateEmployees();
   });
 }
@@ -159,6 +162,8 @@ export async function toggleEmployeeActive(idInput: string, activeInput: boolean
     // Dipendenti: si azzera alla riattivazione, non un semplice storico di
     // quando è stato disattivato l'ultima volta.
     await prisma.employee.update({ where: { id }, data: { active, deactivatedAt: active ? null : new Date() } });
+    // Disattivato: niente più avvisi delle prenotazioni sui suoi telefoni.
+    if (!active) await forgetPushFor({ employeeId: id });
     revalidateEmployees();
   });
 }
@@ -233,6 +238,9 @@ export async function setEmployeePassword(idInput: string, passwordInput: string
       where: { id },
       data: { password: encryptEmployeePassword(password), tokenVersion: { increment: 1 } },
     });
+    // Password nuova: si spengono anche gli avvisi delle prenotazioni sui telefoni del vecchio accesso
+    // (un telefono perso non mostra più i clienti). I telefoni buoni li riaccendono con un tocco.
+    await forgetPushFor({ employeeId: id });
     revalidateEmployees();
   });
 }
@@ -251,6 +259,9 @@ export async function regenerateEmployeePassword(idInput: string): Promise<Actio
       where: { id },
       data: { password: encryptEmployeePassword(password), tokenVersion: { increment: 1 } },
     });
+    // Password nuova: si spengono anche gli avvisi delle prenotazioni sui telefoni del vecchio accesso
+    // (un telefono perso non mostra più i clienti). I telefoni buoni li riaccendono con un tocco.
+    await forgetPushFor({ employeeId: id });
     revalidateEmployees();
     return { password };
   });
@@ -343,6 +354,8 @@ export async function deleteEmployee(idInput: string): Promise<ActionResult> {
     const employee = await prisma.employee.findUnique({ where: { id } });
     assert(employee, "Dipendente non trovato.");
 
+    // Gli avvisi se ne vanno con lui (PushSubscription ha onDelete: Cascade); per sicurezza anche qui.
+    await forgetPushFor({ employeeId: id });
     await prisma.employee.delete({ where: { id } });
     revalidateEmployees();
   });

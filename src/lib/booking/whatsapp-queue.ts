@@ -82,3 +82,10 @@ export function activeClaim(b: { waClaimBy?: string | null; waClaimAt?: Date | n
   const at = ms(b.waClaimAt);
   return now - at < CLAIM_MINUTES * 60000 ? { by: b.waClaimBy, at } : null;
 }
+
+// Da quando la risposta di adesso aspetta di essere mandata (l'ultima risposta del locale), o null.
+export function pendingSince(b: Pick<BookingLike, "log">): number | null {
+  let since: number | null = null;
+  for (const l of b.log) if (RESPONSES[l.kind] && l.actor !== "cliente" && l.actor !== "sistema") since = Math.max(since ?? 0, ms(l.at));
+  return since;
+}

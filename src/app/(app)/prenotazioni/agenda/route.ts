@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getBookingManager } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
 import { addDays, businessDay } from "@/lib/booking/rules";
-import { loadBookingSettings, siteOrigin } from "@/lib/booking/service";
+import { later, loadBookingSettings, remindStaleWhatsapp, siteOrigin } from "@/lib/booking/service";
 import { AGENDA_MAX_DAYS, loadAgenda, validDay } from "@/lib/booking/agenda-server";
 import { toBookingItem } from "../items";
 
@@ -24,6 +24,8 @@ export async function GET(request: Request) {
   // ?coda=1: un'impronta leggera di quello che cambia (prenotazioni, cronologia, lucchetti di WhatsApp):
   // la pagina la chiede ogni pochi secondi mentre ci sono risposte da mandare e si aggiorna solo se cambia.
   if (q.get("coda") === "1") {
+    // Mentre c'è qualcosa da mandare: anche il promemoria al titolare se aspetta da 15 minuti.
+    await later(() => remindStaleWhatsapp());
     const since = new Date(Date.now() - 2 * 86400000);
     const [last, logs] = await Promise.all([
       prisma.bookingRequest.aggregate({ _max: { updatedAt: true }, _count: { _all: true } }),

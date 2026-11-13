@@ -177,6 +177,11 @@ export function logText(l: BookingItem["log"][number]): { text: string; detail: 
       // «Mandato» (con da dove: numero dell'enoteca o WhatsApp personale) o «Segna come già mandata».
       if (msg) return { text: `Mandata su WhatsApp da ${who}`, detail: msg.charAt(0).toUpperCase() + msg.slice(1), tone: "ok" };
       return { text: `${who} ha segnato la risposta su WhatsApp come già mandata`, detail: null, tone: "normal" };
+    case "WA_REMINDER": {
+      // «Promemoria al titolare (1 telefono): Da 15 minuti c'è…»: il titolo prima dei due punti.
+      const [head, ...rest] = (msg ?? "Promemoria al titolare").split(": ");
+      return { text: head, detail: rest.join(": ") || null, tone: "warn" };
+    }
     default:
       return { text: msg ?? l.kind, detail: null, tone: "normal" };
   }

@@ -43,6 +43,7 @@ export function toBookingItem(b: FullRow, origin: string): BookingItem {
     menu: b.menu,
     waClaimBy: b.waClaimBy,
     waClaimAt: b.waClaimAt?.getTime() ?? null,
+    waClaimDevice: b.waClaimDevice,
     createdAt: b.createdAt.getTime(),
     updatedAt: b.updatedAt.getTime(),
     statusUrl: `${origin}${statusPath(b.id)}`,

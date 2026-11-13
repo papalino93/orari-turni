@@ -515,7 +515,11 @@ export function BookingForm({
                     autoComplete="tel"
                     maxLength={40}
                     placeholder="Es. 333 123 4567"
-                    hint={!useEmail ? "Ti rispondiamo su WhatsApp a questo numero." : "Ci serve per chiamarti se c'è bisogno."}
+                    hint={
+                      !useEmail
+                        ? `Ti rispondiamo su WhatsApp a questo numero.${venuePhone ? ` Ti scriviamo dal numero WhatsApp dell'enoteca, ${venuePhone}: salvalo in rubrica.` : ""}`
+                        : "Ci serve per chiamarti se c'è bisogno."
+                    }
                   />
 
                   {mailOn && (

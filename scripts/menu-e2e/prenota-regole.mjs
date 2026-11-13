@@ -694,6 +694,73 @@ try {
     if (sendersBefore) DB(`update "MenuSetting" set value=${q(sendersBefore)} where id='bookings'`);
   }
 
+  // Lucchetto per apparecchio: stesso nome su due apparecchi, uno solo lo prende
+  {
+    const w = await fresh();
+    await S.confirmBooking(w.id, marta, null, null);
+    const a = await S.claimWhatsapp(w.id, "Prova C Andrea", "dal WhatsApp personale", false, new Date(), "apparecchioaaaa1");
+    const b2 = await S.claimWhatsapp(w.id, "Prova C Andrea", "dal WhatsApp personale", false, new Date(), "apparecchiobbbb2");
+    check("lucchetto per apparecchio: stesso nome dal computer → «In invio da … su un altro apparecchio»", a.ok && !b2.ok && /su un altro apparecchio/.test(b2.error), b2.error);
+    check("…dallo stesso apparecchio di prima: va", (await S.claimWhatsapp(w.id, "Prova C Andrea", "x", false, new Date(), "apparecchioaaaa1")).ok);
+    await S.releaseWhatsapp(w.id, "Prova C Andrea", "apparecchiobbbb2");
+    check("…«Annulla» dall'altro apparecchio non lo libera", DB(`select coalesce("waClaimDevice",'-') from "BookingRequest" where id=${q(w.id)}`) === "apparecchioaaaa1");
+    await S.releaseWhatsapp(w.id, "Prova C Andrea", "apparecchioaaaa1");
+    check("…«Annulla» dal suo apparecchio: libero", DB(`select coalesce("waClaimBy",'-')||coalesce("waClaimDevice",'-') from "BookingRequest" where id=${q(w.id)}`) === "--");
+  }
+
+  // Promemoria al titolare: un WhatsApp aspetta da 15 minuti con «Solo il telefono enoteca»
+  {
+    const before = DB(`select value from "MenuSetting" where id='bookings'`);
+    const wasVenue = DB(`select "isVenueDevice"||':'||"canManageBookings" from "Employee" where username='marta'`).split(":");
+    const ownerSub = "provacpushpromemoria";
+    try {
+      DB(`update "Employee" set "isVenueDevice"=true, "canManageBookings"=true where username='marta'`);
+      DB(`update "MenuSetting" set value = jsonb_set(jsonb_set(value::jsonb, '{whatsappSenders}', '"venue"'), '{agendaEnabled}', 'true')::text where id='bookings'`);
+      DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, username) values (${q(ownerSub)}, 'https://fcm.googleapis.com/prova-c-promemoria', 'x', 'y', 'andrea')`);
+      const w = await fresh();
+      await S.confirmBooking(w.id, marta, null, null);
+      check("promemoria: dopo 1 minuto niente", (await S.remindStaleWhatsapp(new Date(), { force: true })) === 0 || DB(`select count(*) from "BookingLog" where "requestId"=${q(w.id)} and kind='WA_REMINDER'`) === "0");
+      DB(`update "BookingLog" set at = at - interval '16 minutes' where "requestId"=${q(w.id)} and kind='CONFIRMED'`);
+      await S.remindStaleWhatsapp(new Date(), { force: true });
+      const rem = DB(`select coalesce(string_agg(message, ' | '), '') from "BookingLog" where "requestId"=${q(w.id)} and kind='WA_REMINDER'`);
+      check("promemoria: dopo 15 minuti, uno al titolare «Da 16 minuti c'è un messaggio WhatsApp da mandare a … il telefono dell'enoteca è acceso?»", /Promemoria al titolare \(1 telefono\): Da 1[56] minuti c'è un messaggio WhatsApp da mandare a Prova C .*: il telefono dell'enoteca è acceso\?/.test(rem), rem);
+      check("…arrivato al telefono del titolare", DB(`select ("lastOkAt" is not null)::text from "PushSubscription" where id=${q(ownerSub)}`) === "true");
+      await S.remindStaleWhatsapp(new Date(), { force: true });
+      check("promemoria: una volta sola (controllo ripetuto)", DB(`select count(*) from "BookingLog" where "requestId"=${q(w.id)} and kind='WA_REMINDER'`) === "1");
+      await Promise.all([S.remindStaleWhatsapp(new Date(), { force: true }), S.remindStaleWhatsapp(new Date(), { force: true })]);
+      check("promemoria: due controlli insieme, sempre uno", DB(`select count(*) from "BookingLog" where "requestId"=${q(w.id)} and kind='WA_REMINDER'`) === "1");
+      // Preso in mano da qualcuno: niente promemoria.
+      const w2 = await fresh();
+      await S.confirmBooking(w2.id, marta, null, null);
+      DB(`update "BookingLog" set at = at - interval '20 minutes' where "requestId"=${q(w2.id)} and kind='CONFIRMED'`);
+      await S.claimWhatsapp(w2.id, "Prova C Marta (telefono enoteca)", "dal numero dell'enoteca", false);
+      await S.remindStaleWhatsapp(new Date(), { force: true });
+      check("promemoria: niente se qualcuno lo sta mandando", DB(`select count(*) from "BookingLog" where "requestId"=${q(w2.id)} and kind='WA_REMINDER'`) === "0");
+      // «Anche titolare e consulente»: niente promemoria (suona già a loro).
+      DB(`update "MenuSetting" set value = jsonb_set(value::jsonb, '{whatsappSenders}', '"all"')::text where id='bookings'`);
+      const w3 = await fresh();
+      await S.confirmBooking(w3.id, marta, null, null);
+      DB(`update "BookingLog" set at = at - interval '20 minutes' where "requestId"=${q(w3.id)} and kind='CONFIRMED'`);
+      await S.remindStaleWhatsapp(new Date(), { force: true });
+      check("promemoria: con «Anche titolare e consulente» niente", DB(`select count(*) from "BookingLog" where "requestId"=${q(w3.id)} and kind='WA_REMINDER'`) === "0");
+    } finally {
+      DB(`delete from "PushSubscription" where id=${q(ownerSub)}`);
+      DB(`update "Employee" set "isVenueDevice"=${wasVenue[0] === "true" || wasVenue[0] === "t"}, "canManageBookings"=${wasVenue[1] === "true" || wasVenue[1] === "t"} where username='marta'`);
+      if (before) DB(`update "MenuSetting" set value=${q(before)} where id='bookings'`);
+    }
+  }
+
+  // Password cambiata o accesso disattivato: gli avvisi di quell'accesso si spengono
+  {
+    const P = await import("@/lib/booking/push");
+    const emp = DB(`select id from "Employee" where username='giulia'`);
+    DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, "employeeId") values ('provacpushpw1', 'https://fcm.googleapis.com/prova-c-pw1', 'x', 'y', ${q(emp)})`);
+    DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, username) values ('provacpushpw2', 'https://fcm.googleapis.com/prova-c-pw2', 'x', 'y', 'andrea')`);
+    check("forgetPushFor (dipendente): tolti i suoi avvisi, non quelli del titolare", (await P.forgetPushFor({ employeeId: emp })) >= 1 && DB(`select count(*) from "PushSubscription" where id in ('provacpushpw1','provacpushpw2')`) === "1");
+    check("forgetPushFor (titolare): tolti", (await P.forgetPushFor({ username: "andrea" })) >= 1 && DB(`select count(*) from "PushSubscription" where id='provacpushpw2'`) === "0");
+    check("deviceKind: iPhone, Android, Computer", P.deviceKind("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X)") === "iPhone" && /Android/.test(P.deviceKind("Mozilla/5.0 (Linux; Android 14; Pixel 8) Mobile")) && P.deviceKind("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5)") === "Computer");
+  }
+
   // Venue: regole pure (chi manda, che cosa vede)
   {
     const V = await import("@/lib/booking/venue");

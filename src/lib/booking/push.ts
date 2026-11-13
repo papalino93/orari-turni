@@ -100,3 +100,44 @@ export async function sendPushToStaff(payload: PushPayload, only?: { endpoint: s
   );
   return { sent, failed };
 }
+
+// Una password cambiata (o un accesso disattivato) spegne anche gli avvisi di quell'accesso: un
+// telefono perso non deve più mostrare nomi e orari dei clienti sullo schermo bloccato. I telefoni
+// buoni li riaccendono con un tocco («Attiva gli avvisi»).
+export async function forgetPushFor(who: { employeeId?: string | null; username?: string | null }): Promise<number> {
+  if (!who.employeeId && !who.username) return 0;
+  const r = await prisma.pushSubscription.deleteMany({ where: who.employeeId ? { employeeId: who.employeeId } : { username: who.username!, employeeId: null } });
+  return r.count;
+}
+
+// Che apparecchio è, in parole semplici, dal nome che il browser dà di sé.
+export function deviceKind(userAgent: string | null | undefined): string {
+  const ua = userAgent ?? "";
+  if (/iPad/i.test(ua) || (/Macintosh/i.test(ua) && /Mobile/i.test(ua))) return "iPad";
+  if (/iPhone|iPod/i.test(ua)) return "iPhone";
+  if (/Android/i.test(ua)) return /Mobile/i.test(ua) ? "Telefono Android" : "Tablet Android";
+  if (/Windows|Macintosh|Linux|CrOS/i.test(ua)) return "Computer";
+  return "Apparecchio";
+}
+
+export type PushDevice = { id: string; who: string; kind: string; venue: boolean; lastUsed: number | null; createdAt: number };
+
+// «Telefoni che ricevono gli avvisi» (Impostazioni, solo titolare e consulente).
+export async function listPushDevices(): Promise<PushDevice[]> {
+  const subs = await prisma.pushSubscription.findMany({
+    include: { employee: { select: { name: true, isVenueDevice: true, active: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  const users = await prisma.user.findMany({ where: { username: { in: subs.map((s) => s.username).filter((u): u is string => Boolean(u)) } }, select: { username: true, name: true } });
+  const userName = new Map(users.map((u) => [u.username, u.name]));
+  return subs
+    .map((s) => ({
+      id: s.id,
+      who: s.employee ? s.employee.name : (userName.get(s.username ?? "") ?? s.username ?? "—"),
+      kind: deviceKind(s.userAgent),
+      venue: Boolean(s.employee?.isVenueDevice),
+      lastUsed: (s.lastOkAt ?? null)?.getTime() ?? null,
+      createdAt: s.createdAt.getTime(),
+    }))
+    .sort((a, b) => Number(b.venue) - Number(a.venue) || (b.lastUsed ?? b.createdAt) - (a.lastUsed ?? a.createdAt));
+}
