@@ -66,7 +66,8 @@ function summary(input: BookingMailInput): string {
   const proposed = kind === "proposed" && m.proposedTime;
   const rows: [string, string][] = [
     ["Giorno", cap(dayLong(m.day))],
-    ["Ora", proposed ? `${m.proposedTime} (avevi chiesto le ${m.time})` : m.time || "da definire"],
+    ["Ora", proposed ? `${m.proposedTime}` : m.time || "da definire"],
+    ...(proposed ? ([["Avevi chiesto", m.time]] as [string, string][]) : []),
     ["Persone", m.people > 0 && !m.peopleUnknown ? peopleText(m.people) : "da definire"],
     ["A nome di", m.name],
   ];
@@ -76,9 +77,9 @@ function summary(input: BookingMailInput): string {
     `<td align="right" style="padding:9px 0 9px 12px;${last ? "" : "border-bottom:1px solid #eadfce;"}font-family:${FONT};font-size:15px;font-weight:600;color:${INK}">${escapeHtml(value)}</td>` +
     `</tr>`;
   const code = m.code
-    ? `<tr><td colspan="2" style="padding:12px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
-      `<td style="padding:10px 14px;background:#ffffff;border-radius:10px;font-family:${FONT};font-size:12px;color:${MUTED}">Codice<br><span style="font-size:11.5px">Se ci chiami, diccelo</span></td>` +
-      `<td align="right" style="padding:10px 14px;background:#ffffff;border-radius:10px;font-family:${FONT};font-size:20px;font-weight:600;letter-spacing:3px;color:${INK}">${escapeHtml(m.code)}</td>` +
+    ? `<tr><td colspan="2" style="padding:12px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:10px"><tr>` +
+      `<td style="padding:10px 14px;font-family:${FONT};font-size:12px;line-height:1.4;color:${MUTED}">Codice<br><span style="font-size:11.5px">Se ci chiami, diccelo</span></td>` +
+      `<td align="right" style="padding:10px 14px;font-family:${FONT};font-size:20px;font-weight:600;letter-spacing:3px;color:${INK}">${escapeHtml(m.code)}</td>` +
       `</tr></table></td></tr>`
     : "";
   return (
@@ -107,13 +108,14 @@ function splitText(text: string, urls: string[]): { body: string[]; lead: string
   return { body, lead };
 }
 
-function frame(subject: string, origin: string, inner: string, footer: string): string {
+function frame(subject: string, origin: string, inner: string, footer: string, preheader = ""): string {
   const logo = `${origin.replace(/\/$/, "")}/menu/logo-mail.png`;
   return (
     `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${escapeHtml(subject)}</title></head>` +
     `<body style="margin:0;padding:0;background:${CREAM}">` +
-    // Riga nascosta: l'anteprima nella casella di posta (il primo paragrafo, non «Visualizza nel browser»).
+    // Riga nascosta: l'anteprima nella casella di posta (la prima frase, non il testo del logo).
+    (preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${CREAM};font-size:1px;line-height:1px">${escapeHtml(preheader)}</div>` : "") +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${CREAM}"><tr><td align="center" style="padding:24px 12px">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:14px">` +
     `<tr><td align="center" style="padding:28px 28px 8px">` +
@@ -179,15 +181,15 @@ export function bookingMailHtml(input: BookingMailInput): string {
   const leadHtml = lead.length ? `<p style="margin:0 0 12px;font-size:14.5px;color:${MUTED}">${lead.map(escapeHtml).join(" ")}</p>` : "";
   const buttonsHtml = buttons.length ? `${leadHtml}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px">${buttons.join("")}</table>` : leadHtml;
   const note = kind === "received" || kind === "confirmed" || kind === "proposed" ? whatsappNumberNote(input.venue.phone) : null;
-  return frame(input.subject, input.origin, paragraphs.join("") + summary(input) + buttonsHtml + sign, venueFooter(input.venue, note));
+  return frame(input.subject, input.origin, paragraphs.join("") + summary(input) + buttonsHtml + sign, venueFooter(input.venue, note), oneLine(body[0] ?? "").slice(0, 140));
 }
 
 // Avviso al personale (nuova richiesta, annullata dal cliente…): stessa cornice, più semplice.
 export function staffMailHtml(input: { title: string; body: string; url: string; origin: string; venue: BookingMailVenue }): string {
   const inner =
     `<p style="margin:0 0 6px;font-family:${FONT};font-size:12.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${WINE}">${escapeHtml(input.title)}</p>` +
-    `<p style="margin:0 0 20px;font-family:${SERIF};font-size:20px;line-height:1.4;color:${INK}">${escapeHtml(input.body)}</p>` +
+    `<p style="margin:0 0 20px;font-family:${SERIF};font-size:20px;line-height:1.4;color:${INK}">${escapeHtml(cap(input.body))}</p>` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${button(input.url, "Apri le richieste", true)}</table>`;
   const footer = `<div style="margin-top:22px;padding-top:14px;border-top:1px solid #eae3d8;font-size:12.5px;color:${MUTED}">Avviso automatico delle prenotazioni di ${escapeHtml(VENUE_NAME)}.</div>`;
-  return frame(input.title, input.origin, inner, footer);
+  return frame(input.title, input.origin, inner, footer, input.body.slice(0, 140));
 }

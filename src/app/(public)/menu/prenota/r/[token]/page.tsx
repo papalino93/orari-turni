@@ -215,7 +215,8 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
         )}
 
         {(view === "PENDING" || (view === "CONFIRMED" && !started)) && (
-          <div className="mt-10">
+          // id «annulla»: il pulsante «Annulla» delle email porta qui.
+          <div id="annulla" className="mt-10 scroll-mt-6">
             <CancelButton
               token={token}
               label={view === "CONFIRMED" ? "Annulla la prenotazione" : "Annulla la richiesta"}

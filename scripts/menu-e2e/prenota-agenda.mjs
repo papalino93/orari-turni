@@ -415,7 +415,7 @@ try {
   const goList = async (p) => {
     await p.goto(`${BASE}/prenotazioni`, { waitUntil: "networkidle", timeout: 180000 });
     const later = p.getByRole("button", { name: /^Non ora/ });
-    if (await later.count()) await later.first().click();
+    if (await later.count()) await later.first().click({ timeout: 3000 }).catch(() => {});
   };
   // Niente più schede: «Stasera» → Giorno di oggi, «Da gestire» → pannello «Richieste»,
   // «Prossimi giorni» → «Cerca» (⋯), «Numeri» → ⋯ → Numeri. p.scope = dove leggere.

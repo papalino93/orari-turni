@@ -43,6 +43,7 @@ import {
   UNKNOWN_TIME_MINUTES,
 } from "@/lib/booking/rules";
 import { customerMessage, customerSubject, staffAlert, VENUE_NAME, type MessageKind } from "@/lib/booking/messages";
+import { bookingMailHtml, staffMailHtml } from "@/lib/booking/mail-html";
 import { sendPushToStaff } from "@/lib/booking/push";
 import { CLAIM_MINUTES, lastSent, whatsappPending } from "@/lib/booking/whatsapp-queue";
 import { importable, importSig, parseImport, IMPORT_MAX_ROWS } from "@/lib/booking/import";
@@ -928,7 +929,7 @@ async function notifyStaff(requestId: string, title: string, body: string, url: 
           to: settings.notifyEmail,
           subject: oneLine(`${title}: ${body}`).slice(0, 180),
           text: `${body}\n\nApri le richieste: ${siteOrigin()}${url}`,
-          html: `<p>${escapeHtml(body)}</p><p><a href="${escapeHtml(siteOrigin() + url)}">Apri le richieste</a></p>`,
+          html: staffMailHtml({ title, body, url: siteOrigin() + url, origin: siteOrigin(), venue: { address: "", phone: "" } }),
         },
       ]);
       await log(requestId, "sistema", "MAIL_OK", `Avviso al titolare (${settings.notifyEmail})`);
@@ -956,25 +957,31 @@ function messageInput(b: BookingRow, origin: string | null, extra: { address?: s
 
 async function sendCustomerMail(b: BookingRow, kind: MessageKind, origin: string | null, wasConfirmed = false): Promise<boolean> {
   if (!b.email || !mailConfigured() || b.isTest || isPreview()) return false;
-  const m = { ...messageInput(b, origin, { address: (await loadVenue()).contacts.address || null }), wasConfirmed };
+  const venue = await loadVenue();
+  const m = { ...messageInput(b, origin, { address: venue.contacts.address || null }), wasConfirmed };
   const text = customerMessage(kind, m);
-  // Nell'HTML diventano link solo gli indirizzi del sito (pagina della richiesta, modulo): nient'altro.
-  const links = [m.statusUrl, m.bookUrl].filter(Boolean) as string[];
-  const linkify = (escaped: string) =>
-    links.reduce((acc, u) => acc.split(escapeHtml(u)).join(`<a href="${escapeHtml(u)}">${escapeHtml(u)}</a>`), escaped);
+  const subject = customerSubject(kind, m);
+  const site = siteOrigin(origin);
   try {
     await sendTransactional([
       {
         to: b.email,
-        subject: oneLine(`${customerSubject(kind, m)} · ${VENUE_NAME}`),
+        subject: oneLine(`${subject} · ${VENUE_NAME}`),
         text,
-        html: text
-          .split(/\n{2,}/)
-          .map((p) => `<p>${linkify(escapeHtml(p)).replace(/\n/g, "<br>")}</p>`)
-          .join(""),
+        // La veste delle mail della sezione Mail, con riepilogo e pulsanti; nessun elemento da newsletter.
+        html: bookingMailHtml({
+          kind,
+          text,
+          subject,
+          m: { ...m, code: b.code, peopleUnknown: b.peopleUnknown },
+          origin: site,
+          calendarUrl: kind === "confirmed" && !b.timeUnknown ? `${site}${statusPath(b.id)}/calendario` : null,
+          canCancel: kind === "received" || kind === "confirmed",
+          venue: { address: venue.contacts.address, phone: venue.contacts.phone },
+        }),
       },
     ]);
-    await log(b.id, "sistema", "MAIL_OK", `Email al cliente: ${customerSubject(kind, m)}`);
+    await log(b.id, "sistema", "MAIL_OK", `Email al cliente: ${subject}`);
     return true;
   } catch (e) {
     await log(b.id, "sistema", "MAIL_FAIL", `Email al cliente non partita: ${String(e).slice(0, 200)}`);
