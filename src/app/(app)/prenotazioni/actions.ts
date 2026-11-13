@@ -35,7 +35,10 @@ import {
   saveBookingSettings,
   setDayFull,
   type StaffResult,
+  importManualBookings,
+  type ImportLineResult,
 } from "@/lib/booking/service";
+import { IMPORT_MAX_CHARS } from "@/lib/booking/import";
 import { sendPushToStaff } from "@/lib/booking/push";
 
 // Ogni azione è un indirizzo pubblico: la prima cosa è sempre requireAgendaManager()
@@ -188,6 +191,41 @@ export async function editBooking(idInput: string, input: ManualInput, version: 
     const r = await updateBooking(id, fields, typeof version === "string" ? version : null, { name: m.name }, await requestOrigin());
     refresh();
     return agendaOutcome(r);
+  });
+}
+
+// ---------- «Importa dal librone»: tante prenotazioni insieme da una lista incollata
+
+// keep: le righe già in agenda da segnare lo stesso («Importa lo stesso»).
+function importInput(text: unknown, keep: unknown): { text: string; keep: number[] } {
+  if (typeof text !== "string") throw new ValidationError("Dati non validi.");
+  if (text.length > IMPORT_MAX_CHARS) throw new ValidationError("La lista è troppo lunga: dividila in più parti.");
+  const lines = Array.isArray(keep) ? keep.filter((n): n is number => Number.isInteger(n) && n > 0).slice(0, 2000) : [];
+  return { text, keep: lines };
+}
+
+export type ImportOutcome = { results: ImportLineResult[]; isTest: boolean };
+
+// Anteprima: che cosa succederebbe (doppioni già in agenda, giorni chiusi), senza salvare niente.
+export async function checkImport(text: string, keep: number[] = []): Promise<ActionResult<ImportOutcome>> {
+  return runAction(async () => {
+    const m = await requireAgendaManager();
+    const input = importInput(text, keep);
+    const r = await importManualBookings(input.text, input.keep, { name: m.name }, { dryRun: true });
+    if (!r.ok) throw new ValidationError(r.error);
+    return { results: r.results, isTest: r.isTest };
+  });
+}
+
+// Segna in agenda tutte le righe buone, una dopo l'altra; per ognuna dice com'è andata.
+export async function importBookings(text: string, keep: number[] = []): Promise<ActionResult<ImportOutcome>> {
+  return runAction(async () => {
+    const m = await requireAgendaManager();
+    const input = importInput(text, keep);
+    const r = await importManualBookings(input.text, input.keep, { name: m.name }, { dryRun: false });
+    refresh();
+    if (!r.ok) throw new ValidationError(r.error);
+    return { results: r.results, isTest: r.isTest };
   });
 }
 

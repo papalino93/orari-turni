@@ -294,6 +294,8 @@ export const SOURCE_LABEL: Record<string, string> = {
   telefono: "Telefono",
   whatsapp: "WhatsApp",
   persona: "Di persona",
+  // Arrivate tutte insieme con «Importa dal librone» (non è un pulsante del foglio «Nuova prenotazione»).
+  librone: "Dal librone",
 };
 
 // Da dove arriva una prenotazione segnata a mano (pulsanti del foglio «Nuova prenotazione»).

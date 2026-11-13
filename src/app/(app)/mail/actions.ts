@@ -195,6 +195,9 @@ export async function sendMailTest(input: { to: string; header: string; subject:
       if (e instanceof MailError) throw new ValidationError(e.message);
       throw e;
     }
+    // La prossima prova propone lo stesso indirizzo, anche da un altro dispositivo.
+    const sender = await loadMailSender();
+    if (sender.testEmail !== r.email) await saveMailSender({ ...sender, testEmail: r.email }).catch(() => {});
     return { sent: 1 };
   });
 }

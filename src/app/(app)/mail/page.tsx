@@ -66,7 +66,7 @@ export default async function MailPage() {
           }))}
         />
         <OptOutBox optOuts={optOuts.map((o) => ({ email: o.email, at: o.createdAt.toISOString(), source: o.source }))} />
-        <SenderBox sender={sender} address={venue.contacts.address} />
+        <SenderBox sender={sender} address={venue.contacts.address} from={process.env.MAIL_FROM || null} replyTo={process.env.MAIL_REPLY_TO || null} />
       </div>
     </div>
   );

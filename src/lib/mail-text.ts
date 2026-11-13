@@ -21,39 +21,97 @@ export function isValidEmail(value: string): boolean {
 // Legge un CSV (virgola, punto e virgola o tabulazione; anche incollato a
 // mano). Colonne: email e intestazione, con o senza riga di titoli. Se c'è
 // solo l'email, l'intestazione resta vuota e si userà il saluto generico.
-export function parseRecipients(raw: string): { recipients: Recipient[]; skipped: string[] } {
-  const text = raw.replace(/^﻿/, "").trim();
-  if (!text) return { recipients: [], skipped: [] };
+// titleRow: la prima riga, se è stata presa come titoli delle colonne (per dirlo a chi incolla);
+// duplicates: quanti indirizzi ripetuti sono stati tolti.
+export function parseRecipients(raw: string): { recipients: Recipient[]; skipped: string[]; titleRow: string | null; duplicates: number } {
+  const text = raw.replace(/^\uFEFF/, "").trim();
+  if (!text) return { recipients: [], skipped: [], titleRow: null, duplicates: 0 };
 
-  const firstLine = text.split(/\r?\n/, 1)[0];
-  const delimiter = [";", "\t", ","].sort((a, b) => count(firstLine, b) - count(firstLine, a))[0];
-  const rows = parseCsv(text, delimiter).filter((r) => r.some((c) => c.trim()));
+  const delimiter = guessDelimiter(text);
+  // Una riga senza il separatore scelto ma con un altro (elenco scritto un po' così e un po' cosà):
+  // si divide con quello che ha.
+  const rows = parseCsv(text, delimiter)
+    .filter((r) => r.some((c) => c.trim()))
+    .map((r) => {
+      const other = r.length === 1 ? ["\t", ";", ","].find((ch) => r[0].includes(ch)) : undefined;
+      return other ? r[0].split(other) : r;
+    });
 
   let emailCol = 0;
   let headerCol = 1;
+  let titleRow: string | null = null;
   const titles = rows[0]?.map((c) => c.trim().toLowerCase()) ?? [];
   if (titles.length && !titles.some((t) => t.includes("@"))) {
     const e = titles.findIndex((t) => /^(e-?mail|mail|indirizzo)/.test(t));
     const h = titles.findIndex((t) => /^(intestazione|saluto|nome|destinatario)/.test(t));
     if (e >= 0) emailCol = e;
     headerCol = h >= 0 ? h : emailCol === 0 ? 1 : 0;
+    titleRow = rows[0].map((c) => c.trim()).filter(Boolean).join(delimiter === "\t" ? " · " : `${delimiter} `);
     rows.shift();
   }
 
   const recipients: Recipient[] = [];
   const skipped: string[] = [];
   const seen = new Set<string>();
+  let duplicates = 0;
   for (const row of rows) {
     const email = (row[emailCol] ?? "").trim().toLowerCase();
     if (!isValidEmail(email)) {
       skipped.push(email || row.join(" ").trim());
       continue;
     }
-    if (seen.has(email)) continue;
+    if (seen.has(email)) {
+      duplicates++;
+      continue;
+    }
     seen.add(email);
     recipients.push({ email, header: (row[headerCol] ?? "").trim() });
   }
-  return { recipients, skipped };
+  return { recipients, skipped, titleRow, duplicates };
+}
+
+// Separatore delle colonne: quello presente nel maggior numero di righe (tra le prime 50), a pari
+// merito punto e virgola, poi tabulazione (colonne copiate da Excel), poi virgola. Così va bene anche se la prima riga ha
+// solo l'email, o se qualche nome contiene una virgola in un elenco col punto e virgola.
+function guessDelimiter(text: string): string {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim()).slice(0, 50);
+  const score = (ch: string) => lines.filter((l) => l.includes(ch)).length;
+  return [";", "\t", ","].reduce((best, ch) => (score(ch) > score(best) ? ch : best));
+}
+
+// La tabella «Scrivili qui»: una riga per persona, scritta a mano. Stesse regole degli altri modi
+// (email in minuscolo e controllata, doppioni contati una volta sola); in più dice riga per riga
+// cosa non va, per segnarlo sotto la casella.
+export type TypedRow = { email: string; header: string };
+export type TypedRowState = { kind: "vuota" } | { kind: "ok" } | { kind: "manca" } | { kind: "non valida" } | { kind: "doppia"; of: number };
+
+export function checkTypedRows(rows: TypedRow[]): { recipients: Recipient[]; skipped: string[]; duplicates: number; states: TypedRowState[] } {
+  const recipients: Recipient[] = [];
+  const skipped: string[] = [];
+  const firstAt = new Map<string, number>();
+  let duplicates = 0;
+  const states = rows.map((row, i): TypedRowState => {
+    const email = row.email.trim().toLowerCase();
+    const header = row.header.trim();
+    if (!email) {
+      if (!header) return { kind: "vuota" };
+      skipped.push(header);
+      return { kind: "manca" };
+    }
+    if (!isValidEmail(email)) {
+      skipped.push(email);
+      return { kind: "non valida" };
+    }
+    const first = firstAt.get(email);
+    if (first !== undefined) {
+      duplicates++;
+      return { kind: "doppia", of: first };
+    }
+    firstAt.set(email, i);
+    recipients.push({ email, header: header.slice(0, 200) });
+    return { kind: "ok" };
+  });
+  return { recipients, skipped, duplicates, states };
 }
 
 export type SheetFilters = { headerColumn: string; groups: string[] | null; onlyDocumented: boolean };
@@ -77,11 +135,12 @@ export function tableToRecipients(
   rows: Record<string, string>[],
   headers: string[],
   { headerColumn, groups, onlyDocumented }: SheetFilters,
-): { recipients: Recipient[]; skipped: string[] } {
+): { recipients: Recipient[]; skipped: string[]; duplicates: number } {
   const cols = guessColumns(headers);
   const recipients: Recipient[] = [];
   const skipped: string[] = [];
   const seen = new Set<string>();
+  let duplicates = 0;
   for (const row of rows) {
     if (groups && cols.group && !groups.includes(row[cols.group] ?? "")) continue;
     if (onlyDocumented && cols.basis && !/\S/.test(row[cols.basis] ?? "")) continue;
@@ -92,15 +151,14 @@ export function tableToRecipients(
       skipped.push(email);
       continue;
     }
-    if (seen.has(email)) continue;
+    if (seen.has(email)) {
+      duplicates++;
+      continue;
+    }
     seen.add(email);
     recipients.push({ email, header: (headerColumn ? row[headerColumn] ?? "" : "").trim() });
   }
-  return { recipients, skipped };
-}
-
-function count(s: string, ch: string) {
-  return s.split(ch).length - 1;
+  return { recipients, skipped, duplicates };
 }
 
 function parseCsv(text: string, delimiter: string): string[][] {

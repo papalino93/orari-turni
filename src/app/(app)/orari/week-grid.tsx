@@ -270,6 +270,25 @@ function PeriodsLayout({
   const toggleDay = (key: string) =>
     setOpenKeys(effectiveOpen.includes(key) ? effectiveOpen.filter((k) => k !== key) : [...effectiveOpen, key]);
 
+  // Mattina e Pomeriggio si chiudono con un tocco sul loro nome (per vedere l'altro senza scorrere).
+  // La scelta resta su questo dispositivo.
+  const [folded, setFolded] = useState<Period[]>([]);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("orari-fasce-chiuse") ?? "[]");
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- preferenza letta una volta dopo il caricamento
+      if (Array.isArray(saved)) setFolded(PERIODS.filter((p) => saved.includes(p)));
+    } catch {}
+  }, []);
+  const toggleFold = (period: Period) =>
+    setFolded((cur) => {
+      const next = cur.includes(period) ? cur.filter((p) => p !== period) : [...cur, period];
+      try {
+        localStorage.setItem("orari-fasce-chiuse", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
   // C'è altro da scorrere a destra? (tablet in verticale). Il ResizeObserver lo dice anche alla prima misura.
   const scroller = useRef<HTMLDivElement>(null);
   const [more, setMore] = useState(false);
@@ -325,6 +344,8 @@ function PeriodsLayout({
                 weeklyHours={weeklyHours}
                 onEdit={onEdit}
                 onManageDay={onManageDay}
+                folded={folded.includes(period)}
+                onToggle={() => toggleFold(period)}
               />
             ))}
           </div>
@@ -407,10 +428,17 @@ function PeriodsLayout({
               ) : (
                 PERIODS.map((period) => (
                   <div key={period}>
-                    <p className="border-t border-border bg-surface-2/50 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground-muted">
+                    <button
+                      type="button"
+                      aria-expanded={!folded.includes(period)}
+                      onClick={() => toggleFold(period)}
+                      className="flex min-h-9 w-full items-center gap-1.5 border-t border-border bg-surface-2/50 px-4 py-1.5 text-left text-[11px] font-medium uppercase tracking-wide text-foreground-muted active:bg-surface-2"
+                    >
+                      <FoldChevron open={!folded.includes(period)} />
                       {PERIOD_LABEL[period]}
-                    </p>
-                    <div className="divide-y divide-border">
+                      {folded.includes(period) && <span className="ml-auto normal-case tracking-normal">Tocca per vedere</span>}
+                    </button>
+                    {!folded.includes(period) && <div className="divide-y divide-border">
                       {orderedEmployees.map((emp) => {
                         const entry = entryForPeriod(schedule.entry(emp.id, dateKey), period);
                         return (
@@ -428,7 +456,7 @@ function PeriodsLayout({
                           </button>
                         );
                       })}
-                    </div>
+                    </div>}
                   </div>
                 ))
               )}
@@ -449,6 +477,8 @@ function PeriodTable({
   weeklyHours,
   onEdit,
   onManageDay,
+  folded,
+  onToggle,
 }: {
   label: string;
   days: Date[];
@@ -458,14 +488,26 @@ function PeriodTable({
   weeklyHours: (employeeId: string, period?: Period) => number;
   onEdit: (employeeId: string, dateKey: string) => void;
   onManageDay: (dateKey: string) => void;
+  folded: boolean;
+  onToggle: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-border bg-surface">
       <table className="w-full table-fixed border-collapse text-sm">
         <thead>
           <tr>
-            <th className="w-40 border-b border-border bg-surface-2/60 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-foreground lg:w-44">
-              {label}
+            <th className={`w-40 bg-surface-2/60 p-0 text-left lg:w-44 ${folded ? "rounded-bl-2xl" : "border-b border-border"}`}>
+              <button
+                type="button"
+                aria-expanded={!folded}
+                onClick={onToggle}
+                title={folded ? `Mostra ${label.toLowerCase()}` : `Nascondi ${label.toLowerCase()}`}
+                className="flex min-h-11 w-full items-center gap-1.5 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-foreground hover:text-accent-ink"
+              >
+                <FoldChevron open={!folded} />
+                {label}
+              </button>
+              {folded && <span className="block px-3 pb-2 text-[11px] font-normal normal-case text-foreground-muted">Nascosta · tocca per vedere</span>}
             </th>
             {days.map((d) => {
               const dateKey = toDateKey(d);
@@ -480,7 +522,7 @@ function PeriodTable({
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody hidden={folded}>
           {orderedEmployees.map((emp) => (
             <tr key={emp.id} className={emp.role === "OWNER" ? "border-t-2 border-t-border" : ""}>
               <td className="border-b border-border px-3 py-2.5 align-top">
@@ -626,5 +668,13 @@ export function EmployeeWeekCard({
         />
       )}
     </div>
+  );
+}
+
+function FoldChevron({ open }: { open: boolean }) {
+  return (
+    <svg aria-hidden width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}>
+      <path d="M6 9l6 6 6-6" />
+    </svg>
   );
 }

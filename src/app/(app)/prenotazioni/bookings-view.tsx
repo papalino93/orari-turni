@@ -16,6 +16,7 @@ import { SettingsSheet } from "./settings-sheet";
 import { BellIcon, LocalPhoneBox, PushBox, useLocalPhone, usePush, WhatsappIcon } from "./device";
 import { clock, dayLabel, duration, originShort, phoneDisplay, REPLY_SHORT, replyHref, sourceText, telLink, viewOf } from "./format";
 import { Agenda, BookingForm, type SavedInfo } from "./agenda";
+import { ImportSheet } from "./import-sheet";
 import { centerInRow, edgeFade } from "@/lib/edge-fade";
 import type { BookingItem, BookingStatsData } from "./types";
 
@@ -90,6 +91,8 @@ export function BookingsView({
   const [agendaDay, setAgendaDay] = useState(today);
   const [form, setForm] = useState<{ booking: BookingItem | null; day: string; key: number } | null>(null);
   const [showDevice, setShowDevice] = useState(false);
+  // «Importa dal librone»: tante prenotazioni insieme da una lista incollata.
+  const [showImport, setShowImport] = useState(false);
   // Un interruttore toccato (da confermare) e, dopo, la domanda sulle prenotazioni di prova.
   const [askSwitch, setAskSwitch] = useState<{ which: "agenda" | "online"; on: boolean } | null>(null);
   const [askTests, setAskTests] = useState<{ which: "agenda" | "online"; on: boolean; tests: number; keepable: number } | null>(null);
@@ -190,7 +193,9 @@ export function BookingsView({
     seen.current = ids;
   }, [lists.pending, toast]);
 
-  const [tab, setTab] = useState<Tab>(() => (lists.pending.length || lists.wa.length || !lists.tonight.length ? "todo" : "tonight"));
+  // Si apre sull'agenda (è il «librone»); solo se c'è un messaggio WhatsApp da mandare si parte da «Da gestire».
+  // Le richieste da confermare restano in vista con la fascia sopra l'agenda.
+  const [tab, setTab] = useState<Tab>(() => (lists.wa.length ? "todo" : "agenda"));
   // Sul telefono la riga delle schede scorre di lato: bordi sfumati da dove c'è altro
   // e la scheda scelta sempre in vista (niente «enda» o pallino tagliati a metà).
   const tabRow = useRef<HTMLDivElement | null>(null);
@@ -310,9 +315,9 @@ export function BookingsView({
 
   // Come il pallino del menù in alto e Impostazioni: solo le richieste da confermare.
   const TABS: { id: Tab; label: string; count?: number }[] = [
+    { id: "agenda", label: "Agenda" },
     { id: "todo", label: "Da gestire", count: lists.pending.length },
     { id: "tonight", label: "Stasera", count: lists.tonight.length },
-    { id: "agenda", label: "Agenda" },
     { id: "next", label: "Prossimi giorni" },
     { id: "archive", label: "Archivio" },
     { id: "numbers", label: "Numeri" },
@@ -348,13 +353,25 @@ export function BookingsView({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => newBooking(tab === "agenda" && agendaDay >= today ? agendaDay : today)}
-        className="mb-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 text-[15px] font-semibold text-accent-foreground shadow-sm hover:bg-accent-hover sm:w-auto"
-      >
-        + Nuova prenotazione
-      </button>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <button
+          type="button"
+          onClick={() => newBooking(tab === "agenda" && agendaDay >= today ? agendaDay : today)}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 text-[15px] font-semibold text-accent-foreground shadow-sm hover:bg-accent-hover sm:w-auto"
+        >
+          + Nuova prenotazione
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setJustSaved(null);
+            setShowImport(true);
+          }}
+          className="flex min-h-11 w-full items-center justify-center rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground hover:border-accent sm:min-h-12 sm:w-auto"
+        >
+          Importa dal librone
+        </button>
+      </div>
 
       {preview && (
         <p role="status" className="mb-4 rounded-2xl border border-danger/30 bg-danger-bg px-4 py-3 text-sm text-foreground">
@@ -618,6 +635,23 @@ export function BookingsView({
 
             {tab === "tonight" && <Tonight rows={lists.tonight} pending={lists.tonightPending} countTests={!settings.agendaEnabled} now={now} today={today} onOpen={open} />}
 
+            {tab === "agenda" && (lists.pending.length > 0 || lists.wa.length > 0) && (
+              <button
+                type="button"
+                onClick={() => setTab("todo")}
+                className="mb-4 flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-left text-sm font-medium text-foreground hover:border-gold"
+              >
+                <span>
+                  {[
+                    lists.pending.length ? `${lists.pending.length} ${lists.pending.length === 1 ? "richiesta online da confermare" : "richieste online da confermare"}` : "",
+                    lists.wa.length ? `${lists.wa.length} ${lists.wa.length === 1 ? "messaggio da mandare su WhatsApp" : "messaggi da mandare su WhatsApp"}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                <span className="shrink-0 text-accent">Apri ›</span>
+              </button>
+            )}
             {tab === "agenda" && <Agenda rows={lists.confirmed} cancelled={lists.cancelled} countTests={!settings.agendaEnabled} day={agendaDay} setDay={setAgendaDay} today={today} now={now} onOpen={open} onNew={newBooking} />}
 
             {tab === "next" && (
@@ -689,6 +723,8 @@ export function BookingsView({
           }}
         />
       )}
+
+      {showImport && <ImportSheet now={now} testMode={!settings.agendaEnabled} onClose={() => setShowImport(false)} />}
 
       {justSaved && (
         <SavedBar
