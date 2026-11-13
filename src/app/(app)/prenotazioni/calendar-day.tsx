@@ -272,7 +272,9 @@ function DayRow({
   // L'ora esatta sulla riga quando non è quella della fascia (20:45 nella fascia delle 20:30).
   const ownTime = slot !== null && m >= 0 && m !== slot ? (b.status === "PROPOSED" && b.proposedTime ? b.proposedTime : b.time) : null;
   const late = isToday && !cancelled && !request && !b.timeUnknown && !b.arrivedAt && !b.noShowAt && b.startsAt < now && b.startsAt > now - 3 * 3600000;
-  const test = b.isTest && !countTests;
+  // «Di prova» sempre in vista; con l'agenda accesa (le prove non contano) anche più chiara.
+  const test = b.isTest;
+  const faded = b.isTest && !countTests;
   const label = `${b.name}, ${b.peopleUnknown ? "persone da definire" : peopleText(b.people)}${b.timeUnknown ? ", ora da definire" : `, alle ${b.status === "PROPOSED" && b.proposedTime ? b.proposedTime : b.time}`}${request ? ", da confermare" : ""}${cancelled ? ", annullata" : ""}`;
 
   async function mark(value: boolean | null) {
@@ -298,7 +300,7 @@ function DayRow({
         ? "ring-1 ring-inset ring-success/40 bg-surface"
         : "ring-1 ring-inset ring-border bg-surface";
   return (
-    <li className={`relative flex items-stretch gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-surface-2/50 ${frame} ${cancelled ? "opacity-55" : b.noShowAt || test ? "opacity-65" : ""}`} data-testid="agenda-riga">
+    <li className={`relative flex items-stretch gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-surface-2/50 ${frame} ${cancelled ? "opacity-55" : b.noShowAt || faded ? "opacity-65" : ""}`} data-testid="agenda-riga">
       {missing && !cancelled && <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-gold" />}
       {/* Persone, grandi (come sul librone) */}
       <span className={`flex w-11 shrink-0 flex-col items-center justify-center self-start rounded-lg py-1.5 ${b.peopleUnknown ? "bg-gold/15 text-gold" : "bg-surface-2 text-foreground"} ${cancelled ? "line-through" : ""}`}>

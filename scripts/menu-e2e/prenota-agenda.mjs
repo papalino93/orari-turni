@@ -673,25 +673,30 @@ try {
   // Il database è condiviso con altre prove che girano insieme: il totale deve tornare con le righe
   // mostrate (somma delle persone, una riga = un tavolo) e con il database di quel momento.
   // Le annullate (barrate) e le prove non contano nei totali.
-  const uiRows = (await agenda(A).getByRole("list").first().getByRole("listitem").allInnerTexts()).filter((t) => !/Annullata|Di prova/.test(t));
-  const uiPeople = uiRows.reduce((sum, t) => sum + Number(t.match(/(\d+)\s*pers\./)?.[1] ?? 0), 0);
+  // Agenda a calendario (vista Giorno): le righe sono raggruppate per fascia oraria (data-testid «agenda-riga»).
+  const uiRows = (await agenda(A).getByTestId("agenda-riga").allInnerTexts()).filter((t) => !/Annullata|Di prova|Da confermare/.test(t));
+  const uiPeople = uiRows.reduce((sum, t) => sum + Number(t.match(/(\d+)\s*pers\./i)?.[1] ?? 0), 0);
   const [ppl, tables] = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and not "isTest"`).split("|");
   const totTxt = agTxt.match(/\d+ prenotazion[ei] · \d+ person[ae]/)?.[0] ?? "";
   check(`Agenda: totale del giorno = somma delle righe (${uiRows.length} prenotazioni · ${uiPeople} persone, niente «tavoli»)`, totTxt === `${uiRows.length} prenotazioni · ${uiPeople} persone` && !/tavoli/.test(agTxt), totTxt);
   check(`Agenda: …e uguale al database (${tables} prenotazioni · ${ppl} persone, online + a mano)`, totTxt === `${tables} prenotazioni · ${ppl} persone` || DB(`select count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`) !== "0", `${totTxt} (altre prove in corso: ${DB(`select count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`)})`);
   const r1 = await agendaRow(A, n1).innerText();
-  check("Agenda: riga con ora, «4 pers.», «Tavolo 5», nota, «⚠ Allergie», «Telefono · …»", /20:00/.test(r1) && /4 pers\./.test(r1) && /Tavolo 5/.test(r1) && /Prova Agenda compleanno/.test(r1) && /⚠ Allergie/.test(r1) && /Telefono · /.test(r1), r1.replace(/\n/g, " "));
+  // L'ora sta nell'intestazione della fascia («20:00 · 2 prenotazioni · …») sopra la riga.
+  const r1Group = await agendaRow(A, n1).evaluate((el) => el.closest("section")?.getAttribute("aria-label") ?? "");
+  check("Agenda: riga nella fascia delle 20:00, con «4 pers.», «Tavolo 5», nota, «⚠ Allergie», «Telefono · …»", /^20:00/.test(r1Group) && /4\s*pers\./i.test(r1) && /Tavolo 5/.test(r1) && /Prova Agenda compleanno/.test(r1) && /⚠ Allergie/.test(r1) && /Telefono · /.test(r1), r1.replace(/\n/g, " "));
   check("Agenda: la online dice «Online»", /Online/.test(await agendaRow(A, "Prova Agenda Online").innerText()));
   check("Agenda a 390 px: niente scorrimento orizzontale", (await overflow(A)) <= 0, String(await overflow(A)));
   await shot(A, "agenda-giorno");
 
   // Frecce, «Oggi», titolo del giorno
   // Titolo su due righe: «Oggi» piccolo sopra, la data sotto → «Oggi · sabato 7 novembre».
+  // Agenda a calendario: «Oggi» piccolo sopra il titolo (in maiuscoletto), il titolo «Venerdì 13 novembre».
   const title = async () => {
     const lines = (await agenda(A).innerText()).split("\n").map((l) => l.trim());
-    const i = lines.findIndex((l) => /(lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica) \d+/i.test(l));
+    const i = lines.findIndex((l) => /^(lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica) \d+/i.test(l));
     if (i < 0) return "";
-    return /^(Oggi|Domani|Ieri)$/.test(lines[i - 1] ?? "") ? `${lines[i - 1]} · ${lines[i]}` : lines[i];
+    const near = (lines[i - 1] ?? "").toLowerCase();
+    return /^(oggi|domani|ieri)$/.test(near) ? `${near.charAt(0).toUpperCase()}${near.slice(1)} · ${lines[i]}` : lines[i];
   };
   const t0 = await title();
   await agenda(A).getByRole("button", { name: L.nextDay }).click();
@@ -701,10 +706,11 @@ try {
   await A.waitForTimeout(600);
   const t2 = await title();
   check("frecce: «Giorno dopo» cambia giorno, «Giorno prima» torna", t1 !== t0 && t2 === t0 && (await agenda(A).innerText()).includes(n1), `${t0} → ${t1} → ${t2}`);
-  check("«Oggi» c'è quando non si è su oggi", (await agenda(A).getByRole("button", { name: L.today, exact: true }).count()) === 1);
+  // Come Google Calendar «Oggi» resta sempre al suo posto: segnato (aria-current) quando si è già su oggi.
+  check("«Oggi» c'è quando non si è su oggi", (await agenda(A).getByRole("button", { name: L.today, exact: true }).count()) === 1 && (await agenda(A).getByRole("button", { name: L.today, exact: true }).getAttribute("aria-current")) === null);
   await agenda(A).getByRole("button", { name: L.today, exact: true }).click();
   await A.waitForTimeout(600);
-  check("«Oggi»: torna a oggi («Oggi · …») e il pulsante sparisce", (await title()).startsWith("Oggi · ") && (await agenda(A).getByRole("button", { name: L.today, exact: true }).count()) === 0, await title());
+  check("«Oggi»: torna a oggi («Oggi · …») e il pulsante resta, segnato come il giorno di oggi", (await title()).startsWith("Oggi · ") && (await agenda(A).getByRole("button", { name: L.today, exact: true }).getAttribute("aria-current")) === "date", await title());
   check("D1 non è oggi: in agenda di oggi non c'è «Prova Agenda Rossi»", !(await agenda(A).innerText()).includes(n1));
 
   // Stampa: righe sì, pulsanti no
@@ -944,7 +950,7 @@ try {
     check("(3) …e non compare tra «Da mandare su WhatsApp»", !(await panel(A).innerText()).includes(n9));
     // (16) In agenda resta in fondo al giorno, barrata, con «Annullata», fuori dai totali.
     await goAgenda(A, D2.day);
-    const items = await agenda(A).getByRole("list").first().getByRole("listitem").allInnerTexts();
+    const items = await agenda(A).getByTestId("agenda-riga").allInnerTexts();
     const k = items.findIndex((t) => t.includes(n9));
     check("(16) agenda: l'annullata è in fondo al giorno con «Annullata»", k === items.length - 1 && /Annullata/.test(items[k] ?? ""), items.map((t) => t.split("\n")[0]).join(" | "));
     const deco = await agendaRow(A, n9).evaluate((el) => [...el.querySelectorAll("*")].some((x) => getComputedStyle(x).textDecorationLine.includes("line-through")));
