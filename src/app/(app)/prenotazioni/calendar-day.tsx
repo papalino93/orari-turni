@@ -5,7 +5,7 @@
 // le richieste online ancora da confermare al loro posto (tratteggiate), le annullate barrate in fondo
 // e «In servizio» chiuso in fondo.
 
-import { useMemo, useRef, useState } from "react";
+import { createContext, useContext, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { showActionError, useToast } from "@/components/toast";
@@ -35,6 +35,10 @@ import { clock, originShort, phoneDisplay, telLink } from "./format";
 type DayProps = CalendarProps & { day: string; data: AgendaData; capacity: number };
 
 // Le fasce passate di oggi si possono chiudere (restano un tocco più in là).
+// Prenotazioni con un WhatsApp al cliente ancora da mandare (dalla lista «Da mandare su WhatsApp»):
+// nella riga il segno giallo, così una conferma non sembra «fatta» finché il cliente non l'ha ricevuta.
+export const WaPendingContext = createContext<ReadonlySet<string>>(new Set());
+
 export function DayView({ day, data, capacity, today, now, hours, countTests, onOpen, onNew, onImport, onCloseRequests, onReopenRequests }: DayProps) {
   const [query, setQuery] = useState("");
   const [showPast, setShowPast] = useState(false);
@@ -269,6 +273,7 @@ function DayRow({
   onOpen: (id: string) => void;
   cancelled?: boolean;
 }) {
+  const waPending = useContext(WaPendingContext);
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -336,6 +341,7 @@ function DayRow({
           {request && <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs font-semibold text-gold ring-1 ring-inset ring-gold/30">{b.status === "PROPOSED" ? `Proposto alle ${b.proposedTime}: aspetta il cliente` : "Da confermare"}</span>}
           {test && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-foreground-muted ring-1 ring-inset ring-border">Di prova</span>}
           {cancelled && <span className="text-xs font-semibold text-foreground-muted">Annullata</span>}
+          {waPending.has(b.id) && !cancelled && <span className="rounded-full bg-gold/20 px-2 py-0.5 text-xs font-semibold text-gold ring-1 ring-inset ring-gold/40">WhatsApp da mandare</span>}
           {b.arrivedAt && !cancelled && <span className="text-xs font-semibold text-success">✓ Arrivati alle {clock(b.arrivedAt)}</span>}
           {b.noShowAt && !cancelled && <span className="text-xs font-semibold text-danger">Non venuti</span>}
           {late && <span className="text-xs font-medium text-gold">non ancora arrivati</span>}

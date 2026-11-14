@@ -384,13 +384,21 @@ export function BookingSheet({
 
         {/* Risposta appena data */}
         {result && (
-          <div className="space-y-3 rounded-xl border border-success/30 bg-success-bg/60 p-4">
+          // Con un WhatsApp ancora da mandare il riquadro è giallo, non verde: sul sito è fatto, al cliente
+          // non è ancora arrivato niente (prima sembrava tutto finito).
+          <div className={`space-y-3 rounded-xl border p-4 ${needsWa(result.out) && !waOpened ? "border-gold/50 bg-gold/10" : "border-success/30 bg-success-bg/60"}`}>
             <p className="text-base font-semibold text-success">{resultTitle}</p>
             {result.out.mailSent && <p className="text-sm text-foreground">✓ Email inviata a {result.out.email}</p>}
+            {needsWa(result.out) && !waOpened && (
+              <p className="text-[15px] font-semibold text-foreground" data-testid="wa-non-ancora">
+                Il cliente non l&apos;ha ancora ricevuto: manca il WhatsApp.
+              </p>
+            )}
             {needsWa(result.out) &&
               (canWhatsapp && result.out.whatsappHref ? (
                 <>
                   {b.contact === "email" && !result.out.mailSent && <p className="text-sm text-foreground">L&apos;email non è partita: mandala su WhatsApp.</p>}
+                  <p className="text-xs text-foreground-muted">Prima di Invia controlla che in alto in WhatsApp ci sia il numero dell&apos;enoteca.</p>
                   <WhatsappButton
                     href={result.out.whatsappHref}
                     bookingId={b.id}
@@ -404,7 +412,7 @@ export function BookingSheet({
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-foreground">Fatto. La risposta su WhatsApp la manda il telefono enoteca.</p>
+                <p className="text-sm text-foreground">Lo manda il telefono della sala: gli è arrivato l&apos;avviso. Finché non parte, la trovi in «Richieste» → «Da mandare su WhatsApp».</p>
               ))}
             <div className={`grid gap-2 pt-1 ${next ? "sm:grid-cols-2" : ""}`}>
               {next && (

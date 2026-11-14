@@ -439,7 +439,7 @@ try {
   check("insieme: una sola conferma nel database", DB(`select count(*) from "BookingLog" where "requestId"='${R.race.id}' and kind='CONFIRMED'`) === "1" && [MARTA.name, GIULIA.name].includes(winner), winner);
   check("insieme: chi ha vinto legge «✓ Confermata»", /✓ Confermata/.test(await bodyText(win)));
   check(`insieme: l'altro legge «Già confermata da ${winner}.»`, (await bodyText(lose)).includes(`Già confermata da ${winner}.`), (await bodyText(lose)).match(/Già[^\n]*/)?.[0] ?? "nessun messaggio");
-  check("dipendente (non dal telefono enoteca): «La risposta su WhatsApp la manda il telefono enoteca»", /La risposta su WhatsApp la manda il telefono enoteca/.test(await bodyText(win)));
+  check("dipendente (non dal telefono enoteca): «Lo manda il telefono della sala»", /Lo manda il telefono della sala/.test(await bodyText(win)));
   check("dipendente (non dal telefono del locale): nel foglio «Chiama» sì, «Scrivi» no", (await win.getByRole("dialog").getByRole("link", { name: "Chiama" }).count()) === 1 && (await win.getByRole("dialog").getByRole("link", { name: "Scrivi" }).count()) === 0);
   await win.keyboard.press("Escape");
   await goList(win);
