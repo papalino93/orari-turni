@@ -225,15 +225,35 @@ export function AgendaCalendar(props: CalendarProps) {
   const night = romeParts(new Date(now)).dateKey !== today;
   const near = view === "day" ? (anchor === today ? "Oggi" : anchor === addDays(today, 1) && !night ? "Domani" : anchor === addDays(today, -1) ? "Ieri" : null) : null;
   const showsToday = today >= from && today <= to;
+  const dayWeekday = view === "day" ? title.split(" ")[0] : null;
 
   const titleBlock = (
     // Titolo del periodo: un tocco apre il calendario per saltare a un giorno.
     <div className="relative order-1 min-w-0 flex-1 md:order-2 2xl:flex-none">
       <span className="flex min-h-11 items-center gap-1.5 rounded-xl px-1 md:px-2">
         <span className="min-w-0">
-          {near && <span className="block text-[11px] font-semibold uppercase leading-tight tracking-wider text-accent-ink">{near}</span>}
-          <span data-testid="agenda-titolo" className="block text-pretty font-display text-[length:clamp(16px,calc((100vw_-_154px)/12.6),1.3rem)] font-medium leading-tight text-foreground sm:text-[1.45rem] md:truncate md:text-[1.7rem]">
-            {title}
+          {/* Sul telefono il giorno della settimana sale nella riga piccola («OGGI · VENERDÌ») e sotto resta
+              «20 Novembre 2026»: così anche «Mercoledì 30 Settembre 2026» non va mai a capo e la barra
+              ha sempre la stessa altezza. Da tablet in su, tutto su una riga. */}
+          {(near || dayWeekday) && (
+            <span className={`${near ? "block" : "block sm:hidden"} text-[11px] font-semibold uppercase leading-tight tracking-wider text-accent-ink`}>
+              {near}
+              {dayWeekday && (
+                <span aria-hidden className="sm:hidden">
+                  {near ? ` · ${dayWeekday}` : dayWeekday}
+                </span>
+              )}
+            </span>
+          )}
+          <span data-testid="agenda-titolo" className="block text-pretty font-display text-[length:clamp(15px,calc((100vw_-_218px)/9.4),1.3rem)] font-medium leading-tight text-foreground sm:text-[1.45rem] md:truncate md:text-[1.7rem]">
+            {dayWeekday ? (
+              <>
+                <span className="max-sm:sr-only">{dayWeekday} </span>
+                {title.slice(dayWeekday.length + 1)}
+              </>
+            ) : (
+              title
+            )}
           </span>
         </span>
         <svg aria-hidden width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="mt-1 shrink-0 text-foreground-muted">
