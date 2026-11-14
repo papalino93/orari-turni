@@ -90,14 +90,21 @@ export function BookingSwitches({ agendaEnabled, enabled, pending, hasVenueDevic
           <Switch on={enabled} disabled={busy} label="Prenotazioni online dei clienti" onToggle={() => setAsk({ which: "online", on: !enabled })} />
         </div>
 
-        <div className="flex flex-wrap gap-x-5 gap-y-1 px-5 py-3 text-sm">
-          <Link href="/prenotazioni" className="inline-flex min-h-10 items-center font-semibold text-accent-ink hover:underline">
-            {agendaEnabled ? "Apri l'agenda ›" : "Provala prima di accenderla (la vedi solo tu) ›"}
-          </Link>
-          <Link href="/prenotazioni?apri=impostazioni" className="inline-flex min-h-10 items-center font-medium text-foreground-muted hover:text-foreground hover:underline">
-            Orari prenotabili, persone massime, link per Instagram e Google ›
-          </Link>
-        </div>
+        {/* Due righe separate, ognuna con la sua freccia: scritte una sotto l'altra sembravano un pulsante solo. */}
+        <Link href="/prenotazioni" className={`${row} hover:bg-surface-2/60`}>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-accent-ink">{agendaEnabled ? "Apri l'agenda" : "Prova l'agenda"}</span>
+            {!agendaEnabled && <span className="mt-0.5 block text-xs text-foreground-muted">Prima di accenderla: la vedi solo tu.</span>}
+          </span>
+          <Chevron />
+        </Link>
+        <Link href="/prenotazioni?apri=impostazioni" className={`${row} hover:bg-surface-2/60`}>
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-foreground">Impostazioni delle prenotazioni</span>
+            <span className="mt-0.5 block text-xs text-foreground-muted">Orari prenotabili, persone massime, telefoni che ricevono gli avvisi, link per Instagram, Facebook e Google.</span>
+          </span>
+          <Chevron />
+        </Link>
       </div>
 
       {ask && (
@@ -170,5 +177,13 @@ function Mark({ done }: { done: boolean }) {
     <span aria-hidden className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${done ? "bg-success text-white" : "border-[1.5px] border-foreground-muted/60"}`}>
       {done ? "✓" : ""}
     </span>
+  );
+}
+
+function Chevron() {
+  return (
+    <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-foreground-muted">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
   );
 }

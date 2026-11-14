@@ -160,8 +160,8 @@ try {
   DB(`insert into "BookingRequest" (id, code, "tokenHash", status, day, time, "startsAt", people, name, phone, contact, "isTest", manual, "createdBy", "updatedAt") values ('provacprovavera01', 'PRVC11', 'prova-c-prova-vera', 'CONFIRMED', '${D1.day}', '20:00', now() + interval '2 days', 3, 'Prova C Prova vera', '', 'whatsapp', true, true, 'Andrea', now()), ('provacprovaonl01', 'PRVC12', 'prova-c-prova-onl', 'PENDING', '${D1.day}', '20:30', now() + interval '2 days', 2, 'Prova C Prova online', '393330000000', 'whatsapp', true, false, null, now())`);
   await A.goto(`${BASE}/account`, { waitUntil: "networkidle", timeout: 180000 });
   check("spenta: nel menù in alto niente «Prenotazioni»", (await A.locator("nav").getByRole("link", { name: /^Prenotazioni/ }).count()) === 0);
-  const fromAccount = A.getByRole("link", { name: /Provala prima di accenderla/ });
-  check("spenta: in Impostazioni la sezione «Prenotazioni» con i due interruttori e «Provala prima di accenderla»", (await fromAccount.count()) === 1 && (await A.getByRole("switch", { name: "Agenda delle prenotazioni" }).getAttribute("aria-checked")) === "false" && (await A.getByRole("switch", { name: "Prenotazioni online dei clienti" }).count()) === 1);
+  const fromAccount = A.getByRole("link", { name: /Prova l.agenda/ });
+  check("spenta: in Impostazioni la sezione «Prenotazioni» con i due interruttori e «Prova l'agenda»", (await fromAccount.count()) === 1 && (await A.getByRole("switch", { name: "Agenda delle prenotazioni" }).getAttribute("aria-checked")) === "false" && (await A.getByRole("switch", { name: "Prenotazioni online dei clienti" }).count()) === 1);
   await fromAccount.click();
   await A.waitForURL(/\/prenotazioni$/);
   check("spenta: una riga «Agenda in prova: quello che segni non è vero» con «Accendi l'agenda», niente fascia grande", /Agenda in prova: quello che segni non è vero/.test(await bodyText(A)) && (await A.getByRole("button", { name: "Accendi l'agenda", exact: true }).count()) === 1 && !/Agenda spenta · Richieste online spente/.test(await bodyText(A)));

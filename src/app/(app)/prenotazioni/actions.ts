@@ -568,6 +568,20 @@ export async function sendTestPush(endpointInput: string): Promise<ActionResult<
   });
 }
 
+// «Telefoni che ricevono gli avvisi» (Impostazioni): «Prova» manda un avviso di prova a quel telefono
+// (o a tutti), per controllare da qui che arrivi. Solo titolare e consulente.
+export async function sendTestPushToDevices(target: string): Promise<ActionResult<{ sent: number; failed: number; total: number }>> {
+  return runAction(async () => {
+    await requireOwner();
+    if (typeof target !== "string" || (target !== "all" && !/^[a-z0-9_]{10,40}$/i.test(target))) throw new ValidationError("Telefono non trovato: ricarica la pagina.");
+    const ids = target === "all" ? (await prisma.pushSubscription.findMany({ select: { id: true } })).map((s) => s.id) : [target];
+    if (!ids.length) throw new ValidationError("Nessun telefono riceve gli avvisi.");
+    const r = await sendPushToStaff({ title: "Prova riuscita", body: "Avviso di prova dalle Impostazioni: se lo leggi, su questo telefono gli avvisi arrivano.", url: "/prenotazioni", tag: "booking-test" }, { ids });
+    revalidatePath("/prenotazioni");
+    return { ...r, total: ids.length };
+  });
+}
+
 // «Telefoni che ricevono gli avvisi» (Impostazioni): «Togli» spegne gli avvisi su quell'apparecchio.
 // Solo titolare e consulente; per riaccenderli serve quel telefono («Attiva gli avvisi»).
 export async function removePushDevice(idInput: string): Promise<ActionResult> {

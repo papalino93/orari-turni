@@ -352,10 +352,15 @@ function DayRow({
           aria-pressed={Boolean(b.arrivedAt)}
           aria-label={b.arrivedAt ? `Togli «arrivati» a ${b.name}` : `Segna arrivati: ${b.name}`}
           title={b.arrivedAt ? "Togli il segno «arrivati»" : "Segna arrivati"}
-          // Con la scritta sotto la spunta: il cerchio da solo non si capiva che cosa facesse.
-          className={`relative z-[1] flex h-14 w-[3.75rem] shrink-0 flex-col items-center justify-center gap-0.5 self-center rounded-2xl ring-1 ring-inset disabled:opacity-50 ${b.arrivedAt ? "bg-success text-white ring-success" : "text-success ring-success/45 hover:bg-success-bg"}`}
+          // Da segnare: grigio, con un cerchio vuoto (la spunta verde sembrava «già arrivati»).
+          // Segnati: verde pieno con la spunta.
+          className={`relative z-[1] flex h-14 w-[3.75rem] shrink-0 flex-col items-center justify-center gap-1 self-center rounded-2xl ring-1 ring-inset disabled:opacity-50 ${b.arrivedAt ? "bg-success text-white ring-success" : "text-foreground-muted ring-border hover:bg-surface-2 hover:text-foreground"}`}
         >
-          <span aria-hidden className="text-lg leading-none">✓</span>
+          {b.arrivedAt ? (
+            <span aria-hidden className="text-lg leading-none">✓</span>
+          ) : (
+            <span aria-hidden className="block h-[1.1rem] w-[1.1rem] rounded-full border-2 border-current" />
+          )}
           <span aria-hidden className="text-[10.5px] font-semibold leading-none">{b.arrivedAt ? "Arrivati" : "Arrivati?"}</span>
         </button>
       )}

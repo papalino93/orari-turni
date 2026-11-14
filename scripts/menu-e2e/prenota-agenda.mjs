@@ -488,6 +488,8 @@ try {
     await d.getByLabel("Giorno", { exact: true }).fill(dmy(day));
   }
   async function fillNew(p, f) {
+    await p.evaluate(() => window.scrollTo(0, 0)); // il «+» tondo si toglie scorrendo giù
+    await p.waitForTimeout(300);
     await p.getByRole("button", { name: L.newBtn }).first().click();
     const d = p.getByRole("dialog", { name: L.newTitle });
     await d.waitFor();
