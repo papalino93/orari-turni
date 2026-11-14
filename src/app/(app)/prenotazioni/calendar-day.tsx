@@ -347,9 +347,11 @@ function DayRow({
           aria-pressed={Boolean(b.arrivedAt)}
           aria-label={b.arrivedAt ? `Togli «arrivati» a ${b.name}` : `Segna arrivati: ${b.name}`}
           title={b.arrivedAt ? "Togli il segno «arrivati»" : "Segna arrivati"}
-          className={`relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full text-lg ring-1 ring-inset disabled:opacity-50 ${b.arrivedAt ? "bg-success text-white ring-success" : "text-success ring-success/45 hover:bg-success-bg"}`}
+          // Con la scritta sotto la spunta: il cerchio da solo non si capiva che cosa facesse.
+          className={`relative z-[1] flex h-14 w-[3.75rem] shrink-0 flex-col items-center justify-center gap-0.5 self-center rounded-2xl ring-1 ring-inset disabled:opacity-50 ${b.arrivedAt ? "bg-success text-white ring-success" : "text-success ring-success/45 hover:bg-success-bg"}`}
         >
-          ✓
+          <span aria-hidden className="text-lg leading-none">✓</span>
+          <span aria-hidden className="text-[10.5px] font-semibold leading-none">{b.arrivedAt ? "Arrivati" : "Arrivati?"}</span>
         </button>
       )}
     </li>
