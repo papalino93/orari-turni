@@ -51,6 +51,7 @@ type NavItem = { href: string; label: string; short?: string; icon: (p: { active
 
 export function AppShell({
   userName,
+  photoUrl = null,
   role,
   canEditMenu,
   appInstalled,
@@ -61,6 +62,7 @@ export function AppShell({
   children,
 }: {
   userName: string;
+  photoUrl?: string | null;
   role: "ADMIN" | "EMPLOYEE";
   canEditMenu: boolean;
   // App già installata su un telefono di questa persona: niente inviti a installarla.
@@ -194,10 +196,11 @@ export function AppShell({
             })}
           </nav>
 
-          {/* Ovunque, anche sul telefono: un solo pulsante con le iniziali (Impostazioni, tema, vista larga, Esci). */}
+          {/* Ovunque: tema e vista larga a un tocco, poi il tondino con la foto o le iniziali (Impostazioni, Esci). */}
           <div className="shrink-0">
             <AccountMenu
               userName={userName}
+              photoUrl={photoUrl}
               isAdmin={isAdmin}
               settingsActive={Boolean(pathname?.startsWith("/account") || pathname?.startsWith("/widget") || pathname?.startsWith("/installa"))}
               onSignOut={async () => {

@@ -10,6 +10,7 @@ import { ConfirmSheet } from "@/components/confirm-sheet";
 import { showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
 import { parseQuick, type QuickResult } from "@/lib/booking/quick";
+import { periodTitle } from "@/lib/booking/agenda";
 import {
   addDays,
   romeParts,
@@ -500,7 +501,7 @@ export function BookingForm({
               className={`${inputClass} mt-2 w-auto!`}
             />
           )}
-          {/^\d{4}-\d{2}-\d{2}$/.test(f.day) && <p className="mt-1 text-sm font-medium text-foreground first-letter:uppercase">{dayLong(f.day)}</p>}
+          {/^\d{4}-\d{2}-\d{2}$/.test(f.day) && <p className="mt-1 text-sm font-medium text-foreground">{periodTitle("day", f.day, today)}</p>}
           {err("day")}
         </div>
 
