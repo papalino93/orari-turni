@@ -763,12 +763,12 @@ function WhoChip({ who, onClick }: { who: string | null; onClick: () => void }) 
       <span className="truncate">
         Sei <strong>{who}</strong>
       </span>
-      <span className="shrink-0 text-xs font-semibold text-accent-ink">cambia</span>
+      <span className="shrink-0 text-xs font-semibold text-accent-ink md:max-xl:hidden">cambia</span>
     </button>
   ) : (
     <button type="button" onClick={onClick} data-testid="chi-sei" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gold/15 px-4 text-sm font-semibold text-foreground ring-1 ring-inset ring-gold/45 hover:ring-gold">
       <span aria-hidden className="h-2 w-2 rounded-full bg-gold" />
-      Chi sei? Scegli il tuo nome
+      Chi sei?<span className="md:max-xl:hidden"> Scegli il tuo nome</span>
     </button>
   );
 }
