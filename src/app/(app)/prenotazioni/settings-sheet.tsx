@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { runWithToast, useToast } from "@/components/toast";
 import { Field, Sheet, inputClass } from "../gestione-menu/sheet";
 import { pausedNow, type BookingSettings } from "@/lib/booking/rules";
+import { DEFAULT_CAPACITY } from "@/lib/booking/agenda";
 import { removePushDevice, saveSettings } from "./actions";
 import { clock } from "./format";
 import type { PushDevice } from "@/lib/booking/push";
@@ -172,7 +173,7 @@ export function SettingsSheet({
                 ))}
               </select>
             </Field>
-            <Field label="Di solito pieni oltre" hint="Quante persone ci stanno in una sera: lo vedi accanto a ogni giorno. Lascia 0 se non ti serve.">
+            <Field label="Di solito pieni oltre" hint={`Quante persone ci stanno in una sera: serve per colorare i giorni dell'agenda. Con 0 l'agenda fa i conti su ${DEFAULT_CAPACITY}.`}>
               <input name="capacityHint" type="number" inputMode="numeric" min={0} max={500} defaultValue={settings.capacityHint} className={inputClass} />
             </Field>
           </div>

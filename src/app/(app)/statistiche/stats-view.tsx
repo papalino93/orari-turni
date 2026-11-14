@@ -504,7 +504,7 @@ export function StatsView({
           «a ritroso» e in fondo le date a scelta, chiuse finché non servono. */}
       {setting.since && (() => {
         const chip = (on: boolean) =>
-          `flex min-h-10 shrink-0 items-center rounded-full border px-4 text-sm ${
+          `flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm ${
             on ? "border-accent bg-accent text-accent-foreground" : "border-border text-foreground-muted hover:border-accent hover:text-foreground"
           }`;
         const onShortcut = data.shortcuts.some((c) => period === "custom" && data.from === c.dal && data.to === c.al);
