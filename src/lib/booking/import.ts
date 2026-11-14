@@ -7,7 +7,11 @@
 // («Sabato 15/11») vale per le righe sotto, come una pagina del librone.
 
 import { internationalNumber } from "@/lib/menu-venue";
-import { addDays, businessDay, cleanMenu, mentionsAllergy, nameKey, phoneProblem, weekdayOf } from "@/lib/booking/rules";
+import { addDays, businessDay, mentionsAllergy, nameKey, phoneProblem, weekdayOf } from "@/lib/booking/rules";
+// Il menù si toglie dalla riga come in «Scrivi o detta»; una riga scritta a parole si legge con le sue regole.
+import { BAD_PEOPLE_DOUBT, parseQuick, takeMenu } from "@/lib/booking/quick";
+
+export { takeMenu };
 
 export const IMPORT_MAX_ROWS = 200;
 export const IMPORT_MAX_CHARS = 60000;
@@ -259,26 +263,24 @@ function findPhone(toks: { t: string; f: number }[]): PhoneRun | null {
   return null;
 }
 
-// ---------- Menù («menù da 25 €», «menu 25€», «menù degustazione»)
-
-const MENU_PRICE = /(^|[\s,;|\t(])men[uùú]\.?[ ]*(?:da[ ]*)?(?:€[ ]*)?(\d{1,3}(?:[.,]\d{1,2})?)[ ]*(?:€|euro(?![a-z])|eur(?![a-z]))?\.?(?=$|[\s,;|\t)])/i;
-const MENU_KIND = /(^|[\s,;|\t(])men[uùú][ ]+(degustazione|fisso|bimbi|bambini|vegetariano|vegano|di[ ]+pesce|di[ ]+carne|di[ ]+terra|del[ ]+giorno)(?=$|[\s,;|\t)])/i;
-
-// Toglie il menù dalla riga (così il prezzo non diventa ora o persone) e lo restituisce pulito.
-export function takeMenu(raw: string): { rest: string; menu: string | null } {
-  for (const re of [MENU_PRICE, MENU_KIND]) {
-    const m = raw.match(re);
-    if (!m || m.index === undefined) continue;
-    const start = m.index + m[1].length;
-    const found = raw.slice(start, m.index + m[0].length);
-    const rest = `${raw.slice(0, start)}${raw.slice(m.index + m[0].length)}`.replace(/[ ]{2,}/g, " ");
-    const menu = re === MENU_PRICE ? `Menù da ${m[2]} €` : cleanMenu(`menù ${m[2].replace(/\s+/g, " ").toLowerCase()}`);
-    return { rest: rest.replace(/\([ ]*\)/g, ""), menu: found ? menu : null };
-  }
-  return { rest: raw, menu: null };
-}
-
 // ---------- Una riga
+
+// Nel nome sono rimaste persone o ora scritte a parole: «6 persone», «persone 6», «alle 20», «dalle 20»,
+// «tra le 20…», «19:30». (Non «Rossi 4»: il numero in fondo al nome sono le persone, come sempre.)
+const SPOKEN_PEOPLE = /^(p|px|pax|pers|persona|persone|coperti|coperto|posti|ospiti|adulti|bambini|bimbi)$/;
+function looksSpoken(l: { t: string }[]): boolean {
+  return l.some((x, k) => {
+    const b = bare(x.t);
+    const nx = l[k + 1] ? bare(l[k + 1].t) : "";
+    const pv = k > 0 ? bare(l[k - 1].t) : "";
+    return (
+      (/^\d{1,3}$/.test(b) && SPOKEN_PEOPLE.test(nx)) ||
+      (SPOKEN_PEOPLE.test(b) && /^\d{1,3}$/.test(nx) && k > 0) ||
+      (/^(alle|ore|dalle|verso|tra|fra)$/.test(b) && /^(le\b|\d)/.test(nx)) ||
+      (/^\d{1,2}[:.]\d{2}$/.test(b) && pv !== "")
+    );
+  });
+}
 
 type Parsed = Omit<ImportRow, "line" | "text" | "dayFrom" | "repeatOf"> & { weekday: number | null; bareDay: boolean; dayError: "past" | "invalid" | null };
 
@@ -488,8 +490,26 @@ function parseLine(line: string, today: string): Parsed {
     noteParts.unshift(join(nameWords.slice(cut)));
     nameWords = nameWords.slice(0, cut);
   }
+  // Riga scritta a parole, non nell'ordine del librone («Libro Verdi 6 persone alle 20»): nel nome
+  // sono rimaste persone o ora. Si legge come «Scrivi o detta» (stessa regola: mai indovinare; quello
+  // che non è chiaro resta da definire, con un avviso giallo) invece di mettere tutto nel nome.
+  let spokenName: string | null = null;
+  const spokenWarnings: string[] = [];
+  if (!fielded && looksSpoken(nameWords)) {
+    const q = parseQuick(join(nameWords), { today });
+    if (people === null && !peopleBad) {
+      if (q.people !== null && okPeople(q.people)) people = q.people;
+      else if (q.doubts.some((d) => BAD_PEOPLE_DOUBT.test(d))) peopleBad = true;
+    }
+    if (time === null && q.time) time = q.time;
+    if (day === null && !dayError && q.day) day = q.day;
+    if (!table && q.table) table = q.table;
+    spokenName = q.name ?? "";
+    if (q.note) noteParts.unshift(q.note);
+    spokenWarnings.push(...q.doubts.filter((d) => !BAD_PEOPLE_DOUBT.test(d)));
+  }
   // «Rossi 4 333…»: un numero piccolo in fondo al nome sono le persone, se non sono già scritte.
-  if (!fielded && people === null && !peopleBad && nameWords.length > 1) {
+  if (spokenName === null && !fielded && people === null && !peopleBad && nameWords.length > 1) {
     const last = bare(nameWords[nameWords.length - 1].t);
     if (/^\d{1,2}$/.test(last) && okPeople(+last)) {
       people = +last;
@@ -498,8 +518,10 @@ function parseLine(line: string, today: string): Parsed {
   }
   if (fielded) noteParts.push(...byField(after));
   else if (after.length) noteParts.push(join(after));
-  const name = join(nameWords)
-    .replace(/[,:;\-–—]+$/, "")
+  // «19:30 ? Neri»: punti di domanda e segni davanti o in fondo non sono il nome.
+  const name = (spokenName ?? join(nameWords))
+    .replace(/^[?¿!*#•·.,:;\-–—\s]+/, "")
+    .replace(/[?!,:;\-–—\s]+$/, "")
     .replace(/\s+/g, " ")
     .trim();
   const note = noteParts
@@ -519,6 +541,7 @@ function parseLine(line: string, today: string): Parsed {
   // Un numero di persone che non va (0, 61…) è un errore; persone che mancano no: si definiscono dopo.
   if (peopleBad) errors.push(E_PEOPLE);
   else if (people === null) warnings.push(W_PEOPLE);
+  warnings.push(...spokenWarnings);
   if (name.length < 2) errors.push(E_NAME);
   else if (name.length > 80) errors.push(E_NAME_LONG);
   let phoneIntl = "";
