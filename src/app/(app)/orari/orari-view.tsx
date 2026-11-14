@@ -270,7 +270,7 @@ export function OrariView({
           aperto dal pulsante ☰ accanto al titolo. */}
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+          <h1 className="text-xl font-display font-medium">{title}</h1>
           {subtitle && <p className="text-sm text-foreground-muted">{subtitle}</p>}
         </div>
         <button

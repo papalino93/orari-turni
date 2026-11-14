@@ -148,7 +148,7 @@ export function MieOreView({
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+          <h1 className="flex items-center gap-2 text-xl font-display font-medium">
             La tua settimana
             {deactivatedAtKey && (
               <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-foreground-muted">

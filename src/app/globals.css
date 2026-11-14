@@ -154,6 +154,7 @@ html[data-theme="light"]:has(.menu-root) {
   --color-danger-bg: var(--danger-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-jost), var(--font-geist-sans);
 }
 
 * {

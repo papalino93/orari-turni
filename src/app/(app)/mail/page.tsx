@@ -43,7 +43,7 @@ export default async function MailPage({ searchParams }: { searchParams: Promise
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="mb-4 text-xl font-semibold tracking-tight">Mail</h1>
+      <h1 className="mb-4 text-xl font-display font-medium">Mail</h1>
       <MailProvider initialTab={initialTab} contactCount={contacts}>
         <MailTabs
           scrivi={

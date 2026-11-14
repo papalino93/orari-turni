@@ -31,7 +31,7 @@ export default function AppError({ error, retry }: { error: Error & { digest?: s
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-16 text-center">
-      <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+      <h1 className="text-lg font-display font-medium text-foreground">{title}</h1>
       <p className="text-sm text-foreground-muted">{text}</p>
       <div className="flex flex-wrap justify-center gap-2">
         <button

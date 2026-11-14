@@ -47,7 +47,7 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
         <p className="text-3xl" aria-hidden>
           🔒
         </p>
-        <h1 className="mt-2 text-lg font-semibold text-foreground">Prenotazioni</h1>
+        <h1 className="mt-2 text-lg font-display font-medium text-foreground">Prenotazioni</h1>
         <p className="mt-2 text-sm text-foreground-muted">
           Non hai il permesso di gestire le prenotazioni. Se ti serve, chiedilo al titolare: lo può dare da «Dipendenti».
         </p>
@@ -66,7 +66,7 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
   if (manager.role !== "ADMIN" && !settings.agendaEnabled) {
     return (
       <div className="mx-auto max-w-xl rounded-2xl border border-border bg-surface px-5 py-6 text-center">
-        <h1 className="text-lg font-semibold text-foreground">Prenotazioni</h1>
+        <h1 className="text-lg font-display font-medium text-foreground">Prenotazioni</h1>
         <p className="mt-2 text-sm text-foreground-muted">L&apos;agenda delle prenotazioni non è ancora accesa: per ora la prova solo il titolare.</p>
         <Link
           href="/mie-ore"

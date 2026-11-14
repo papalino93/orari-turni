@@ -467,7 +467,7 @@ export function StatsView({
     <div className="app-wide mx-auto max-w-5xl space-y-5 pb-16">
       <div>
         <MenuTabs current="statistiche" />
-        <h1 className="text-xl font-semibold text-foreground">Statistiche del menù</h1>
+        <h1 className="text-xl font-display font-medium text-foreground">Statistiche del menù</h1>
         <p className="mt-1 text-sm text-foreground-muted">
           Quante persone aprono il menù dal QR, quando, cosa cercano e cosa guardano. Tutto anonimo: niente nomi, niente cookie, nessun dato personale.
         </p>

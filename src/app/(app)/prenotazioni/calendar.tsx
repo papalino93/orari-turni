@@ -232,7 +232,7 @@ export function AgendaCalendar(props: CalendarProps) {
       <span className="flex min-h-11 items-center gap-1.5 rounded-xl px-1 md:px-2">
         <span className="min-w-0">
           {near && <span className="block text-[11px] font-semibold uppercase leading-tight tracking-wider text-accent-ink">{near}</span>}
-          <span data-testid="agenda-titolo" className="block text-pretty font-sans text-[1.2rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.35rem] md:truncate md:text-[1.6rem]">
+          <span data-testid="agenda-titolo" className="block text-pretty font-display text-[length:clamp(16px,calc((100vw_-_154px)/12.6),1.3rem)] font-medium leading-tight text-foreground sm:text-[1.45rem] md:truncate md:text-[1.7rem]">
             {title}
           </span>
         </span>
@@ -558,7 +558,7 @@ function WeekView({
                 >
                   <span className={`text-[11px] font-semibold tracking-wider ${isToday ? "text-accent-ink" : "text-foreground-muted"}`}>{WEEKDAY_SHORT[i]}</span>
                   <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-full font-sans text-[1.45rem] font-semibold tabular-nums ${isToday ? "bg-accent text-accent-foreground" : day < today ? "text-foreground-muted" : "text-foreground"}`}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full font-display text-[1.5rem] font-medium tabular-nums ${isToday ? "bg-accent text-accent-foreground" : day < today ? "text-foreground-muted" : "text-foreground"}`}
                   >
                     {Number(day.slice(8, 10))}
                   </span>
@@ -858,7 +858,7 @@ function DateBadge({ day, today }: { day: string; today: string }) {
   return (
     <span className={`flex w-12 shrink-0 flex-col items-center justify-center rounded-xl py-1 ${isToday ? "bg-accent text-accent-foreground" : "bg-surface-2"}`}>
       <span className={`text-[10.5px] font-semibold tracking-wider ${isToday ? "" : "text-foreground-muted"}`}>{wd}</span>
-      <span className="font-sans text-xl font-semibold leading-tight tabular-nums">{Number(day.slice(8, 10))}</span>
+      <span className="font-display text-[1.35rem] font-medium leading-tight tabular-nums">{Number(day.slice(8, 10))}</span>
     </span>
   );
 }
