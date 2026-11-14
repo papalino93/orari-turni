@@ -154,7 +154,8 @@ function TodayCard({ stats, recent, today, counting, since }: { stats: StatsData
           <dd className="text-[11px] tabular-nums text-foreground-muted">in tutto il giorno {n(stats.lastWeek)}</dd>
         </div>
       </dl>
-      <RemoveTestOpens today={today} />
+      {/* Solo se c'è qualcosa da togliere (aperture di oggi o di ieri). */}
+      {(stats.today > 0 || stats.yesterday > 0) && <RemoveTestOpens today={today} />}
       <div className="ml-auto flex items-end gap-4">
         {recent.some((r) => r.count > 0) && (
           <div className="hidden sm:block">

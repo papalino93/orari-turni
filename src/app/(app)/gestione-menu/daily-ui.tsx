@@ -117,12 +117,9 @@ export function DailyPanel({
                 aria-label={`Modifica ${item.name}`}
                 className="min-h-12 min-w-[9rem] flex-1 text-left"
               >
-                <span className={`block line-clamp-2 break-words text-sm font-medium ${sold ? "text-foreground-muted line-through" : "text-foreground"}`}>
-                  <span className="mr-2 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground-muted">
-                    {kind === "WINE" ? "Vino" : "Piatto"}
-                  </span>
-                  {item.name}
-                </span>
+                {/* «Vino»/«Piatto» sopra il nome: accanto, sul telefono, il nome andava a capo a metà. */}
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">{kind === "WINE" ? "Vino" : "Piatto"}</span>
+                <span className={`block line-clamp-2 break-words text-sm font-medium ${sold ? "text-foreground-muted line-through" : "text-foreground"}`}>{item.name}</span>
                 <span className="block text-xs text-foreground-muted/90">{summary(item, kind)}</span>
                 {kind === "FOOD" && allergenState(item) === "unknown" && (
                   <span className="mt-0.5 block text-[11px] font-medium text-gold">Allergeni da compilare</span>

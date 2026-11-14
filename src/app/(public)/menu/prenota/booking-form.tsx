@@ -527,7 +527,7 @@ export function BookingForm({
                     placeholder="Es. 333 123 4567"
                     hint={
                       !useEmail
-                        ? `Ti rispondiamo su WhatsApp a questo numero.${venuePhone ? ` Ti scriviamo dal numero WhatsApp dell'enoteca, ${venuePhone}: salvalo in rubrica.` : ""}`
+                        ? `Ti rispondiamo su WhatsApp a questo numero.${venuePhone ? ` Ti scriviamo dal numero WhatsApp dell'enoteca, ${venuePhone.replace(/ /g, "\u00a0")}: salvalo in rubrica.` : ""}`
                         : "Ci serve per chiamarti se c'è bisogno."
                     }
                   />

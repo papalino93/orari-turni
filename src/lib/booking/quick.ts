@@ -159,6 +159,8 @@ export function parseQuick(text: string, opts: QuickOptions): QuickResult {
   const clean = text
     .replace(/\s+/g, " ")
     .trim()
+    // «all'una», «all una e mezza», «verso l'una»: l'una è le 13 (o, con «di notte», l'1)
+    .replace(/\b(all|verso l|per l)['’ ]\s*una\b/gi, (_m, w: string) => (w.toLowerCase() === "all" ? "alle 1" : `${w.slice(0, -2)} le 1`))
     // «sab 21 anzi 28»: la correzione è il giorno del mese
     .replace(/(\b(?:lun|mar|mer|gio|ven|sab|dom)[a-zìé]*\.?\s+)\d{1,2}\s+(?:no[, ]+)?(?:anzi|no[, ]+scusa|scusa)\s+(\d{1,2})\b/i, "$1$2");
   const m = clean.match(CORRECTION);

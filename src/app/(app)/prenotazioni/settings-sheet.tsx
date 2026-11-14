@@ -173,8 +173,9 @@ export function SettingsSheet({
                 ))}
               </select>
             </Field>
-            <Field label="Di solito pieni oltre" hint={`Quante persone ci stanno in una sera: serve per colorare i giorni dell'agenda. Con 0 l'agenda fa i conti su ${DEFAULT_CAPACITY}.`}>
-              <input name="capacityHint" type="number" inputMode="numeric" min={0} max={500} defaultValue={settings.capacityHint} className={inputClass} />
+            {/* Vuoto = il valore di partenza (scritto in grigio), invece di uno «0» che sembrava «nessuno». */}
+            <Field label="Di solito pieni oltre (persone)" hint={`Quante persone ci stanno in una sera: serve per colorare i giorni dell'agenda. Se lo lasci vuoto, ${DEFAULT_CAPACITY}.`}>
+              <input name="capacityHint" type="number" inputMode="numeric" min={0} max={500} defaultValue={settings.capacityHint || ""} placeholder={String(DEFAULT_CAPACITY)} className={inputClass} />
             </Field>
           </div>
 

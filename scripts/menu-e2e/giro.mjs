@@ -191,7 +191,7 @@ await tour("pub-360", 360, 740, "light", null, ["/menu"]);
       await snap("impostazioni", false);
       await p.keyboard.press("Escape"); await discardIfAsked(p);
     }
-    await menu("Avvisi su questo telefono");
+    await menu("Avvisi su questo");
     await snap("questo-telefono", false);
     await p.keyboard.press("Escape");
     await ctx.close();

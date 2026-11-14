@@ -110,7 +110,8 @@ export function BookingSheet({
 
   const slots = useMemo(() => {
     if (!b) return [];
-    const a = availability(b.day, hours, { ...settings, leadMinutes: 0 }, null, new Date(now));
+    // todayUntil vuoto: il limite «per stasera online» vale per i clienti, non per chi propone un orario.
+    const a = availability(b.day, hours, { ...settings, leadMinutes: 0, todayUntil: "" }, null, new Date(now));
     return a.slots.map((s) => s.time).filter((t) => t !== b.time);
   }, [b, hours, settings, now]);
 
@@ -438,7 +439,8 @@ export function BookingSheet({
             <button type="button" disabled={busy} onClick={() => send("confirm")} className={`${bigBtn} bg-accent text-accent-foreground hover:bg-accent-hover`}>
               {busy ? "Un attimo…" : "✓ Conferma"}
             </button>
-            <div className="grid gap-2 sm:grid-cols-2">
+            {/* Uno sotto l'altro anche su tablet: affiancati, «Rispondi: siamo al completo» andava a capo. */}
+            <div className="grid gap-2">
               <button type="button" disabled={busy} onClick={() => openPanel("propose")} className={`${bigBtn} border border-border text-foreground hover:border-accent`}>
                 Proponi un altro orario
               </button>

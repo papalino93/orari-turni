@@ -163,8 +163,8 @@ try {
 
   // Avvisi su questo telefono: testi per il telefono enoteca, niente interruttore «telefono del locale».
   await V.getByRole("button", { name: "Altre azioni" }).click();
-  await V.getByRole("menuitem", { name: /^Avvisi su questo telefono/ }).click();
-  const av = V.getByRole("dialog", { name: "Avvisi su questo telefono" });
+  await V.getByRole("menuitem", { name: /^Avvisi su questo (telefono|tablet|computer)/ }).click();
+  const av = V.getByRole("dialog", { name: /^Avvisi su questo (telefono|tablet|computer)$/ });
   const avText = await av.innerText();
   check("avvisi (telefono enoteca): «Questo è il telefono enoteca: da qui partono le risposte… dal numero del locale»", /Questo è il telefono enoteca/.test(avText) && /dal numero del locale/.test(avText));
   check("avvisi: niente interruttore «Questo è il telefono del locale»", (await av.getByRole("switch").count()) === 0);

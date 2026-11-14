@@ -59,7 +59,7 @@ export function SearchSheet({ rows, archive, now, today, onOpen, onClose }: { ro
           archive.length ? (
             <section aria-labelledby="passate-titolo">
               <h3 id="passate-titolo" className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-                Passate e annullate · ultimi 30 giorni
+                Passate, annullate o rifiutate · ultimi 30 giorni
               </h3>
               <CardList single>
                 {archive.map((b) => (

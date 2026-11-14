@@ -4,11 +4,11 @@ import { notFound } from "next/navigation";
 import { loadVenue } from "@/lib/menu";
 import { telHref, whatsappHref } from "@/lib/menu-venue";
 import { prisma } from "@/lib/prisma";
-import { businessDay, dayLong, dayRelative, peopleText, phoneReadable, viewStatus, type BookingView } from "@/lib/booking/rules";
+import { addDays, businessDay, dayLong, dayRelative, peopleText, phoneReadable, romeInstant, UNKNOWN_TIME_MINUTES, viewStatus, type BookingView } from "@/lib/booking/rules";
 import { findByToken, loadBookingSettings } from "@/lib/booking/service";
 import { MenuFooter } from "../../../venue-footer";
 import { Ornament } from "../../../ornament";
-import { ContactButtons, PrenotaHeader, PreviewBand, phoneMasked, pillFilled, pillOutline } from "../../ui";
+import { ContactButtons, PrenotaHeader, PreviewBand, pillFilled, pillOutline } from "../../ui";
 import { AutoRefresh, CancelButton, ProposalButtons, SaveLink } from "./status-actions";
 import { LargeText } from "../../large-text";
 
@@ -39,7 +39,8 @@ export default async function BookingStatusPage({ params, searchParams }: { para
   const view: BookingView = viewStatus(b, now);
   // Prenotazione segnata in agenda con ora o persone ancora da definire: mai un orario inventato.
   const when = b.timeUnknown ? cap(dayRelative(b.day, now)) : `${cap(dayRelative(b.day, now))} alle ${b.time}`;
-  const started = b.startsAt.getTime() <= now.getTime();
+  // Ora da definire: «iniziata» solo a giornata finita (le 5 del mattino dopo), non dalle 5 di quel giorno.
+  const started = b.timeUnknown ? romeInstant(addDays(b.day, 1), UNKNOWN_TIME_MINUTES).getTime() <= now.getTime() : b.startsAt.getTime() <= now.getTime();
   // Per oggi, ancora senza risposta: nei primi 15 minuti «ti rispondiamo appena possibile»; dopo,
   // se manca meno di un'ora e mezza, meglio telefonare.
   const forToday = view === "PENDING" && b.day === businessDay(now);
@@ -50,7 +51,7 @@ export default async function BookingStatusPage({ params, searchParams }: { para
   const { contacts } = venue;
   const tel = contacts.phone ? telHref(contacts.phone) : null;
   const wa = contacts.phone
-    ? whatsappHref(contacts.phone, `Ciao! Ho chiesto un tavolo per ${dayLong(b.day)} alle ${b.time}, ${peopleText(b.people)}, a nome ${b.name}.`)
+    ? whatsappHref(contacts.phone, `Ciao! Ho chiesto un tavolo per ${dayLong(b.day)}${b.timeUnknown ? "" : ` alle ${b.time}`}${b.peopleUnknown ? "" : `, ${peopleText(b.people)}`}, a nome ${b.name}.`)
     : null;
   const again = settings.enabled ? "/menu/prenota" : null;
   // Il recapito per intero: se è sbagliato, il cliente se ne accorge adesso.
@@ -78,7 +79,7 @@ export default async function BookingStatusPage({ params, searchParams }: { para
         };
       case "CONFIRMED":
         return started
-          ? { icon: "ok", kicker: "Confermata", title: "Grazie della visita", text: `Il tavolo era per ${dayLong(b.day)} alle ${b.time}. Speriamo di rivederti presto!` }
+          ? { icon: "ok", kicker: "Confermata", title: "Grazie della visita", text: `Il tavolo era per ${dayLong(b.day)}${b.timeUnknown ? "" : ` alle ${b.time}`}. Speriamo di rivederti presto!` }
           : { icon: "ok", kicker: "Confermata", title: "Ti aspettiamo", text: b.peopleUnknown ? `${when}.` : `${when}, tavolo per ${peopleText(b.people)}.` };
       case "DECLINED":
         return b.cancelledBy === "cliente"
@@ -207,7 +208,8 @@ export default async function BookingStatusPage({ params, searchParams }: { para
           <Row label="Persone">{b.peopleUnknown ? "da definire" : b.people}</Row>
           <Row label="Nome">{b.name}</Row>
           {/* Le prenotazioni segnate a mano di chi è passato di persona possono non avere il telefono. */}
-          {b.phone && <Row label="Telefono">{phoneMasked(b.phone)}</Row>}
+          {/* Per intero, come nel testo in alto (prima qui era coperto a metà e sembravano due numeri diversi). */}
+          {b.phone && <Row label="Telefono"><span className="whitespace-nowrap">{phoneReadable(b.phone)}</span></Row>}
           {b.contact === "email" && b.email && (
             <Row label="Email" stacked>
               {b.email}
@@ -240,7 +242,8 @@ export default async function BookingStatusPage({ params, searchParams }: { para
           </div>
         )}
 
-        {view !== "EXPIRED" && !late && !tonight && (tel || wa) && (
+        {/* In fondo «Hai una domanda?», ma non se i pulsanti per chiamare sono già poco sopra (scaduta, rifiutata). */}
+        {view !== "EXPIRED" && !late && !tonight && !((view === "DECLINED" || view === "CANCELLED") && !again) && (tel || wa) && (
           <div className="mt-12 flex flex-col items-center gap-3.5 text-center">
             <Ornament color="#9C7A45" />
             <p className="m-0 text-[16px] italic text-[#5B605A]">Hai una domanda? Chiamaci o scrivici.</p>

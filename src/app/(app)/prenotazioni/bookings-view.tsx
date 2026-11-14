@@ -21,7 +21,7 @@ import { chooseVenueWho, markWhatsapp, reopenOnline, setBookingSwitch, setDayClo
 import { deviceId, WaContext, type WaInfo } from "./wa-send";
 import { BookingSheet } from "./booking-sheet";
 import { SettingsSheet } from "./settings-sheet";
-import { arrivesText, BellIcon, PushBox, usePush, WhatsappIcon, WhatsappInfoBox } from "./device";
+import { arrivesText, BellIcon, PushBox, useDeviceWord, usePush, WhatsappIcon, WhatsappInfoBox } from "./device";
 import { clock, viewOf } from "./format";
 import { BookingForm, type SavedInfo } from "./agenda";
 import { AgendaCalendar } from "./calendar";
@@ -146,6 +146,7 @@ export function BookingsView({
   const [busy, setBusy] = useState(false);
   const [askClose, setAskClose] = useState<{ day: string; pending: number } | null>(null);
   const push = usePush(pushConfig.publicKey, pushConfig.myEndpoints);
+  const device = useDeviceWord();
   // Il server deve sapere se questo dispositivo è il telefono enoteca (avvisi «da mandare su WhatsApp»):
   // lo decide l'accesso; un'iscrizione fatta prima (o da un altro accesso) si riallinea da sola.
   const serverLocal = push.endpoint ? (pushConfig.localPhoneEndpoints ?? []).includes(push.endpoint) : null;
@@ -446,7 +447,7 @@ export function BookingsView({
     { label: "Importa dal librone", hint: "Tante prenotazioni insieme", icon: <BookIcon />, onSelect: openImport },
     { label: "Cerca", hint: "Anche le prenotazioni passate", icon: <SearchIcon />, onSelect: () => setPanel("cerca") },
     { label: "Numeri", hint: "Quante, da dove, quanti non venuti", icon: <ChartIcon />, onSelect: () => setPanel("numeri") },
-    { label: "Avvisi su questo telefono", hint: push.state === "on" ? "Attivi" : "Spenti", icon: <BellIcon />, onSelect: () => setPanel("avvisi") },
+    { label: `Avvisi su questo ${device}`, hint: push.state === "on" ? "Attivi" : "Spenti", icon: <BellIcon />, onSelect: () => setPanel("avvisi") },
     ...(isOwner
       ? ([
           { kind: "separator" },
@@ -519,7 +520,7 @@ export function BookingsView({
                 Attiva
               </button>
             )}
-            <button type="button" onClick={dismissHint} aria-label="Non ora: lo trovi in ⋯ → Avvisi su questo telefono" title="Non ora" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-2 hover:text-foreground">
+            <button type="button" onClick={dismissHint} aria-label={`Non ora: lo trovi in ⋯ → Avvisi su questo ${device}`} title="Non ora" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-2 hover:text-foreground">
               <svg aria-hidden width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
                 <path d="M5 5l14 14M19 5L5 19" />
               </svg>
@@ -572,7 +573,7 @@ export function BookingsView({
         {panel === "numeri" && <NumbersSheet stats={stats} onClose={() => setPanel(null)} />}
 
         {panel === "avvisi" && (
-          <Sheet title="Avvisi su questo telefono" onClose={() => setPanel(null)}>
+          <Sheet title={`Avvisi su questo ${device}`} onClose={() => setPanel(null)}>
             <div className="space-y-3" data-unsaved-ignore>
               <PushBox push={push} arrives={arrivesText(wa)} />
               <WhatsappInfoBox wa={wa} />
@@ -688,7 +689,7 @@ export function BookingsView({
               <>
                 <p>I clienti potranno chiedere un tavolo dal menù, dagli eventi e dal link per Google. Le richieste arrivano in «Richieste» e vanno confermate una per una.</p>
                 {!settings.agendaEnabled && <p>Si accende anche l&apos;agenda per i dipendenti con il permesso.</p>}
-                {push.state !== "on" && <p>Consiglio: attiva anche gli avvisi su questo telefono (⋯ → Avvisi su questo telefono).</p>}
+                {push.state !== "on" && <p>Consiglio: attiva anche gli avvisi su questo {device} (⋯ → Avvisi su questo {device}).</p>}
               </>
             ) : (
               <p>I clienti non vedranno più la pagina per chiedere un tavolo. L&apos;agenda resta accesa: le prenotazioni al telefono si segnano come sempre, e alle richieste già arrivate puoi ancora rispondere.</p>

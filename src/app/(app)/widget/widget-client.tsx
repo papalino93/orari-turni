@@ -397,6 +397,36 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
                   Questo passo va fatto <b>dal telefono</b>: inquadra il codice qui in alto con la fotocamera dell&apos;iPhone e continua da lì.
                 </p>
               )}
+              {/* Dal computer il modulo resta chiuso: creato qui, il collegamento finirebbe sul computer. */}
+              {computer ? (
+                <details className="text-sm">
+                  <summary className="flex min-h-10 cursor-pointer items-center text-xs font-medium text-foreground-muted underline decoration-dotted underline-offset-2 hover:text-foreground">
+                    Sono già sul telefono: continua da qui
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                  <p>Dai un nome al telefono, così lo riconosci nell&apos;elenco (es. «iPhone di Andrea»).</p>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="es. iPhone di Andrea"
+                      maxLength={40}
+                      aria-label="Nome del telefono"
+                      className="min-h-11 w-full min-w-0 flex-1 rounded-xl border border-border bg-surface-2 px-3 text-base text-foreground outline-none focus:border-accent sm:text-sm"
+                    />
+                    <button
+                      type="button"
+                      disabled={pending || !phone.trim()}
+                      onClick={create}
+                      className="min-h-11 rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground disabled:bg-surface-2 disabled:text-foreground-muted disabled:ring-1 disabled:ring-border"
+                    >
+                      {pending ? "Collego…" : "Crea il collegamento"}
+                    </button>
+                  </div>
+                  </div>
+                </details>
+              ) : (
+                <>
               <p>Dai un nome al telefono, così lo riconosci nell&apos;elenco (es. «iPhone di Andrea»).</p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
@@ -416,6 +446,8 @@ export function Installer({ ownerName, example }: { ownerName: string; example: 
                   {pending ? "Collego…" : "Crea il collegamento"}
                 </button>
               </div>
+                </>
+              )}
             </>
           ) : (
             <>

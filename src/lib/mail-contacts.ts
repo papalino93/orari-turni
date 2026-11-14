@@ -134,6 +134,9 @@ export async function subscribeFromBooking(input: { email: string; name: string;
   const groupId = await ensureGroup(SITE_GROUP_NAME, "oro");
   const consentNote = `Casella del modulo per chiedere un tavolo: «${BOOKING_OPTIN_TEXT}»`;
   const existing = await prisma.mailContact.findUnique({ where: { email } });
+  // Tolto a mano dalla rubrica: resta tolto. Il modulo non chiede conferma dell'indirizzo, quindi
+  // chiunque potrebbe scriverlo; lo rimette solo il titolare.
+  if (existing?.deletedAt) return;
   const contact = existing
     ? await prisma.mailContact.update({
         where: { email },
@@ -141,7 +144,6 @@ export async function subscribeFromBooking(input: { email: string; name: string;
           consent: "chiesto",
           consentAt: now,
           consentNote,
-          deletedAt: null,
           ...(existing.name.trim() || !name ? {} : { name }),
           ...(existing.phone || !input.phone ? {} : { phone: input.phone }),
         },
