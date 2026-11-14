@@ -1,38 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { showActionError, useToast } from "@/components/toast";
 import { isStandalone } from "@/components/install-banner";
 import { removePushSubscription, savePushSubscription, sendTestPush } from "./actions";
 
-// «Avvisi e WhatsApp su questo telefono»: avvisi (notifiche) e «telefono del locale», da cui partono le risposte su WhatsApp.
+// «Avvisi e WhatsApp su questo telefono»: avvisi (notifiche) e «telefono enoteca», da cui partono le risposte su WhatsApp.
 // Tutto vale per il dispositivo: il permesso delle notifiche e la scelta salvata nel browser.
 
-const LOCAL_PHONE_KEY = "prenotazioni-telefono-locale";
-
-export function useLocalPhone(): [boolean, (on: boolean) => void] {
-  const [on, setOn] = useState(false);
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage non c'è al primo disegno sul server
-      setOn(localStorage.getItem(LOCAL_PHONE_KEY) === "1");
-    } catch {
-      /* navigazione privata o dati bloccati: resta spento */
-    }
-  }, []);
-  const set = useCallback((next: boolean) => {
-    setOn(next);
-    try {
-      if (next) localStorage.setItem(LOCAL_PHONE_KEY, "1");
-      else localStorage.removeItem(LOCAL_PHONE_KEY);
-    } catch {
-      /* vale finché la pagina resta aperta */
-    }
-  }, []);
-  return [on, set];
-}
 
 export type PushState = "checking" | "server-off" | "unsupported" | "ios-install" | "denied" | "off" | "on";
 
@@ -61,7 +38,7 @@ function sameKey(sub: PushSubscription, publicKey: string): boolean {
 
 export type PushControl = {
   state: PushState;
-  // L'iscrizione di questo dispositivo (per «telefono del locale» e «Prova un avviso»).
+  // L'iscrizione di questo dispositivo (per «telefono enoteca» e «Prova un avviso»).
   endpoint: string | null;
   busy: boolean;
   activate: () => Promise<void>;
@@ -69,18 +46,13 @@ export type PushControl = {
   test: () => Promise<void>;
 };
 
-export function usePush(publicKey: string | null, myEndpoints: string[], localPhone = false): PushControl {
+export function usePush(publicKey: string | null, myEndpoints: string[]): PushControl {
   const router = useRouter();
   const toast = useToast();
   const [state, setState] = useState<PushState>("checking");
   const [endpoint, setEndpoint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const mine = myEndpoints.join("\n");
-  // «Telefono del locale» di adesso, letto quando si salva l'iscrizione (senza rifare il controllo).
-  const localRef = useRef(localPhone);
-  useEffect(() => {
-    localRef.current = localPhone;
-  }, [localPhone]);
 
   useEffect(() => {
     let alive = true;
@@ -105,7 +77,7 @@ export function usePush(publicKey: string | null, myEndpoints: string[], localPh
             sub = null;
             if (wasOn && Notification.permission === "granted") {
               sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) });
-              const res = await savePushSubscription(sub.toJSON() as Parameters<typeof savePushSubscription>[0], navigator.userAgent, localRef.current);
+              const res = await savePushSubscription(sub.toJSON() as Parameters<typeof savePushSubscription>[0], navigator.userAgent);
               if (!res.ok) sub = null;
               else renewed = true;
             }
@@ -153,7 +125,7 @@ export function usePush(publicKey: string | null, myEndpoints: string[], localPh
         await sub?.unsubscribe().catch(() => {});
         sub = await reg.pushManager.subscribe(options);
       }
-      const res = await savePushSubscription(sub.toJSON() as Parameters<typeof savePushSubscription>[0], navigator.userAgent, localRef.current);
+      const res = await savePushSubscription(sub.toJSON() as Parameters<typeof savePushSubscription>[0], navigator.userAgent);
       if (!res.ok) {
         toast.showError(res.error);
         return;
@@ -214,8 +186,8 @@ export function usePush(publicKey: string | null, myEndpoints: string[], localPh
 
 const btn = "min-h-11 rounded-full px-4 text-sm font-semibold disabled:opacity-60";
 
-// Il riquadro «Avvisi su questo telefono».
-export function PushBox({ push }: { push: PushControl }) {
+// Il riquadro «Avvisi su questo telefono». arrives: che cosa arriva qui, detto chiaro.
+export function PushBox({ push, arrives }: { push: PushControl; arrives: string }) {
   const { state, busy } = push;
   return (
     <section aria-labelledby="avvisi-titolo" className="rounded-2xl border border-border bg-surface p-4">
@@ -242,7 +214,7 @@ export function PushBox({ push }: { push: PushControl }) {
       )}
       {state === "off" && (
         <>
-          <p className="mt-1 text-sm text-foreground-muted">Ricevi un avviso quando arriva una richiesta, anche con il telefono in tasca.</p>
+          <p className="mt-1 text-sm text-foreground-muted" data-testid="avvisi-cosa">{arrives}</p>
           <button type="button" disabled={busy} onClick={push.activate} className={`${btn} mt-3 bg-accent text-accent-foreground hover:bg-accent-hover`}>
             {busy ? "Un attimo…" : "Attiva gli avvisi"}
           </button>
@@ -250,7 +222,8 @@ export function PushBox({ push }: { push: PushControl }) {
       )}
       {state === "on" && (
         <>
-          <p className="mt-1 text-sm text-success">✓ Su questo telefono arrivano gli avvisi delle nuove richieste.</p>
+          <p className="mt-1 text-sm font-medium text-success">✓ Avvisi attivi su questo telefono.</p>
+          <p className="mt-0.5 text-sm text-foreground-muted" data-testid="avvisi-cosa">{arrives}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" disabled={busy} onClick={push.test} className={`${btn} border border-border text-foreground hover:border-accent`}>
               Prova un avviso
@@ -283,29 +256,31 @@ export function Switch({ on, label, onToggle, disabled }: { on: boolean; label: 
   );
 }
 
-// «Questo è il telefono del locale»: solo per i dipendenti (il titolare manda da qualsiasi telefono).
-export function LocalPhoneBox({ isOwner, localPhone, setLocalPhone }: { isOwner: boolean; localPhone: boolean; setLocalPhone: (on: boolean) => void }) {
-  if (isOwner) {
-    return (
-      <section className="rounded-2xl border border-border bg-surface p-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <WhatsappIcon /> Risposte su WhatsApp
-        </h3>
-        <p className="mt-1 text-sm text-foreground-muted">
-          Come titolare puoi mandarle da qualsiasi telefono. I dipendenti le mandano solo dal telefono del locale: lo segnano loro da qui, una volta.
-        </p>
-      </section>
-    );
-  }
+// Che cosa arriva su questo telefono, detto chiaro (niente interruttori: lo decide l'accesso).
+export function arrivesText(wa: { venueDevice: boolean; role: "send" | "override" | "none" }): string {
+  if (wa.venueDevice) return "Qui arrivano: le nuove richieste di tavolo e i messaggi da mandare su WhatsApp ai clienti (partono dal numero del locale).";
+  if (wa.role === "send") return "Qui arrivano: le nuove richieste di tavolo e i messaggi da mandare su WhatsApp ai clienti (partono dal tuo WhatsApp).";
+  if (wa.role === "override") return "Qui arrivano: le nuove richieste di tavolo. I messaggi su WhatsApp ai clienti li manda il telefono enoteca: qui non suonano.";
+  return "Qui arrivano: le nuove richieste di tavolo.";
+}
+
+// Le risposte su WhatsApp: chi le manda (al posto del vecchio interruttore «telefono enoteca»).
+export function WhatsappInfoBox({ wa }: { wa: { venueDevice: boolean; role: "send" | "override" | "none"; venueExists: boolean } }) {
+  const text = wa.venueDevice
+    ? "Questo è il telefono enoteca: da qui partono le risposte ai clienti, dal numero del locale."
+    : wa.role === "send"
+      ? wa.venueExists
+        ? "Puoi mandarle anche tu, dal tuo WhatsApp: il primo che tocca «Apri WhatsApp» la prende e gli altri non la mandano due volte."
+        : "Le mandi tu dal tuo WhatsApp (non c'è ancora un telefono enoteca collegato: si aggiunge da Dipendenti)."
+      : wa.role === "override"
+        ? "Le manda il telefono enoteca. Qui le vedi e, se serve, puoi mandarle tu con «Mandalo io dal mio WhatsApp»."
+        : "Le manda il telefono enoteca: da qui le vedi soltanto.";
   return (
-    <section className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
-      <div className="min-w-0">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <WhatsappIcon /> Questo è il telefono del locale
-        </h3>
-        <p className="mt-1 text-sm text-foreground-muted">Da qui partono le risposte su WhatsApp. Accendilo solo sul telefono del locale.</p>
-      </div>
-      <Switch on={localPhone} label="Questo è il telefono del locale: da qui partono le risposte su WhatsApp" onToggle={() => setLocalPhone(!localPhone)} />
+    <section className="rounded-2xl border border-border bg-surface p-4" data-testid="whatsapp-chi">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <WhatsappIcon /> Risposte su WhatsApp
+      </h3>
+      <p className="mt-1 text-sm text-foreground-muted">{text}</p>
     </section>
   );
 }

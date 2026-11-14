@@ -30,6 +30,14 @@ export type BookingItem = {
   table: string | null;
   createdBy: string | null;
   manual: boolean;
+  // Dati ancora da definire (ora: time "", persone: people 0) e menù scelto.
+  timeUnknown: boolean;
+  peopleUnknown: boolean;
+  menu: string | null;
+  // «In invio da …» (lucchetto della risposta su WhatsApp, 5 minuti).
+  waClaimBy: string | null;
+  waClaimAt: number | null;
+  waClaimDevice: string | null;
   createdAt: number;
   // Per la modifica: se nel frattempo qualcun altro l'ha cambiata, non si sovrascrive.
   updatedAt: number;

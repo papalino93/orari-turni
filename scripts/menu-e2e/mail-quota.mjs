@@ -2,7 +2,7 @@
 // quota del giorno con la riserva per le prenotazioni (controllata dal server); disiscrizione
 // dal link e «tocco unico» (POST One-Click) → esclusi al prossimo invio; registro degli invii;
 // «Riprova» che non rispedisce lo stesso gruppo; errori parziali contati giusti; prova precompilata;
-// spunta «Confermo» che si azzera se cambia la lista.
+// «Perché puoi scrivere a queste persone?» (passo 3) che si azzera se cambia la lista.
 // Serve il server di prova con MAIL_PROVIDER=log (limite 100, riserva 50: per la lista ne restano 50).
 // Alla fine la sezione Mail resta SPENTA.
 import { createHmac } from "node:crypto";
@@ -23,6 +23,8 @@ const reset = () => {
   DB(`delete from "MailOptOut" where email like '%@prova-mail.it'`);
   DB(`delete from "MailSend" where subject like 'Prova quota%'`);
   DB(`delete from "MenuSetting" where id='mailSender'`);
+  // Chi riceve un invio entra nella rubrica: si toglie anche da lì.
+  DB(`delete from "MailContact" where email like '%@prova-mail.it'`);
 };
 reset();
 
@@ -65,7 +67,7 @@ try {
     await p.locator("#mail-body").fill("Ciao!");
     await p.getByRole("button", { name: "Avanti: controlla" }).click();
   };
-  const consent = () => p.getByRole("checkbox", { name: /Confermo/ });
+  const consent = () => p.getByRole("radio", { name: "Sono clienti o contatti già avuti" });
   const sendAll = async () => {
     await consent().check();
     await p.getByRole("button", { name: /^Invia a \d+/ }).click();
@@ -168,6 +170,7 @@ try {
   check("registro: chi, quanti, esito", row === "Andrea|5|3|1|1|PARZIALE", row);
   check("quota: contate solo le 3 partite", DB(`select bulk from "MailDay" where day='${today}'`) === "3");
   await p.getByRole("button", { name: "Nuovo invio" }).click();
+  await p.getByRole("tab", { name: /Invii/ }).click();
   await p.getByRole("heading", { name: "Invii recenti" }).scrollIntoViewIfNeeded();
   check("pagina: «Invii recenti» mostra l'invio", /Prova quota invio[\s\S]*Andrea · partite 3 su 5/.test(await body()));
 
@@ -199,14 +202,16 @@ try {
   }
   await p.unroute(`${BASE}/mail`);
 
-  // 8. «Segna come cancellato».
+  // 8. «Segna come cancellato» (scheda «Invii»).
   await open();
+  await p.getByRole("tab", { name: /Invii/ }).click();
   await p.locator("#optout-email").fill(`Mano-${RUN}@Prova-Mail.it`);
   await p.getByRole("button", { name: "Segna come cancellato" }).click();
   await p.getByText(`mano-${RUN}@prova-mail.it non riceverà più le mail della lista.`).waitFor();
   check("segna come cancellato: salvato in minuscolo", DB(`select source from "MailOptOut" where email='mano-${RUN}@prova-mail.it'`) === "a mano");
 
   // 9. Sezione spenta con la pagina già aperta: l'invio viene rifiutato dal server.
+  await p.getByRole("tab", { name: /Scrivi/ }).click();
   await paste(mails(1, "z"));
   await toStep2("Prova quota spenta");
   setFeature(false);

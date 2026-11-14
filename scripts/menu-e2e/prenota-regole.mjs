@@ -8,7 +8,7 @@ loadEnvLocal();
 process.env.MAIL_PROVIDER = "log";
 process.env.PUSH_PROVIDER = "log";
 delete process.env.VERCEL_ENV;
-if (!/\/orari_test(\?|$)/.test(process.env.DATABASE_URL || "")) {
+if (!new RegExp(`/${process.env.E2E_DB || "orari_test"}(\\?|$)`).test(process.env.DATABASE_URL || "")) {
   console.error("DATABASE_URL non è il database di prova orari_test: mi fermo.");
   process.exit(2);
 }
@@ -242,6 +242,10 @@ check("calendario di prova: 9/11/2026 è lunedì, 14/11 sabato", weekdayOf("2026
 // Testi
 check("dayShort «Sab 14 nov», dayLong «sabato 14 novembre»", dayShort("2026-11-14") === "Sab 14 nov" && dayLong("2026-11-14") === "sabato 14 novembre");
 check("dayRelative: oggi, domani, poi il giorno per esteso", dayRelative("2026-11-09", NOW) === "oggi" && dayRelative("2026-11-10", NOW) === "domani" && dayRelative("2026-11-11", NOW) === "mercoledì 11 novembre");
+{
+  const night = romeInstant("2026-11-09", 25 * 60); // martedì 10 novembre, l'1:00 di notte
+  check("dayRelative di notte: «oggi» è la data del calendario", dayRelative("2026-11-10", night) === "oggi" && dayRelative("2026-11-11", night) === "domani");
+}
 check("peopleText: 1 persona, 4 persone", peopleText(1) === "1 persona" && peopleText(4) === "4 persone");
 
 // ================= Servizio (database di prova) =================
@@ -421,7 +425,7 @@ try {
   check("due conferme insieme: una sola va a buon fine", winners.length === 1, JSON.stringify([r1.ok, r2.ok]));
   check("…l'altra legge «Già confermata da <chi ha vinto>.»", loser && loser.error === `Già confermata da ${winnerName}.`, loser?.error);
   check("…una sola «CONFIRMED» nella cronologia", DB(`select count(*) from "BookingLog" where "requestId"=${q(c1.id)} and kind='CONFIRMED'`) === "1");
-  check("conferma: messaggio WhatsApp pronto per il numero del cliente", /^https:\/\/wa\.me\/39333\d+\?text=/.test(winners[0].whatsappHref) && decodeURIComponent(winners[0].whatsappHref).includes("ti aspettiamo") && winners[0].mailSent === false);
+  check("conferma: messaggio WhatsApp pronto per il numero del cliente", /^https:\/\/wa\.me\/39333\d+\?text=/.test(winners[0].whatsappHref) && decodeURIComponent(winners[0].whatsappHref).toLowerCase().includes("ti aspettiamo") && winners[0].mailSent === false);
   check("conferma: il link nel messaggio porta alla pagina del cliente", decodeURIComponent(winners[0].whatsappHref).includes(`/menu/prenota/r/${S.tokenFor(c1.id)}`));
 
   // Conferma per chi ha scelto l'email
@@ -508,8 +512,49 @@ try {
   await S.markArrival(m1.id, marta, null);
   check("annulla il segno: tutti e due vuoti", DB(`select ("arrivedAt" is not null)||'|'||("noShowAt" is not null) from "BookingRequest" where id=${q(m1.id)}`) === "false|false");
   check("cronologia: ARRIVED, NOSHOW, ARRIVAL_CLEARED", DB(`select string_agg(kind, ',' order by at) from "BookingLog" where "requestId"=${q(m1.id)} and kind in ('ARRIVED','NOSHOW','ARRIVAL_CLEARED')`) === "ARRIVED,NOSHOW,ARRIVAL_CLEARED");
-  await S.markWhatsappOpened(m1.id, marta);
-  check("WhatsApp aperto: in cronologia", DB(`select count(*) from "BookingLog" where "requestId"=${q(m1.id)} and kind='WHATSAPP_OPENED'`) === "1");
+  const opened = await S.claimWhatsapp(m1.id, marta.name, "dal numero dell'enoteca", false);
+  check("WhatsApp aperto: in cronologia come «in invio»", opened.ok && DB(`select count(*) from "BookingLog" where "requestId"=${q(m1.id)} and kind='WHATSAPP_OPENED' and message like 'in invio%'`) === "1");
+
+  // WhatsApp ai clienti: una sola coda con il lucchetto
+  {
+    const { lastSent, activeClaim, CLAIM_MINUTES } = await import("@/lib/booking/whatsapp-queue");
+    const w = await fresh();
+    await S.confirmBooking(w.id, marta, null, null);
+    const pending = async () => whatsappPending(await prisma.bookingRequest.findUnique({ where: { id: w.id }, include: { log: true } }), Date.now());
+    check("lucchetto: confermata → nella coda «da mandare»", (await pending()) === "confirmed");
+    const a = await S.claimWhatsapp(w.id, "Prova C Marta", "dal numero dell'enoteca", false);
+    check("lucchetto: Marta apre WhatsApp → presa da lei", a.ok && DB(`select "waClaimBy" from "BookingRequest" where id=${q(w.id)}`) === "Prova C Marta");
+    check("…resta nella coda finché non tocca «Mandato» (aprire non vuol dire mandato)", (await pending()) === "confirmed");
+    const b = await S.claimWhatsapp(w.id, "Prova C Giulia", "dal WhatsApp personale", false);
+    check("lucchetto: Giulia insieme → «In invio da Prova C Marta»", !b.ok && b.claimedBy === "Prova C Marta" && /^In invio da Prova C Marta/.test(b.error), b.error);
+    const again = await S.claimWhatsapp(w.id, "Prova C Marta", "dal numero dell'enoteca", false);
+    check("lucchetto: Marta di nuovo (doppio tocco) → va", again.ok);
+    const row2 = await prisma.bookingRequest.findUnique({ where: { id: w.id }, select: { waClaimBy: true, waClaimAt: true } });
+    check("activeClaim: vale adesso, non dopo i minuti del lucchetto", activeClaim(row2, Date.now())?.by === "Prova C Marta" && activeClaim(row2, Date.now() + CLAIM_MINUTES * 60000 + 1000) === null);
+    DB(`update "BookingRequest" set "waClaimAt" = now() - interval '${CLAIM_MINUTES + 1} minutes' where id=${q(w.id)}`);
+    const late = await S.claimWhatsapp(w.id, "Prova C Giulia", "dal WhatsApp personale", false);
+    check("lucchetto scaduto (5 minuti senza «Mandato»): Giulia la prende", late.ok && DB(`select "waClaimBy" from "BookingRequest" where id=${q(w.id)}`) === "Prova C Giulia");
+    await S.releaseWhatsapp(w.id, "Prova C Marta");
+    check("«Annulla» di chi non l'ha presa: il lucchetto resta", DB(`select "waClaimBy" from "BookingRequest" where id=${q(w.id)}`) === "Prova C Giulia");
+    await S.releaseWhatsapp(w.id, "Prova C Giulia");
+    check("«Annulla» di chi l'ha presa: torna libera", DB(`select coalesce("waClaimBy",'-') from "BookingRequest" where id=${q(w.id)}`) === "-");
+    await S.claimWhatsapp(w.id, "Prova C Giulia", "dal WhatsApp personale", false);
+    await S.markWhatsappSent(w.id, "Prova C Giulia", "dal WhatsApp personale");
+    check("«Mandato»: fuori dalla coda per tutti, lucchetto tolto", (await pending()) === null && DB(`select coalesce("waClaimBy",'-') from "BookingRequest" where id=${q(w.id)}`) === "-");
+    const full = await prisma.bookingRequest.findUnique({ where: { id: w.id }, include: { log: true } });
+    check("lastSent: chi l'ha mandato", lastSent(full)?.by === "Prova C Giulia");
+    const dup = await S.claimWhatsapp(w.id, "Prova C Marta", "dal numero dell'enoteca", false);
+    check("già mandato: riaprire → «Già mandato da Prova C Giulia alle …» (niente doppio messaggio)", !dup.ok && dup.sentBy === "Prova C Giulia" && /^Già mandato da Prova C Giulia alle \d\d:\d\d$/.test(dup.error), dup.error);
+    const force = await S.claimWhatsapp(w.id, "Prova C Marta", "dal numero dell'enoteca", true);
+    check("«Rimanda lo stesso»: si riapre, in cronologia «(rimandato)»", force.ok && DB(`select count(*) from "BookingLog" where "requestId"=${q(w.id)} and message like '%(rimandato)%'`) === "1");
+    await S.markWhatsappSent(w.id, "Prova C Marta", null);
+    check("«Segna come già mandata»: in cronologia senza «da dove»", DB(`select count(*) from "BookingLog" where "requestId"=${q(w.id)} and kind='WHATSAPP_DONE' and message is null`) === "1");
+    // Due insieme: vince uno solo.
+    const w2 = await fresh();
+    await S.confirmBooking(w2.id, marta, null, null);
+    const both = await Promise.all([S.claimWhatsapp(w2.id, "Prova C Marta", "x", false), S.claimWhatsapp(w2.id, "Prova C Giulia", "x", false)]);
+    check("lucchetto: due tocchi nello stesso momento → uno solo lo prende", both.filter((r) => r.ok).length === 1, JSON.stringify(both));
+  }
 
   // Il cliente ha risposto all'orario proposto fuori dal sito: lo segna chi lavora
   const queue = async (id) => {
@@ -522,7 +567,7 @@ try {
   await S.proposeTime(y1.id, marta, y1t, null, null);
   const yes = await S.acceptProposalForCustomer(y1.id, giulia, null);
   check("«Il cliente ha detto sì»: confermata al nuovo orario da chi l'ha segnato", yes.ok && yes.booking.status === "CONFIRMED" && yes.booking.time === y1t && yes.booking.proposedTime === null && row(y1.id) === "CONFIRMED|Prova C Giulia|");
-  check("…cronologia «ACCEPTED» di Giulia, messaggio di conferma pronto per WhatsApp", DB(`select actor||':'||kind from "BookingLog" where "requestId"=${q(y1.id)} and kind='ACCEPTED'`) === "Prova C Giulia:ACCEPTED" && decodeURIComponent(yes.whatsappHref ?? "").includes("ti aspettiamo"));
+  check("…cronologia «ACCEPTED» di Giulia, messaggio di conferma pronto per WhatsApp", DB(`select actor||':'||kind from "BookingLog" where "requestId"=${q(y1.id)} and kind='ACCEPTED'`) === "Prova C Giulia:ACCEPTED" && decodeURIComponent(yes.whatsappHref ?? "").toLowerCase().includes("ti aspettiamo"));
   check("…nella lista «Da mandare su WhatsApp» come conferma", (await queue(y1.id)) === "confirmed");
   check("…segnarlo di nuovo → «Già confermata»", /Già confermata/.test((await S.acceptProposalForCustomer(y1.id, marta, null)).error ?? ""));
   const n1 = await fresh();
@@ -535,7 +580,8 @@ try {
   // «Ci ha avvisato il cliente»: annullata senza messaggi
   const g1 = await fresh();
   await S.confirmBooking(g1.id, marta, null, null);
-  await S.markWhatsappOpened(g1.id, marta);
+  await S.claimWhatsapp(g1.id, marta.name, "dal numero dell'enoteca", false);
+  await S.markWhatsappSent(g1.id, marta.name, "dal numero dell'enoteca");
   const gone = await S.cancelForCustomer(g1.id, giulia, null);
   check("«Ci ha avvisato il cliente» su una confermata: annullata dal cliente, nessun messaggio", gone.ok && row(g1.id) === "CANCELLED|Prova C Giulia|cliente" && gone.whatsappHref === null);
   check("…cronologia «Ci ha avvisato il cliente», niente nella lista WhatsApp", DB(`select message from "BookingLog" where "requestId"=${q(g1.id)} and kind='CANCELLED'`) === S.CUSTOMER_TOLD_US && (await queue(g1.id)) === null);
@@ -560,7 +606,7 @@ try {
   const list = await S.listBookings();
   check("listBookings: contiene le richieste di prova, in ordine di orario", list.rows.some((r) => r.id === m1.id) && list.rows.every((r, i) => i === 0 || r.startsAt >= list.rows[i - 1].startsAt));
   const stats = await S.bookingStats();
-  check("bookingStats: conta senza le richieste «di prova», tempo di risposta calcolato", stats.total === Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and "createdAt" >= now() - interval '90 days'`)) && stats.medianResponseMinutes !== null && stats.bySource.some(([s]) => s === "google"));
+  check("bookingStats: conta senza le richieste «di prova», tempo di risposta calcolato", stats.total === Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and manual=false and "createdAt" >= now() - interval '90 days'`)) && stats.medianResponseMinutes !== null && stats.bySource.some(([s]) => s === "google"));
 
   // ================= Sabato: agenda, prove, doppioni, avvisi, freno, anteprime
   coolDown();
@@ -607,29 +653,128 @@ try {
   check("«Annulla» di un altro → no", !(await S.undoManualBooking(undoMe.booking.id, { name: "Prova C Giulia" })).ok);
   check("«Annulla» di chi l'ha segnata → sparisce", (await S.undoManualBooking(undoMe.booking.id, actor)).ok && DB(`select count(*) from "BookingRequest" where id=${q(undoMe.booking.id)}`) === "0");
 
-  // 7. Avviso «da mandare su WhatsApp» al telefono del locale (e al titolare), non agli altri
-  const perms = DB(`select id||':'||"canManageBookings" from "Employee" where username in ('marta','giulia')`).split("\n").filter(Boolean).map((l) => l.split(":"));
+  // 7. Avviso «da mandare su WhatsApp» al telefono enoteca (riconosciuto da solo: Employee.isVenueDevice),
+  // non ai telefoni personali dei dipendenti; al titolare solo con «Chi manda i WhatsApp» = tutti.
+  const perms = DB(`select id||':'||"canManageBookings"||':'||"isVenueDevice" from "Employee" where username in ('marta','giulia')`).split("\n").filter(Boolean).map((l) => l.split(":"));
+  const sendersBefore = DB(`select value from "MenuSetting" where id='bookings'`);
+  const otherVenues = DB(`select coalesce(string_agg(id, ','), '') from "Employee" where "isVenueDevice"=true and username not in ('marta','giulia')`).split(",").filter(Boolean);
   try {
-    DB(`update "Employee" set "canManageBookings"=true where username in ('marta','giulia')`);
+    if (otherVenues.length) DB(`update "Employee" set "isVenueDevice"=false where id in (${otherVenues.map(q).join(",")})`);
+    DB(`update "Employee" set "canManageBookings"=true, "isVenueDevice"=(username='marta') where username in ('marta','giulia')`);
     const emp = (u) => DB(`select id from "Employee" where username=${q(u)}`);
-    DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, "employeeId", "localPhone") values ('provacpushlocale', 'https://fcm.googleapis.com/prova-c-locale', 'x', 'y', ${q(emp("marta"))}, true), ('provacpushaltro', 'https://fcm.googleapis.com/prova-c-altro', 'x', 'y', ${q(emp("giulia"))}, false)`);
+    DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, "employeeId") values ('provacpushlocale', 'https://fcm.googleapis.com/prova-c-locale', 'x', 'y', ${q(emp("marta"))}), ('provacpushaltro', 'https://fcm.googleapis.com/prova-c-altro', 'x', 'y', ${q(emp("giulia"))})`);
+    DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, username) values ('provacpushtitolare', 'https://fcm.googleapis.com/prova-c-titolare', 'x', 'y', 'andrea')`);
     const lastOk = (id) => DB(`select ("lastOkAt" is not null)::text from "PushSubscription" where id=${q(id)}`);
+    const reset = () => DB(`update "PushSubscription" set "lastOkAt"=null where id like 'provacpush%'`);
+    const senders = (v) => DB(`update "MenuSetting" set value = jsonb_set(value::jsonb, '{whatsappSenders}', ${q(JSON.stringify(v))}::jsonb)::text where id='bookings'`);
+    senders("venue");
     const w1 = await create({ day: D2.day, time: slot(D2, 1) });
     const r1 = await S.confirmBooking(w1.id, { name: "Prova C Giulia", selfWa: false }, null, null, true);
     const pushLog = DB(`select coalesce(string_agg(message, ' | '), '') from "BookingLog" where "requestId"=${q(w1.id)} and kind='PUSH_OK'`);
     check("risposta da un telefono che non manda WhatsApp: avviso «da mandare su WhatsApp»", r1.ok && /da mandare su WhatsApp/.test(pushLog), pushLog);
-    check("…arriva al telefono del locale, non a un altro dipendente", lastOk("provacpushlocale") === "true" && lastOk("provacpushaltro") === "false");
+    check("…«solo il telefono enoteca»: arriva al telefono enoteca, non a un dipendente né al titolare", lastOk("provacpushlocale") === "true" && lastOk("provacpushaltro") === "false" && lastOk("provacpushtitolare") === "false");
     const w2 = await create({ day: D2.day, time: slot(D2, 2) });
     await S.confirmBooking(w2.id, { name: "Prova C Giulia", selfWa: true }, null, null, true);
-    check("risposta dal telefono del locale (lo manda lui): nessun avviso", DB(`select count(*) from "BookingLog" where "requestId"=${q(w2.id)} and kind='PUSH_OK' and message like '%WhatsApp%'`) === "0");
+    check("risposta dal telefono enoteca (lo manda lui): nessun avviso", DB(`select count(*) from "BookingLog" where "requestId"=${q(w2.id)} and kind='PUSH_OK' and message like '%WhatsApp%'`) === "0");
+    reset();
+    senders("all");
     const w3 = await manual({ name: "Prova C Coda", phone: "333 9555002", time: slot(D2, 3) });
     await S.queueConfirmation(w3.booking.id, { name: "Prova C Giulia" });
-    check("«Da mandare dal telefono del locale» (agenda): avviso", DB(`select count(*) from "BookingLog" where "requestId"=${q(w3.booking.id)} and kind='PUSH_OK' and message like '%WhatsApp%'`) === "1");
+    check("«Da mandare dal telefono enoteca» (agenda): avviso", DB(`select count(*) from "BookingLog" where "requestId"=${q(w3.booking.id)} and kind='PUSH_OK' and message like '%WhatsApp%'`) === "1");
+    check("…«anche il titolare»: arriva al telefono enoteca e al titolare, non al dipendente", lastOk("provacpushlocale") === "true" && lastOk("provacpushtitolare") === "true" && lastOk("provacpushaltro") === "false");
     const todo = await S.bookingsToDo();
     check("pallino del menù: conta anche i messaggi da mandare", todo.whatsapp >= 2 && todo.pending === (await S.pendingCount()), JSON.stringify(todo));
+    // Senza telefono enoteca, «solo il telefono enoteca» non lascerebbe nessuno: vale il titolare.
+    reset();
+    senders("venue");
+    DB(`update "Employee" set "isVenueDevice"=false where username='marta'`);
+    const w4 = await manual({ name: "Prova C Coda due", phone: "333 9555003", time: slot(D2, 4) });
+    await S.queueConfirmation(w4.booking.id, { name: "Prova C Giulia" });
+    check("senza telefono enoteca: l'avviso va al titolare", lastOk("provacpushtitolare") === "true" && lastOk("provacpushlocale") === "false" && lastOk("provacpushaltro") === "false");
   } finally {
-    DB(`delete from "PushSubscription" where id in ('provacpushlocale','provacpushaltro')`);
-    for (const [id, v] of perms) DB(`update "Employee" set "canManageBookings"=${v === "t"} where id=${q(id)}`);
+    DB(`delete from "PushSubscription" where id like 'provacpush%'`);
+    for (const [id, v, venue] of perms) DB(`update "Employee" set "canManageBookings"=${v === "t" || v === "true"}, "isVenueDevice"=${venue === "t" || venue === "true"} where id=${q(id)}`);
+    if (otherVenues.length) DB(`update "Employee" set "isVenueDevice"=true where id in (${otherVenues.map(q).join(",")})`);
+    if (sendersBefore) DB(`update "MenuSetting" set value=${q(sendersBefore)} where id='bookings'`);
+  }
+
+  // Lucchetto per apparecchio: stesso nome su due apparecchi, uno solo lo prende
+  {
+    const w = await fresh();
+    await S.confirmBooking(w.id, marta, null, null);
+    const a = await S.claimWhatsapp(w.id, "Prova C Andrea", "dal WhatsApp personale", false, new Date(), "apparecchioaaaa1");
+    const b2 = await S.claimWhatsapp(w.id, "Prova C Andrea", "dal WhatsApp personale", false, new Date(), "apparecchiobbbb2");
+    check("lucchetto per apparecchio: stesso nome dal computer → «In invio da … su un altro apparecchio»", a.ok && !b2.ok && /su un altro apparecchio/.test(b2.error), b2.error);
+    check("…dallo stesso apparecchio di prima: va", (await S.claimWhatsapp(w.id, "Prova C Andrea", "x", false, new Date(), "apparecchioaaaa1")).ok);
+    await S.releaseWhatsapp(w.id, "Prova C Andrea", "apparecchiobbbb2");
+    check("…«Annulla» dall'altro apparecchio non lo libera", DB(`select coalesce("waClaimDevice",'-') from "BookingRequest" where id=${q(w.id)}`) === "apparecchioaaaa1");
+    await S.releaseWhatsapp(w.id, "Prova C Andrea", "apparecchioaaaa1");
+    check("…«Annulla» dal suo apparecchio: libero", DB(`select coalesce("waClaimBy",'-')||coalesce("waClaimDevice",'-') from "BookingRequest" where id=${q(w.id)}`) === "--");
+  }
+
+  // Promemoria al titolare: un WhatsApp aspetta da 15 minuti con «Solo il telefono enoteca»
+  {
+    const before = DB(`select value from "MenuSetting" where id='bookings'`);
+    const wasVenue = DB(`select "isVenueDevice"||':'||"canManageBookings" from "Employee" where username='marta'`).split(":");
+    const ownerSub = "provacpushpromemoria";
+    try {
+      DB(`update "Employee" set "isVenueDevice"=true, "canManageBookings"=true where username='marta'`);
+      DB(`update "MenuSetting" set value = jsonb_set(jsonb_set(value::jsonb, '{whatsappSenders}', '"venue"'), '{agendaEnabled}', 'true')::text where id='bookings'`);
+      DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, username) values (${q(ownerSub)}, 'https://fcm.googleapis.com/prova-c-promemoria', 'x', 'y', 'andrea')`);
+      const w = await fresh();
+      await S.confirmBooking(w.id, marta, null, null);
+      check("promemoria: dopo 1 minuto niente", (await S.remindStaleWhatsapp(new Date(), { force: true })) === 0 || DB(`select count(*) from "BookingLog" where "requestId"=${q(w.id)} and kind='WA_REMINDER'`) === "0");
+      DB(`update "BookingLog" set at = at - interval '16 minutes' where "requestId"=${q(w.id)} and kind='CONFIRMED'`);
+      await S.remindStaleWhatsapp(new Date(), { force: true });
+      const rem = DB(`select coalesce(string_agg(message, ' | '), '') from "BookingLog" where "requestId"=${q(w.id)} and kind='WA_REMINDER'`);
+      check("promemoria: dopo 15 minuti, uno al titolare «Da 16 minuti c'è un messaggio WhatsApp da mandare a … il telefono dell'enoteca è acceso?»", /Promemoria al titolare \(1 telefono\): Da 1[56] minuti c'è un messaggio WhatsApp da mandare a Prova C .*: il telefono dell'enoteca è acceso\?/.test(rem), rem);
+      check("…arrivato al telefono del titolare", DB(`select ("lastOkAt" is not null)::text from "PushSubscription" where id=${q(ownerSub)}`) === "true");
+      await S.remindStaleWhatsapp(new Date(), { force: true });
+      check("promemoria: una volta sola (controllo ripetuto)", DB(`select count(*) from "BookingLog" where "requestId"=${q(w.id)} and kind='WA_REMINDER'`) === "1");
+      await Promise.all([S.remindStaleWhatsapp(new Date(), { force: true }), S.remindStaleWhatsapp(new Date(), { force: true })]);
+      check("promemoria: due controlli insieme, sempre uno", DB(`select count(*) from "BookingLog" where "requestId"=${q(w.id)} and kind='WA_REMINDER'`) === "1");
+      // Preso in mano da qualcuno: niente promemoria.
+      const w2 = await fresh();
+      await S.confirmBooking(w2.id, marta, null, null);
+      DB(`update "BookingLog" set at = at - interval '20 minutes' where "requestId"=${q(w2.id)} and kind='CONFIRMED'`);
+      await S.claimWhatsapp(w2.id, "Prova C Marta (telefono enoteca)", "dal numero dell'enoteca", false);
+      await S.remindStaleWhatsapp(new Date(), { force: true });
+      check("promemoria: niente se qualcuno lo sta mandando", DB(`select count(*) from "BookingLog" where "requestId"=${q(w2.id)} and kind='WA_REMINDER'`) === "0");
+      // «Anche titolare e consulente»: niente promemoria (suona già a loro).
+      DB(`update "MenuSetting" set value = jsonb_set(value::jsonb, '{whatsappSenders}', '"all"')::text where id='bookings'`);
+      const w3 = await fresh();
+      await S.confirmBooking(w3.id, marta, null, null);
+      DB(`update "BookingLog" set at = at - interval '20 minutes' where "requestId"=${q(w3.id)} and kind='CONFIRMED'`);
+      await S.remindStaleWhatsapp(new Date(), { force: true });
+      check("promemoria: con «Anche titolare e consulente» niente", DB(`select count(*) from "BookingLog" where "requestId"=${q(w3.id)} and kind='WA_REMINDER'`) === "0");
+    } finally {
+      DB(`delete from "PushSubscription" where id=${q(ownerSub)}`);
+      DB(`update "Employee" set "isVenueDevice"=${wasVenue[0] === "true" || wasVenue[0] === "t"}, "canManageBookings"=${wasVenue[1] === "true" || wasVenue[1] === "t"} where username='marta'`);
+      if (before) DB(`update "MenuSetting" set value=${q(before)} where id='bookings'`);
+    }
+  }
+
+  // Password cambiata o accesso disattivato: gli avvisi di quell'accesso si spengono
+  {
+    const P = await import("@/lib/booking/push");
+    const emp = DB(`select id from "Employee" where username='giulia'`);
+    DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, "employeeId") values ('provacpushpw1', 'https://fcm.googleapis.com/prova-c-pw1', 'x', 'y', ${q(emp)})`);
+    DB(`insert into "PushSubscription" (id, endpoint, p256dh, auth, username) values ('provacpushpw2', 'https://fcm.googleapis.com/prova-c-pw2', 'x', 'y', 'andrea')`);
+    check("forgetPushFor (dipendente): tolti i suoi avvisi, non quelli del titolare", (await P.forgetPushFor({ employeeId: emp })) >= 1 && DB(`select count(*) from "PushSubscription" where id in ('provacpushpw1','provacpushpw2')`) === "1");
+    check("forgetPushFor (titolare): tolti", (await P.forgetPushFor({ username: "andrea" })) >= 1 && DB(`select count(*) from "PushSubscription" where id='provacpushpw2'`) === "0");
+    check("deviceKind: iPhone, Android, Computer", P.deviceKind("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X)") === "iPhone" && /Android/.test(P.deviceKind("Mozilla/5.0 (Linux; Android 14; Pixel 8) Mobile")) && P.deviceKind("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5)") === "Computer");
+  }
+
+  // Venue: regole pure (chi manda, che cosa vede)
+  {
+    const V = await import("@/lib/booking/venue");
+    check("effectiveMode: «solo il telefono enoteca» vale solo se ce n'è uno", V.effectiveMode({ whatsappSenders: "venue" }, true) === "venue" && V.effectiveMode({ whatsappSenders: "venue" }, false) === "all" && V.effectiveMode({ whatsappSenders: "all" }, true) === "all");
+    check("whatsappRole: telefono enoteca manda; titolare manda o «Mandalo io»; dipendente vede soltanto",
+      V.whatsappRole({ role: "EMPLOYEE", venueDevice: true }, "venue") === "send" &&
+      V.whatsappRole({ role: "ADMIN", venueDevice: false }, "venue") === "override" &&
+      V.whatsappRole({ role: "ADMIN", venueDevice: false }, "all") === "send" &&
+      V.whatsappRole({ role: "EMPLOYEE", venueDevice: false }, "all") === "none");
+    check("impostazione predefinita «Chi manda i WhatsApp»: solo il telefono enoteca", DEFAULT_BOOKING_SETTINGS.whatsappSenders === "venue");
   }
 
   // 2. Prove all'accensione: «Tienile e rendile vere» solo per quelle a mano, non annullate, da oggi in poi

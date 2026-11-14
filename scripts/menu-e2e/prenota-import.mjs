@@ -90,14 +90,26 @@ is("«alle 21» ", "14/11 alle 21 2 Rossi", { time: "21:00", people: 2, name: "R
   const r = one("14/11 00:30 2 Notte");
   check("ora dopo mezzanotte (00:30): stessa serata del 14 (come nel foglio «Nuova prenotazione»)", r.day === "2026-11-14" && r.time === "00:30" && R.timeToDayMinutes(r.time) === 24 * 60 + 30, got(r));
 }
-err("senza ora → «Ora non letta»", "14/11 4 Rossi", I.E_TIME);
+// Senza ora: prenotazione vera «da completare» (avviso giallo, non un errore).
+is("senza ora → «Ora da definire» (avviso giallo), si segna lo stesso", "14/11 4 Rossi", { time: null, people: 4, name: "Rossi", errors: [], warnings: [I.W_TIME] });
+check("…e la riga senza ora resta da segnare", importable(one("14/11 4 Rossi")));
 
 // Persone
 for (const [w, n] of [["4p", 4], ["4 pers", 4], ["4 persone", 4], ["x4", 4], ["4px", 4], ["4pax", 4], ["3+1", 4], ["12", 12]]) is(`persone «${w}»`, `14/11 20:30 ${w} Rossi`, { people: n, name: "Rossi", errors: [] });
 is("persone prima dell'ora («4p 20:30»)", "14/11 4p 20:30 Rossi", { people: 4, time: "20:30" });
 err("61 persone → «Persone?»", "14/11 20:00 61 Troppi", I.E_PEOPLE);
 err("0 persone → «Persone?»", "14/11 20:00 0 Nessuno", I.E_PEOPLE);
-err("senza persone → «Persone?»", "14/11 20:30 Rossi", I.E_PEOPLE);
+is("senza persone → «Persone da definire» (avviso giallo)", "14/11 20:30 Rossi", { time: "20:30", people: null, name: "Rossi", errors: [], warnings: [I.W_PEOPLE] });
+is("senza ora né persone (dal librone: «Arianna, tel…, menù da 25 €») → da completare, con il menù", "14/11 Arianna 366 1234567 menù da 25 €", { time: null, people: null, name: "Arianna", phoneIntl: "393661234567", menu: "Menù da 25 €", note: "", errors: [], warnings: [I.W_TIME, I.W_PEOPLE] });
+err("senza giorno resta un errore anche senza ora", "Arianna 366 1234567", I.E_DAY);
+
+// Menù
+is("«menù da 25 €» → campo Menù, non nella nota", "14/11 20:30 4 Rossi menù da 25 € seggiolone", { people: 4, name: "Rossi", menu: "Menù da 25 €", note: "seggiolone", errors: [] });
+is("«menu 25€» (senza accento e attaccato) → «Menù da 25 €», e 25 non diventa le persone", "14/11 20:30 2 Bianchi menu 25€", { people: 2, menu: "Menù da 25 €", note: "", errors: [] });
+is("«menù 30 euro»", "14/11 21:00 3 Verdi, menù 30 euro, compleanno", { menu: "Menù da 30 €", note: "compleanno", name: "Verdi" });
+is("«menù degustazione»", "14/11 21:00 2 Neri menù degustazione", { menu: "Menù degustazione", name: "Neri", note: "", errors: [] });
+is("menù in una colonna da Excel", "14/11/2026\t20:30\t4\tVerdi\tMenù 25 €\tcompleanno", { menu: "Menù da 25 €", name: "Verdi", note: "compleanno", errors: [] });
+is("niente menù → null", "14/11 20:30 2 Rossi compleanno", { menu: null, note: "compleanno" });
 
 // Telefono
 is("telefono «+39 333 1234567»", "14/11 20:30 2 Rossi +39 333 1234567", { phoneIntl: "393331234567", name: "Rossi", note: "" });
@@ -162,7 +174,7 @@ check("riga dell'agenda: «Dal librone · Andrea»", F.originShort({ manual: tru
 check("cronologia: «Segnata da Andrea (dal librone)»", F.logText({ at: 0, actor: "Andrea", kind: "CREATED", message: "dal librone · di prova" }).text === "Segnata da Andrea (dal librone)");
 
 // ================= 2. Il servizio sul database di prova =================
-const dbOk = /\/orari_test(\?|$)/.test(process.env.DATABASE_URL || "");
+const dbOk = new RegExp(`/${process.env.E2E_DB || "orari_test"}(\\?|$)`).test(process.env.DATABASE_URL || "");
 const cleanImport = () => DB(`delete from "BookingRequest" where name like 'Prova Import%' or phone like '39300006%'`);
 const savedSetting = snapshotBookingSetting();
 const dmy = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
@@ -192,12 +204,13 @@ if (!dbOk) {
       `${dmy(addDays(today, -3))} 20:00 2 Prova Import Passato`,
       `${dmy(D2)} 08:00 3 Prova Import Mattina, celiaco`,
       `${dmy(D2)} 00:30 2 Prova Import Notte`,
+      `${dmy(D2)} Prova Import Arianna 300 006 0009 menù da 25 €`,
     ].join("\n");
     const before = DB(`select count(*) from "BookingRequest" where name like 'Prova Import%'`);
     const dry = await S.importManualBookings(text, [], who, { dryRun: true });
     const byLine = (res, l) => res.results.find((r) => r.line === l);
     check("anteprima: niente salvato", dry.ok && DB(`select count(*) from "BookingRequest" where name like 'Prova Import%'`) === before);
-    check("anteprima: una risposta per prenotazione (7), con la stessa impronta della lettura nel browser", dry.ok && dry.results.length === 7 && dry.results.every((r, i) => r.sig === I.importSig(parseImport(text, new Date())[i])));
+    check("anteprima: una risposta per prenotazione (8), con la stessa impronta della lettura nel browser", dry.ok && dry.results.length === 8 && dry.results.every((r, i) => r.sig === I.importSig(parseImport(text, new Date())[i])));
     check("anteprima: «Prova Import Doppio» già in agenda → «C'è già Prova Import Doppio alle 20:00 (2 persone)», non si segna", dry.ok && byLine(dry, 2).dup === "C'è già Prova Import Doppio alle 20:00 (2 persone)" && byLine(dry, 2).skippedDuplicate === true && !byLine(dry, 2).ok, JSON.stringify(byLine(dry, 2)));
     check("anteprima: due «Rossi» diversi nella lista → tutti e due da segnare", dry.ok && byLine(dry, 1).ok && byLine(dry, 3).ok);
     check("anteprima: riga ripetuta → repeatOf 1", dry.ok && byLine(dry, 4).repeatOf === 1 && !byLine(dry, 4).ok);
@@ -207,11 +220,11 @@ if (!dbOk) {
 
     const res = await S.importManualBookings(text, [], who, { dryRun: false });
     const okLines = res.ok ? res.results.filter((r) => r.ok).map((r) => r.line) : [];
-    check("import: segnate le righe 1, 3, 6, 7 (doppione, ripetuta e passata saltate)", JSON.stringify(okLines) === "[1,3,6,7]", JSON.stringify(res).slice(0, 300));
+    check("import: segnate le righe 1, 3, 6, 7, 8 (doppione, ripetuta e passata saltate; la 8 senza ora e persone)", JSON.stringify(okLines) === "[1,3,6,7,8]", JSON.stringify(res).slice(0, 300));
     const saved = await prisma.bookingRequest.findMany({ where: { id: { in: res.results.filter((r) => r.id).map((r) => r.id) } }, include: { log: true }, orderBy: { startsAt: "asc" } });
     check(
       "import: confermate, a mano, «librone», createdBy e handledBy = chi importa, isTest come l'agenda",
-      saved.length === 4 && saved.every((b) => b.status === "CONFIRMED" && b.manual && b.source === "librone" && b.createdBy === who.name && b.handledBy === who.name && b.isTest === expectTest && b.contact === "whatsapp"),
+      saved.length === 5 && saved.every((b) => b.status === "CONFIRMED" && b.manual && b.source === "librone" && b.createdBy === who.name && b.handledBy === who.name && b.isTest === expectTest && b.contact === "whatsapp"),
       JSON.stringify(saved.map((b) => [b.status, b.source, b.createdBy, b.isTest])),
     );
     check(
@@ -225,10 +238,16 @@ if (!dbOk) {
     check("import: «celiaco» nella nota → allergie", mattina && mattina.allergies && mattina.note === "celiaco");
     const notte = saved.find((b) => b.name === "Prova Import Notte");
     check("import: 00:30 → dopo mezzanotte della stessa serata", notte && notte.startsAt.getTime() === romeInstant(D2, 24 * 60 + 30).getTime());
+    const arianna = saved.find((b) => b.name === "Prova Import Arianna");
+    check(
+      "import: riga senza ora e persone → prenotazione vera da completare (ora e persone da definire, menù, 5:00 del giorno)",
+      arianna && arianna.timeUnknown && arianna.peopleUnknown && arianna.time === "" && arianna.people === 0 && arianna.menu === "Menù da 25 €" && arianna.status === "CONFIRMED" && arianna.startsAt.getTime() === romeInstant(D2, 5 * 60).getTime() && !arianna.note,
+      JSON.stringify(arianna),
+    );
     check("import: codice e link del cliente come le altre (tokenHash vero, non «tmp_»)", saved.every((b) => /^[A-Z0-9]{6}$/.test(b.code) && !b.tokenHash.startsWith("tmp_")));
 
     const again = await S.importManualBookings(text, [], who, { dryRun: false });
-    check("import rifatto (doppio tocco): niente di nuovo, ora sono tutte già in agenda", again.ok && again.results.every((r) => !r.ok) && DB(`select count(*) from "BookingRequest" where name like 'Prova Import%' and source='librone'`) === "4", JSON.stringify(again).slice(0, 200));
+    check("import rifatto (doppio tocco): niente di nuovo, ora sono tutte già in agenda", again.ok && again.results.every((r) => !r.ok) && DB(`select count(*) from "BookingRequest" where name like 'Prova Import%' and source='librone'`) === "5", JSON.stringify(again).slice(0, 200));
     const kept = await S.importManualBookings(`${dmy(D1)} 21:00 2 Prova Import Doppio`, [1], who, { dryRun: false });
     check("«Importa lo stesso» su un doppione → segnato", kept.ok && kept.results[0].ok && kept.results[0].dup && DB(`select count(*) from "BookingRequest" where name='Prova Import Doppio'`) === "2", JSON.stringify(kept));
 
@@ -294,8 +313,10 @@ if (dbOk && process.argv.includes("--browser")) {
         await wait(400);
         await p.screenshot({ path: path.join(shots, `${label}-${name}.png`), fullPage: false });
       };
-      const open = p.getByRole("button", { name: "Importa dal librone" });
-      check(`[${tag}] pulsante «Importa dal librone» accanto a «+ Nuova prenotazione»`, (await open.count()) === 1 && (await p.getByRole("button", { name: "+ Nuova prenotazione" }).count()) >= 1);
+      // «Importa dal librone» sta nel menù «⋯» della barra, accanto a «+ Prenotazione».
+      await p.getByRole("button", { name: "Altre azioni" }).click();
+      const open = p.getByRole("menuitem", { name: /^Importa dal librone/ });
+      check(`[${tag}] «⋯» → «Importa dal librone», con «+ Prenotazione» nella barra`, (await open.count()) === 1 && (await p.getByRole("button", { name: "Nuova prenotazione" }).count()) >= 1);
       if (first && shots) await p.screenshot({ path: path.join(shots, `${label}-0-pagina.png`) });
       await open.click();
       const sheet = p.getByRole("dialog", { name: "Importa dal librone" });
@@ -359,8 +380,9 @@ if (dbOk && process.argv.includes("--browser")) {
         await sheet.waitFor({ state: "detached" });
         check("riga corretta e segnata → «Segnata 1 prenotazione», il foglio si chiude", true);
         // Nella pagina: si trova con la ricerca, con «Dal librone».
-        await p.getByRole("button", { name: "Cerca" }).click();
-        await p.getByLabel("Cerca per nome, telefono o codice").fill(`Prova Import Bianchi ${tag}`);
+        await p.getByRole("button", { name: "Altre azioni" }).click();
+        await p.getByRole("menuitem", { name: /^Cerca/ }).click();
+        await p.getByRole("dialog", { name: "Cerca una prenotazione" }).getByRole("searchbox").fill(`Prova Import Bianchi ${tag}`);
         const res = p.getByRole("region", { name: "Risultati della ricerca" });
         await res.getByText(`Prova Import Bianchi ${tag}`).first().waitFor();
         check("nella pagina: la prenotazione importata dice «Dal librone · …»", /Dal librone/.test(await res.innerText()), (await res.innerText()).slice(0, 200));

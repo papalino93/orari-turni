@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* «dark:» segue il tema scelto nell'app (data-theme sull'html), non quello del telefono: prima un
+   telefono in tema chiaro con l'app in tema scuro vedeva i colori del chiaro (es. il verde WhatsApp). */
+@custom-variant dark (&:where(html:not([data-theme="light"]), html:not([data-theme="light"]) *));
+
 :root {
   /* Tema scuro «da cantina»: neri caldi con un filo di vinaccia, superfici che si staccano
      di più dal fondo (prima #0c0b0d / #18161a / #221f24 / bordo #2f2a2f, quasi piatti). */
@@ -392,5 +396,51 @@ body {
     .bg-accent.text-accent-foreground:active:not(:disabled) {
       transform: translateY(1px);
     }
+  }
+}
+
+/* Agenda delle prenotazioni: un giorno toccato nella settimana o nel mese si «apre» (breve, e solo
+   per chi non ha chiesto meno animazioni: la classe usa motion-safe). */
+@keyframes agenda-explode {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Prenotazioni: il pannello «Richieste» entra da destra (computer) o dal basso (telefono),
+   il menù «⋯» si apre dal pulsante. Solo con motion-safe. */
+@keyframes panel-left {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes panel-up {
+  from {
+    transform: translateY(32px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes menu-in {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
   }
 }

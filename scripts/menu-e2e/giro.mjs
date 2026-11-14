@@ -147,7 +147,7 @@ await tour("pub-360", 360, 740, "light", null, ["/menu"]);
   };
   const giroPrenotazioniFoto = async (name, w, h, theme, user) => {
     const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
-    await ctx.addInitScript((t) => { try { localStorage.setItem("theme", t); localStorage.setItem("install-banner-dismissed", "1"); localStorage.setItem("prenotazioni-avvisi-non-ora", "1"); sessionStorage.setItem("employee-install-prompt-dismissed", "1"); } catch {} }, theme);
+    await ctx.addInitScript((t) => { try { localStorage.setItem("theme", t); localStorage.setItem("install-banner-dismissed", "1"); localStorage.setItem("prenotazioni-avvisi-suggerito", "1"); sessionStorage.setItem("employee-install-prompt-dismissed", "1"); } catch {} }, theme);
     const p = await ctx.newPage();
     p.setDefaultTimeout(60000);
     p.on("pageerror", (e) => problems.push(`${name} JS: ${e.message}`));
@@ -159,23 +159,41 @@ await tour("pub-360", 360, 740, "light", null, ["/menu"]);
       if (ov > 0) problems.push(`${name} prenotazioni ${what}: scorrimento orizzontale ${ov}px`);
       await p.screenshot({ path: `${OUT}/${name}_prenotazioni-${what}.png`, fullPage: full });
     };
-    for (const [tab, file] of [["Da gestire", "da-gestire"], ["Stasera", "stasera"], ["Prossimi giorni", "prossimi"], ["Archivio", "archivio"], ["Numeri", "numeri"]]) {
-      await p.getByRole("tab", { name: new RegExp(`^${tab}`) }).click();
+    // La pagina è l'agenda: le tre viste, il pannello «Richieste», il menù «⋯» e quello che c'è dentro.
+    for (const [v, file] of [["Giorno", "giorno"], ["Settimana", "settimana"], ["Mese", "mese"]]) {
+      await p.getByRole("radio", { name: v }).click();
+      await p.waitForTimeout(1200);
       await snap(file);
     }
-    await p.getByRole("tab", { name: /^Da gestire/ }).click();
-    await p.getByRole("tabpanel").getByRole("button", { name: /Prova C Giro attesa/ }).first().click();
+    const menu = async (item) => {
+      await p.getByRole("button", { name: "Altre azioni" }).click();
+      await p.getByRole("menuitem", { name: new RegExp(`^${item}`) }).click();
+    };
+    await p.getByRole("button", { name: "Altre azioni" }).click();
+    await snap("menu-altre", false);
+    await p.keyboard.press("Escape");
+    await menu("Cerca");
+    await snap("cerca", false);
+    await p.keyboard.press("Escape");
+    await menu("Numeri");
+    await snap("numeri", false);
+    await p.keyboard.press("Escape");
+    await p.getByTestId("pulsante-richieste").click();
+    await snap("richieste", false);
+    await p.getByRole("dialog", { name: "Richieste" }).getByRole("button", { name: /Prova C Giro attesa/ }).first().click();
     await snap("dettaglio", false);
-    await p.getByRole("dialog").getByRole("button", { name: "Proponi un altro orario" }).click();
+    await p.getByRole("dialog", { name: /Prova C Giro attesa/ }).getByRole("button", { name: "Proponi un altro orario" }).click();
     await snap("proponi", false);
     await p.keyboard.press("Escape"); await discardIfAsked(p);
+    await p.keyboard.press("Escape");
     if (user[0] === "andrea") {
-      await p.getByRole("button", { name: "Impostazioni" }).click();
+      await menu("Impostazioni");
       await snap("impostazioni", false);
       await p.keyboard.press("Escape"); await discardIfAsked(p);
     }
-    await p.getByRole("button", { name: "Questo telefono" }).click();
+    await menu("Avvisi su questo telefono");
     await snap("questo-telefono", false);
+    await p.keyboard.press("Escape");
     await ctx.close();
   };
   try {

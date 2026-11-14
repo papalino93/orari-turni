@@ -30,7 +30,9 @@ import {
   refuseProposalForCustomer,
   loadBookingSettings,
   markArrival,
-  markWhatsappOpened,
+  claimWhatsapp,
+  releaseWhatsapp,
+  markWhatsappSent,
   proposeTime,
   saveBookingSettings,
   setDayFull,
@@ -39,6 +41,8 @@ import {
   type ImportLineResult,
 } from "@/lib/booking/service";
 import { IMPORT_MAX_CHARS } from "@/lib/booking/import";
+import { addDayNote, removeDayNote, updateDayNote } from "@/lib/booking/agenda-server";
+import { actorName, effectiveMode, NEED_WHO, NeedWhoError, sentFrom, setVenueWho, clearVenueWho, venueDeviceExists, whatsappRole } from "@/lib/booking/venue";
 import { sendPushToStaff } from "@/lib/booking/push";
 
 // Ogni azione è un indirizzo pubblico: la prima cosa è sempre requireAgendaManager()
@@ -50,6 +54,22 @@ async function requireAgendaManager(): Promise<BookingManager> {
   const m = await requireBookingManager();
   if (m.role !== "ADMIN" && !(await loadBookingSettings()).agendaEnabled) throw new AuthError("L'agenda delle prenotazioni non è ancora accesa: per ora la prova solo il titolare.");
   return m;
+}
+
+// Chi firma in cronologia: dal telefono enoteca la persona scelta in «Chi sei?» («Marta (telefono
+// enoteca)»), senza la quale non si salva niente; altrimenti chi ha fatto l'accesso.
+async function who(m: BookingManager): Promise<string> {
+  try {
+    return await actorName(m);
+  } catch (e) {
+    if (e instanceof NeedWhoError) throw new ValidationError(NEED_WHO);
+    throw e;
+  }
+}
+
+// Questo dispositivo manda lui i WhatsApp ai clienti (niente avviso «da mandare» agli altri)?
+async function sendsWhatsapp(m: BookingManager): Promise<boolean> {
+  return whatsappRole(m, effectiveMode(await loadBookingSettings(), await venueDeviceExists())) === "send";
 }
 
 // Anteprime di Vercel (stesso database del sito): si lavora solo sulle prenotazioni di prova.
@@ -110,8 +130,10 @@ export async function replyToRequest(
     const id = parseBookingId(idInput);
     await guardPreview(id);
     const origin = await requestOrigin();
-    // Il titolare manda i WhatsApp da qualsiasi dispositivo; un dipendente solo dal telefono del locale.
-    const actor = { name: m.name, selfWa: opts?.selfWa === true };
+    // Il titolare manda i WhatsApp da qualsiasi dispositivo; un dipendente solo dal telefono enoteca.
+    // Chi manda i WhatsApp lo decide il server (telefono enoteca, impostazione «Chi manda i WhatsApp»).
+    void opts?.selfWa;
+    const actor = { name: await who(m), selfWa: await sendsWhatsapp(m) };
     try {
       if (kind === "confirm") return outcome(await confirmBooking(id, actor, message, origin, opts?.dupOk === true));
       if (kind === "propose") return outcome(await proposeTime(id, actor, time, message, origin));
@@ -133,7 +155,7 @@ export async function setArrival(idInput: string, arrived: boolean | null): Prom
     const id = parseBookingId(idInput);
     await guardPreview(id);
     if (arrived !== true && arrived !== false && arrived !== null) throw new ValidationError("Azione non valida.");
-    const r = await markArrival(id, { name: m.name }, arrived);
+    const r = await markArrival(id, { name: await who(m) }, arrived);
     refresh();
     if (!r.ok) throw new ValidationError(r.error);
   });
@@ -144,7 +166,20 @@ export async function setArrival(idInput: string, arrived: boolean | null): Prom
 // Esito del salvataggio: salvata (con il messaggio WhatsApp già pronto, se c'è il telefono)
 // oppure una domanda da confermare («Quel giorno risulta chiuso: segnarla lo stesso?»).
 // I campi del foglio «Modifica» come li ha adesso il database (dopo un conflitto si ricaricano).
-export type AgendaFields = { name: string; phone: string; people: number; day: string; time: string; table: string; note: string; allergies: boolean; version: string };
+export type AgendaFields = {
+  name: string;
+  phone: string;
+  people: number;
+  day: string;
+  time: string;
+  table: string;
+  note: string;
+  allergies: boolean;
+  timeUnknown: boolean;
+  peopleUnknown: boolean;
+  menu: string;
+  version: string;
+};
 
 export type AgendaOutcome =
   | { saved: true; id: string; whatsappHref: string | null; hasPhone: boolean; unchanged: boolean; isTest: boolean }
@@ -160,7 +195,20 @@ function agendaOutcome(r: ManualResult): AgendaOutcome {
     return {
       saved: false,
       error: r.error,
-      conflict: { name: c.name, phone: c.phone, people: c.people, day: c.day, time: c.time, table: c.table ?? "", note: c.note ?? "", allergies: c.allergies, version: editVersion(c) },
+      conflict: {
+        name: c.name,
+        phone: c.phone,
+        people: c.people,
+        day: c.day,
+        time: c.time,
+        table: c.table ?? "",
+        note: c.note ?? "",
+        allergies: c.allergies,
+        timeUnknown: c.timeUnknown,
+        peopleUnknown: c.peopleUnknown,
+        menu: c.menu ?? "",
+        version: editVersion(c),
+      },
     };
   }
   if ("gone" in r) return { saved: false, error: r.error, gone: true };
@@ -169,14 +217,14 @@ function agendaOutcome(r: ManualResult): AgendaOutcome {
 
 const manualFields = (input: ManualInput): ManualInput => {
   if (!input || typeof input !== "object") throw new ValidationError("Dati non validi.");
-  const { day, time, people, name, phone, table, note, allergies, source, force, dupOk } = input;
-  return { day, time, people, name, phone, table, note, allergies, source, force, dupOk };
+  const { day, time, people, name, phone, table, note, allergies, source, force, dupOk, timeUnknown, peopleUnknown, menu } = input;
+  return { day, time, people, name, phone, table, note, allergies, source, force, dupOk, timeUnknown, peopleUnknown, menu };
 };
 
 export async function addManualBooking(input: ManualInput): Promise<ActionResult<AgendaOutcome>> {
   return runAction(async () => {
     const m = await requireAgendaManager();
-    const r = await createManualBooking(manualFields(input), { name: m.name }, await requestOrigin());
+    const r = await createManualBooking(manualFields(input), { name: await who(m) }, await requestOrigin());
     refresh();
     return agendaOutcome(r);
   });
@@ -188,7 +236,7 @@ export async function editBooking(idInput: string, input: ManualInput, version: 
     const id = parseBookingId(idInput);
     await guardPreview(id);
     const fields = { ...manualFields(input), source: undefined };
-    const r = await updateBooking(id, fields, typeof version === "string" ? version : null, { name: m.name }, await requestOrigin());
+    const r = await updateBooking(id, fields, typeof version === "string" ? version : null, { name: await who(m) }, await requestOrigin());
     refresh();
     return agendaOutcome(r);
   });
@@ -222,7 +270,7 @@ export async function importBookings(text: string, keep: number[] = []): Promise
   return runAction(async () => {
     const m = await requireAgendaManager();
     const input = importInput(text, keep);
-    const r = await importManualBookings(input.text, input.keep, { name: m.name }, { dryRun: false });
+    const r = await importManualBookings(input.text, input.keep, { name: await who(m) }, { dryRun: false });
     refresh();
     if (!r.ok) throw new ValidationError(r.error);
     return { results: r.results, isTest: r.isTest };
@@ -235,34 +283,67 @@ export async function undoNewBooking(idInput: string): Promise<ActionResult> {
     const m = await requireAgendaManager();
     const id = parseBookingId(idInput);
     await guardPreview(id);
-    const r = await undoManualBooking(id, { name: m.name });
+    const r = await undoManualBooking(id, { name: await who(m) });
     refresh();
     if (!r.ok) throw new ValidationError(r.error);
   });
 }
 
-// «Manda la risposta su WhatsApp» (aperto), «Segna come già mandata» e il suo «Annulla»;
-// «queue»: la conferma di una prenotazione dell'agenda la manda il telefono del locale.
-export async function markWhatsapp(idInput: string, how: "opened" | "done" | "undo" | "queue"): Promise<ActionResult> {
+// WhatsApp ai clienti, una sola coda per tutti (vedi service.ts, claimWhatsapp):
+// - "opened": «Apri WhatsApp» → la prende in mano chi tocca (lucchetto di 5 minuti, «In invio da…»);
+//   force: «Rimanda lo stesso» dopo «Già mandato da…»;
+// - "sent": «Mandato» → sparisce per tutti, in cronologia chi, da dove e quando;
+// - "release": «Annulla» → torna libera; "done" / "undo": «Segna come già mandata» e il suo «Annulla»;
+// - "queue": la conferma di una prenotazione dell'agenda la manda il telefono enoteca.
+export type WhatsappClaim = { ok: true } | { ok: false; text: string; claimedBy?: string; sentBy?: string; at?: number };
+
+export async function markWhatsapp(idInput: string, how: "opened" | "sent" | "release" | "done" | "undo" | "queue", opts?: { force?: boolean; device?: string }): Promise<ActionResult<WhatsappClaim>> {
   return runAction(async () => {
     const m = await requireAgendaManager();
     const id = parseBookingId(idInput);
     await guardPreview(id);
     const exists = await prisma.bookingRequest.findUnique({ where: { id }, select: { id: true } });
     if (!exists) throw new ValidationError("Questa richiesta non c'è più.");
-    if (how === "queue") {
-      const r = await queueConfirmation(id, { name: m.name });
+    const actor = await who(m);
+    // L'apparecchio (numero a caso tenuto sul dispositivo): il lucchetto riconosce anche quello.
+    const device = typeof opts?.device === "string" && /^[a-z0-9]{8,40}$/i.test(opts.device) ? opts.device : null;
+    try {
+      if (how === "queue") {
+        const r = await queueConfirmation(id, { name: actor });
+        if (!r.ok) throw new ValidationError(r.error);
+        return { ok: true } as WhatsappClaim;
+      }
+      if (how === "opened") {
+        // Solo chi manda (o titolare/consulente con «Mandalo io dal mio WhatsApp»).
+        if (whatsappRole(m, effectiveMode(await loadBookingSettings(), await venueDeviceExists())) === "none") throw new ValidationError("Le risposte su WhatsApp le manda il telefono enoteca.");
+        const r = await claimWhatsapp(id, actor, sentFrom(m), opts?.force === true, new Date(), device);
+        return r.ok ? ({ ok: true } as WhatsappClaim) : ({ ok: false, text: r.error, claimedBy: r.claimedBy, sentBy: r.sentBy, at: r.at } as WhatsappClaim);
+      }
+      if (how === "sent") await markWhatsappSent(id, actor, sentFrom(m));
+      else if (how === "release") await releaseWhatsapp(id, actor, device);
+      else if (how === "done") await markWhatsappSent(id, actor, null);
+      else if (how === "undo") {
+        const last = await prisma.bookingLog.findFirst({ where: { requestId: id, kind: "WHATSAPP_DONE", actor }, orderBy: { at: "desc" }, select: { id: true } });
+        if (last) await prisma.bookingLog.delete({ where: { id: last.id } });
+      } else throw new ValidationError("Azione non valida.");
+      return { ok: true } as WhatsappClaim;
+    } finally {
       refresh();
-      if (!r.ok) throw new ValidationError(r.error);
-      return;
     }
-    if (how === "opened") await markWhatsappOpened(id, { name: m.name });
-    else if (how === "done") await prisma.bookingLog.create({ data: { requestId: id, actor: m.name, kind: "WHATSAPP_DONE", message: null } });
-    else if (how === "undo") {
-      const last = await prisma.bookingLog.findFirst({ where: { requestId: id, kind: "WHATSAPP_DONE", actor: m.name }, orderBy: { at: "desc" }, select: { id: true } });
-      if (last) await prisma.bookingLog.delete({ where: { id: last.id } });
-    } else throw new ValidationError("Azione non valida.");
-    refresh();
+  });
+}
+
+// «Chi sei?» sul telefono enoteca (vale qualche ora, su questo telefono); "" = cambia persona.
+export async function chooseVenueWho(employeeId: string): Promise<ActionResult<{ name: string | null }>> {
+  return runAction(async () => {
+    const m = await requireAgendaManager();
+    if (!employeeId) {
+      await clearVenueWho();
+      return { name: null };
+    }
+    const r = await setVenueWho(m, employeeId);
+    if (!r.ok) throw new ValidationError(r.error);
+    return { name: r.name };
   });
 }
 
@@ -286,8 +367,36 @@ export async function setDayClosed(dayInput: string, full: boolean): Promise<Act
     if (typeof dayInput !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dayInput) || Number.isNaN(Date.parse(`${dayInput}T00:00:00Z`))) {
       throw new ValidationError("Giorno non valido.");
     }
-    await setDayFull(dayInput, Boolean(full), { name: m.name }, null);
+    await setDayFull(dayInput, Boolean(full), { name: await who(m) }, null);
     refresh();
+  });
+}
+
+// ---------- Note del giorno nell'agenda («EVENTO DAINELLI», un promemoria)
+
+export async function saveDayNote(input: { id?: string | null; day?: string; text: string }): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const m = await requireAgendaManager();
+    await guardPreview();
+    if (!input || typeof input !== "object") throw new ValidationError("Dati non validi.");
+    if (input.id) {
+      if (typeof input.id !== "string" || !ID.test(input.id)) throw new ValidationError("Nota non trovata: ricarica la pagina.");
+      const r = await updateDayNote(input.id, input.text, await who(m));
+      if (!r.ok) throw new ValidationError(r.error);
+      return { id: input.id };
+    }
+    const r = await addDayNote(String(input.day ?? ""), input.text, await who(m));
+    if (!r.ok) throw new ValidationError(r.error);
+    return { id: r.id };
+  });
+}
+
+export async function deleteDayNote(idInput: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireAgendaManager();
+    await guardPreview();
+    if (typeof idInput !== "string" || !ID.test(idInput)) throw new ValidationError("Nota non trovata: ricarica la pagina.");
+    await removeDayNote(idInput);
   });
 }
 
@@ -368,6 +477,7 @@ export async function saveSettings(input: SettingsInput): Promise<ActionResult> 
       daysAhead: int(input.daysAhead, 1, 180, "Giorni in avanti"),
       notifyEmail: email,
       capacityHint: int(input.capacityHint, 0, 500, "Quante persone ci stanno"),
+      whatsappSenders: input.whatsappSenders === "all" ? "all" : "venue",
     };
     // Stesso controllo di chi legge le impostazioni: quello che si salva è quello che vale.
     await saveBookingSettings(parseBookingSettings(JSON.stringify(next)));
@@ -406,7 +516,9 @@ export async function savePushSubscription(sub: SubscriptionInput, userAgent: st
     const m = await requireAgendaManager();
     const { endpoint, p256dh, auth } = parseSubscription(sub);
     const ua = typeof userAgent === "string" ? userAgent.slice(0, 300) : null;
-    const lp = localPhone === true;
+    // «Telefono enoteca» lo decide la sessione (il telefono della sala), non una scelta sul dispositivo.
+    void localPhone;
+    const lp = m.venueDevice === true;
     // Stesso telefono, altra persona che ha fatto l'accesso: l'iscrizione passa a chi c'è adesso.
     await prisma.pushSubscription.upsert({
       where: { endpoint },
@@ -417,15 +529,17 @@ export async function savePushSubscription(sub: SubscriptionInput, userAgent: st
   });
 }
 
-// «Questo è il telefono del locale» acceso o spento: la scelta sta nel browser (localStorage), ma il
-// server deve saperla per mandare a questo dispositivo gli avvisi «da mandare su WhatsApp».
-export async function setPushLocalPhone(endpointInput: string, on: boolean): Promise<ActionResult> {
+// Riallinea l'iscrizione agli avvisi: «telefono enoteca» (avvisi «da mandare su WhatsApp») lo decide
+// l'accesso del telefono della sala, non più un interruttore sul dispositivo (il secondo argomento resta
+// per i telefoni con la pagina vecchia ancora aperta, ma non conta).
+export async function setPushLocalPhone(endpointInput: string, on?: boolean): Promise<ActionResult> {
   return runAction(async () => {
     const m = await requireBookingManager();
+    void on;
     if (typeof endpointInput !== "string" || endpointInput.length > 1000) throw new ValidationError("Dati non validi.");
     await prisma.pushSubscription.updateMany({
       where: { endpoint: endpointInput, ...(m.employeeId ? { employeeId: m.employeeId } : { username: m.username }) },
-      data: { localPhone: on === true },
+      data: { localPhone: m.venueDevice === true },
     });
   });
 }
@@ -451,6 +565,17 @@ export async function sendTestPush(endpointInput: string): Promise<ActionResult<
     const r = await sendPushToStaff({ title: "Prova riuscita", body: "Così arriva l'avviso di una nuova richiesta di prenotazione.", url: "/prenotazioni", tag: "booking-test" }, { endpoint: endpointInput });
     if (!r.sent) throw new ValidationError("L'avviso non è partito: disattiva e riattiva gli avvisi, poi riprova.");
     return r.sent;
+  });
+}
+
+// «Telefoni che ricevono gli avvisi» (Impostazioni): «Togli» spegne gli avvisi su quell'apparecchio.
+// Solo titolare e consulente; per riaccenderli serve quel telefono («Attiva gli avvisi»).
+export async function removePushDevice(idInput: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireOwner();
+    if (typeof idInput !== "string" || !/^[a-z0-9_]{10,40}$/i.test(idInput)) throw new ValidationError("Apparecchio non trovato: ricarica la pagina.");
+    await prisma.pushSubscription.deleteMany({ where: { id: idInput } });
+    revalidatePath("/prenotazioni");
   });
 }
 

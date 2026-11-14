@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { MenuTabs } from "./menu-tabs";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
 import { blockStatus, blockSummary, comparePromos, dishLabel, formatBlockDates, periodStatus, withDay, formatPrice, priceLine, wineDetail, type MenuBlockView } from "@/lib/menu-format";
@@ -477,6 +478,7 @@ export function MenuEditor({
 
   return (
     <div className="app-wide mx-auto max-w-5xl">
+      {canSeeStats && <MenuTabs current="gestione" />}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight">Menù</h1>

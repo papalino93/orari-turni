@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ADMIN_WIDGETS, DEFAULT_THEME, EMPLOYEE_WIDGETS, KEY_IDLE_DAYS, WIDGET_THEMES, WIDGETS, scriptFiles, type WidgetDef } from "@/lib/widgets";
+import { ADMIN_WIDGETS, DEFAULT_THEME, EMPLOYEE_WIDGETS, KEY_IDLE_DAYS, WIDGET_THEMES, VENUE_WIDGET_IDS, WIDGETS, scriptFiles, type WidgetDef } from "@/lib/widgets";
 import { AuthorizeList, DeviceList, Installer, PhoneQr, ThemePicker, WidgetGallery, type DeviceRow } from "./widget-client";
 
 const themeOf = (t: string | null | undefined) => (WIDGET_THEMES.some((x) => x.id === t) ? (t as string) : DEFAULT_THEME);
@@ -15,11 +15,11 @@ export default async function WidgetPage() {
   const isEmployee = session?.user?.role === "EMPLOYEE";
 
   if (isEmployee) {
-    const emp = await prisma.employee.findUnique({ where: { id: session!.user!.employeeId! }, select: { id: true, name: true, widgets: true, widgetTheme: true } });
-    const allowed = WIDGETS.filter((w) => !w.vecchio && emp?.widgets.includes(w.id));
+    const emp = await prisma.employee.findUnique({ where: { id: session!.user!.employeeId! }, select: { id: true, name: true, widgets: true, widgetTheme: true, isVenueDevice: true } });
+    const allowed = WIDGETS.filter((w) => !w.vecchio && emp?.widgets.includes(w.id) && (!emp.isVenueDevice || VENUE_WIDGET_IDS.includes(w.id)));
     const devices = emp ? await prisma.widgetDevice.findMany({ where: { employeeId: emp.id, revokedAt: null }, orderBy: { createdAt: "desc" } }) : [];
     return (
-      <Layout admin={false} qr={allowed.length > 0}>
+      <Layout admin={false} qr={allowed.length > 0} back={emp?.isVenueDevice ? { href: "/prenotazioni", label: "‹ Prenotazioni" } : undefined}>
         {allowed.length === 0 ? (
           <div className="rounded-2xl border border-border bg-surface px-5 py-6 text-sm text-foreground-muted">
             Il titolare non ti ha ancora dato nessun widget. Quando lo farà, qui troverai la guida per metterli sulla Home del telefono.
@@ -38,7 +38,7 @@ export default async function WidgetPage() {
 
   const [user, employees, devices, users] = await Promise.all([
     prisma.user.findUnique({ where: { username: session?.user?.username ?? "" }, select: { id: true, name: true, widgetTheme: true } }),
-    prisma.employee.findMany({ where: { role: "EMPLOYEE", active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, widgets: true } }),
+    prisma.employee.findMany({ where: { role: "EMPLOYEE", active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, widgets: true, isVenueDevice: true } }),
     prisma.widgetDevice.findMany({ where: { revokedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.user.findMany({ select: { id: true, name: true } }),
   ]);
@@ -93,17 +93,17 @@ function toRow(d: { id: string; name: string; createdAt: Date; lastUsedAt: Date 
 
 // qr: il riquadro «Sei al computer?» per aprire la pagina sul telefono; non per il dipendente
 // senza widget (sul telefono non troverebbe nulla da fare).
-function Layout({ children, admin, qr = true }: { children: React.ReactNode; admin: boolean; qr?: boolean }) {
+function Layout({ children, admin, qr = true, back }: { children: React.ReactNode; admin: boolean; qr?: boolean; back?: { href: string; label: string } }) {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         {/* Il dipendente arriva qui da «Le mie ore»: un link per tornarci (come in /installa). */}
         {!admin && (
           <Link
-            href="/mie-ore"
+            href={back?.href ?? "/mie-ore"}
             className="-ml-1 mb-2 inline-flex min-h-11 items-center px-1 text-sm font-medium text-foreground-muted hover:text-foreground"
           >
-            ‹ Le mie ore
+            {back?.label ?? "‹ Le mie ore"}
           </Link>
         )}
         <h1 className="mb-1 text-xl font-semibold tracking-tight">Widget sul telefono</h1>

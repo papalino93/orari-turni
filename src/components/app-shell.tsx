@@ -33,7 +33,6 @@ const ADMIN_NAV_ITEMS = [
   { href: "/ferie", label: "Ferie", icon: SunIcon },
   { href: "/dipendenti", label: "Dipendenti", icon: PeopleIcon },
   { href: "/gestione-menu", label: "Menù", icon: MenuIcon },
-  { href: "/statistiche", label: "Statistiche", icon: ChartIcon },
   { href: "/mail", label: "Mail", icon: MailIcon },
 ];
 
@@ -60,6 +59,7 @@ export function AppShell({
   showMail,
   showFerie,
   bookings,
+  venueDevice = false,
   children,
 }: {
   userName: string;
@@ -72,10 +72,14 @@ export function AppShell({
   // «Ferie» si accende da Impostazioni, come «Mail».
   showFerie: boolean;
   // Voce «Prenotazioni» con le richieste da confermare e i messaggi da mandare su WhatsApp; null = non si mostra.
-  bookings: { pending: number; whatsapp: number } | null;
+  bookings: { pending: number; whatsapp: number; incomplete?: number } | null;
+  // «Telefono enoteca»: solo Prenotazioni (e Menù se il titolare l'ha permesso), niente «Le mie ore».
+  venueDevice?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  // «Statistiche» sta dentro «Menù»: su /statistiche la voce accesa è «Menù».
+  const isActive = (href: string) => Boolean(pathname?.startsWith(href) || (href === "/gestione-menu" && pathname?.startsWith("/statistiche")));
   const isAdmin = role === "ADMIN";
   const baseItems: NavItem[] = isAdmin
     ? ADMIN_NAV_ITEMS.filter((item) => (showMail || item.href !== "/mail") && (showFerie || item.href !== "/ferie"))
@@ -83,13 +87,20 @@ export function AppShell({
       ? [...EMPLOYEE_NAV_ITEMS, EMPLOYEE_MENU_NAV_ITEM]
       : EMPLOYEE_NAV_ITEMS;
   // Subito dopo «Orari» (o «Le mie ore»): è la cosa da guardare più spesso durante la serata.
-  const navItems: NavItem[] = bookings ? [baseItems[0], BOOKINGS_NAV_ITEM, ...baseItems.slice(1)] : baseItems;
+  const navItems: NavItem[] = venueDevice
+    ? [BOOKINGS_NAV_ITEM, ...(canEditMenu ? [EMPLOYEE_MENU_NAV_ITEM] : [])]
+    : bookings
+      ? [baseItems[0], BOOKINGS_NAV_ITEM, ...baseItems.slice(1)]
+      : baseItems;
   // Il pallino conta le cose da fare: richieste da confermare + risposte da mandare su WhatsApp.
-  const todo = bookings ? bookings.pending + bookings.whatsapp : 0;
+  // Richieste da confermare, messaggi da mandare e prenotazioni da completare: tre insiemi separati
+  // (una prenotazione da completare è già confermata e non ha messaggi in coda), niente doppioni.
+  const todo = bookings ? bookings.pending + bookings.whatsapp + (bookings.incomplete ?? 0) : 0;
   const todoText = bookings
     ? [
         bookings.pending ? `${bookings.pending} ${bookings.pending === 1 ? "richiesta" : "richieste"} da confermare` : "",
         bookings.whatsapp ? `${bookings.whatsapp} ${bookings.whatsapp === 1 ? "messaggio" : "messaggi"} da mandare su WhatsApp` : "",
+        bookings.incomplete ? `${bookings.incomplete} ${bookings.incomplete === 1 ? "prenotazione" : "prenotazioni"} da completare` : "",
       ]
         .filter(Boolean)
         .join(", ")
@@ -159,7 +170,7 @@ export function AppShell({
 
           <nav className={`hidden items-center gap-0.5 lg:gap-1 ${navItems.length > 1 ? "md:flex" : ""}`}>
             {navItems.map((item) => {
-              const active = pathname?.startsWith(item.href);
+              const active = isActive(item.href);
               const Icon = item.icon;
               return (
                 <Link
@@ -236,7 +247,7 @@ export function AppShell({
           <BlockedNotice />
         </Suspense>
         <InstalledMark installed={appInstalled} />
-        {appInstalled ? null : isAdmin ? <InstallBanner /> : <EmployeeInstallPrompt />}
+        {appInstalled || venueDevice ? null : isAdmin ? <InstallBanner /> : <EmployeeInstallPrompt />}
         {children}
         {/* Colore pieno, non attenuato: «/70» scendeva a un contrasto di 3 su 1 nel tema chiaro. */}
         <p className="mt-10 text-center text-[11px] text-foreground-muted" aria-label="Versione dell'app">
@@ -252,7 +263,7 @@ export function AppShell({
       {navItems.length > 1 && (
         <nav className="brand-band-bar brand-band-bar-bottom fixed inset-x-0 bottom-0 z-30 flex bg-brand-band md:hidden">
           {navItems.map((item) => {
-            const active = pathname?.startsWith(item.href);
+            const active = isActive(item.href);
             const Icon = item.icon;
             return (
               <Link
@@ -314,17 +325,6 @@ function CalendarIcon({ active }: { active: boolean }) {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2}>
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path d="M3 10h18M8 3v4M16 3v4" />
-    </svg>
-  );
-}
-
-function ChartIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 20h16" />
-      <path d="M7 16v-5" />
-      <path d="M12 16V6" />
-      <path d="M17 16v-8" />
     </svg>
   );
 }

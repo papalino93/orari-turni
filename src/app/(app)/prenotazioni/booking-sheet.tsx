@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
-import { aroundTime, availability, bookingsText, dayLong, peopleText, whatsappReachable, type BookingSettings } from "@/lib/booking/rules";
+import { aroundTime, availability, bookingsText, dayLong, isIncomplete, missingText, peopleText, whatsappReachable, type BookingSettings } from "@/lib/booking/rules";
 import { customerMessage, type MessageKind } from "@/lib/booking/messages";
 import { whatsappPending } from "@/lib/booking/whatsapp-queue";
 import type { Hours } from "@/lib/menu-venue";
 import { eraseRequest, markWhatsapp, replyToRequest, setArrival, type ReplyOutcome } from "./actions";
 import { chatLink, clock, confirmationSent, dayLabel, duration, logText, phoneDisplay, REPLY_LABEL, replyHref, sourceText, statusLabel, telLink, viewOf, whenText } from "./format";
+import { WhatsappButton } from "./wa-send";
 import { WhatsappIcon } from "./device";
 import type { BookingItem } from "./types";
 
@@ -51,41 +52,9 @@ export function TestChip() {
 }
 
 const bigBtn = "flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold disabled:opacity-60";
-const waBtn = `${bigBtn} bg-[#137a43] text-white hover:bg-[#0f6837]`;
 
-// Grande pulsante verde: apre WhatsApp con il messaggio già scritto e lo segna nella cronologia.
-export function WhatsappButton({
-  href,
-  bookingId,
-  label = "Manda la risposta su WhatsApp",
-  onOpened,
-  compact = false,
-}: {
-  href: string;
-  bookingId: string;
-  label?: string;
-  onOpened?: () => void;
-  // Nell'elenco «Da mandare su WhatsApp»: più piccolo, accanto al nome dal tablet in su.
-  compact?: boolean;
-}) {
-  const router = useRouter();
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={() => {
-        onOpened?.();
-        markWhatsapp(bookingId, "opened")
-          .then(() => router.refresh())
-          .catch(() => {});
-      }}
-      className={compact ? "flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#137a43] px-4 text-sm font-semibold text-white hover:bg-[#0f6837]" : waBtn}
-    >
-      <WhatsappIcon /> {label}
-    </a>
-  );
-}
+// Il pulsante verde con la coda condivisa (lucchetto «In invio da…», «Mandato»): vedi wa-send.tsx.
+export { WhatsappButton };
 
 export function BookingSheet({
   booking: b,
@@ -148,12 +117,13 @@ export function BookingSheet({
   if (!b) {
     return (
       <Sheet title="Richiesta" onClose={onClose}>
-        <p className="text-sm text-foreground-muted">Questa richiesta non c&apos;è più (è più vecchia di 30 giorni o è stata cancellata).</p>
+        <p className="text-sm text-foreground-muted">Questa prenotazione non c&apos;è più: è stata cancellata, oppure è più vecchia di 6 mesi.</p>
       </Sheet>
     );
   }
 
   const v = viewOf(b, now);
+  const incomplete = isIncomplete(b);
   const sameDay = rows.filter((r) => r.day === b.day && r.status === "CONFIRMED" && r.id !== b.id && (countTests || !r.isTest));
   const sameDayPeople = sameDay.reduce((s, r) => s + r.people, 0);
   // Per decidere: quanta gente c'è già intorno all'ora chiesta (±1 ora) e in tutta la serata.
@@ -226,13 +196,13 @@ export function BookingSheet({
     }
   }
 
-  // Agenda: la conferma la manda il telefono del locale (entra nella lista «Da mandare su WhatsApp»).
+  // Agenda: la conferma la manda il telefono enoteca (entra nella lista «Da mandare su WhatsApp»).
   async function queueConfirmation() {
     if (!b) return;
     setBusy(true);
     try {
       const res = await markWhatsapp(b.id, "queue");
-      if (res.ok) toast.showSuccess("La manda il telefono del locale");
+      if (res.ok) toast.showSuccess("La manda il telefono enoteca");
       else toast.showError(res.error);
       router.refresh();
     } catch (e) {
@@ -372,16 +342,32 @@ export function BookingSheet({
               <>
                 <span className="text-foreground-muted line-through decoration-2">{b.time}</span> {b.proposedTime}
               </>
+            ) : b.timeUnknown ? (
+              <span className="text-gold">Ora da definire</span>
             ) : (
               b.time
             )}
             <span className="font-normal text-foreground-muted"> · </span>
-            {peopleText(b.people)}
+            {b.peopleUnknown ? <span className="text-gold">persone da definire</span> : peopleText(b.people)}
           </p>
+          {b.menu && <p className="mt-1.5 inline-flex rounded-md bg-gold/10 px-2 py-0.5 text-sm font-semibold text-gold ring-1 ring-inset ring-gold/25">{b.menu}</p>}
           {b.status === "PROPOSED" && !result && <p className="mt-1 text-sm text-foreground-muted">Proposto alle {b.proposedTime}: aspettiamo la risposta del cliente.</p>}
           {b.arrivedAt && <p className="mt-1 text-sm font-medium text-success">✓ Arrivati alle {clock(b.arrivedAt)}</p>}
           {b.noShowAt && <p className="mt-1 text-sm font-medium text-danger">Non venuti</p>}
         </div>
+
+        {/* Prenotazione vera ma incompleta: si completa appena il cliente lo dice. */}
+        {!result && incomplete && v === "CONFIRMED" && (
+          <div className="space-y-2 rounded-xl border border-gold/40 bg-gold/10 px-3 py-3" data-testid="da-completare-dettaglio">
+            <p className="text-sm font-semibold text-foreground">{missingText(b)}</p>
+            <p className="text-xs text-foreground-muted">È una prenotazione vera: resta segnalata finché non la completi. La conferma al cliente si manda dopo.</p>
+            {b.day >= today && (
+              <button type="button" disabled={busy} onClick={() => onEdit(b)} className={`${bigBtn} bg-accent text-accent-foreground hover:bg-accent-hover`}>
+                Completa i dati
+              </button>
+            )}
+          </div>
+        )}
 
         {b.allergies && (
           <p className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger-bg px-3 py-2.5 text-sm font-medium text-danger">
@@ -417,7 +403,7 @@ export function BookingSheet({
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-foreground">Fatto. La risposta su WhatsApp la manda il telefono del locale.</p>
+                <p className="text-sm text-foreground">Fatto. La risposta su WhatsApp la manda il telefono enoteca.</p>
               ))}
             <div className={`grid gap-2 pt-1 ${next ? "sm:grid-cols-2" : ""}`}>
               {next && (
@@ -575,7 +561,7 @@ export function BookingSheet({
         )}
 
         {/* Già gestita: rimandare il messaggio, arrivi, annullare */}
-        {!result && v === "CONFIRMED" && panel === null && b.day >= today && (
+        {!result && v === "CONFIRMED" && panel === null && b.day >= today && !incomplete && (
           <button type="button" disabled={busy} onClick={() => onEdit(b)} className={`${bigBtn} border border-border text-foreground hover:border-accent`}>
             <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
@@ -600,10 +586,12 @@ export function BookingSheet({
                 {canWhatsapp ? (
                   <>
                     <p className="text-sm font-medium text-foreground">{REPLY_LABEL[pendingWa]}: non è ancora partito su WhatsApp.</p>
-                    {resendHref(pendingWa) && <WhatsappButton href={resendHref(pendingWa)!} bookingId={b.id} onOpened={() => onWaOpened(b.id, pendingWa)} />}
+                    {resendHref(pendingWa) && <WhatsappButton href={resendHref(pendingWa)!} bookingId={b.id} claim={{ by: b.waClaimBy, at: b.waClaimAt, device: b.waClaimDevice }} onOpened={() => onWaOpened(b.id, pendingWa)} />}
                   </>
                 ) : (
-                  <p className="text-sm text-foreground-muted">La risposta su WhatsApp la manda il telefono del locale.</p>
+                  <p className="text-sm text-foreground-muted">
+                    La risposta su WhatsApp la manda il telefono enoteca{b.waClaimBy && b.waClaimAt && now - b.waClaimAt < 5 * 60000 ? ` (in invio da ${b.waClaimBy})` : ""}.
+                  </p>
                 )}
                 <button
                   type="button"
@@ -624,10 +612,10 @@ export function BookingSheet({
                   </button>
                 ) : (
                   <>
-                    <button type="button" disabled={busy} onClick={() => arrival(true)} className={`${bigBtn} border border-success/40 text-success hover:bg-success-bg ${b.startsAt > now ? "col-span-2" : ""}`}>
+                    <button type="button" disabled={busy} onClick={() => arrival(true)} className={`${bigBtn} border border-success/40 text-success hover:bg-success-bg ${b.startsAt > now || b.timeUnknown ? "col-span-2" : ""}`}>
                       ✓ Arrivati
                     </button>
-                    {b.startsAt <= now && (
+                    {b.startsAt <= now && !b.timeUnknown && (
                       <button type="button" disabled={busy} onClick={() => arrival(false)} className={`${bigBtn} border border-border text-foreground-muted hover:border-danger hover:text-danger`}>
                         Non venuti
                       </button>
@@ -638,31 +626,42 @@ export function BookingSheet({
             )}
 
             {/* Agenda: la conferma al cliente è facoltativa e non è ancora partita. */}
-            {b.manual && v === "CONFIRMED" && !pendingWa && !confirmationSent(b) && b.phone && b.startsAt > now && resendHref("confirmed") && (
+            {b.manual && v === "CONFIRMED" && incomplete && b.phone && b.day >= today && (
+              <p className="rounded-xl border border-border px-3 py-2.5 text-xs text-foreground-muted" data-testid="conferma-bloccata">
+                La conferma su WhatsApp si manda quando ora e persone sono decise: così il cliente non riceve un orario sbagliato.
+              </p>
+            )}
+            {b.manual && v === "CONFIRMED" && !incomplete && !pendingWa && !confirmationSent(b) && b.phone && b.startsAt > now && resendHref("confirmed") && (
               <div className="space-y-1.5 rounded-xl border border-border p-3">
                 {canWhatsapp ? (
                   <WhatsappButton href={resendHref("confirmed")!} bookingId={b.id} label="Manda la conferma su WhatsApp" compact onOpened={() => onWaOpened(b.id, "confirmed")} />
                 ) : (
                   <button type="button" disabled={busy} onClick={queueConfirmation} className="flex min-h-11 w-full items-center justify-center rounded-xl border border-[#137a43]/40 px-4 text-sm font-semibold text-[#137a43] hover:bg-[#137a43]/10 disabled:opacity-60 dark:text-[#3fae74]">
-                    Da mandare dal telefono del locale
+                    Da mandare dal telefono enoteca
                   </button>
                 )}
                 <p className="text-xs text-foreground-muted">Facoltativo: la conferma su WhatsApp, con il link per annullare.</p>
               </div>
             )}
 
-            {canWhatsapp && !pendingWa && !(b.manual && !confirmationSent(b)) && (v === "CONFIRMED" || v === "PROPOSED" || v === "DECLINED") && resendHref(v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined") && (
-              <a
-                href={resendHref(v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined")!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-medium text-foreground hover:border-accent"
-              >
-                <WhatsappIcon className="text-[#137a43] dark:text-[#3fae74]" /> Manda di nuovo: {REPLY_LABEL[v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined"].toLowerCase()}
-              </a>
+            {canWhatsapp && !pendingWa && !(b.manual && !confirmationSent(b)) && !(v === "CONFIRMED" && incomplete) && (v === "CONFIRMED" || v === "PROPOSED" || v === "DECLINED") && resendHref(v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined") && (
+              <details className="rounded-xl px-3 py-2 ring-1 ring-inset ring-border">
+                <summary className="flex min-h-9 cursor-pointer items-center gap-2 text-sm font-medium text-foreground">
+                  <WhatsappIcon className="text-[#137a43] dark:text-[#3fae74]" /> Manda di nuovo: {REPLY_LABEL[v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined"].toLowerCase()}
+                </summary>
+                <div className="pt-2">
+                  <WhatsappButton
+                    href={resendHref(v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined")!}
+                    bookingId={b.id}
+                    label="Apri WhatsApp"
+                    compact
+                    claim={{ by: b.waClaimBy, at: b.waClaimAt, device: b.waClaimDevice }}
+                  />
+                </div>
+              </details>
             )}
 
-            {v === "CONFIRMED" && panel === null && b.startsAt > now - 3 * 3600000 && (
+            {v === "CONFIRMED" && panel === null && (b.timeUnknown ? b.day >= today : b.startsAt > now - 3 * 3600000) && (
               <button type="button" disabled={busy} onClick={() => openPanel("cancel")} className="min-h-11 w-full rounded-xl text-sm font-medium text-danger hover:bg-danger-bg">
                 Annulla la prenotazione
               </button>
@@ -681,7 +680,7 @@ export function BookingSheet({
               <a href={telLink(b.phone)} className="flex min-h-10 items-center rounded-full border border-border px-3.5 text-xs font-semibold text-foreground hover:border-accent">
                 Chiama
               </a>
-              {/* WhatsApp al cliente solo dal telefono del locale o dal titolare (decisione del titolare). */}
+              {/* WhatsApp al cliente solo dal telefono enoteca o dal titolare (decisione del titolare). */}
               {canWhatsapp && whatsappReachable(b.phone) && (
                 <a href={chatLink(b.phone)} target="_blank" rel="noopener noreferrer" className="flex min-h-10 items-center gap-1.5 rounded-full border border-border px-3.5 text-xs font-semibold text-foreground hover:border-accent">
                   <WhatsappIcon className="h-4 w-4 text-[#137a43] dark:text-[#3fae74]" /> Scrivi
@@ -725,10 +724,6 @@ export function BookingSheet({
             </dd>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
-            <div>
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Codice</dt>
-              <dd className="font-mono text-base font-semibold tracking-widest text-foreground">{b.code}</dd>
-            </div>
             <button type="button" onClick={copyLink} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
               Copia il link della sua pagina
             </button>

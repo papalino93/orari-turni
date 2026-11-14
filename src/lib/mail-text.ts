@@ -73,7 +73,7 @@ export function parseRecipients(raw: string): { recipients: Recipient[]; skipped
 // Separatore delle colonne: quello presente nel maggior numero di righe (tra le prime 50), a pari
 // merito punto e virgola, poi tabulazione (colonne copiate da Excel), poi virgola. Così va bene anche se la prima riga ha
 // solo l'email, o se qualche nome contiene una virgola in un elenco col punto e virgola.
-function guessDelimiter(text: string): string {
+export function guessDelimiter(text: string): string {
   const lines = text.split(/\r?\n/).filter((l) => l.trim()).slice(0, 50);
   const score = (ch: string) => lines.filter((l) => l.includes(ch)).length;
   return [";", "\t", ","].reduce((best, ch) => (score(ch) > score(best) ? ch : best));
@@ -161,7 +161,7 @@ export function tableToRecipients(
   return { recipients, skipped, duplicates };
 }
 
-function parseCsv(text: string, delimiter: string): string[][] {
+export function parseCsv(text: string, delimiter: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";

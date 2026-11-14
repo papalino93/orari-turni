@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireEmployee, requireUser } from "@/lib/guard";
 import { assert, parseId, parseText, runAction, type ActionResult } from "@/lib/validation";
 import { newWidgetKey } from "@/lib/widget-auth";
-import { EMPLOYEE_WIDGETS, WIDGET_THEMES } from "@/lib/widgets";
+import { EMPLOYEE_WIDGETS, VENUE_WIDGET_IDS, WIDGET_THEMES } from "@/lib/widgets";
 
 // Chi sta chiedendo: titolare/consulente (User) o dipendente (Employee). Mai un id dal client.
 async function owner(): Promise<{ userId: string } | { employeeId: string; widgets: string[] }> {
@@ -59,10 +59,11 @@ export async function setEmployeeWidgets(employeeIdInput: string, widgets: strin
     await requireUser();
     const employeeId = parseId(employeeIdInput, "dipendente");
     assert(Array.isArray(widgets), "Elenco non valido.");
-    const allowed = EMPLOYEE_WIDGETS.map((w) => w.id);
-    for (const w of widgets) assert(typeof w === "string" && allowed.includes(w), "Widget non valido.");
-    const emp = await prisma.employee.findUnique({ where: { id: employeeId }, select: { role: true } });
+    const emp = await prisma.employee.findUnique({ where: { id: employeeId }, select: { role: true, isVenueDevice: true } });
     assert(emp && emp.role === "EMPLOYEE", "Dipendente non trovato.");
+    // Il telefono enoteca: solo i widget della sala (niente turni né ore di una persona).
+    const allowed = EMPLOYEE_WIDGETS.map((w) => w.id).filter((id) => !emp.isVenueDevice || VENUE_WIDGET_IDS.includes(id));
+    for (const w of widgets) assert(typeof w === "string" && allowed.includes(w), "Widget non valido.");
     await prisma.employee.update({ where: { id: employeeId }, data: { widgets: allowed.filter((w) => widgets.includes(w)) } });
     revalidatePath("/widget");
   });

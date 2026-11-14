@@ -4,7 +4,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { DEFAULT_THEME, KEY_IDLE_DAYS, widgetById } from "@/lib/widgets";
+import { VENUE_WIDGET_IDS, DEFAULT_THEME, KEY_IDLE_DAYS, widgetById } from "@/lib/widgets";
 
 const PREFIX = "adv_";
 
@@ -70,8 +70,10 @@ export async function authenticateWidget(req: Request, widgetId: string | null):
     const user = await prisma.user.findUnique({ where: { id: device.userId }, select: { id: true, name: true, widgetTheme: true } });
     if (user) owner = { kind: "admin", userId: user.id, name: user.name, tema: user.widgetTheme };
   } else if (device.employeeId) {
-    const emp = await prisma.employee.findUnique({ where: { id: device.employeeId }, select: { id: true, name: true, active: true, role: true, widgets: true, widgetTheme: true } });
-    if (emp && emp.active && emp.role === "EMPLOYEE" && emp.widgets.length > 0) owner = { kind: "employee", employeeId: emp.id, name: emp.name, widgets: emp.widgets, tema: emp.widgetTheme };
+    const emp = await prisma.employee.findUnique({ where: { id: device.employeeId }, select: { id: true, name: true, active: true, role: true, widgets: true, widgetTheme: true, isVenueDevice: true } });
+    // Il telefono enoteca ha solo i widget della sala, qualunque cosa ci sia scritto.
+    const widgets = emp?.isVenueDevice ? emp.widgets.filter((w) => VENUE_WIDGET_IDS.includes(w)) : (emp?.widgets ?? []);
+    if (emp && emp.active && emp.role === "EMPLOYEE" && widgets.length > 0) owner = { kind: "employee", employeeId: emp.id, name: emp.name, widgets, tema: emp.widgetTheme };
   }
   if (!owner) return { ok: false, status: 403, code: "tolto" };
 

@@ -153,7 +153,7 @@ async function nextEvent(today: string) {
 async function weekHours(mon: string) {
   const sun = addDays(mon, 6);
   const [blocks, closures] = await Promise.all([
-    prisma.shiftBlock.findMany({ where: { date: { gte: parseDateKey(mon), lte: parseDateKey(sun) }, employee: { active: true } }, select: { date: true, startTime: true, endTime: true } }),
+    prisma.shiftBlock.findMany({ where: { date: { gte: parseDateKey(mon), lte: parseDateKey(sun) }, employee: { active: true, isVenueDevice: false } }, select: { date: true, startTime: true, endTime: true } }),
     prisma.closureDay.findMany({ where: { date: { gte: parseDateKey(mon), lte: parseDateKey(sun) } }, select: { date: true } }),
   ]);
   const closed = new Set(closures.map((c) => c.date.toISOString().slice(0, 10)));
@@ -188,7 +188,7 @@ export async function dataOggi() {
   const status = openStatus({ ...venue.hours, showStatus: true }, now);
   const [blocks, closure, ev] = await Promise.all([
     prisma.shiftBlock.findMany({
-      where: { date: parseDateKey(dateKey), employee: { active: true } },
+      where: { date: parseDateKey(dateKey), employee: { active: true, isVenueDevice: false } },
       select: { startTime: true, endTime: true, employee: { select: { id: true, name: true, sortOrder: true } } },
       orderBy: [{ startTime: "asc" }],
     }),
@@ -248,7 +248,7 @@ async function allergensToDo(day: string) {
 // - le ore mandate che aspettano l'approvazione;
 // - con l'agenda delle prenotazioni accesa, le richieste da confermare e le risposte da mandare su WhatsApp.
 async function bookingsToDo(): Promise<{ richieste: number; whatsapp: number }> {
-  // Con l'agenda accesa (anche le conferme segnate a mano possono aspettare il telefono del locale).
+  // Con l'agenda accesa (anche le conferme segnate a mano possono aspettare il telefono enoteca).
   const settings = await loadBookingSettings();
   if (!settings.agendaEnabled) return { richieste: 0, whatsapp: 0 };
   const r = await countBookingsToDo();
@@ -268,7 +268,7 @@ export async function dataDaFare() {
     prisma.weekPlan.findUnique({ where: { weekStart: parseDateKey(nextMon) }, select: { publishedAt: true } }),
     prisma.monthlySubmission.findMany({ where: { status: "SUBMITTED" }, select: { employeeId: true } }),
     // Come l'avviso in «Dipendenti»: chi ha l'accesso, è attivo ed era già assunto in quel mese.
-    prisma.employee.findMany({ where: { role: "EMPLOYEE", active: true, username: { not: null }, createdAt: { lte: fineMese } }, select: { id: true } }),
+    prisma.employee.findMany({ where: { role: "EMPLOYEE", active: true, isVenueDevice: false, username: { not: null }, createdAt: { lte: fineMese } }, select: { id: true } }),
     prisma.monthlySubmission.findMany({ where: { year: mese.year, month: mese.month, status: { in: ["SUBMITTED", "APPROVED"] } }, select: { employeeId: true } }),
     bookingsToDo(),
   ]);
@@ -281,10 +281,10 @@ export async function dataDaFare() {
   const righe = [
     // Le prenotazioni per prime (un cliente aspetta la risposta), e solo quando ce ne sono.
     ...(prenotazioni.richieste > 0
-      ? [{ n: prenotazioni.richieste, testo: prenotazioni.richieste === 1 ? "richiesta di prenotazione" : "richieste di prenotazione", breve: "prenotazioni", livello: "rosso", link: "/prenotazioni" }]
+      ? [{ n: prenotazioni.richieste, testo: prenotazioni.richieste === 1 ? "richiesta di prenotazione" : "richieste di prenotazione", breve: "prenotazioni", livello: "rosso", link: "/prenotazioni?richieste=1" }]
       : []),
     ...(prenotazioni.whatsapp > 0
-      ? [{ n: prenotazioni.whatsapp, testo: prenotazioni.whatsapp === 1 ? "risposta da mandare su WhatsApp" : "risposte da mandare su WhatsApp", breve: "whatsapp", livello: "ambra", link: "/prenotazioni" }]
+      ? [{ n: prenotazioni.whatsapp, testo: prenotazioni.whatsapp === 1 ? "risposta da mandare su WhatsApp" : "risposte da mandare su WhatsApp", breve: "whatsapp", livello: "ambra", link: "/prenotazioni?richieste=1" }]
       : []),
     { n: allergeni, testo: "allergeni da compilare", breve: "allergeni", livello: allergeni > 0 ? "rosso" : "verde", link: "/gestione-menu" },
     { n: daPreparare, testo: "orari della settimana prossima da fare", breve: "da preparare", livello: daPreparare > 0 ? "ambra" : "verde", link: `/orari?date=${nextMon}` },
@@ -459,7 +459,7 @@ export function shortNames(people: { id: string; name: string }[]) {
 // I nomi brevi di tutto il personale attivo: «Andrea» diventa «Andrea T.» anche quando l'altro Andrea
 // quel giorno non lavora, così sul widget si capisce sempre chi è.
 async function staffShortNames() {
-  const people = await prisma.employee.findMany({ where: { active: true }, select: { id: true, name: true } });
+  const people = await prisma.employee.findMany({ where: { active: true, isVenueDevice: false }, select: { id: true, name: true } });
   return shortNames(people);
 }
 
@@ -473,7 +473,7 @@ async function staffNow() {
   const minutes = dateKey === rome.dateKey ? rome.minutes : rome.minutes + 24 * 60;
   const [blocks, closure] = await Promise.all([
     prisma.shiftBlock.findMany({
-      where: { date: parseDateKey(dateKey), employee: { active: true } },
+      where: { date: parseDateKey(dateKey), employee: { active: true, isVenueDevice: false } },
       select: { startTime: true, endTime: true, employee: { select: { id: true, name: true, sortOrder: true } } },
       orderBy: [{ startTime: "asc" }],
     }),

@@ -16,12 +16,14 @@ import {
   moveEmployee,
   setEmployeeBookingsAccess,
   setEmployeeMenuAccess,
+  setEmployeeVenueDevice,
   toggleEmployeeActive,
   updateEmployee,
 } from "./actions";
 import { PdfExportModal } from "./pdf-export-modal";
 import { PhotoEditor } from "./photo-editor";
 import { EmployeeCredentials } from "./employee-credentials";
+import { VENUE_SWITCH_HINT, VENUE_SWITCH_LABEL, VenueDeviceCard } from "./venue-device";
 import { ApprovedMonths, PendingMonths, type ApprovedMonth, type PendingMonth, type ReopenedMonth } from "./pending-months";
 import { DayCellContent } from "../orari/shared";
 
@@ -37,13 +39,14 @@ type EmployeeRow = {
   password: string | null;
   canEditMenu: boolean;
   canManageBookings: boolean;
+  isVenueDevice?: boolean;
   pendingSubmissions: PendingMonth[];
   reopenedSubmissions: ReopenedMonth[];
   approvedSubmissions: ApprovedMonth[];
 };
 
 export function EmployeeList({
-  employees,
+  employees: everyone,
   dateKeys,
   blocks,
   leaveEntries,
@@ -59,6 +62,9 @@ export function EmployeeList({
   // costruita qui lato client perché uno Schedule contiene funzioni (entry,
   // isClosed, ...) che un Server Component non può passare a un componente
   // client come prop.
+  // Il «Telefono enoteca» non è una persona: scheda a parte, mai tra i dipendenti.
+  const employees = useMemo(() => everyone.filter((e) => !e.isVenueDevice), [everyone]);
+  const devices = everyone.filter((e) => e.isVenueDevice);
   const schedule = useMemo(
     () =>
       buildSchedule({
@@ -72,11 +78,26 @@ export function EmployeeList({
   );
   const weekDays = useMemo(() => dateKeys.map((k) => parseDateKey(k)), [dateKeys]);
 
+  const venueSection =
+    devices.length > 0 ? (
+      <section aria-label="Telefono dell'enoteca">
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground-muted">Telefono dell&apos;enoteca</h2>
+        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+          {devices.map((d) => (
+            <VenueDeviceCard key={d.id} device={d} />
+          ))}
+        </div>
+      </section>
+    ) : null;
+
   if (employees.length === 0) {
     return (
+      <>
+      {venueSection}
       <p className="rounded-2xl border border-border bg-surface px-5 py-8 text-center text-sm text-foreground-muted">
         Nessun dipendente ancora. Aggiungine uno qui sopra.
       </p>
+      </>
     );
   }
 
@@ -97,6 +118,8 @@ export function EmployeeList({
           />
         ))}
       </div>
+
+      {venueSection}
 
       {inactive.length > 0 && (
         <div>
@@ -231,6 +254,7 @@ function EmployeeCard({
 
   // Disattivare lo toglie dagli orari: prima si chiede conferma (riattivare no).
   const [askDeactivate, setAskDeactivate] = useState(false);
+  const [askVenue, setAskVenue] = useState(false);
   function toggleActive() {
     setAskDeactivate(false);
     startTransition(async () => {
@@ -452,6 +476,43 @@ function EmployeeCard({
             />
           </button>
         </div>
+      )}
+
+      {employee.role === "EMPLOYEE" && employee.active && (
+        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-2.5">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-foreground">{VENUE_SWITCH_LABEL}</p>
+            <p className="text-[11px] text-foreground-muted">{VENUE_SWITCH_HINT}</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={false}
+            aria-label={`${VENUE_SWITCH_LABEL}: ${employee.name}`}
+            disabled={pending}
+            onClick={() => setAskVenue(true)}
+            className="relative h-6 w-11 shrink-0 rounded-full bg-surface-2 ring-1 ring-inset ring-border transition-colors disabled:opacity-60"
+          >
+            <span aria-hidden className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all" />
+          </button>
+        </div>
+      )}
+      {askVenue && (
+        <ConfirmSheet
+          title={`Rendere «${employee.name}» il telefono enoteca?`}
+          confirmLabel="Sì, è il telefono della sala"
+          busy={pending}
+          onConfirm={() => {
+            setAskVenue(false);
+            startTransition(async () => {
+              const r = await runWithToast(toast, () => setEmployeeVenueDevice(employee.id, true), "Ora è il telefono enoteca");
+              if (r !== null) router.refresh();
+            });
+          }}
+          onCancel={() => setAskVenue(false)}
+        >
+          <p>Esce da orari, ore, ferie e mesi da inviare; tiene solo le prenotazioni e i widget della sala. Serve per l&apos;accesso del telefono che resta in sala, non per una persona.</p>
+        </ConfirmSheet>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">

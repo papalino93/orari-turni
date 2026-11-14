@@ -32,6 +32,10 @@ export type BookingSettings = {
   notifyEmail: string;
   // Persone già confermate oltre le quali di solito il locale è pieno (0 = non mostrare).
   capacityHint: number;
+  // Chi manda i WhatsApp ai clienti: "venue" solo il telefono enoteca (consigliato: il cliente vede
+  // sempre lo stesso numero), "all" anche titolare e consulente dal loro WhatsApp. Senza un telefono
+  // enoteca collegato mandano comunque titolare e consulente.
+  whatsappSenders: "venue" | "all";
 };
 
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
@@ -47,6 +51,7 @@ export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   daysAhead: 30,
   notifyEmail: "",
   capacityHint: 0,
+  whatsappSenders: "venue",
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -79,6 +84,7 @@ export function parseBookingSettings(raw: string | null | undefined): BookingSet
     daysAhead: int(v.daysAhead, 1, 180, d.daysAhead),
     notifyEmail: typeof v.notifyEmail === "string" ? v.notifyEmail.trim().slice(0, 254) : "",
     capacityHint: int(v.capacityHint, 0, 500, d.capacityHint),
+    whatsappSenders: v.whatsappSenders === "all" ? "all" : "venue",
   };
 }
 
@@ -253,8 +259,10 @@ export function dayShort(dayKey: string): string {
 }
 
 // «oggi», «domani» o «sabato 14 novembre», rispetto al giorno commerciale di adesso.
+// Per il cliente: «oggi» e «domani» secondo il calendario (anche tra mezzanotte e le 5, quando il
+// giorno commerciale è ancora ieri e «domani» sarebbe il giorno già cominciato).
 export function dayRelative(dayKey: string, now: Date): string {
-  const today = businessDay(now);
+  const today = romeParts(now).dateKey;
   if (dayKey === today) return "oggi";
   if (dayKey === addDays(today, 1)) return "domani";
   return dayLong(dayKey);
@@ -367,8 +375,57 @@ export function tableText(table: string): string {
 // Impronta dei campi che si modificano dal foglio «Modifica»: chi salva dice quali dati aveva
 // davanti, e se nel frattempo qualcuno li ha cambiati non si sovrascrive. «Arrivati»/«Non venuti»
 // e le altre azioni non toccano questi campi, quindi non fanno fallire una modifica aperta.
-export function editVersion(b: { day: string; time: string; people: number; name: string; phone: string | null; table: string | null; note: string | null; allergies: boolean }): string {
-  return JSON.stringify([b.day, b.time, b.people, b.name, b.phone ?? "", b.table ?? "", b.note ?? "", b.allergies]);
+export function editVersion(b: {
+  day: string;
+  time: string;
+  people: number;
+  name: string;
+  phone: string | null;
+  table: string | null;
+  note: string | null;
+  allergies: boolean;
+  timeUnknown?: boolean;
+  peopleUnknown?: boolean;
+  menu?: string | null;
+}): string {
+  return JSON.stringify([b.day, b.time, b.people, b.name, b.phone ?? "", b.table ?? "", b.note ?? "", b.allergies, b.timeUnknown === true, b.peopleUnknown === true, b.menu ?? ""]);
+}
+
+// ---------- Dati ancora da definire (prenotazioni vere ma incomplete, di solito dal librone)
+//
+// Ora non nota: time "" e startsAt alle 5:00 del giorno (inizio del giorno commerciale: resta in
+// quel giorno, in cima, e non sembra mai «in ritardo»). Persone non note: people 0 (non pesa sui totali).
+
+export const UNKNOWN_TIME_MINUTES = 5 * 60;
+type MaybeIncomplete = { timeUnknown?: boolean | null; peopleUnknown?: boolean | null };
+export const isIncomplete = (b: MaybeIncomplete) => Boolean(b.timeUnknown || b.peopleUnknown);
+
+// «Mancano: ora, persone» · «Manca l'ora» · «Mancano le persone» (null se c'è tutto).
+export function missingText(b: MaybeIncomplete): string | null {
+  if (b.timeUnknown && b.peopleUnknown) return "Mancano: ora, persone";
+  if (b.timeUnknown) return "Manca l'ora";
+  if (b.peopleUnknown) return "Mancano le persone";
+  return null;
+}
+
+// L'ora come si scrive accanto al nome: «20:30» oppure «ora da definire».
+export const timeOrUnknown = (b: { time: string } & MaybeIncomplete) => (b.timeUnknown ? "ora da definire" : b.time);
+// «4 persone» oppure «persone da definire».
+export const peopleOrUnknown = (b: { people: number } & MaybeIncomplete) => (b.peopleUnknown ? "persone da definire" : peopleText(b.people));
+
+// Menù scelto: si scrive pulito («menu da 25 euro» → «Menù da 25 €»). Vuoto → null.
+export function cleanMenu(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  let t = raw.replace(/\s+/g, " ").trim().slice(0, 60);
+  if (!t) return null;
+  t = t
+    .replace(/^men[uùú](?=\s|$)/i, "Menù")
+    .replace(/(\d)\s*(?:€|euro(?![a-z])|eur(?![a-z]))\.?/gi, "$1 €")
+    .replace(/(\d) €(?=\S)/g, "$1 € ");
+  // «25», «25 €», «Menù 25 €» → «Menù da 25 €».
+  const price = t.match(/^(?:Menù\s+)?(\d+(?:[.,]\d{1,2})?)(?:\s*€)?$/);
+  if (price) t = `Menù da ${price[1]} €`;
+  return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 // Le etichette dei giorni nel foglio: tra mezzanotte e le 5 il giorno commerciale («oggi»)

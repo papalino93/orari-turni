@@ -1,6 +1,6 @@
 // Testi e link della pagina Prenotazioni (funzioni pure, per i componenti client).
 
-import { addDays, businessDay, dayShort, STATUS_LABEL, viewStatus, whatsappReachable, type BookingView } from "@/lib/booking/rules";
+import { addDays, businessDay, dayShort, romeParts, STATUS_LABEL, viewStatus, whatsappReachable, type BookingView } from "@/lib/booking/rules";
 import { customerMessage, type MessageKind } from "@/lib/booking/messages";
 import { whatsappHref } from "@/lib/menu-venue";
 import type { BookingItem } from "./types";
@@ -28,9 +28,10 @@ export function confirmationSent(b: Pick<BookingItem, "log">): boolean {
 }
 
 // «Oggi», «Domani» oppure «Sab 14 nov».
+// Tra mezzanotte e le 5 «Domani» sarebbe il giorno già cominciato: allora si scrive la data.
 export function dayLabel(day: string, today: string): string {
   if (day === today) return "Oggi";
-  if (day === addDays(today, 1)) return "Domani";
+  if (day === addDays(today, 1)) return romeParts(new Date()).dateKey === today ? "Domani" : dayShort(day);
   if (day === addDays(today, -1)) return "Ieri";
   return dayShort(day);
 }
@@ -167,13 +168,21 @@ export function logText(l: BookingItem["log"][number]): { text: string; detail: 
     case "PUSH_FAIL":
       return { text: (msg ?? "Avviso non partito").replace("notifiche non partite", "avvisi non partiti"), detail: null, tone: "warn" };
     case "WHATSAPP_OPENED":
-      return { text: `${who} ha aperto WhatsApp per mandare la risposta`, detail: null, tone: "normal" };
+      // Con il lucchetto: «in invio dal numero dell'enoteca» / «in invio dal WhatsApp personale».
+      return { text: `${who} ha aperto WhatsApp per mandare la risposta`, detail: msg ? msg.charAt(0).toUpperCase() + msg.slice(1) : null, tone: "normal" };
     case "UPDATED":
       return { text: `Modificata da ${who}`, detail: msg, tone: "normal" };
     case "WA_QUEUED":
       return { text: `${who} l'ha messa tra i messaggi da mandare su WhatsApp`, detail: null, tone: "normal" };
     case "WHATSAPP_DONE":
+      // «Mandato» (con da dove: numero dell'enoteca o WhatsApp personale) o «Segna come già mandata».
+      if (msg) return { text: `Mandata su WhatsApp da ${who}`, detail: msg.charAt(0).toUpperCase() + msg.slice(1), tone: "ok" };
       return { text: `${who} ha segnato la risposta su WhatsApp come già mandata`, detail: null, tone: "normal" };
+    case "WA_REMINDER": {
+      // «Promemoria al titolare (1 telefono): Da 15 minuti c'è…»: il titolo prima dei due punti.
+      const [head, ...rest] = (msg ?? "Promemoria al titolare").split(": ");
+      return { text: head, detail: rest.join(": ") || null, tone: "warn" };
+    }
     default:
       return { text: msg ?? l.kind, detail: null, tone: "normal" };
   }

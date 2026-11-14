@@ -4,16 +4,42 @@ import { getBookingManager } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
 import { loadVenue } from "@/lib/menu";
 import { mailConfigured } from "@/lib/mail";
-import { bookingStats, listBookings, loadBookingSettings, siteOrigin, statusPath } from "@/lib/booking/service";
-import { pushPublicKey } from "@/lib/booking/push";
-import { BookingsView } from "./bookings-view";
+import { bookingStats, later, listBookings, loadBookingSettings, remindStaleWhatsapp, siteOrigin } from "@/lib/booking/service";
+import { menuSuggestions } from "@/lib/booking/agenda-server";
+import { effectiveMode, venueDeviceExists, venueWho, whatsappRole, whoChoices, VENUE_LABEL } from "@/lib/booking/venue";
+import { listPushDevices, pushPublicKey } from "@/lib/booking/push";
+import { BookingsView, type PageLink } from "./bookings-view";
+import { toBookingItem } from "./items";
 import type { BookingItem } from "./types";
 
 export const metadata = { title: "Prenotazioni" };
 
 // Richieste di tavolo dal sito. Il Proxy lascia arrivare qui ogni login (non conosce i permessi):
 // decide la pagina, con il permesso letto dal database a ogni apertura.
-export default async function PrenotazioniPage({ searchParams }: { searchParams: Promise<{ r?: string | string[] }> }) {
+type Params = { r?: string | string[]; richieste?: string | string[]; vista?: string | string[]; tab?: string | string[]; apri?: string | string[] };
+
+// Dove portare chi arriva da un link (widget, notifica, segnalibro), anche con i vecchi ?tab=… delle schede:
+// «Da gestire» → pannello Richieste, «Stasera» → Giorno di oggi, «Prossimi giorni» → Settimana,
+// «Archivio» → Cerca, «Numeri» → Numeri.
+function pageLink(p: Params): PageLink | null {
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+  const tab = one(p.tab);
+  const vista = one(p.vista);
+  const apri = one(p.apri);
+  if (one(p.richieste) === "1" || tab === "todo" || apri === "richieste") return { panel: "richieste" };
+  if (tab === "archive" || apri === "cerca") return { panel: "cerca" };
+  if (tab === "numbers" || apri === "numeri") return { panel: "numeri" };
+  if (apri === "impostazioni") return { panel: "impostazioni" };
+  if (apri === "avvisi") return { panel: "avvisi" };
+  if (tab === "tonight" || vista === "oggi") return { view: "day", today: true };
+  if (tab === "next" || vista === "settimana") return { view: "week" };
+  if (vista === "mese") return { view: "month" };
+  if (vista === "giorno") return { view: "day" };
+  if (tab === "agenda") return { view: undefined };
+  return null;
+}
+
+export default async function PrenotazioniPage({ searchParams }: { searchParams: Promise<Params> }) {
   const manager = await getBookingManager();
   if (!manager) {
     return (
@@ -53,11 +79,15 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
   }
 
   const now = new Date();
-  const { r } = await searchParams;
+  // WhatsApp fermi da troppo (telefono della sala spento?): promemoria al titolare, dopo la risposta.
+  await later(() => remindStaleWhatsapp(now));
+  const params = await searchParams;
+  const { r } = params;
+  const link = pageLink(params);
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const origin = siteOrigin(host ? `${h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}` : null);
-  const [list, stats, venue, subs] = await Promise.all([
+  const [list, stats, venue, subs, menus, venueExists, who] = await Promise.all([
     listBookings(now),
     bookingStats(now),
     loadVenue(),
@@ -65,41 +95,19 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
       where: manager.employeeId ? { employeeId: manager.employeeId } : { username: manager.username },
       select: { endpoint: true, localPhone: true },
     }),
+    menuSuggestions(),
+    venueDeviceExists(),
+    venueWho(manager),
   ]);
+  // Solo titolare e consulente: i telefoni che ricevono gli avvisi (Impostazioni).
+  const devices = manager.role === "ADMIN" ? await listPushDevices() : [];
+  const waMode = effectiveMode(settings, venueExists);
+  // Sul telefono enoteca: chi lo sta usando («Chi sei?»), con prima chi è in turno oggi.
+  const venueDevice = manager.venueDevice
+    ? { who: who?.name ?? null, choices: await whoChoices(list.today), label: VENUE_LABEL }
+    : null;
 
-  const rows: BookingItem[] = list.rows.map((b) => ({
-    id: b.id,
-    code: b.code,
-    status: b.status,
-    day: b.day,
-    time: b.time,
-    startsAt: b.startsAt.getTime(),
-    people: b.people,
-    name: b.name,
-    phone: b.phone,
-    email: b.email,
-    contact: b.contact,
-    note: b.note,
-    allergies: b.allergies,
-    source: b.source,
-    promoTitle: b.promo?.title ?? null,
-    proposedTime: b.proposedTime,
-    proposedStartsAt: b.proposedStartsAt?.getTime() ?? null,
-    staffMessage: b.staffMessage,
-    handledAt: b.handledAt?.getTime() ?? null,
-    handledBy: b.handledBy,
-    cancelledBy: b.cancelledBy,
-    arrivedAt: b.arrivedAt?.getTime() ?? null,
-    noShowAt: b.noShowAt?.getTime() ?? null,
-    isTest: b.isTest,
-    table: b.table,
-    createdBy: b.createdBy,
-    manual: b.manual,
-    createdAt: b.createdAt.getTime(),
-    updatedAt: b.updatedAt.getTime(),
-    statusUrl: `${origin}${statusPath(b.id)}`,
-    log: b.log.map((l) => ({ at: l.at.getTime(), actor: l.actor, kind: l.kind, message: l.message })),
-  }));
+  const rows: BookingItem[] = list.rows.map((b) => toBookingItem(b, origin));
 
   return (
     <BookingsView
@@ -109,13 +117,19 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
       fullDays={list.fullDays.map((d) => d.day)}
       settings={settings}
       hours={venue.hours}
+      menus={menus}
+      wa={{ role: whatsappRole(manager, waMode), mode: waMode, me: who ? `${who.name} (${VENUE_LABEL})` : manager.venueDevice ? null : manager.name, venueDevice: Boolean(manager.venueDevice), venueExists }}
+      venueDevice={venueDevice}
+      phoneUA={/iPhone|Android.+Mobile|Mobile Safari/i.test(h.get("user-agent") ?? "")}
       stats={stats}
       isOwner={manager.role === "ADMIN"}
       mailReady={mailConfigured()}
       push={{ publicKey: pushPublicKey(), myEndpoints: subs.map((s) => s.endpoint), localPhoneEndpoints: subs.filter((s) => s.localPhone).map((s) => s.endpoint) }}
       preview={process.env.VERCEL_ENV === "preview"}
       googleLink={`${origin}/prenota?da=google`}
-      openRequest={typeof r === "string" && /^[a-z0-9]{10,40}$/i.test(r) ? r : null}
+      openRequest={typeof r === "string" && /^[a-z0-9_]{10,40}$/i.test(r) ? r : null}
+      link={link}
+      devices={devices}
     />
   );
 }

@@ -7,7 +7,8 @@ import { findByToken } from "@/lib/booking/service";
 export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const b = await findByToken(token);
-  if (!b || b.status !== "CONFIRMED") return new Response("Non trovato", { status: 404, headers: { "Cache-Control": "no-store" } });
+  // Con l'ora ancora da definire non c'è un appuntamento da mettere in calendario.
+  if (!b || b.status !== "CONFIRMED" || b.timeUnknown) return new Response("Non trovato", { status: 404, headers: { "Cache-Control": "no-store" } });
   const venue = await loadVenue();
   // Le ore prima delle 5 sono dopo mezzanotte: nel calendario vanno il giorno dopo.
   const date = Number(b.time.slice(0, 2)) < 5 ? addDays(b.day, 1) : b.day;
@@ -15,8 +16,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   const body = promoIcs(
     {
       slug: `prenotazione-${b.code.toLowerCase()}`,
-      title: `Tavolo per ${b.people}`,
-      body: `Prenotazione confermata: ${peopleText(b.people)}, a nome ${b.name}. Codice ${b.code}.`,
+      title: b.peopleUnknown ? "Tavolo" : `Tavolo per ${b.people}`,
+      body: `Prenotazione confermata${b.peopleUnknown ? "" : `: ${peopleText(b.people)}`}, a nome ${b.name}.`,
       startDate: date,
       endDate: date,
       startTime: b.time,

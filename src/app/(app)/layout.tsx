@@ -23,14 +23,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let canManageBookings = role === "ADMIN";
   // App già installata (aperta almeno una volta dall'icona sulla Home): niente più inviti a installarla.
   let appInstalled = false;
+  // «Telefono enoteca»: niente orari né ore, la sua sezione è Prenotazioni.
+  let venueDevice = false;
   if (role === "EMPLOYEE" && session.user.employeeId) {
     const employee = await prisma.employee.findUnique({
       where: { id: session.user.employeeId },
-      select: { canEditMenu: true, canManageBookings: true, active: true, appInstalledAt: true },
+      select: { canEditMenu: true, canManageBookings: true, active: true, appInstalledAt: true, isVenueDevice: true },
     });
     canEditMenu = Boolean(employee?.active && employee.canEditMenu);
     canManageBookings = Boolean(employee?.active && employee.canManageBookings);
     appInstalled = Boolean(employee?.appInstalledAt);
+    venueDevice = Boolean(employee?.active && employee.isVenueDevice);
   } else if (role === "ADMIN") {
     const user = await prisma.user.findUnique({ where: { username: session.user.username }, select: { appInstalledAt: true } });
     appInstalled = Boolean(user?.appInstalledAt);
@@ -38,11 +41,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const features = role === "ADMIN" ? await loadFeatures() : { mail: false, ferie: false };
   // La voce «Prenotazioni» compare con l'agenda accesa (spenta, il titolare la raggiunge da
   // Impostazioni), con il numero delle cose da fare: richieste da confermare e messaggi da mandare.
-  let bookings: { pending: number; whatsapp: number } | null = null;
+  let bookings: { pending: number; whatsapp: number; incomplete: number } | null = null;
   if (canManageBookings && (await loadBookingSettings()).agendaEnabled) bookings = await bookingsToDo();
 
   return (
-    <AppShell userName={session.user.name} role={role} canEditMenu={canEditMenu} appInstalled={appInstalled} showMail={features.mail} showFerie={features.ferie} bookings={bookings}>
+    <AppShell venueDevice={venueDevice} userName={session.user.name} role={role} canEditMenu={canEditMenu} appInstalled={appInstalled} showMail={features.mail} showFerie={features.ferie} bookings={bookings}>
       <StaffDeviceMark />
       {children}
     </AppShell>

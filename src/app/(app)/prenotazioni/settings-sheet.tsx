@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { runWithToast, useToast } from "@/components/toast";
 import { Field, Sheet, inputClass } from "../gestione-menu/sheet";
 import { pausedNow, type BookingSettings } from "@/lib/booking/rules";
-import { saveSettings } from "./actions";
+import { DEFAULT_CAPACITY } from "@/lib/booking/agenda";
+import { removePushDevice, saveSettings } from "./actions";
 import { clock } from "./format";
+import type { PushDevice } from "@/lib/booking/push";
 import { Switch } from "./device";
 
 const selectClass = `${inputClass} appearance-none`;
@@ -19,6 +21,8 @@ export function SettingsSheet({
   onToggle,
   onReopen,
   busy = false,
+  venueExists = false,
+  devices = [],
   onClose,
 }: {
   settings: BookingSettings;
@@ -29,6 +33,10 @@ export function SettingsSheet({
   // «Riapri ora» dopo la pausa automatica.
   onReopen: () => void;
   busy?: boolean;
+  // C'è già un «Telefono enoteca» collegato (Dipendenti → «+ Telefono dell'enoteca»)?
+  venueExists?: boolean;
+  // «Telefoni che ricevono gli avvisi»: chi, che apparecchio, quando ha ricevuto l'ultimo; «Togli».
+  devices?: PushDevice[];
   onClose: () => void;
 }) {
   const paused = pausedNow(settings);
@@ -36,6 +44,7 @@ export function SettingsSheet({
   const toast = useToast();
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(settings.step);
+  const [senders, setSenders] = useState(settings.whatsappSenders);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -54,6 +63,7 @@ export function SettingsSheet({
           notifyEmail: String(f.get("notifyEmail") ?? ""),
           capacityHint: Number(f.get("capacityHint") || 0),
           todayUntil: String(f.get("todayUntil") ?? ""),
+          whatsappSenders: senders,
         }),
       "Impostazioni salvate",
     );
@@ -83,7 +93,7 @@ export function SettingsSheet({
               <p className="text-sm font-medium text-foreground">Agenda {settings.agendaEnabled ? "accesa" : "spenta"}</p>
               <p className="text-xs text-foreground-muted">
                 {settings.agendaEnabled
-                  ? "Chi ha il permesso segna le prenotazioni al telefono e vede Agenda, Stasera e Prossimi giorni. Sono prenotazioni vere."
+                  ? "Chi ha il permesso vede l'agenda e segna le prenotazioni al telefono. Sono prenotazioni vere."
                   : "Solo tu la vedi, per provarla: quello che segni è «di prova» e non conta."}
               </p>
             </div>
@@ -163,7 +173,7 @@ export function SettingsSheet({
                 ))}
               </select>
             </Field>
-            <Field label="Di solito pieni oltre" hint="Quante persone ci stanno in una sera: lo vedi accanto a ogni giorno. Lascia 0 se non ti serve.">
+            <Field label="Di solito pieni oltre" hint={`Quante persone ci stanno in una sera: serve per colorare i giorni dell'agenda. Con 0 l'agenda fa i conti su ${DEFAULT_CAPACITY}.`}>
               <input name="capacityHint" type="number" inputMode="numeric" min={0} max={500} defaultValue={settings.capacityHint} className={inputClass} />
             </Field>
           </div>
@@ -177,12 +187,35 @@ export function SettingsSheet({
           </Field>
           {!mailReady && <p className="-mt-2 rounded-lg bg-gold/10 px-3 py-2 text-xs text-foreground">L&apos;invio delle email non è ancora collegato: per ora gli avvisi arrivano solo sul telefono.</p>}
 
+          <fieldset className="space-y-2" data-testid="chi-manda-whatsapp">
+            <legend className="mb-1 text-sm font-semibold text-foreground">Chi manda i WhatsApp ai clienti</legend>
+            {(
+              [
+                ["venue", "Solo il telefono enoteca (consigliato)", "Il cliente riceve sempre i messaggi dal numero dell'enoteca. Tu li vedi e, se serve, puoi mandarli lo stesso dal tuo WhatsApp."],
+                ["all", "Anche titolare e consulente", "Il primo che tocca «Apri WhatsApp» la prende: gli altri vedono «In invio da…» e non la mandano due volte."],
+              ] as const
+            ).map(([v, label, hint]) => (
+              <label key={v} className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 ring-1 ring-inset ${senders === v ? "bg-accent/[0.06] ring-accent/50" : "ring-border"}`}>
+                <input type="radio" name="whatsappSenders" value={v} checked={senders === v} onChange={() => setSenders(v)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-accent)]" />
+                <span className="text-sm text-foreground">
+                  {label}
+                  <span className="block text-xs text-foreground-muted">{hint}</span>
+                </span>
+              </label>
+            ))}
+            {senders === "venue" && !venueExists && (
+              <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-foreground">Non c&apos;è ancora un telefono enoteca collegato: finché non lo aggiungi (Dipendenti → «+ Telefono dell&apos;enoteca»), i WhatsApp li mandate tu e il consulente.</p>
+            )}
+          </fieldset>
+
           <div className="flex justify-end">
             <button type="submit" disabled={saving} className="min-h-11 rounded-full bg-accent px-6 text-sm font-semibold text-accent-foreground hover:bg-accent-hover disabled:opacity-60">
               {saving ? "Salvo…" : "Salva"}
             </button>
           </div>
         </form>
+
+        <PushDevices devices={devices} />
 
         <section className="space-y-3 rounded-xl border border-border p-4">
           <h3 className="text-sm font-semibold text-foreground">Il pulsante «Prenota» su Google</h3>
@@ -232,3 +265,81 @@ const SOCIAL_LINKS = [
   { source: "instagram", title: "Link nella bio di Instagram", hint: "Profilo → «Modifica profilo» → «Link» → «Aggiungi link esterno»: incolla, come titolo «Prenota un tavolo»." },
   { source: "facebook", title: "Pulsante «Prenota» su Facebook", hint: "Pagina → «Modifica» sul pulsante blu → «Prenota ora» → «Link a sito web»: incolla e salva." },
 ];
+
+// «Telefoni che ricevono gli avvisi»: un telefono perso o passato a un altro si toglie da qui.
+function PushDevices({ devices }: { devices: PushDevice[] }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [gone, setGone] = useState<string[]>([]);
+  const list = devices.filter((d) => !gone.includes(d.id));
+  async function remove(d: PushDevice) {
+    setBusy(d.id);
+    const ok = await runWithToast(toast, () => removePushDevice(d.id), `Avvisi tolti: ${d.kind} di ${d.who}`);
+    setBusy(null);
+    if (ok !== null) {
+      setGone((g) => [...g, d.id]);
+      router.refresh();
+    }
+  }
+  return (
+    <section className="space-y-3 rounded-xl border border-border p-4" data-testid="telefoni-avvisi" data-unsaved-ignore>
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Telefoni che ricevono gli avvisi</h3>
+        <p className="mt-0.5 text-xs text-foreground-muted">Se un telefono si perde o passa a un altro, toglilo da qui. Cambiare la password di un accesso li toglie da sola.</p>
+      </div>
+      {list.length === 0 ? (
+        <p className="text-sm text-foreground-muted">Nessun telefono riceve gli avvisi: si accendono da ⋯ → «Avvisi su questo telefono».</p>
+      ) : (
+        <ul className="divide-y divide-border overflow-hidden rounded-xl ring-1 ring-inset ring-border">
+          {list.map((d) => (
+            <li key={d.id} className="flex items-center gap-3 px-3 py-2.5" data-testid="telefono-avvisi">
+              <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-foreground-muted">
+                {d.kind === "Computer" ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4.5" width="18" height="12" rx="2" />
+                    <path d="M8 20h8M12 16.5V20" />
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+                    <path d="M10.5 18.5h3" />
+                  </svg>
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-foreground">
+                  {d.who}{" "}
+                  {d.venue && <span className="ml-1.5 rounded-full bg-accent/10 px-1.5 py-0.5 text-[11px] font-semibold text-accent-ink">sala</span>}
+                </span>
+                <span className="block text-xs text-foreground-muted">
+                  {d.kind} · {d.lastUsed ? `ultimo avviso ${whenText(d.lastUsed)}` : `attivato ${whenText(d.createdAt)}, ancora nessun avviso`}
+                </span>
+              </span>
+              <button
+                type="button"
+                disabled={busy === d.id}
+                onClick={() => remove(d)}
+                aria-label={`Togli gli avvisi: ${d.kind} di ${d.who}`}
+                className="min-h-10 shrink-0 rounded-full px-3.5 text-sm font-medium text-danger ring-1 ring-inset ring-danger/30 hover:bg-danger-bg disabled:opacity-60"
+              >
+                {busy === d.id ? "…" : "Togli"}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+const DAY_FMT = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", day: "numeric", month: "short" });
+// «oggi alle 20:14», «ieri alle 19:02», «il 3 nov».
+function whenText(ms: number): string {
+  const d = new Date(ms);
+  const key = (x: Date) => x.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" });
+  const now = new Date();
+  if (key(d) === key(now)) return `oggi alle ${clock(ms)}`;
+  if (key(d) === key(new Date(now.getTime() - 86400000))) return `ieri alle ${clock(ms)}`;
+  return `il ${DAY_FMT.format(d)}`;
+}

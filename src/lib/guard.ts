@@ -136,7 +136,8 @@ export async function requireEmployee(): Promise<CurrentEmployee> {
 
 // Chi può vedere e gestire le prenotazioni: titolare/consulente sempre, un dipendente solo se
 // il titolare gli ha dato il permesso (Employee.canManageBookings), letto dal database ogni volta.
-export type BookingManager = { name: string; role: "ADMIN" | "EMPLOYEE"; username: string | null; employeeId: string | null };
+// venueDevice: è il «Telefono enoteca» (accesso condiviso della sala, vedi Employee.isVenueDevice).
+export type BookingManager = { name: string; role: "ADMIN" | "EMPLOYEE"; username: string | null; employeeId: string | null; venueDevice?: boolean };
 
 export async function getBookingManager(): Promise<BookingManager | null> {
   const session = await getServerSession(authOptions);
@@ -148,7 +149,7 @@ export async function getBookingManager(): Promise<BookingManager | null> {
   if (!session.user.employeeId) return null;
   const employee = await findEmployeeById(session.user.employeeId);
   if (!employee || !employee.username || !employee.active || !employee.canManageBookings) return null;
-  return { name: employee.name, role: "EMPLOYEE", username: null, employeeId: employee.id };
+  return { name: employee.name, role: "EMPLOYEE", username: null, employeeId: employee.id, venueDevice: employee.isVenueDevice };
 }
 
 export async function requireBookingManager(): Promise<BookingManager> {

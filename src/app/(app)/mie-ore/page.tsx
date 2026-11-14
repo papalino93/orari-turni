@@ -58,6 +58,8 @@ export default async function MieOrePage({
   if (!targetEmployeeId) redirect(session?.user ? "/orari" : "/login");
 
   const employee = await prisma.employee.findUnique({ where: { id: targetEmployeeId } });
+  // «Telefono enoteca»: niente ore né turni, la sua pagina è Prenotazioni.
+  if (employee?.isVenueDevice && !preview) redirect("/prenotazioni");
   if (!employee) redirect(preview ? "/dipendenti" : "/login");
   // todayKey() e non new Date(): coerente con lo stesso motivo spiegato in
   // /orari — evita di sbagliare settimana nella finestra fra la mezzanotte

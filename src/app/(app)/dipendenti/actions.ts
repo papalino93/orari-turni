@@ -15,6 +15,8 @@ import {
   type ActionResult,
 } from "@/lib/validation";
 import { toDateKey } from "@/lib/week";
+import { VENUE_WIDGET_IDS } from "@/lib/widgets";
+import { forgetPushFor } from "@/lib/booking/push";
 import { encryptEmployeePassword, generateEmployeePassword, generateEmployeeUsername } from "@/lib/employee-credentials";
 
 const ROLES = ["EMPLOYEE", "OWNER"] as const;
@@ -142,6 +144,8 @@ export async function updateEmployee(
 
     if (Object.keys(data).length === 0) return;
     await prisma.employee.update({ where: { id }, data });
+    // Credenziali tolte: anche gli avvisi delle prenotazioni su quei telefoni si spengono.
+    if (data.tokenVersion) await forgetPushFor({ employeeId: id });
     revalidateEmployees();
   });
 }
@@ -158,6 +162,8 @@ export async function toggleEmployeeActive(idInput: string, activeInput: boolean
     // Dipendenti: si azzera alla riattivazione, non un semplice storico di
     // quando è stato disattivato l'ultima volta.
     await prisma.employee.update({ where: { id }, data: { active, deactivatedAt: active ? null : new Date() } });
+    // Disattivato: niente più avvisi delle prenotazioni sui suoi telefoni.
+    if (!active) await forgetPushFor({ employeeId: id });
     revalidateEmployees();
   });
 }
@@ -232,6 +238,9 @@ export async function setEmployeePassword(idInput: string, passwordInput: string
       where: { id },
       data: { password: encryptEmployeePassword(password), tokenVersion: { increment: 1 } },
     });
+    // Password nuova: si spengono anche gli avvisi delle prenotazioni sui telefoni del vecchio accesso
+    // (un telefono perso non mostra più i clienti). I telefoni buoni li riaccendono con un tocco.
+    await forgetPushFor({ employeeId: id });
     revalidateEmployees();
   });
 }
@@ -250,6 +259,9 @@ export async function regenerateEmployeePassword(idInput: string): Promise<Actio
       where: { id },
       data: { password: encryptEmployeePassword(password), tokenVersion: { increment: 1 } },
     });
+    // Password nuova: si spengono anche gli avvisi delle prenotazioni sui telefoni del vecchio accesso
+    // (un telefono perso non mostra più i clienti). I telefoni buoni li riaccendono con un tocco.
+    await forgetPushFor({ employeeId: id });
     revalidateEmployees();
     return { password };
   });
@@ -342,6 +354,8 @@ export async function deleteEmployee(idInput: string): Promise<ActionResult> {
     const employee = await prisma.employee.findUnique({ where: { id } });
     assert(employee, "Dipendente non trovato.");
 
+    // Gli avvisi se ne vanno con lui (PushSubscription ha onDelete: Cascade); per sicurezza anche qui.
+    await forgetPushFor({ employeeId: id });
     await prisma.employee.delete({ where: { id } });
     revalidateEmployees();
   });
@@ -487,5 +501,64 @@ export async function getEmployeeScheduleRange(
       })),
       closures: closures.map((c) => ({ dateKey: toDateKey(c.date), reason: c.reason })),
     };
+  });
+}
+
+// --- «Telefono enoteca» ------------------------------------------------------
+//
+// Il telefono che resta in sala: un accesso condiviso, già pronto (solo prenotazioni, i widget della
+// sala, niente menù). Non è una persona: niente orari, ore, ferie, mesi da inviare.
+
+export async function createVenueDevice(another = false): Promise<ActionResult<{ id: string; username: string; password: string }>> {
+  return runAction(async () => {
+    await requireUser();
+    const existing = await prisma.employee.count({ where: { isVenueDevice: true } });
+    assert(existing === 0 || another === true, "Il telefono dell'enoteca c'è già: lo trovi qui sotto. Per un secondo telefono tocca «Aggiungi un altro telefono».");
+    // «enoteca», «enoteca2»… (anche tra gli accessi del titolare e del consulente).
+    let username = "enoteca";
+    for (let n = 2; ; n++) {
+      const taken =
+        (await prisma.employee.findFirst({ where: { username: { equals: username, mode: "insensitive" } }, select: { id: true } })) ||
+        (await prisma.user.findFirst({ where: { username: { equals: username, mode: "insensitive" } }, select: { id: true } }));
+      if (!taken) break;
+      username = `enoteca${n}`;
+    }
+    const password = generateEmployeePassword();
+    const last = await prisma.employee.findFirst({ orderBy: { sortOrder: "desc" } });
+    const e = await prisma.employee.create({
+      data: {
+        name: existing === 0 ? "Telefono enoteca" : `Telefono enoteca ${existing + 1}`,
+        role: "EMPLOYEE",
+        sortOrder: (last?.sortOrder ?? -1) + 1,
+        username,
+        password: encryptEmployeePassword(password),
+        canManageBookings: true,
+        canEditMenu: false,
+        isVenueDevice: true,
+        widgets: [...VENUE_WIDGET_IDS],
+      },
+    });
+    revalidateEmployees();
+    revalidatePath("/prenotazioni");
+    return { id: e.id, username, password };
+  });
+}
+
+// L'interruttore «Accesso del telefono enoteca» nella scheda: anche un dipendente esistente si può
+// trasformare (prende le prenotazioni e solo i widget della sala) e tornare persona.
+export async function setEmployeeVenueDevice(idInput: string, on: boolean): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireUser();
+    const id = parseId(idInput, "dipendente");
+    const employee = await prisma.employee.findUnique({ where: { id } });
+    assert(employee, "Dipendente non trovato.");
+    assert(employee.role === "EMPLOYEE", "Solo un dipendente con accesso può diventare il telefono enoteca.");
+    await prisma.employee.update({
+      where: { id },
+      data: on === true ? { isVenueDevice: true, canManageBookings: true, widgets: employee.widgets.filter((w) => VENUE_WIDGET_IDS.includes(w)) } : { isVenueDevice: false },
+    });
+    revalidateEmployees();
+    revalidatePath("/prenotazioni");
+    revalidatePath("/widget");
   });
 }

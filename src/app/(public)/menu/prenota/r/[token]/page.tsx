@@ -36,7 +36,8 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
 
   const now = new Date();
   const view: BookingView = viewStatus(b, now);
-  const when = `${cap(dayRelative(b.day, now))} alle ${b.time}`;
+  // Prenotazione segnata in agenda con ora o persone ancora da definire: mai un orario inventato.
+  const when = b.timeUnknown ? cap(dayRelative(b.day, now)) : `${cap(dayRelative(b.day, now))} alle ${b.time}`;
   const started = b.startsAt.getTime() <= now.getTime();
   // Per oggi, ancora senza risposta: nei primi 15 minuti «ti rispondiamo appena possibile»; dopo,
   // se manca meno di un'ora e mezza, meglio telefonare.
@@ -48,7 +49,7 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
   const { contacts } = venue;
   const tel = contacts.phone ? telHref(contacts.phone) : null;
   const wa = contacts.phone
-    ? whatsappHref(contacts.phone, `Ciao! Ho chiesto un tavolo per ${dayLong(b.day)} alle ${b.time}, ${peopleText(b.people)} (codice ${b.code}).`)
+    ? whatsappHref(contacts.phone, `Ciao! Ho chiesto un tavolo per ${dayLong(b.day)} alle ${b.time}, ${peopleText(b.people)}, a nome ${b.name}.`)
     : null;
   const again = settings.enabled ? "/menu/prenota" : null;
   // Il recapito per intero: se è sbagliato, il cliente se ne accorge adesso.
@@ -77,7 +78,7 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
       case "CONFIRMED":
         return started
           ? { icon: "ok", kicker: "Confermata", title: "Grazie della visita", text: `Il tavolo era per ${dayLong(b.day)} alle ${b.time}. Speriamo di rivederti presto!` }
-          : { icon: "ok", kicker: "Confermata", title: "Ti aspettiamo", text: `${when}, tavolo per ${peopleText(b.people)}.` };
+          : { icon: "ok", kicker: "Confermata", title: "Ti aspettiamo", text: b.peopleUnknown ? `${when}.` : `${when}, tavolo per ${peopleText(b.people)}.` };
       case "DECLINED":
         return b.cancelledBy === "cliente"
           ? {
@@ -116,6 +117,21 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
           <Ornament color="#9C7A45" />
           <p className="m-0 mt-3 max-w-[440px] text-balance text-[17.5px] leading-normal text-[#3F4540]">{head.text}</p>
         </div>
+
+        {/* Da quale numero gli scriviamo: un messaggio da un numero sconosciuto si ignora, o finisce nello spam. */}
+        {active && b.contact !== "email" && b.phone && contacts.phone && (
+          <div className="mx-auto mt-6 max-w-[440px] rounded-2xl border !border-[#BFD3C4] bg-[#F1F7F2] px-5 py-4 text-center" data-testid="numero-enoteca">
+            <p className="m-0 text-balance text-[16px] leading-normal text-[#23402D]">
+              Ti scriviamo dal numero WhatsApp dell&apos;enoteca, <strong className="whitespace-nowrap font-semibold">{contacts.phone}</strong>: salvalo in rubrica.
+            </p>
+            {view === "PENDING" && wa && (
+              // La chat parte dal cliente, sul numero del locale: il link della richiesta resta nel suo WhatsApp.
+              <a href={wa} className={`${pillOutline} mt-3 inline-flex min-w-[240px]`}>
+                Scrivici su WhatsApp
+              </a>
+            )}
+          </div>
+        )}
 
         {b.staffMessage && view !== "PENDING" && (
           <figure className="mx-auto mt-6 max-w-[440px] border-y-[3px] border-double !border-[#C9A96E] px-2 py-3.5 text-center">
@@ -165,7 +181,7 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
           </div>
         )}
 
-        {view === "CONFIRMED" && !started && (
+        {view === "CONFIRMED" && !started && !b.timeUnknown && (
           <div className="mt-7 flex flex-col items-center gap-2.5">
             <a href={`/menu/prenota/r/${token}/calendario`} className={`${pillOutline} min-w-[240px]`}>
               Aggiungi al calendario
@@ -175,13 +191,13 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
 
         <dl className="mt-9 overflow-hidden rounded-2xl border bg-[#FBF7EF]">
           <Row label="Giorno">{cap(dayLong(b.day))}</Row>
-          <Row label={view === "PROPOSED" ? "Ora chiesta" : "Ora"}>{b.time}</Row>
+          <Row label={view === "PROPOSED" ? "Ora chiesta" : "Ora"}>{b.timeUnknown ? "da definire" : b.time}</Row>
           {view === "PROPOSED" && b.proposedTime && (
             <Row label="Ora proposta">
               <strong className="font-medium text-[#6B1020]">{b.proposedTime}</strong>
             </Row>
           )}
-          <Row label="Persone">{b.people}</Row>
+          <Row label="Persone">{b.peopleUnknown ? "da definire" : b.people}</Row>
           <Row label="Nome">{b.name}</Row>
           {/* Le prenotazioni segnate a mano di chi è passato di persona possono non avere il telefono. */}
           {b.phone && <Row label="Telefono">{phoneMasked(b.phone)}</Row>}
@@ -197,13 +213,6 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
             </Row>
           )}
           {b.allergies && <Row label="Allergie">Sì, ne parliamo al tavolo</Row>}
-          <div className="flex items-center justify-between gap-4 bg-[#F1E8DA] px-5 py-3.5">
-            <dt className="menu-sans text-[11px] font-medium uppercase tracking-[0.2em] text-[#5B605A]">
-              Codice
-              <span className="mt-0.5 block text-[11.5px] font-normal normal-case tracking-normal">Se ci chiami, diccelo</span>
-            </dt>
-            <dd className="menu-sans m-0 text-[22px] font-medium tracking-[0.18em] text-[#1F2621]">{b.code}</dd>
-          </div>
         </dl>
 
         {active && (
@@ -214,7 +223,8 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
         )}
 
         {(view === "PENDING" || (view === "CONFIRMED" && !started)) && (
-          <div className="mt-10">
+          // id «annulla»: il pulsante «Annulla» delle email porta qui.
+          <div id="annulla" className="mt-10 scroll-mt-6">
             <CancelButton
               token={token}
               label={view === "CONFIRMED" ? "Annulla la prenotazione" : "Annulla la richiesta"}

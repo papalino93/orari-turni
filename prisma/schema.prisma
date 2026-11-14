@@ -76,6 +76,9 @@ model Employee {
   // Permesso, assegnato dal titolare, di vedere e gestire le richieste di prenotazione
   // (/prenotazioni). Letto dal database a ogni richiesta, come canEditMenu.
   canManageBookings Boolean @default(false)
+  // «Telefono enoteca»: non è una persona ma il telefono che resta in sala (accesso condiviso, solo
+  // prenotazioni). Escluso da orari, ore, ferie, mesi da inviare, widget personali e «In servizio».
+  isVenueDevice     Boolean @default(false)
   // Come User.appInstalledAt: l'app è già installata sul suo telefono.
   appInstalledAt DateTime?
   // Widget sulla Home del telefono (Scriptable) che il titolare gli permette: codici di
@@ -629,6 +632,20 @@ model BookingRequest {
   table     String?       @map("tableLabel")
   createdBy String?
   manual    Boolean       @default(false)
+  // Dati ancora da definire (dal librone: «Arianna, giovedì, menù da 25 €»): prenotazione vera ma
+  // incompleta. Ora non nota: time "" e startsAt alle 5:00 del giorno (inizio del giorno commerciale);
+  // persone non note: people 0. Le richieste online hanno sempre ora e persone.
+  timeUnknown   Boolean   @default(false)
+  peopleUnknown Boolean   @default(false)
+  // Menù scelto («Menù da 25 €», «Menù degustazione»), testo libero e facoltativo.
+  menu      String?
+  // «Da mandare su WhatsApp» condiviso: chi l'ha preso in mano (lucchetto di 5 minuti) e da dove.
+  waClaimBy     String?
+  waClaimAt     DateTime?
+  // L'apparecchio che l'ha presa (un numero a caso tenuto sul dispositivo): stesso nome su due apparecchi non basta.
+  waClaimDevice String?
+  // Promemoria «Da 15 minuti c'è un messaggio WhatsApp da mandare…» al titolare (una volta per risposta).
+  waRemindedAt  DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
@@ -655,6 +672,18 @@ model BookingLog {
   message   String?
 
   @@index([requestId, at])
+}
+
+// Nota di un giorno dell'agenda («EVENTO DAINELLI» in cima alla pagina del librone, un promemoria).
+model BookingDayNote {
+  id        String   @id @default(cuid())
+  day       String // giorno commerciale AAAA-MM-GG
+  text      String
+  author    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([day])
 }
 
 // Serate in cui non si accettano più richieste online («Siamo al completo»).
@@ -707,9 +736,78 @@ model MailSend {
   excluded   Int             @default(0)
   // "IN_CORSO" | "INVIATA" | "PARZIALE" | "NON_PARTITA"
   status     String          @default("IN_CORSO")
+  // Perché si può scrivere a chi non era ancora in rubrica, dichiarato al passo 3:
+  // "chiesto" | "cliente" | "altro" (null negli invii di prima della rubrica).
+  basis      String?
   chunks     MailSendChunk[]
+  people     MailSendRecipient[]
 
   @@index([createdAt])
+}
+
+// A chi è andato ogni invio (per «Invii» e per la scheda del contatto). Cancellato insieme al
+// contatto quando una persona chiede di cancellare i suoi dati.
+model MailSendRecipient {
+  sendId    String
+  email     String
+  // "sent" | "failed" | "excluded" (si era cancellata)
+  status    String
+  createdAt DateTime @default(now())
+  send      MailSend @relation(fields: [sendId], references: [id], onDelete: Cascade)
+
+  @@id([sendId, email])
+  @@index([email])
+}
+
+// Mail: la rubrica. Una persona per indirizzo (in minuscolo, senza spazi). Si riempie da sola con
+// gli invii e con chi lo chiede prenotando dal sito, oppure a mano e importando. Chi non vuole più
+// email resta in MailOptOut (legato per indirizzo): non si sceglie e nessuna importazione lo riattiva.
+model MailContact {
+  id          String             @id @default(cuid())
+  email       String             @unique
+  // «Nome o azienda»: quello che va dopo il saluto. Vuoto = solo il saluto.
+  name        String             @default("")
+  phone       String?
+  notes       String?
+  // Da dove arriva: "mano" | "file" | "incollato" | "telefono" | "sito" | "invio"
+  source      String             @default("mano")
+  // Perché possiamo scrivergli: "chiesto" (l'ha chiesto, es. dal sito) | "cliente" (cliente o
+  // contatto già avuto) | "altro"; con quando e una nota (es. il testo della casella spuntata).
+  consent     String             @default("altro")
+  consentAt   DateTime           @default(now())
+  consentNote String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  lastSentAt  DateTime?
+  sentCount   Int                @default(0)
+  // Eliminato (si può annullare); dopo 30 giorni si cancella davvero.
+  deletedAt   DateTime?
+  groups      MailContactGroup[]
+
+  @@index([deletedAt])
+}
+
+// Gruppi della rubrica («Clienti dal sito», «Aziende»…). Eliminare un gruppo non elimina i contatti.
+model MailGroup {
+  id        String             @id @default(cuid())
+  name      String
+  // Uno dei colori della tavolozza (mail-rubrica.ts): "vino" | "oro" | "verde" | "blu" | "viola" | "grigio"
+  color     String             @default("vino")
+  sortOrder Int                @default(0)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  contacts  MailContactGroup[]
+}
+
+model MailContactGroup {
+  contactId String
+  groupId   String
+  createdAt DateTime    @default(now())
+  contact   MailContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  group     MailGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, groupId])
+  @@index([groupId])
 }
 
 // Un gruppo (fino a 50) di un invio: la chiave (invio, numero del gruppo) impedisce di rispedirlo con «Riprova».

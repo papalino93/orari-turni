@@ -475,7 +475,7 @@ export async function copyPreviousWeek(
     const [employees, sourceBlocks, sourceRest, sourceClosures, targetClosures, targetBlocks, targetLeave] =
       await Promise.all([
         prisma.employee.findMany({
-          where: { active: true, ...(onlyEmployeeId ? { id: onlyEmployeeId } : {}) },
+          where: { active: true, isVenueDevice: false, ...(onlyEmployeeId ? { id: onlyEmployeeId } : {}) },
           select: { id: true },
         }),
         prisma.shiftBlock.findMany({ where: { date: { in: sourceDates }, ...employeeWhere } }),

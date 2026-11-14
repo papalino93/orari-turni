@@ -1,11 +1,11 @@
 // Risposte da mandare su WhatsApp (funzione pura, anche nei componenti client).
 //
-// Le risposte su WhatsApp partono solo dal telefono del locale o dal titolare: chi risponde da un
+// Le risposte su WhatsApp partono solo dal telefono enoteca o dal titolare: chi risponde da un
 // altro telefono conferma/propone/rifiuta, e il messaggio resta «da mandare» finché qualcuno lo
 // apre in WhatsApp (WHATSAPP_OPENED) o lo segna come già mandato (WHATSAPP_DONE).
 
 import type { MessageKind } from "@/lib/booking/messages";
-import { whatsappReachable } from "@/lib/booking/rules";
+import { isIncomplete, whatsappReachable } from "@/lib/booking/rules";
 
 type LogLike = { at: Date | number | string; actor: string; kind: string; message: string | null };
 type BookingLike = {
@@ -15,6 +15,9 @@ type BookingLike = {
   cancelledBy: string | null;
   startsAt: Date | number | string;
   proposedStartsAt?: Date | number | string | null;
+  // Ora o persone ancora da definire: la conferma non si manda (avrebbe un orario inventato).
+  timeUnknown?: boolean | null;
+  peopleUnknown?: boolean | null;
   log: LogLike[];
 };
 
@@ -25,7 +28,7 @@ const RESPONSES: Record<string, MessageKind> = {
   PROPOSED: "proposed",
   DECLINED: "declined",
   CANCELLED: "cancelledByVenue",
-  // Agenda: «Da mandare dal telefono del locale» dopo aver segnato o modificato una prenotazione.
+  // Agenda: «Da mandare dal telefono enoteca» dopo aver segnato o modificato una prenotazione.
   WA_QUEUED: "confirmed",
 };
 
@@ -43,6 +46,7 @@ export function whatsappPending(b: BookingLike, now: number): MessageKind | null
     if (kind && l.actor !== "cliente" && l.actor !== "sistema") last = { at: ms(l.at), kind, logKind: l.kind };
   }
   if (!last) return null;
+  if (last.kind === "confirmed" && isIncomplete(b)) return null;
   // La risposta deve essere ancora quella valida: se poi il cliente ha accettato/annullato, il messaggio non serve più.
   const stillValid =
     ((last.logKind === "CONFIRMED" || last.logKind === "ACCEPTED" || last.logKind === "WA_QUEUED") && b.status === "CONFIRMED") ||
@@ -51,10 +55,37 @@ export function whatsappPending(b: BookingLike, now: number): MessageKind | null
     (last.logKind === "CANCELLED" && b.status === "CANCELLED" && b.cancelledBy === "locale");
   if (!stillValid) return null;
   const after = log.filter((l) => ms(l.at) >= last.at);
-  if (after.some((l) => l.kind === "WHATSAPP_OPENED" || l.kind === "WHATSAPP_DONE")) return null;
+  // Mandata: «Mandato» (WHATSAPP_DONE). Un «WhatsApp aperto» di prima del lucchetto (senza messaggio)
+  // vale ancora come mandato; adesso aprire vuol dire solo «in invio» finché non si tocca «Mandato».
+  if (after.some((l) => l.kind === "WHATSAPP_DONE" || (l.kind === "WHATSAPP_OPENED" && !l.message))) return null;
   if (b.contact === "email" && after.some((l) => l.kind === "MAIL_OK" && (l.message ?? "").startsWith("Email al cliente"))) return null;
   // Orario già passato: un messaggio adesso non serve più a nessuno.
   const when = b.status === "PROPOSED" && b.proposedStartsAt ? ms(b.proposedStartsAt) : ms(b.startsAt);
   if (when < now) return null;
   return last.kind;
+}
+
+// L'ultimo «Mandato» per la risposta di adesso (o, senza risposte, dalla creazione): chi e quando.
+export function lastSent(b: Pick<BookingLike, "log">): { by: string; at: number } | null {
+  const log = [...b.log].sort((x, y) => ms(x.at) - ms(y.at));
+  let from = 0;
+  for (const l of log) if (RESPONSES[l.kind] && l.actor !== "cliente" && l.actor !== "sistema") from = ms(l.at);
+  const sent = log.filter((l) => ms(l.at) >= from && (l.kind === "WHATSAPP_DONE" || (l.kind === "WHATSAPP_OPENED" && !l.message)));
+  const x = sent[sent.length - 1];
+  return x ? { by: x.actor, at: ms(x.at) } : null;
+}
+
+// Il lucchetto «In invio da …» vale 5 minuti senza «Mandato».
+export const CLAIM_MINUTES = 5;
+export function activeClaim(b: { waClaimBy?: string | null; waClaimAt?: Date | number | string | null }, now: number): { by: string; at: number } | null {
+  if (!b.waClaimBy || !b.waClaimAt) return null;
+  const at = ms(b.waClaimAt);
+  return now - at < CLAIM_MINUTES * 60000 ? { by: b.waClaimBy, at } : null;
+}
+
+// Da quando la risposta di adesso aspetta di essere mandata (l'ultima risposta del locale), o null.
+export function pendingSince(b: Pick<BookingLike, "log">): number | null {
+  let since: number | null = null;
+  for (const l of b.log) if (RESPONSES[l.kind] && l.actor !== "cliente" && l.actor !== "sistema") since = Math.max(since ?? 0, ms(l.at));
+  return since;
 }

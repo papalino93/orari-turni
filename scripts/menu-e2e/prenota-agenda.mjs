@@ -1,11 +1,11 @@
 // Prenotazioni, AGENDA DIGITALE (E2E sul server di prova + regole del servizio):
-// - «+ Nuova prenotazione» del personale (tutti i campi, senza telefono «di persona», giorno chiuso e
+// - «+ Prenotazione» del personale (tutti i campi, senza telefono «di persona», giorno chiuso e
 //   orario fuori apertura con «Segna lo stesso»), «Manda la conferma su WhatsApp» (wa.me con il testo
 //   e il link della pagina del cliente);
 // - modifica (a mano e online) con la cronologia «Modificata da …»;
-// - scheda «Agenda» (frecce, «Oggi», scelta della data, ordine per ora, totali online + a mano, stampa),
-//   «Stasera» e «Prossimi giorni» con le prenotazioni a mano, «Numeri» con «Segnate a mano»;
-// - dipendente con il permesso (dal suo telefono: niente WhatsApp, «Da mandare dal telefono del locale»)
+// - l'agenda (frecce, «Oggi», scelta della data, ordine per ora, totali online + a mano, stampa),
+//   il Giorno di oggi e «Cerca» con le prenotazioni a mano, «Numeri» con «Segnate a mano»;
+// - dipendente con il permesso (dal suo telefono: niente WhatsApp, «Da mandare dal telefono enoteca»)
 //   e senza; funzione spenta (titolare in prova, dipendenti no);
 // - due modifiche insieme e modifica di una prenotazione annullata nel frattempo (anche sul servizio,
 //   in modo deterministico); telefono stretto (390 e 360 px).
@@ -48,7 +48,8 @@ import {
 // ---------- Testi dell'interfaccia (da AGENDA-UI.md)
 const L = {
   tab: "Agenda",
-  newBtn: "+ Nuova prenotazione",
+  // «+ Prenotazione» nella barra (sul telefono il «+» tondo): per i lettori di schermo «Nuova prenotazione».
+  newBtn: "Nuova prenotazione",
   newTitle: "Nuova prenotazione",
   editTitle: "Modifica la prenotazione",
   allergies: "Qualcuno ha allergie o intolleranze",
@@ -62,11 +63,11 @@ const L = {
   undo: "Annulla",
   waConfirm: "Manda conferma",
   waConfirmEdit: "Manda la conferma aggiornata su WhatsApp",
-  waLater: "Conferma dal telefono del locale",
-  waLaterEdit: "Da mandare dal telefono del locale",
+  waLater: "Falla mandare dal telefono enoteca",
+  waLaterEdit: "Da mandare dal telefono enoteca",
   dayGroup: "Scegli il giorno",
   otherDay: "Altro giorno",
-  waLaterDone: /La manda il telefono del locale/,
+  waLaterDone: /La manda il telefono enoteca/,
   done: "Fatto",
   warnConfirm: "Segna lo stesso",
   edit: "Modifica",
@@ -89,7 +90,7 @@ if (process.argv.includes("--servizio")) {
   process.env.MAIL_PROVIDER = "log";
   process.env.PUSH_PROVIDER = "log";
   delete process.env.VERCEL_ENV;
-  if (!/\/orari_test(\?|$)/.test(process.env.DATABASE_URL || "")) {
+  if (!new RegExp(`/${process.env.E2E_DB || "orari_test"}(\\?|$)`).test(process.env.DATABASE_URL || "")) {
     console.error("DATABASE_URL non è il database di prova orari_test: mi fermo.");
     process.exit(2);
   }
@@ -413,12 +414,40 @@ try {
   };
   const goList = async (p) => {
     await p.goto(`${BASE}/prenotazioni`, { waitUntil: "networkidle", timeout: 180000 });
-    const later = p.getByRole("button", { name: "Non ora" });
-    if (await later.count()) await later.first().click();
+    const later = p.getByRole("button", { name: /^Non ora/ });
+    if (await later.count()) await later.first().click({ timeout: 3000 }).catch(() => {});
   };
-  const tab = (p, label) => p.getByRole("tab", { name: new RegExp(`^${label}`) }).click();
+  // Niente più schede: «Stasera» → Giorno di oggi, «Da gestire» → pannello «Richieste»,
+  // «Prossimi giorni» → «Cerca» (⋯), «Numeri» → ⋯ → Numeri. p.scope = dove leggere.
+  const tab = async (p, label) => {
+    if (label === L.tab) return;
+    if (label === "Stasera") {
+      await p.goto(`${BASE}/prenotazioni?vista=oggi`, { waitUntil: "networkidle", timeout: 180000 });
+      await p.getByTestId("agenda-orari").waitFor();
+      p.scope = agenda(p);
+      return;
+    }
+    for (const name of ["Richieste", "Cerca una prenotazione", "Numeri delle prenotazioni"]) {
+      const dlg = p.getByRole("dialog", { name });
+      if (await dlg.count()) await dlg.getByRole("button", { name: "Chiudi", exact: true }).first().click();
+    }
+    if (label === "Da gestire") {
+      await p.getByTestId("pulsante-richieste").click();
+      p.scope = p.getByRole("dialog", { name: "Richieste" });
+      await p.scope.waitFor();
+      return;
+    }
+    await p.getByRole("button", { name: "Altre azioni" }).click();
+    await p.getByRole("menuitem", { name: label === "Numeri" ? /^Numeri/ : /^Cerca/ }).click();
+    p.scope = p.getByRole("dialog", { name: label === "Numeri" ? "Numeri delle prenotazioni" : "Cerca una prenotazione" });
+    await p.scope.waitFor();
+    if (label === "Prossimi giorni") {
+      await p.scope.getByRole("searchbox").fill("Prova Agenda");
+      await p.scope.getByText(/\d+ trovat[ae]/).waitFor();
+    }
+  };
   const agenda = (p) => p.getByRole("region", { name: L.tab, exact: true });
-  const panel = (p) => p.getByRole("tabpanel");
+  const panel = (p) => p.scope;
   // Apre la scheda «Agenda» sul giorno voluto (con «Scegli la data»).
   const goAgenda = async (p, day = null) => {
     await goList(p);
@@ -538,8 +567,8 @@ try {
   const A = admin.p;
   pages.titolare = A;
   await goList(A);
-  check("scheda «Agenda» dentro /prenotazioni (titolare)", (await A.getByRole("tab", { name: new RegExp(`^${L.tab}`) }).count()) === 1);
-  check("pulsante «+ Nuova prenotazione» in cima", (await A.getByRole("button", { name: L.newBtn }).count()) >= 1);
+  check("l'agenda è la pagina /prenotazioni (titolare)", (await agenda(A).count()) === 1);
+  check("pulsante «+ Prenotazione» nella barra", (await A.getByRole("button", { name: L.newBtn }).count()) >= 1);
 
   // ---- Nuova prenotazione con tutti i campi
   const P1 = nextPhone();
@@ -673,25 +702,30 @@ try {
   // Il database è condiviso con altre prove che girano insieme: il totale deve tornare con le righe
   // mostrate (somma delle persone, una riga = un tavolo) e con il database di quel momento.
   // Le annullate (barrate) e le prove non contano nei totali.
-  const uiRows = (await agenda(A).getByRole("list").first().getByRole("listitem").allInnerTexts()).filter((t) => !/Annullata|Di prova/.test(t));
-  const uiPeople = uiRows.reduce((sum, t) => sum + Number(t.match(/(\d+)\s*pers\./)?.[1] ?? 0), 0);
+  // Agenda a calendario (vista Giorno): le righe sono raggruppate per fascia oraria (data-testid «agenda-riga»).
+  const uiRows = (await agenda(A).getByTestId("agenda-riga").allInnerTexts()).filter((t) => !/Annullata|Di prova|Da confermare/.test(t));
+  const uiPeople = uiRows.reduce((sum, t) => sum + Number(t.match(/(\d+)\s*pers\./i)?.[1] ?? 0), 0);
   const [ppl, tables] = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and not "isTest"`).split("|");
   const totTxt = agTxt.match(/\d+ prenotazion[ei] · \d+ person[ae]/)?.[0] ?? "";
   check(`Agenda: totale del giorno = somma delle righe (${uiRows.length} prenotazioni · ${uiPeople} persone, niente «tavoli»)`, totTxt === `${uiRows.length} prenotazioni · ${uiPeople} persone` && !/tavoli/.test(agTxt), totTxt);
   check(`Agenda: …e uguale al database (${tables} prenotazioni · ${ppl} persone, online + a mano)`, totTxt === `${tables} prenotazioni · ${ppl} persone` || DB(`select count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`) !== "0", `${totTxt} (altre prove in corso: ${DB(`select count(*) from "BookingRequest" where day='${D1.day}' and status='CONFIRMED' and name not like 'Prova Agenda%'`)})`);
   const r1 = await agendaRow(A, n1).innerText();
-  check("Agenda: riga con ora, «4 pers.», «Tavolo 5», nota, «⚠ Allergie», «Telefono · …»", /20:00/.test(r1) && /4 pers\./.test(r1) && /Tavolo 5/.test(r1) && /Prova Agenda compleanno/.test(r1) && /⚠ Allergie/.test(r1) && /Telefono · /.test(r1), r1.replace(/\n/g, " "));
+  // L'ora sta nell'intestazione della fascia («20:00 · 2 prenotazioni · …») sopra la riga.
+  const r1Group = await agendaRow(A, n1).evaluate((el) => el.closest("section")?.getAttribute("aria-label") ?? "");
+  check("Agenda: riga nella fascia delle 20:00, con «4 pers.», «Tavolo 5», nota, «⚠ Allergie», «Telefono · …»", /^20:00/.test(r1Group) && /4\s*pers\./i.test(r1) && /Tavolo 5/.test(r1) && /Prova Agenda compleanno/.test(r1) && /⚠ Allergie/.test(r1) && /Telefono · /.test(r1), r1.replace(/\n/g, " "));
   check("Agenda: la online dice «Online»", /Online/.test(await agendaRow(A, "Prova Agenda Online").innerText()));
   check("Agenda a 390 px: niente scorrimento orizzontale", (await overflow(A)) <= 0, String(await overflow(A)));
   await shot(A, "agenda-giorno");
 
   // Frecce, «Oggi», titolo del giorno
   // Titolo su due righe: «Oggi» piccolo sopra, la data sotto → «Oggi · sabato 7 novembre».
+  // Agenda a calendario: «Oggi» piccolo sopra il titolo (in maiuscoletto), il titolo «Venerdì 13 novembre».
   const title = async () => {
     const lines = (await agenda(A).innerText()).split("\n").map((l) => l.trim());
-    const i = lines.findIndex((l) => /(lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica) \d+/i.test(l));
+    const i = lines.findIndex((l) => /^(lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica) \d+/i.test(l));
     if (i < 0) return "";
-    return /^(Oggi|Domani|Ieri)$/.test(lines[i - 1] ?? "") ? `${lines[i - 1]} · ${lines[i]}` : lines[i];
+    const near = (lines[i - 1] ?? "").toLowerCase();
+    return /^(oggi|domani|ieri)$/.test(near) ? `${near.charAt(0).toUpperCase()}${near.slice(1)} · ${lines[i]}` : lines[i];
   };
   const t0 = await title();
   await agenda(A).getByRole("button", { name: L.nextDay }).click();
@@ -701,15 +735,19 @@ try {
   await A.waitForTimeout(600);
   const t2 = await title();
   check("frecce: «Giorno dopo» cambia giorno, «Giorno prima» torna", t1 !== t0 && t2 === t0 && (await agenda(A).innerText()).includes(n1), `${t0} → ${t1} → ${t2}`);
-  check("«Oggi» c'è quando non si è su oggi", (await agenda(A).getByRole("button", { name: L.today, exact: true }).count()) === 1);
+  check("«Oggi» c'è quando non si è su oggi", (await agenda(A).getByRole("button", { name: L.today, exact: true }).count()) === 1 && (await agenda(A).getByRole("button", { name: L.today, exact: true }).getAttribute("aria-current")) === null);
   await agenda(A).getByRole("button", { name: L.today, exact: true }).click();
   await A.waitForTimeout(600);
-  check("«Oggi»: torna a oggi («Oggi · …») e il pulsante sparisce", (await title()).startsWith("Oggi · ") && (await agenda(A).getByRole("button", { name: L.today, exact: true }).count()) === 0, await title());
+  // Sul telefono, già su oggi, «Oggi» si nasconde (barra compatta); da tablet in su resta, segnato.
+  const todayBtn = agenda(A).getByRole("button", { name: L.today, exact: true });
+  check("«Oggi»: torna a oggi («Oggi · …»); il pulsante sparisce sul telefono o resta segnato come oggi", (await title()).startsWith("Oggi · ") && ((await todayBtn.count()) === 0 || (await todayBtn.getAttribute("aria-current")) === "date"), await title());
   check("D1 non è oggi: in agenda di oggi non c'è «Prova Agenda Rossi»", !(await agenda(A).innerText()).includes(n1));
 
   // Stampa: righe sì, pulsanti no
   await goAgenda(A, D1.day);
-  check("pulsante «Stampa il giorno»", (await agenda(A).getByRole("button", { name: L.print }).count()) === 1);
+  await agenda(A).getByRole("button", { name: "Azioni del giorno" }).click();
+  check("⋯ del giorno: «Stampa il giorno»", (await A.getByRole("menuitem", { name: new RegExp(`^${L.print}`) }).count()) === 1);
+  await A.keyboard.press("Escape");
   await A.emulateMedia({ media: "print" });
   const printed = await A.evaluate((sel) => {
     const vis = (el) => {
@@ -735,13 +773,13 @@ try {
   await shot(A, "stampa");
   await A.emulateMedia({ media: "screen" });
 
-  // «+ Segna in questo giorno»: giorno già scelto
+  // «+ Prenotazione» con un giorno aperto: giorno già scelto
   {
-    await agenda(A).getByRole("button", { name: "+ Segna in questo giorno" }).click();
+    await A.getByRole("button", { name: L.newBtn }).first().click();
     const d = A.getByRole("dialog", { name: L.newTitle });
     await d.waitFor();
     await d.getByRole("radiogroup", { name: L.dayGroup }).getByRole("radio", { name: L.otherDay }).click();
-    check("«+ Segna in questo giorno»: «Nuova prenotazione» con il giorno già scelto", (await d.getByLabel("Giorno", { exact: true }).inputValue()) === D1.day, await d.getByLabel("Giorno", { exact: true }).inputValue());
+    check("«+ Prenotazione» dal Giorno aperto: «Nuova prenotazione» con quel giorno già scelto", (await d.getByLabel("Giorno", { exact: true }).inputValue()) === D1.day, await d.getByLabel("Giorno", { exact: true }).inputValue());
     await closeAll(A);
     await A.waitForTimeout(300);
   }
@@ -759,15 +797,15 @@ try {
   const tonight = await panel(A).innerText();
   const [tp, tt] = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where day='${TODAY}' and status='CONFIRMED' and not "isTest"`).split("|");
   check("«Stasera»: c'è la prenotazione a mano di oggi", tonight.includes(n5));
-  const tonightTot = `Stasera · ${tt} ${tt === "1" ? "prenotazione" : "prenotazioni"} · ${peopleWord(tp)}`;
-  check(`«Stasera»: «${tonightTot}» (contano anche quelle a mano)`, tonight.includes(tonightTot), tonight.split("\n").slice(0, 2).join(" ") + ` [db ${tp}|${tt} oggi=${TODAY}: ${DB(`select day||' '||time||' '||people from "BookingRequest" where name=${q(n5)}`)}]`);
+  const tonightTot = `${tt} ${tt === "1" ? "prenotazione" : "prenotazioni"} · ${peopleWord(tp)}`;
+  check(`Giorno di oggi: «${tonightTot}» (contano anche quelle a mano)`, (await A.getByTestId("agenda-totali").innerText()).includes(tonightTot), tonight.split("\n").slice(0, 2).join(" ") + ` [db ${tp}|${tt} oggi=${TODAY}: ${DB(`select day||' '||time||' '||people from "BookingRequest" where name=${q(n5)}`)}]`);
   check("«Stasera»: niente più «online» nel totale", !/persone prenotate online/.test(tonight));
   await shot(A, "stasera");
   await tab(A, "Da gestire");
   check("«Da gestire»: le prenotazioni a mano non ci sono (sono già confermate)", !(await panel(A).innerText()).includes(n1) && !(await panel(A).innerText()).includes(n2));
   await tab(A, "Prossimi giorni");
   const nextTxt = await panel(A).innerText();
-  check("«Prossimi giorni»: ci sono le prenotazioni a mano", nextTxt.includes(n1), nextTxt.slice(0, 300).replace(/\n/g, " "));
+  check("«Cerca»: ci sono le prenotazioni a mano", nextTxt.includes(n1), nextTxt.slice(0, 300).replace(/\n/g, " "));
   await tab(A, "Numeri");
   const numTxt = await panel(A).innerText();
   check("«Numeri»: riquadri «Richieste online» e «Segnate a mano»", /Richieste online/i.test(numTxt) && /Segnate a mano/i.test(numTxt), numTxt.slice(0, 300).replace(/\n/g, " "));
@@ -813,24 +851,25 @@ try {
   const M = marta.p;
   pages.marta = M;
   await goList(M);
-  check("Marta (permesso): scheda «Agenda» e «+ Nuova prenotazione»", (await M.getByRole("tab", { name: new RegExp(`^${L.tab}`) }).count()) === 1 && (await M.getByRole("button", { name: L.newBtn }).count()) >= 1);
+  check("Marta (permesso): agenda e «+ Prenotazione»", (await agenda(M).count()) === 1 && (await M.getByRole("button", { name: L.newBtn }).count()) >= 1);
   const n6 = "Prova Agenda Marta";
   {
     const d = await fillNew(M, { source: L.srcWa, name: n6, phone: nextPhone(), people: 2, day: D2.day, time: D2.slots[1] });
     const { outcome } = await saveNew(M, d);
     const id = byName(n6);
     check("Marta segna una prenotazione (createdBy Marta)", outcome === "saved" && DB(`select status||'|'||coalesce("createdBy",'')||'|'||manual from "BookingRequest" where id=${q(id)}`) === `CONFIRMED|${MARTA.name}|true`, DB(`select status||'|'||coalesce("createdBy",'') from "BookingRequest" where id=${q(id)}`));
-    check("Marta (non dal telefono del locale): niente «Manda conferma»", (await bar(M).getByRole("link", { name: L.waConfirm }).count()) === 0);
+    check("Marta (dal suo telefono): niente «Manda conferma»", (await bar(M).getByRole("link", { name: L.waConfirm }).count()) === 0);
     const later = bar(M).getByRole("button", { name: L.waLater });
-    check("Marta: c'è «Conferma dal telefono del locale»", (await later.count()) === 1);
+    check("Marta: c'è «Falla mandare dal telefono enoteca»", (await later.count()) === 1);
     await shot(M, "marta-salvata");
     if (await later.count()) {
       await later.click();
       check("…WA_QUEUED nella cronologia", await waitDb(() => logs(id).some((l) => l.startsWith(`WA_QUEUED:${MARTA.name}`))));
       await goList(A);
-      const list = await A.getByRole("region", { name: /Da mandare su WhatsApp/ }).innerText().catch(() => "");
+      await tab(A, "Da gestire");
+      const list = await A.getByTestId("sezione-whatsapp").innerText().catch(() => "");
       check("…e la conferma entra nella lista «Da mandare su WhatsApp» del titolare", list.includes(n6), list.slice(0, 200));
-      const waRound = A.getByRole("region", { name: /Da mandare su WhatsApp/ }).getByRole("link", { name: `Manda su WhatsApp a ${n6}` });
+      const waRound = A.getByTestId("sezione-whatsapp").getByRole("link", { name: `Manda su WhatsApp a ${n6}` });
       const h = decodeURIComponent((await waRound.getAttribute("href").catch(() => null)) ?? "");
       check("…con il messaggio di conferma pronto", /ti aspettiamo/i.test(h) && /\/menu\/prenota\/r\//.test(h), h.slice(0, 120));
     }
@@ -842,24 +881,36 @@ try {
     const r = await saveIn(M, e, L.editSave, L.editSaved);
     check("Marta modifica: persone e tavolo salvati", r.outcome === "saved" && (await waitDb(() => /^CONFIRMED\|[^|]+\|3\|2\|/.test(row(id)))), row(id));
     check(`…cronologia UPDATED di ${MARTA.name}`, logs(id).some((l) => l.startsWith(`UPDATED:${MARTA.name}:`)), logs(id).join(" / "));
-    check("…dopo la modifica, per Marta niente WhatsApp ma «Da mandare dal telefono del locale»", (await e.getByRole("link", { name: L.waConfirmEdit }).count()) === 0 && (await e.getByRole("button", { name: L.waLaterEdit }).count()) === 1);
+    check("…dopo la modifica, per Marta niente WhatsApp ma «Da mandare dal telefono enoteca»", (await e.getByRole("link", { name: L.waConfirmEdit }).count()) === 0 && (await e.getByRole("button", { name: L.waLaterEdit }).count()) === 1);
     await closeSheet(M, e);
   }
 
-  // ================= Marta sul «telefono del locale»: lì la conferma su WhatsApp parte =================
+  // ================= Il «Telefono enoteca» (accesso condiviso della sala): lì la conferma su WhatsApp parte =================
+  // Per la prova l'accesso di Marta diventa per un momento quello del telefono enoteca.
   {
-    const local = await session("marta", EMP_PW, "phone");
-    await local.ctx.addInitScript(() => {
-      try {
-        localStorage.setItem("prenotazioni-telefono-locale", "1");
-      } catch {}
-    });
-    const n = "Prova Agenda Telefono locale";
-    await goList(local.p);
-    const d = await fillNew(local.p, { source: L.srcPhone, name: n, phone: nextPhone(), people: 2, day: D2.day, time: D2.slots[2] });
-    await saveNew(local.p, d);
-    check("Marta dal telefono del locale: «Manda conferma» (e non «Conferma dal telefono del locale»)", (await bar(local.p).getByRole("link", { name: L.waConfirm }).count()) === 1 && (await bar(local.p).getByRole("button", { name: L.waLater }).count()) === 0);
-    await local.ctx.close();
+    const wasVenue = DB(`select "isVenueDevice" from "Employee" where username='marta'`);
+    DB(`update "Employee" set "isVenueDevice"=true where username='marta'`);
+    try {
+      const local = await session("marta", EMP_PW, "phone");
+      const n = "Prova Agenda Telefono locale";
+      await goList(local.p);
+      const who = local.p.getByRole("dialog", { name: "Chi sei?" });
+      check("telefono enoteca: all'apertura chiede «Chi sei?»", (await who.count()) === 1);
+      const first = who.getByRole("listitem").first().getByRole("button");
+      const picked = (await first.innerText()).split("\n")[0].trim();
+      await first.click();
+      await who.waitFor({ state: "detached" });
+      const chip = local.p.getByTestId("chi-sei").filter({ hasText: picked }).first();
+      await chip.waitFor({ timeout: 15000 }).catch(() => {});
+      check(`telefono enoteca: «Sei ${picked}» in cima`, (await chip.count()) === 1 && /^Sei /.test((await chip.getAttribute("aria-label")) ?? ""));
+      const d = await fillNew(local.p, { source: L.srcPhone, name: n, phone: nextPhone(), people: 2, day: D2.day, time: D2.slots[2] });
+      await saveNew(local.p, d);
+      check("telefono enoteca: «Manda conferma» (e non «Falla mandare dal telefono enoteca»)", (await bar(local.p).getByRole("link", { name: L.waConfirm }).count()) === 1 && (await bar(local.p).getByRole("button", { name: L.waLater }).count()) === 0);
+      check(`…segnata a nome di «${picked} (telefono enoteca)»`, DB(`select "createdBy" from "BookingRequest" where name=${q(n)}`) === `${picked} (telefono enoteca)`, DB(`select "createdBy" from "BookingRequest" where name=${q(n)}`));
+      await local.ctx.close();
+    } finally {
+      DB(`update "Employee" set "isVenueDevice"=${wasVenue === "t"} where username='marta'`);
+    }
   }
 
   // ================= Due modifiche insieme (titolare e Marta) =================
@@ -944,7 +995,7 @@ try {
     check("(3) …e non compare tra «Da mandare su WhatsApp»", !(await panel(A).innerText()).includes(n9));
     // (16) In agenda resta in fondo al giorno, barrata, con «Annullata», fuori dai totali.
     await goAgenda(A, D2.day);
-    const items = await agenda(A).getByRole("list").first().getByRole("listitem").allInnerTexts();
+    const items = await agenda(A).getByTestId("agenda-riga").allInnerTexts();
     const k = items.findIndex((t) => t.includes(n9));
     check("(16) agenda: l'annullata è in fondo al giorno con «Annullata»", k === items.length - 1 && /Annullata/.test(items[k] ?? ""), items.map((t) => t.split("\n")[0]).join(" | "));
     const deco = await agendaRow(A, n9).evaluate((el) => [...el.querySelectorAll("*")].some((x) => getComputedStyle(x).textDecorationLine.includes("line-through")));
@@ -988,7 +1039,7 @@ try {
     const narrow = await session("andrea", ADMIN_PW, "phone", { viewport: { width: 360, height: 760 } });
     const N = narrow.p;
     await goAgenda(N, D1.day);
-    check("360 px: scheda «Agenda» senza scorrimento orizzontale", (await overflow(N)) <= 0, String(await overflow(N)));
+    check("360 px: agenda senza scorrimento orizzontale", (await overflow(N)) <= 0, String(await overflow(N)));
     const rowsOut = await agenda(N).evaluate((el) => [...el.querySelectorAll("li, button, a")].filter((x) => x.getBoundingClientRect().right > window.innerWidth + 1).length);
     check("360 px: nessuna riga o pulsante dell'agenda esce dallo schermo", rowsOut === 0, String(rowsOut));
     await shot(N, "360-agenda");
@@ -1007,7 +1058,7 @@ try {
     const sara = await session("sara", EMP_PW, "phone");
     await sara.p.goto(`${BASE}/prenotazioni`, { waitUntil: "networkidle", timeout: 180000 });
     const t = await bodyText(sara.p);
-    check("Sara (senza permesso): niente agenda, niente «+ Nuova prenotazione», nessun nome", /Non hai il permesso/.test(t) && !/Prova Agenda/.test(t) && (await sara.p.getByRole("button", { name: L.newBtn }).count()) === 0 && (await sara.p.getByRole("tab", { name: new RegExp(`^${L.tab}`) }).count()) === 0);
+    check("Sara (senza permesso): niente agenda, niente «+ Nuova prenotazione», nessun nome", /Non hai il permesso/.test(t) && !/Prova Agenda/.test(t) && (await sara.p.getByRole("button", { name: L.newBtn }).count()) === 0 && (await agenda(sara.p).count()) === 0);
     await sara.ctx.close();
   }
 
@@ -1016,7 +1067,7 @@ try {
   {
     const n8 = "Prova Agenda Spenta";
     await goList(A);
-    check("spenta: il titolare vede l'agenda (in prova)", (await A.getByRole("tab", { name: new RegExp(`^${L.tab}`) }).count()) === 1 && (await A.getByRole("button", { name: L.newBtn }).count()) >= 1);
+    check("spenta: il titolare vede l'agenda (in prova)", (await agenda(A).count()) === 1 && (await A.getByRole("button", { name: L.newBtn }).count()) >= 1);
     const d = await fillNew(A, { source: L.srcPhone, name: n8, phone: nextPhone(), people: 2, day: D2.day, time: D2.slots[2] });
     await saveNew(A, d);
     check("spenta: la prenotazione del titolare è salvata come prova", await waitDb(() => DB(`select status||'|'||"isTest" from "BookingRequest" where name=${q(n8)}`) === "CONFIRMED|true"), DB(`select status||'|'||"isTest" from "BookingRequest" where name=${q(n8)}`));
@@ -1029,7 +1080,7 @@ try {
     ensure(false);
     await M.goto(`${BASE}/prenotazioni`, { waitUntil: "networkidle", timeout: 180000 });
     const mt = await bodyText(M);
-    check("spenta: Marta (anche con il permesso) non vede l'agenda né i nomi", (await M.getByRole("tab", { name: new RegExp(`^${L.tab}`) }).count()) === 0 && (await M.getByRole("button", { name: L.newBtn }).count()) === 0 && !/Prova Agenda/.test(mt), mt.slice(0, 200).replace(/\n/g, " "));
+    check("spenta: Marta (anche con il permesso) non vede l'agenda né i nomi", (await agenda(M).count()) === 0 && (await M.getByRole("button", { name: L.newBtn }).count()) === 0 && !/Prova Agenda/.test(mt), mt.slice(0, 200).replace(/\n/g, " "));
     await shot(M, "spenta-marta");
   }
   setSetting({ enabled: true });

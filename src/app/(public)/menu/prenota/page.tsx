@@ -5,7 +5,7 @@ import { mailConfigured } from "@/lib/mail";
 import { rangesFor, telHref, whatsappHref } from "@/lib/menu-venue";
 import { prisma } from "@/lib/prisma";
 import { bookingDays, loadBookingSettings } from "@/lib/booking/service";
-import { businessDay, dayLong, dayRelative, normalizeSource, onlineUntilInstant, pausedNow, romeInstant } from "@/lib/booking/rules";
+import { addDays, businessDay, dayLong, normalizeSource, onlineUntilInstant, pausedNow, romeInstant, romeParts } from "@/lib/booking/rules";
 import { formatPromoDates } from "@/lib/menu-format";
 import { MenuFooter } from "../venue-footer";
 import { Ornament } from "../ornament";
@@ -55,14 +55,19 @@ export default async function PrenotaPage({ searchParams }: { searchParams: Prom
     });
     return ends.length ? Math.max(...ends) : null;
   };
-  const formDays: FormDay[] = days.map((d) => {
+  // Per il cliente «oggi» è la data del calendario: tra mezzanotte e le 5 il giorno commerciale è
+  // ancora ieri, ma chi prenota di notte da Instagram intende la data di oggi. La serata appena
+  // finita non si mostra (sarebbe «Oggi · Chiuso» su un giorno in cui eravamo aperti).
+  const calToday = romeParts(now).dateKey;
+  const rel = (day: string): string => (day === calToday ? "oggi" : day === addDays(calToday, 1) ? "domani" : dayLong(day));
+  const formDays: FormDay[] = days.filter((d) => d.day >= calToday || d.availability.state === "open").map((d) => {
     const end = d.availability.state === "open" || d.availability.state === "noSlots" ? closeAt(d.day) : null;
     const over = d.availability.state === "noSlots" && end !== null && end <= now.getTime();
     return {
       day: d.day,
       label: d.label,
-      relative: d.day === today ? "Oggi" : dayRelative(d.day, now) === "domani" ? "Domani" : null,
-      long: dayRelative(d.day, now),
+      relative: d.day === calToday ? "Oggi" : d.day === addDays(calToday, 1) ? "Domani" : null,
+      long: d.day < calToday ? "stanotte" : rel(d.day),
       full: dayLong(d.day),
       state: over ? "closed" : d.availability.state,
       reason: d.availability.state === "open" ? null : d.availability.reason,

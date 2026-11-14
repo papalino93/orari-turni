@@ -1,7 +1,7 @@
 // Prenotazioni online, parte del personale (E2E sul server di prova): elenco «Da gestire», dettaglio,
 // conferma (WhatsApp ed email), proposta + accettazione del cliente, «al completo», annullo del cliente
 // e del locale, due persone che confermano insieme, permessi dei dipendenti (senza, con, revoca
-// immediata), «Stasera siamo al completo» e chiusura di un altro giorno, «Arrivati»/«Non venuti», Numeri,
+// immediata), chiusura delle richieste di stasera e di un altro giorno (⋯ del Giorno), «Arrivati»/«Non venuti», Numeri,
 // accendi/spegni e impostazioni, voce del menù in alto, widget «Da fare»; il cliente ha detto sì/no
 // (segnato da chi lavora), «Ci ha avvisato il cliente», «Il cliente non viene più», «Cancella i dati»,
 // lista «Da mandare su WhatsApp», tocco sulla notifica (?r=), barra in alto a 1024 px.
@@ -97,17 +97,42 @@ try {
     await login(p, user, pw);
     return { ctx, p };
   };
-  // La pagina si apre sull'agenda: queste prove lavorano su «Da gestire» (todo = false: resta sull'agenda).
+  // La pagina è l'agenda: queste prove lavorano nel pannello «Richieste» (todo = false: resta sull'agenda).
+  // p.scope: dove si cercano le schede (pannello Richieste, «Cerca», vista Giorno).
   const goList = async (p, todo = true) => {
     await p.goto(`${BASE}/prenotazioni`, { waitUntil: "networkidle", timeout: 180000 });
-    // L'invito alle notifiche non serve qui.
-    const later = p.getByRole("button", { name: "Non ora" });
+    // Il suggerimento degli avvisi non serve qui.
+    const later = p.getByRole("button", { name: /^Non ora/ });
     if (await later.count()) await later.click();
-    const todoTab = p.getByRole("tab", { name: /^Da gestire/ });
-    if (todo && (await todoTab.count())) await todoTab.click();
+    p.scope = p.getByRole("region", { name: "Agenda" });
+    if (todo) {
+      await p.getByTestId("pulsante-richieste").click();
+      p.scope = p.getByRole("dialog", { name: "Richieste" });
+      await p.scope.waitFor();
+    }
   };
-  const tab = async (p, label) => p.getByRole("tab", { name: new RegExp(`^${label}`) }).click();
-  const card = (p, name) => p.getByRole("tabpanel").getByRole("button", { name: new RegExp(name) }).first();
+  // Le vecchie schede: «Prossimi giorni» e «Archivio» → «Cerca» (⋯), «Stasera» → Giorno di oggi, «Numeri» → ⋯.
+  const tab = async (p, label) => {
+    if (label === "Stasera") {
+      await p.goto(`${BASE}/prenotazioni?vista=oggi`, { waitUntil: "networkidle", timeout: 180000 });
+      p.scope = p.getByRole("region", { name: "Agenda" });
+      await p.getByTestId("agenda-orari").waitFor();
+      return;
+    }
+    if (await p.getByRole("dialog", { name: "Richieste" }).count()) await p.getByRole("dialog", { name: "Richieste" }).getByRole("button", { name: "Chiudi" }).click();
+    await p.getByRole("button", { name: "Altre azioni" }).click();
+    await p.getByRole("menuitem", { name: label === "Numeri" ? /^Numeri/ : /^Cerca/ }).click();
+    if (label === "Numeri") {
+      p.scope = p.getByRole("dialog", { name: "Numeri delle prenotazioni" });
+      return;
+    }
+    p.scope = p.getByRole("dialog", { name: "Cerca una prenotazione" });
+    if (label === "Prossimi giorni") {
+      await p.scope.getByRole("searchbox").fill("Prova C");
+      await p.scope.getByText(/\d+ trovat[ae]/).waitFor();
+    }
+  };
+  const card = (p, name) => (p.scope ?? p.getByRole("main")).getByRole("button", { name: new RegExp(name) }).first();
   const sheet = (p, name) => p.getByRole("dialog", { name });
   const openCard = async (p, name) => {
     await card(p, name).click();
@@ -139,7 +164,8 @@ try {
   check("spenta: in Impostazioni «Prenotazioni e agenda (in prova)»", (await fromAccount.count()) === 1);
   await fromAccount.click();
   await A.waitForURL(/\/prenotazioni$/);
-  check("spenta: fascia «Agenda spenta · Richieste online spente» con «Accendi l'agenda»", /Agenda spenta · Richieste online spente/.test(await bodyText(A)) && (await A.getByRole("button", { name: "Accendi l'agenda", exact: true }).count()) === 1);
+  check("spenta: una riga «Agenda in prova: quello che segni non è vero» con «Accendi l'agenda», niente fascia grande", /Agenda in prova: quello che segni non è vero/.test(await bodyText(A)) && (await A.getByRole("button", { name: "Accendi l'agenda", exact: true }).count()) === 1 && !/Agenda spenta · Richieste online spente/.test(await bodyText(A)));
+  check("spenta: nella barra «Online: spente»", /Online: spente/.test(await A.getByTestId("stato-online").innerText()));
   await shot(A, "spenta");
   await A.getByRole("button", { name: "Accendi l'agenda", exact: true }).click();
   const askOn = A.getByRole("alertdialog", { name: "Accendere l'agenda?" });
@@ -153,9 +179,9 @@ try {
   check("…la prova a mano di domani è diventata vera, la richiesta di prova è sparita", DB(`select string_agg(name||':'||"isTest", ',') from "BookingRequest" where id in ('provacprovavera01','provacprovaonl01')`) === "Prova C Prova vera:false");
   DB(`delete from "BookingRequest" where id='provacprovavera01'`);
   await A.reload({ waitUntil: "networkidle" });
-  check("agenda accesa: voce «Prenotazioni» nel menù in alto e fascia «Agenda accesa · Richieste online spente»", (await A.getByRole("link", { name: /^Prenotazioni/ }).count()) >= 1 && /Agenda accesa · Richieste online spente/.test(await bodyText(A)));
-  // Le richieste online si accendono dalle impostazioni (secondo interruttore).
-  await A.getByRole("button", { name: "Impostazioni delle prenotazioni" }).click();
+  check("agenda accesa: voce «Prenotazioni» nel menù in alto, niente riga «in prova», «Online: spente» nella barra", (await A.getByRole("link", { name: /^Prenotazioni/ }).count()) >= 1 && (await A.getByTestId("agenda-in-prova").count()) === 0 && /Online: spente/.test(await A.getByTestId("stato-online").innerText()));
+  // Le richieste online si accendono toccando lo stato nella barra (apre gli interruttori).
+  await A.getByTestId("stato-online").click();
   await A.getByRole("switch", { name: "Richieste online dai clienti accese" }).click();
   await A.getByRole("alertdialog", { name: "Accendere le richieste online?" }).getByRole("button", { name: "Accendi", exact: true }).click();
   check("interruttore «Richieste online dai clienti»: accese nel database", await waitDb(() => /"enabled":true/.test(DB(`select value from "MenuSetting" where id='bookings'`))));
@@ -180,17 +206,19 @@ try {
   };
 
   await goList(A, false);
-  check("la pagina si apre sull'agenda (prima scheda)", (await A.getByRole("tab", { name: /^Agenda/ }).getAttribute("aria-selected")) === "true");
-  await A.getByRole("tab", { name: /^Da gestire/ }).click();
+  check("la pagina si apre sull'agenda, senza schede", (await A.getByRole("region", { name: "Agenda" }).count()) === 1 && (await A.getByRole("tab").count()) === 0 && (await A.getByRole("dialog").count()) === 0);
+  check("barra: «Oggi», ‹ ›, Giorno · Settimana · Mese, «Richieste», «+ Prenotazione», «⋯»", (await A.getByRole("button", { name: "Oggi", exact: true }).count()) === 1 && (await A.getByRole("radiogroup", { name: "Vista dell'agenda" }).getByRole("radio").count()) === 3 && (await A.getByTestId("pulsante-richieste").count()) === 1 && (await A.getByRole("button", { name: "Nuova prenotazione", exact: true }).count()) === 1 && (await A.getByRole("button", { name: "Altre azioni" }).count()) === 1);
   const navLink = A.getByRole("link", { name: /^Prenotazioni/ }).first();
   const pending = Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and status='PENDING' and "startsAt">=now()`));
   check("menù in alto: il numero delle richieste da confermare", new RegExp(`${pending} (richiest[ae] )?da confermare`).test((await navLink.getAttribute("aria-label")) ?? (await navLink.innerText())), `${await navLink.getAttribute("aria-label")} (attese ${pending})`);
-  const todo = A.getByRole("tab", { name: /^Da gestire/ });
+  const todo = A.getByTestId("pulsante-richieste");
   const todoN = Number((await todo.innerText()).match(/\d+/)?.[0] ?? 0);
-  // Il numero della scheda = solo le richieste da confermare (come il pallino del menù in alto); le prove del titolare comprese.
+  // Il numero di «Richieste» = da confermare + da mandare su WhatsApp + da completare (come il pallino del menù in alto).
   const pendingAll = Number(DB(`select count(*) from "BookingRequest" where status='PENDING' and "startsAt">=now() and day >= '${TODAY}'`));
-  check("scheda «Da gestire», con il numero delle richieste da confermare", (await todo.getAttribute("aria-selected")) === "true" && todoN === pendingAll, `${await todo.innerText()} (da confermare ${pendingAll})`);
-  check("titolo «Da confermare (N)» sopra le richieste", (await A.getByRole("heading", { name: `Da confermare (${pendingAll})` }).count()) === 1);
+  check("«Richieste (N)» nella barra, con almeno le richieste da confermare", todoN >= pendingAll && /^Richieste \(\d+\)/.test((await todo.getAttribute("aria-label")) ?? ""), `${await todo.getAttribute("aria-label")} (da confermare ${pendingAll})`);
+  await todo.click();
+  A.scope = A.getByRole("dialog", { name: "Richieste" });
+  check("pannello «Richieste»: titolo «Da confermare (N)» sopra le richieste", (await A.scope.getByRole("heading", { name: `Da confermare (${pendingAll})` }).count()) === 1);
   for (const r of Object.values(R)) check(`«Da gestire»: c'è «${r.name}»`, (await card(A, r.name).count()) === 1);
   const confCard = await card(A, "Prova C Conferma").innerText();
   check("riga: nota, «⚠ Allergie: chiedere al tavolo» e «da Google»", /Prova C seggiolone/.test(confCard) && /⚠ Allergie: chiedere al tavolo/.test(confCard) && /da Google/.test(confCard), confCard.replace(/\n/g, " "));
@@ -209,7 +237,7 @@ try {
   check("conferma: nel database «CONFIRMED» da chi ha risposto", status(R.conf.id) === `CONFIRMED|${ADMIN_NAME}|`, status(R.conf.id));
   const wa = s1.getByRole("link", { name: "Manda la risposta su WhatsApp" });
   const waHref = (await wa.getAttribute("href")) ?? "";
-  check("conferma: «Manda la risposta su WhatsApp» con il messaggio già scritto per il numero del cliente", /^https:\/\/wa\.me\/39333\d+\?text=/.test(waHref) && decodeURIComponent(waHref).includes("ti aspettiamo"), waHref.slice(0, 60));
+  check("conferma: «Manda la risposta su WhatsApp» con il messaggio già scritto per il numero del cliente", /^https:\/\/wa\.me\/39333\d+\?text=/.test(waHref) && decodeURIComponent(waHref).toLowerCase().includes("ti aspettiamo"), waHref.slice(0, 60));
   const [popup] = await Promise.all([admin.ctx.waitForEvent("page"), wa.click()]);
   await popup.close();
   check("WhatsApp aperto: segnato nella cronologia", await waitDb(() => DB(`select count(*) from "BookingLog" where "requestId"='${R.conf.id}' and kind='WHATSAPP_OPENED'`) === "1"));
@@ -243,10 +271,8 @@ try {
   check("il cliente accetta: confermata alle " + newTime, await waitDb(() => DB(`select status||'|'||time from "BookingRequest" where id='${R.prop.id}'`) === `CONFIRMED|${newTime}`));
   await goList(A);
   await tab(A, "Prossimi giorni");
-  check("«Prossimi giorni»: la proposta accettata c'è, con il nuovo orario", (await card(A, "Prova C Proposta").count()) === 1 && (await card(A, "Prova C Proposta").innerText()).includes(newTime));
-  const nextTxt = await A.getByRole("tabpanel").innerText();
-  check("«Prossimi giorni»: totale del giorno «N prenotazioni · P persone» (niente «tavoli»)", /\d+ prenotazion[ei] · \d+ person[ae]/.test(nextTxt) && !/tavoli\b/.test(nextTxt));
-  await shot(A, "prossimi-giorni");
+  check("«Cerca»: la proposta accettata c'è, con il nuovo orario", (await card(A, "Prova C Proposta").count()) === 1 && (await card(A, "Prova C Proposta").innerText()).includes(newTime));
+  await shot(A, "cerca");
 
   // Al completo
   await goList(A);
@@ -267,9 +293,9 @@ try {
   await C.getByRole("button", { name: "Sì, annulla" }).click();
   check("il cliente annulla dalla sua pagina", await waitDb(() => status(R.canc.id) === "CANCELLED||cliente"));
   await goList(A);
-  check("annullata dal cliente: non è più in «Da gestire»", (await card(A, "Prova C Annulla").count()) === 0);
+  check("annullata dal cliente: non è più tra le «Richieste»", (await card(A, "Prova C Annulla").count()) === 0);
   await tab(A, "Archivio");
-  check("…è in «Archivio»", (await card(A, "Prova C Annulla").count()) === 1);
+  check("…è in «Cerca» senza testo (passate e annullate)", (await card(A, "Prova C Annulla").count()) === 1);
   const s5 = await openCard(A, "Prova C Annulla");
   check("…e il dettaglio dice «Il cliente ha annullato dalla sua pagina.»", /Il cliente ha annullato dalla sua pagina/.test(await s5.innerText()));
   await shot(A, "archivio");
@@ -309,7 +335,7 @@ try {
   await yesBtn.click();
   await sy.getByText(`✓ Confermata alle ${yesTime}`).waitFor();
   check("«Il cliente ha detto sì»: confermata al nuovo orario", DB(`select status||'|'||time||'|'||"handledBy" from "BookingRequest" where id='${R.yes.id}'`) === `CONFIRMED|${yesTime}|${ADMIN_NAME}`);
-  check("…con il messaggio di conferma pronto su WhatsApp", decodeURIComponent((await sy.getByRole("link", { name: "Manda la risposta su WhatsApp" }).getAttribute("href")) ?? "").includes("ti aspettiamo"));
+  check("…con il messaggio di conferma pronto su WhatsApp", decodeURIComponent((await sy.getByRole("link", { name: "Manda la risposta su WhatsApp" }).getAttribute("href")) ?? "").toLowerCase().includes("ti aspettiamo"));
   await A.keyboard.press("Escape");
   await goList(A);
   await tab(A, "Prossimi giorni");
@@ -341,7 +367,7 @@ try {
   check("«Ci ha avvisato il cliente»: annullata dal cliente, niente WhatsApp da mandare", status(R.told.id) === `CANCELLED|${ADMIN_NAME}|cliente` && (await st2.getByRole("link", { name: "Manda la risposta su WhatsApp" }).count()) === 0);
   await A.keyboard.press("Escape");
   await goList(A);
-  check("…e non entra nella lista «Da mandare su WhatsApp»", !(await A.getByRole("region", { name: /Da mandare su WhatsApp/ }).innerText().catch(() => "")).includes(R.told.name));
+  check("…e non entra nella lista «Da mandare su WhatsApp»", !(await A.getByTestId("coda-whatsapp").innerText().catch(() => "")).includes(R.told.name));
 
   // ---------- «Il cliente non viene più» (richiesta ancora da confermare)
   const sg = await openCard(A, R.gone.name);
@@ -365,9 +391,9 @@ try {
 
   // ---------- Lista «Da mandare su WhatsApp»: righe compatte, dopo l'apertura «Aperto alle… · Riapri»
   await goList(A);
-  const waList = A.getByRole("region", { name: /Da mandare su WhatsApp/ });
+  const waList = A.getByTestId("sezione-whatsapp");
   const waRound = waList.getByRole("link", { name: `Manda su WhatsApp a ${R.decl.name}` });
-  check("lista WhatsApp (titolare): riga «nome · Al completo · giorno e ora» con il pulsante tondo", (await waRound.count()) === 1 && /Prova C Completo\s+· Al completo · /.test(await waList.innerText()));
+  check("lista WhatsApp (titolare): riga «nome · Al completo · giorno e ora» con il pulsante tondo", (await waRound.count()) === 1 && /Prova C Completo\s+Al completo · /.test(await waList.innerText()));
   const box = await waRound.boundingBox();
   check("…pulsante tondo di 44 px", box && Math.round(box.width) === 44 && Math.round(box.height) === 44, JSON.stringify(box));
   await shot(A, "lista-whatsapp");
@@ -375,7 +401,12 @@ try {
   await waPop.close();
   check("…aperta: segnata nella cronologia", await waitDb(() => DB(`select count(*) from "BookingLog" where "requestId"='${R.decl.id}' and kind='WHATSAPP_OPENED'`) === "1"));
   await A.waitForTimeout(1200);
-  check("…e la riga resta con «Aperto alle …» e «Riapri»", /Prova C Completo\s+· Aperto alle \d{2}:\d{2}/.test(await waList.innerText()) && (await waList.getByRole("link", { name: "Riapri" }).count()) >= 1);
+  const declRow = waList.getByTestId("wa-riga").filter({ hasText: R.decl.name });
+  check("…e la riga resta «in invio» con «✓ Mandato» e «Annulla» (aprire non vuol dire mandato)", (await declRow.getByTestId("wa-in-invio").count()) === 1 && (await declRow.getByRole("button", { name: "✓ Mandato" }).count()) === 1);
+  await declRow.getByRole("button", { name: "✓ Mandato" }).click();
+  check("«✓ Mandato»: segnato in cronologia", await waitDb(() => DB(`select count(*) from "BookingLog" where "requestId"='${R.decl.id}' and kind='WHATSAPP_DONE'`) === "1"));
+  await A.waitForTimeout(1500);
+  check("…e la riga diventa «Già mandato da … alle …»", new RegExp(`Prova C Completo · Già mandato da ${ADMIN_NAME} alle \\d{2}:\\d{2}`).test(await waList.innerText()), (await waList.innerText()).replace(/\n/g, " | "));
 
   // ---------- 1024 px: la barra in alto non scorre e «Esci» si vede tutto
   {
@@ -397,7 +428,7 @@ try {
   const giulia = await session("giulia", EMP_PW);
   await goList(marta.p);
   await goList(giulia.p);
-  check("dipendente con permesso: vede l'elenco e la voce nel menù", (await marta.p.getByRole("tab", { name: /^Da gestire/ }).count()) === 1 && (await marta.p.getByRole("link", { name: /^Prenotazioni/ }).count()) >= 1);
+  check("dipendente con permesso: vede le richieste e la voce nel menù", (await marta.p.getByRole("dialog", { name: "Richieste" }).count()) === 1 && (await marta.p.getByRole("link", { name: /^Prenotazioni/ }).count()) >= 1);
   await shot(marta.p, "telefono-da-gestire");
   const mS = await openCard(marta.p, "Prova C Insieme");
   const gS = await openCard(giulia.p, "Prova C Insieme");
@@ -408,12 +439,13 @@ try {
   check("insieme: una sola conferma nel database", DB(`select count(*) from "BookingLog" where "requestId"='${R.race.id}' and kind='CONFIRMED'`) === "1" && [MARTA.name, GIULIA.name].includes(winner), winner);
   check("insieme: chi ha vinto legge «✓ Confermata»", /✓ Confermata/.test(await bodyText(win)));
   check(`insieme: l'altro legge «Già confermata da ${winner}.»`, (await bodyText(lose)).includes(`Già confermata da ${winner}.`), (await bodyText(lose)).match(/Già[^\n]*/)?.[0] ?? "nessun messaggio");
-  check("dipendente (non dal telefono del locale): «la risposta su WhatsApp la manda il telefono del locale»", /La risposta su WhatsApp la manda il telefono del locale/.test(await bodyText(win)));
+  check("dipendente (non dal telefono enoteca): «La risposta su WhatsApp la manda il telefono enoteca»", /La risposta su WhatsApp la manda il telefono enoteca/.test(await bodyText(win)));
   check("dipendente (non dal telefono del locale): nel foglio «Chiama» sì, «Scrivi» no", (await win.getByRole("dialog").getByRole("link", { name: "Chiama" }).count()) === 1 && (await win.getByRole("dialog").getByRole("link", { name: "Scrivi" }).count()) === 0);
   await win.keyboard.press("Escape");
   await goList(win);
   const waN = Number((await win.getByRole("heading", { name: /Da mandare su WhatsApp/ }).innerText()).match(/\((\d+)\)/)?.[1] ?? 0);
-  check("dipendente: la lista WhatsApp è una riga sola «N risposte aspettano il telefono del locale»", waN > 0 && new RegExp(`${waN === 1 ? "1 risposta aspetta" : `${waN} risposte aspettano`} il telefono del locale`).test(await win.getByRole("region", { name: /Da mandare su WhatsApp/ }).innerText()) && (await win.getByRole("region", { name: /Da mandare su WhatsApp/ }).getByRole("link").count()) === 0, String(waN));
+  const waSection = win.getByTestId("sezione-whatsapp");
+  check("dipendente: la lista WhatsApp si vede soltanto («Le manda il telefono enoteca»), senza pulsanti verdi", waN > 0 && /Le manda il telefono enoteca: qui le vedi soltanto/.test(await waSection.innerText()) && (await waSection.getByRole("link").count()) === 0, String(waN));
   // «Segna come già mandata» dal foglio, con «Annulla» nel messaggio
   await tab(win, "Prossimi giorni");
   const ws = await openCard(win, "Prova C Insieme");
@@ -462,91 +494,107 @@ try {
   moveToToday(t1.id, -30, "CONFIRMED");
   const t2 = await make("Prova C Tavolo dopo", { people: 4 });
   moveToToday(t2.id, 90, "CONFIRMED");
-  await goList(A);
-  const closeBtn = A.getByRole("button", { name: "Stasera siamo al completo" });
-  // La fascia c'è solo finché oggi si può ancora chiedere un tavolo online.
-  const todayHasHours = (await closeBtn.count()) === 1;
+  // Chiudere le richieste di stasera: dalla vista Giorno di oggi, «⋯» → «Chiudi le richieste online per questo giorno».
+  await tab(A, "Stasera");
+  const dayMenu = () => A.getByRole("button", { name: "Azioni del giorno" });
+  await dayMenu().click();
+  const closeItem = A.getByTestId("chiudi-richieste");
+  const todayHasHours = (await closeItem.count()) === 1;
   if (!todayHasHours) {
-    // Senza fascia: deve essere perché oggi non ci sono più orari prenotabili online (si ricontrolla adesso).
-    check("oggi niente più orari prenotabili: niente fascia «Stasera siamo al completo»", bookableDays().days[0].state !== "open", days[0].state);
+    check("oggi chiuso: niente «Chiudi le richieste online per questo giorno»", bookableDays().days[0].state !== "open" || (await A.getByTestId("agenda-orari").innerText()).startsWith("Chiuso"));
+    await A.keyboard.press("Escape");
   } else {
-    check("fascia di stasera: «Stasera · … · si accettano richieste online»", /Stasera · .* · si accettano richieste online/.test(await bodyText(A)));
-    await closeBtn.click();
-    const ask = A.getByRole("alertdialog", { name: "Siamo pieni stasera?" });
-    // Contando anche richieste di altri (il database di prova è condiviso).
+    check("Giorno di oggi, ⋯: «Chiudi le richieste online per questo giorno»", /Chiudi le richieste online per questo giorno/.test(await closeItem.innerText()));
+    await closeItem.click();
     const nToday = Number(DB(`select count(*) from "BookingRequest" where status='PENDING' and day='${TODAY}' and "startsAt">=now()`));
-    const expect = nToday === 1 ? "C'è 1 richiesta in attesa per stasera: rispondi a ognuna" : `Ci sono ${nToday} richieste in attesa per stasera: rispondi a ognuna`;
-    check("«Siamo pieni stasera» con richieste in attesa: avvisa «Ci sono N richieste in attesa… rispondi a ognuna»", (await ask.innerText()).replace(/\s+/g, " ").includes(expect), (await ask.innerText()).replace(/\s+/g, " "));
-    await ask.getByRole("button", { name: "Chiudi le richieste" }).click();
+    if (nToday > 0) {
+      const ask = A.getByRole("alertdialog", { name: "Siamo pieni stasera?" });
+      // Contando anche richieste di altri (il database di prova è condiviso).
+      const expect = nToday === 1 ? "C'è 1 richiesta in attesa per stasera: rispondi a ognuna" : `Ci sono ${nToday} richieste in attesa per stasera: rispondi a ognuna`;
+      check("«Siamo pieni stasera?» con richieste in attesa: avvisa «Ci sono N richieste in attesa… rispondi a ognuna»", (await ask.innerText()).replace(/\s+/g, " ").includes(expect), (await ask.innerText()).replace(/\s+/g, " "));
+      await ask.getByRole("button", { name: "Chiudi le richieste" }).click();
+    }
     check("stasera chiusa: salvata", await waitDb(() => DB(`select count(*) from "BookingClosedDay" where day='${TODAY}'`) === "1"));
-    await A.waitForTimeout(800);
-    check("stasera chiusa: «Stasera al completo: niente più richieste online.» e «Riapri le richieste»", /Stasera al completo: niente più richieste online\./.test(await bodyText(A)) && (await A.getByRole("button", { name: "Riapri le richieste" }).count()) === 1);
+    await A.waitForTimeout(1500);
+    check("stasera chiusa: segno «Richieste chiuse» nel giorno", (await A.getByRole("region", { name: "Agenda" }).getByText("Richieste chiuse").count()) >= 1);
     check("la richiesta in attesa resta da gestire (non si chiude da sola)", status(late.id) === "PENDING||");
     const pub = await (await newContext(browser, "phone")).newPage();
     await pub.goto(`${BASE}/menu/prenota`, { waitUntil: "networkidle" });
-    check("il cliente vede oggi «Completo»", /Completo/.test(await pub.locator(`[data-day="${TODAY}"]`).innerText()));
+    // Tra mezzanotte e le 5 la serata appena finita non compare più nel modulo del cliente.
+    const calToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    if (calToday === TODAY) check("il cliente vede oggi «Completo»", /Completo/.test(await pub.locator(`[data-day="${TODAY}"]`).innerText()));
+    else check("dopo mezzanotte il cliente non vede più la serata finita", (await pub.locator(`[data-day="${TODAY}"]`).count()) === 0);
     await pub.context().close();
-    await A.getByRole("button", { name: "Riapri le richieste" }).click();
-    check("«Riapri le richieste»: riaperta", await waitDb(() => DB(`select count(*) from "BookingClosedDay" where day='${TODAY}'`) === "0"));
+    await dayMenu().click();
+    await A.getByTestId("riapri-richieste").click();
+    check("«Riapri le richieste online»: riaperta", await waitDb(() => DB(`select count(*) from "BookingClosedDay" where day='${TODAY}'`) === "0"));
   }
 
-  // Chiudi le richieste di un altro giorno
-  await goList(A);
-  await tab(A, "Prossimi giorni");
-  await A.getByLabel("Giorno da chiudere").fill(D2.day);
-  await A.getByRole("tabpanel").getByRole("button", { name: "Chiudi le richieste" }).last().click();
+  // Chiudere le richieste di un altro giorno: lo stesso menù nel Giorno di quel giorno (niente più modulo a parte).
+  await A.goto(`${BASE}/prenotazioni?vista=oggi`, { waitUntil: "networkidle", timeout: 180000 });
+  await A.getByTestId("agenda-barra").locator('input[type="date"]').fill(D2.day);
+  await A.getByTestId("agenda-orari").waitFor();
+  await A.waitForTimeout(800);
+  await dayMenu().click();
+  await A.getByTestId("chiudi-richieste").click();
   const askD2 = A.getByRole("alertdialog");
   if (await askD2.count()) await askD2.getByRole("button", { name: "Chiudi le richieste" }).click();
   check("altro giorno: richieste chiuse", await waitDb(() => DB(`select count(*) from "BookingClosedDay" where day='${D2.day}'`) === "1"));
   const r = await postRequest({ day: D2.day, time: D2.slots[0], people: 2, name: "Prova C Giorno chiuso", phone: randomPhone(), contact: "whatsapp", privacy: true, t: await formStamp() });
   check("altro giorno chiuso: il cliente riceve «già al completo»", r.json?.ok === false && /al completo/.test(r.json.error));
+  await A.getByRole("radio", { name: "Mese" }).click();
+  await A.waitForTimeout(1500);
+  check("Mese: il giorno chiuso ha il segno «Richieste chiuse»", (await A.getByRole("grid", { name: "Mese" }).getByRole("button", { name: /richieste chiuse/ }).count()) >= 1);
+  await A.getByRole("radio", { name: "Giorno" }).click();
   await A.waitForTimeout(800);
-  await A.getByRole("button", { name: "Riapri", exact: true }).first().click();
+  await dayMenu().click();
+  await A.getByTestId("riapri-richieste").click();
   check("«Riapri»: riaperto", await waitDb(() => DB(`select count(*) from "BookingClosedDay" where day='${D2.day}'`) === "0"));
 
-  // Stasera: arrivati / non venuti
-  await goList(A);
+  // Stasera = vista Giorno di oggi: totali, arrivati con un tocco, linea «adesso», «Non venuti» dal foglio.
   await tab(A, "Stasera");
-  const tonight = A.getByRole("region", { name: "Stasera", exact: true });
-  const pendTonight = Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and status='PENDING' and day='${TODAY}' and "startsAt">=now()`));
-  if (pendTonight > 0) check(`«Stasera»: in cima «Da confermare per stasera (${pendTonight})»`, (await A.getByRole("region", { name: `Da confermare per stasera (${pendTonight})` }).count()) === 1);
+  const tonight = A.getByRole("region", { name: "Agenda" });
+  const ppl = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where status='CONFIRMED' and day='${TODAY}' and "isTest"=false`).split("|");
+  // Contano anche le prenotazioni segnate a mano in agenda.
+  const tot = `${ppl[1]} ${ppl[1] === "1" ? "prenotazione" : "prenotazioni"} · ${ppl[0]} ${ppl[0] === "1" ? "persona" : "persone"}`;
   const tt = await tonight.innerText();
-  const ppl = DB(`select coalesce(sum(people),0)||'|'||count(*) from "BookingRequest" where status='CONFIRMED' and day='${TODAY}'`).split("|");
-  // Contano anche le prenotazioni segnate a mano in agenda: niente più «online» nel totale.
-  const tot = `Stasera · ${ppl[1]} ${ppl[1] === "1" ? "prenotazione" : "prenotazioni"} · ${ppl[0]} ${ppl[0] === "1" ? "persona" : "persone"}`;
-  check(`«Stasera»: le confermate di oggi, «${tot}»`, tt.includes(tot) && /Prova C Tavolo arrivato/.test(tt) && /Prova C Tavolo dopo/.test(tt), tt.split("\n")[0]);
+  check(`Giorno di oggi: le confermate, «${tot}»`, (await A.getByTestId("agenda-totali").innerText()).includes(tot) && /Prova C Tavolo arrivato/.test(tt) && /Prova C Tavolo dopo/.test(tt), await A.getByTestId("agenda-totali").innerText());
+  check("Giorno di oggi: la linea «adesso»", (await A.getByTestId("agenda-adesso").count()) === 1);
   const navName = (await A.locator("nav").getByRole("link", { name: /^Prenotazioni/ }).first().getAttribute("aria-label")) ?? "";
   check("pallino del menù: aria-label con le cose da fare («… da confermare», «… da mandare su WhatsApp»)", /^Prenotazioni: .*(da confermare|messaggi? da mandare su WhatsApp)/.test(navName), navName);
-  const row1 = tonight.getByRole("listitem").filter({ hasText: "Prova C Tavolo arrivato" });
-  const row2 = tonight.getByRole("listitem").filter({ hasText: "Prova C Tavolo dopo" });
-  check("«Non venuti» solo dopo l'orario", (await row1.getByRole("button", { name: "Non venuti" }).count()) === 1 && (await row2.getByRole("button", { name: "Non venuti" }).count()) === 0);
-  const callIcon = row1.getByRole("link", { name: /^Chiama Prova C Tavolo arrivato/ });
-  const callBox = await callIcon.boundingBox();
-  check("telefono del cliente tocca-per-chiamare: icona di 44 px accanto al nome", /^tel:\+39/.test((await callIcon.getAttribute("href")) ?? "") && Math.round(callBox?.width ?? 0) === 44, JSON.stringify(callBox));
-  const arrBox = await row1.getByRole("button", { name: "✓ Arrivati" }).boundingBox();
-  const noBox = await row1.getByRole("button", { name: "Non venuti" }).boundingBox();
-  check("«✓ Arrivati» e «Non venuti» affiancati, alti 44 px", arrBox && noBox && Math.round(arrBox.height) >= 44 && Math.abs(arrBox.y - noBox.y) < 2 && Math.abs(arrBox.width - noBox.width) < 2, JSON.stringify([arrBox, noBox]));
+  const row1 = tonight.getByTestId("agenda-riga").filter({ hasText: "Prova C Tavolo arrivato" });
+  const callLink = row1.getByRole("link", { name: /^Chiama Prova C Tavolo arrivato/ });
+  check("telefono del cliente tocca-per-chiamare nella riga", /^tel:\+39/.test((await callLink.getAttribute("href")) ?? ""));
+  const arr = row1.getByRole("button", { name: "Segna arrivati: Prova C Tavolo arrivato" });
+  const arrBox = await arr.boundingBox();
+  check("«✓» arrivati: tondo di 44 px nella riga", Math.round(arrBox?.width ?? 0) === 44 && Math.round(arrBox?.height ?? 0) === 44, JSON.stringify(arrBox));
   await shot(A, "stasera");
-  await row1.getByRole("button", { name: "✓ Arrivati" }).click();
+  await arr.click();
   check("«✓ Arrivati»: segnato", await waitDb(() => DB(`select "arrivedAt" is not null from "BookingRequest" where id='${t1.id}'`) === "t"));
-  await row1.getByRole("button", { name: "Togli il segno" }).click();
+  await A.waitForTimeout(800);
+  await row1.getByRole("button", { name: "Togli «arrivati» a Prova C Tavolo arrivato" }).click();
   check("«Togli il segno»: tolto", await waitDb(() => DB(`select "arrivedAt" is null and "noShowAt" is null from "BookingRequest" where id='${t1.id}'`) === "t"));
-  await row1.getByRole("button", { name: "Non venuti" }).click();
-  check("«Non venuti»: segnato", await waitDb(() => DB(`select "noShowAt" is not null from "BookingRequest" where id='${t1.id}'`) === "t"));
+  await A.waitForTimeout(800);
+  const s9 = await openCard(A, "Prova C Tavolo arrivato");
+  await s9.getByRole("button", { name: "Non venuti" }).click();
+  check("«Non venuti» (dal foglio): segnato", await waitDb(() => DB(`select "noShowAt" is not null from "BookingRequest" where id='${t1.id}'`) === "t"));
+  await A.keyboard.press("Escape");
 
   // Numeri
   await goList(A);
   await tab(A, "Numeri");
   // Le richieste dal sito, a parte quelle segnate a mano in agenda («Segnate a mano»).
   const total = DB(`select count(*) from "BookingRequest" where "isTest"=false and manual=false and "createdAt" >= now() - interval '90 days'`);
-  const nums = await A.getByRole("tabpanel").innerText();
+  const nums = await A.scope.innerText();
   check("«Numeri»: richieste online come nel database", new RegExp(`Richieste online\\s*${total}\\b`, "i").test(nums), nums.replace(/\n/g, " ").slice(0, 160));
   check("«Numeri»: «Da dove arrivano» con Google e Menù", /Da dove arrivano/.test(nums) && /Google/.test(nums) && /Menù/.test(nums));
   check("«Numeri»: almeno 1 «Non venuti»", /Non venuti\s*[1-9]/i.test(nums));
   await shot(A, "numeri");
 
-  // Impostazioni (solo titolare)
-  await A.getByRole("button", { name: "Impostazioni" }).click();
+  // Impostazioni (solo titolare): ⋯ → Impostazioni
+  await A.keyboard.press("Escape");
+  await A.getByRole("button", { name: "Altre azioni" }).click();
+  await A.getByRole("menuitem", { name: /^Impostazioni/ }).click();
   const st = A.getByRole("dialog");
   check("impostazioni: link per Google …/prenota?da=google", /\/prenota\?da=google/.test(await st.innerText()));
   await st.locator('input[name="maxPeople"]').fill("8");
@@ -570,7 +618,7 @@ try {
     const pend = Number(DB(`select count(*) from "BookingRequest" where "isTest"=false and status='PENDING' and "startsAt">=now()`));
     const df = await get("dafare");
     const row = df.righe?.find((x) => x.breve === "prenotazioni");
-    check("widget «Da fare»: riga delle richieste di prenotazione, con il numero e il link", pend > 0 && row?.n === pend && row.link === "/prenotazioni" && /richieste? di prenotazione/.test(row.testo), JSON.stringify(row));
+    check("widget «Da fare»: riga delle richieste di prenotazione, con il numero e il link", pend > 0 && row?.n === pend && row.link === "/prenotazioni?richieste=1" && /richieste? di prenotazione/.test(row.testo), JSON.stringify(row));
     check("widget «Da fare»: le prenotazioni per prime", df.righe?.[0]?.breve === "prenotazioni");
     const pan = await get("pannello");
     check("widget «Pannello»: tra le cose da fare «Tavoli da confermare: N» (o «Richieste da confermare: N»)", (pan.daFareVoci ?? []).some((v) => new RegExp(`(Tavoli|Richieste) da confermare: ${pend}`).test(v)), JSON.stringify(pan.daFareVoci));
