@@ -33,7 +33,7 @@ const sectionText = async (id) => (await pub.locator(`#${id}`).innerText()).repl
 const panel = () => page.locator('section[aria-label="Informazioni del menù"]');
 
 async function openNew() {
-  await panel().getByRole("button", { name: "+ Aggiungi" }).click();
+  await panel().getByRole("button", { name: "Aggiungi un'informazione" }).click();
   await dialog().waitFor();
 }
 async function save(label = "Aggiungi") {
@@ -279,7 +279,7 @@ for (const [label, w, h] of [["390", 390, 844], ["768", 768, 1024], ["1280", 128
 await expandPanels(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check(`pannello @${label}: nessun overflow orizzontale`, overflow <= 0, `delta ${overflow}`);
-  await panel().getByRole("button", { name: "+ Aggiungi" }).click();
+  await panel().getByRole("button", { name: "Aggiungi un'informazione" }).click();
   await dialog().waitFor();
   const o2 = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check(`foglio @${label}: nessun overflow orizzontale`, o2 <= 0, `delta ${o2}`);
@@ -299,7 +299,7 @@ await mp.goto(`${BASE}/gestione-menu`, { waitUntil: "networkidle", timeout: 1200
 const later = mp.locator("button", { hasText: "Ricordamelo più tardi" });
 if (await later.count()) await later.first().click();
 await goTab(mp, "Orari e contatti");
-check("permessi: Marta (con permesso) vede e può aggiungere informazioni", await mp.locator('section[aria-label="Informazioni del menù"]').getByRole("button", { name: "+ Aggiungi" }).isVisible());
+check("permessi: Marta (con permesso) vede e può aggiungere informazioni", await mp.locator('section[aria-label="Informazioni del menù"]').getByRole("button", { name: "Aggiungi un'informazione" }).isVisible());
 const fctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const fp = await fctx.newPage();
 await login(fp, "francesco", EMP_PW);

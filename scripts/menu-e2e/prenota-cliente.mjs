@@ -301,7 +301,8 @@ async function browserTests() {
     const readable = phone.replace(/\s/g, "").replace(/^(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3");
     check("pagina di stato: «Richiesta inviata» e il numero per intero da controllare", /Richiesta inviata/.test(body) && body.replace(/\u00a0/g, " ").includes(`Non è ancora confermata: ti rispondiamo su WhatsApp al ${readable}. Il numero è sbagliato? Annulla la richiesta qui sotto e rifalla.`), body.slice(0, 260));
     check("pagina di stato: riepilogo, senza codice", !body.includes(code) && body.includes(D1.slots[1]) && /Sì, ne parliamo al tavolo/.test(body));
-    check("pagina di stato: nel riepilogo il telefono è mascherato", /•/.test(await p.locator("main dl").first().innerText()) && !(await p.locator("main dl").first().innerText()).includes(readable));
+    // Per intero, come nel testo in alto: prima era coperto a metà e sembravano due numeri diversi.
+    check("pagina di stato: nel riepilogo il telefono per intero, uguale al testo in alto", !/•/.test(await p.locator("main dl").first().innerText()) && (await p.locator("main dl").first().innerText()).replace(/\s+/g, " ").includes(readable));
     check("pagina di stato: «È per stasera» solo per oggi (questa è per un altro giorno)", !/È per stasera/.test(body));
     check("pagina di stato: «Salva o manda il link»", (await p.getByRole("button", { name: "Salva o manda il link" }).count()) === 1);
     check("pagina di stato: «Salva questa pagina…»", /Salva questa pagina: qui vedi sempre a che punto è/.test(body));
