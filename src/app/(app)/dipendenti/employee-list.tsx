@@ -318,7 +318,7 @@ function EmployeeCard({
                 className="w-full max-w-[12rem] rounded-lg border border-accent bg-surface-2 px-2 py-1 text-sm text-foreground outline-none"
               />
             ) : (
-              <button type="button" onClick={() => setEditingName(true)} className="truncate text-left text-sm font-medium text-foreground hover:underline" title="Rinomina">
+              <button type="button" onClick={() => setEditingName(true)} className="min-w-0 text-left text-sm font-medium text-foreground [overflow-wrap:anywhere] hover:underline" title="Rinomina">
                 {employee.name}
               </button>
             )}

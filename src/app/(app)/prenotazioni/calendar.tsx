@@ -280,8 +280,10 @@ export function AgendaCalendar(props: CalendarProps) {
     </div>
   );
 
+  // max-md:pb-20: sul telefono il «+» tondo resta fisso in basso a destra; lo spazio in fondo fa salire
+  // sopra di lui l'ultima riga (legenda del mese, ultimo giorno della settimana).
   return (
-    <section aria-label="Agenda" className="space-y-3" data-vista={view}>
+    <section aria-label="Agenda" className="space-y-3 max-md:pb-20" data-vista={view}>
       {/* La barra in alto. Telefono: titolo e frecce; sotto, vista, «Richieste» e «⋯» (il «+» è il
           tondo in basso). Tablet: «Oggi» ‹ › titolo e stato; sotto, vista e pulsanti. Computer largo: una riga. */}
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 md:gap-x-2" data-testid="agenda-barra">
