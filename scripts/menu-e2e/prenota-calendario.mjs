@@ -169,7 +169,7 @@ try {
   const capital = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   const WD = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"];
   const MO = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
-  const dayTitle = (d) => `${capital(WD[(new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7])} ${Number(d.slice(8))} ${MO[Number(d.slice(5, 7)) - 1]}${d.slice(0, 4) !== today.slice(0, 4) ? ` ${d.slice(0, 4)}` : ""}`;
+  const dayTitle = (d) => `${capital(WD[(new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7])} ${Number(d.slice(8))} ${capital(MO[Number(d.slice(5, 7)) - 1])}${d.slice(0, 4) !== today.slice(0, 4) ? ` ${d.slice(0, 4)}` : ""}`;
 
   // ================= Vista di partenza e vista ricordata =================
   const phone = await ctxFor("phone");
@@ -306,7 +306,7 @@ try {
   await pick(P, "2027-03-28");
   await waitRows(P, "Agv Ora legale domenica");
   const dst = await agenda(P).innerText();
-  check("ora legale (28 marzo 2027): domenica con le 20:30 e le 00:30 della stessa serata", dst.includes("Agv Ora legale domenica") && dst.includes("Agv Ora legale notte") && !dst.includes("Agv Ora legale lunedì") && (await title(P)).startsWith("Domenica 28 marzo"));
+  check("ora legale (28 marzo 2027): domenica con le 20:30 e le 00:30 della stessa serata", dst.includes("Agv Ora legale domenica") && dst.includes("Agv Ora legale notte") && !dst.includes("Agv Ora legale lunedì") && (await title(P)).startsWith("Domenica 28 Marzo"));
   await pick(P, "2026-10-25");
   await waitRows(P, "Agv Ora solare");
   check("ora solare (25 ottobre 2026, già passato): sera e notte nello stesso giorno", (await agenda(P).innerText()).includes("Agv Ora solare notte"));
