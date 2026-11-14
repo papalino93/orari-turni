@@ -520,7 +520,10 @@ try {
     check("la richiesta in attesa resta da gestire (non si chiude da sola)", status(late.id) === "PENDING||");
     const pub = await (await newContext(browser, "phone")).newPage();
     await pub.goto(`${BASE}/menu/prenota`, { waitUntil: "networkidle" });
-    check("il cliente vede oggi «Completo»", /Completo/.test(await pub.locator(`[data-day="${TODAY}"]`).innerText()));
+    // Tra mezzanotte e le 5 la serata appena finita non compare più nel modulo del cliente.
+    const calToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    if (calToday === TODAY) check("il cliente vede oggi «Completo»", /Completo/.test(await pub.locator(`[data-day="${TODAY}"]`).innerText()));
+    else check("dopo mezzanotte il cliente non vede più la serata finita", (await pub.locator(`[data-day="${TODAY}"]`).count()) === 0);
     await pub.context().close();
     await dayMenu().click();
     await A.getByTestId("riapri-richieste").click();
