@@ -21,6 +21,8 @@ export const metadata: Metadata = {
   title: "Chiedi un tavolo — L'Angolo del Vino",
   description: "Chiedi un tavolo all'Angolo del Vino: scegli giorno, ora e persone, ti rispondiamo noi.",
   robots: { index: false, follow: false },
+  // Anteprima quando il link si condivide (o da Instagram, Facebook, Google): «Prenota un tavolo».
+  openGraph: { title: "Prenota un tavolo · L'Angolo del Vino", description: "Scegli giorno, ora e persone: ti confermiamo noi, su WhatsApp o per email." },
 };
 
 type Search = { evento?: string | string[]; da?: string | string[] };

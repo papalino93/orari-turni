@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
       { source: "/g", destination: "/menu/prenota?da=google", permanent: false },
       { source: "/ig", destination: "/menu/prenota?da=instagram", permanent: false },
       { source: "/fb", destination: "/menu/prenota?da=facebook", permanent: false },
+      // «Per arrivare» nei messaggi ai clienti: la pagina fa da ponte verso Google Maps.
+      { source: "/mappa", destination: "/menu/mappa", permanent: false },
     ];
   },
   async headers() {
