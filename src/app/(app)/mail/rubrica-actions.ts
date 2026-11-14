@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { loadFeatures } from "@/lib/app-features";
 import { addOptOut, isValidEmail } from "@/lib/mail";
 import { ensureGroup, newContactId } from "@/lib/mail-contacts";
-import { cleanEmail, cleanName, fold, isConsent, isGroupColor, isSource, longDay, type Consent } from "@/lib/mail-rubrica";
+import { cleanEmail, cleanName, fold, isConsent, isGroupColor, isSource, longDay, tidyPhone, type Consent } from "@/lib/mail-rubrica";
 import { parseId, parseText, runAction, ValidationError, type ActionResult } from "@/lib/validation";
 
 const MAX_IMPORT = 500;
@@ -55,7 +55,7 @@ export async function saveContact(input: ContactInput): Promise<ActionResult<{ i
     const id = input?.id ? parseId(input.id, "contatto") : null;
     const email = readEmail(input?.email);
     const name = cleanName(parseText(input?.name, "nome", { max: 200 }));
-    const phone = parseText(input?.phone, "telefono", { max: 40 }) || null;
+    const phone = tidyPhone(parseText(input?.phone, "telefono", { max: 40 })) || null;
     const notes = parseText(input?.notes, "note", { max: 1000 }) || null;
     const groups = await readGroups(input?.groups);
     if (!isConsent(input?.consent)) throw new ValidationError("Scegli perché possiamo scrivergli.");
@@ -232,7 +232,7 @@ export async function importContacts(input: {
       .map((it) => ({
         email: cleanEmail(typeof it?.email === "string" ? it.email : ""),
         name: cleanName(typeof it?.name === "string" ? it.name : ""),
-        phone: typeof it?.phone === "string" ? it.phone.trim().slice(0, 40) : "",
+        phone: typeof it?.phone === "string" ? tidyPhone(it.phone) : "",
         updateName: it?.updateName === true,
         groups: Array.isArray(it?.groups) ? it.groups.filter((g): g is string => typeof g === "string").map((g) => cleanName(g).slice(0, 40)).filter(Boolean).slice(0, 20) : [],
       }))

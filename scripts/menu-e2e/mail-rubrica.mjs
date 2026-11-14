@@ -227,7 +227,7 @@ try {
   await shot(p, "importa-anteprima-vcf", false);
   await imp.getByRole("button", { name: "Importa 2 contatti" }).click();
   await toast(p, /2 contatti aggiunti/).waitFor();
-  check("vcf: Nicolò entrato, dal telefono, con telefono e gruppo", /^Nicolò Bàrberi\|telefono\|cliente\|0\|f\|f\|\+39 333 7654321$/.test(contact(at("nicolo"))) && groupsOf(at("nicolo")) === "Prova R Telefono", contact(at("nicolo")));
+  check("vcf: Nicolò entrato, dal telefono, con telefono e gruppo", /^Nicolò Bàrberi\|telefono\|cliente\|0\|f\|f\|\+39 333 765 4321$/.test(contact(at("nicolo"))) && groupsOf(at("nicolo")) === "Prova R Telefono", contact(at("nicolo")));
   check("vcf: l'email scelta tra due", contact(at("ambrogio-casa")).startsWith("Enoteca Sant’Ambrogio|") && contact(at("santambrogio")) === "");
   check("vcf: nome già presente non sovrascritto senza conferma", contact(at("uno")).startsWith("Mario Rossi|") && groupsOf(at("uno")) === "Prova R Telefono");
   check("vcf: chi non vuole più email non entra", contact(at("via")) === "");

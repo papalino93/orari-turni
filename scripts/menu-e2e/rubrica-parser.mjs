@@ -92,7 +92,7 @@ const android = [
   check("Android: email preferita prima (PREF senza TYPE=)", eq(r.rows[0].emails, ["vendite@podere.it", "ilaria@podere.it"]), show(r.rows[0].emails));
   check("Android: nome da N (Nome Cognome) se manca FN", r.rows[1].name === "François Lò", r.rows[1].name);
   check("Android: CHARSET=ISO-8859-1", r.rows[2].name === "Andrè Pellè", r.rows[2].name);
-  check("Android: telefono", r.rows[0].phone === "3331112222", r.rows[0].phone);
+  check("Android: telefono (cellulare sempre «+39 333 111 2222»)", r.rows[0].phone === "+39 333 111 2222", r.rows[0].phone);
 }
 
 // ---------- Google Contatti (.vcf 3.0) con righe spezzate (RFC 6350) e vCard 4.0 con PREF=1.
@@ -135,7 +135,7 @@ const googleCsv = [
   check("Google CSV: riconosciuto", r.format === "google", r.format);
   check("Google CSV: 2 con email, 1 senza", r.rows.length === 2 && eq(r.noEmail, ["Lucia Neri"]), show(r));
   check("Google CSV: « ::: » e più colonne di email", eq(r.rows[0].emails, ["mario@casa.it", "mario@lavoro.it", "mario@rossi.it"]), show(r.rows[0].emails));
-  check("Google CSV: nome e cognome, telefono", r.rows[0].name === "Mario Rossi" && r.rows[0].phone === "+39 333 1234567", show(r.rows[0]));
+  check("Google CSV: nome e cognome, telefono", r.rows[0].name === "Mario Rossi" && r.rows[0].phone === "+39 333 123 4567", show(r.rows[0]));
   check("Google CSV: solo azienda → nome dell'azienda", r.rows[1].name === "Trattoria da Gino", r.rows[1].name);
 }
 
@@ -151,9 +151,9 @@ const outlookIt = [
 {
   const r = I.parseCsvContacts(outlookCsv);
   check("Outlook CSV: riconosciuto", r.format === "outlook", r.format);
-  check("Outlook CSV: nome, due email (non quella «Display Name»), cellulare prima", r.rows[0].name === "Giulia Conti" && eq(r.rows[0].emails, ["giulia@conti.it", "g.conti@gmail.com"]) && r.rows[0].phone === "339 7654321", show(r.rows[0]));
+  check("Outlook CSV: nome, due email (non quella «Display Name»), cellulare prima", r.rows[0].name === "Giulia Conti" && eq(r.rows[0].emails, ["giulia@conti.it", "g.conti@gmail.com"]) && r.rows[0].phone === "+39 339 765 4321", show(r.rows[0]));
   const it = I.parseCsvContacts(outlookIt);
-  check("Outlook in italiano (;)", it.format === "outlook" && it.rows[0].name === "Piero Bàrberi" && eq(it.rows[0].emails, ["piero@barberi.it"]) && it.rows[0].phone === "333 0000000", show(it));
+  check("Outlook in italiano (;)", it.format === "outlook" && it.rows[0].name === "Piero Bàrberi" && eq(it.rows[0].emails, ["piero@barberi.it"]) && it.rows[0].phone === "+39 333 000 0000", show(it));
 }
 
 // ---------- Il file di esempio della pagina Mail e quello scaricato dalla rubrica
@@ -185,7 +185,7 @@ const outlookIt = [
   const big = I.planImport(I.parseCsvContacts("\uFEFF" + many), {}, new Map(), new Set(), []);
   check("340 aziende, tutte in «Aziende»", big.counts.nuovo === 340 && big.fileGroups.length === 1 && big.fileGroups[0].count === 340, show(big.counts));
   const brevo = I.parseCsvContacts("EMAIL;NOME;COGNOME;SMS;DOUBLE_OPT-IN;OPT_IN\nmario@rossi.it;Mario;Rossi;393331234567;Yes;\nanna@x.it;;;;;\n");
-  check("esportazione contatti di Brevo (EMAIL, NOME, COGNOME, SMS)", brevo.format === "brevo" && brevo.rows[0].name === "Mario Rossi" && brevo.rows[0].phone === "393331234567" && brevo.rows[1].name === "", show(brevo));
+  check("esportazione contatti di Brevo (EMAIL, NOME, COGNOME, SMS)", brevo.format === "brevo" && brevo.rows[0].name === "Mario Rossi" && brevo.rows[0].phone === "+39 333 123 4567" && brevo.rows[1].name === "", show(brevo));
   const brevoEn = I.parseCsvContacts("EMAIL,FIRSTNAME,LASTNAME,SMS\njo@x.it,Jo,Bloggs,447700900000\n");
   check("esportazione di Brevo in inglese (FIRSTNAME, LASTNAME)", brevoEn.format === "brevo" && brevoEn.rows[0].name === "Jo Bloggs", show(brevoEn));
   const own = I.parseCsvContacts("Nome o azienda;Email;Telefono;Gruppi\nX;x@x.it;;Aziende, Clienti dal sito\n");
@@ -199,7 +199,7 @@ const outlookIt = [
   const lines = I.parsePasted("uno@x.it, due@y.it, tre@z.it");
   check("più indirizzi sulla stessa riga = più persone", lines.rows.length === 3, show(lines.rows));
   const semi = I.parsePasted("mario@x.it; Mario\nsbagliata@\nlaura@y.it\tLaura Bianchi\t333 1234567");
-  check("righe «email; nome», tabulazioni, telefono, riga sbagliata", semi.rows.length === 2 && semi.rows[1].name === "Laura Bianchi" && semi.rows[1].phone === "333 1234567" && semi.noEmail.length === 1, show(semi));
+  check("righe «email; nome», tabulazioni, telefono, riga sbagliata", semi.rows.length === 2 && semi.rows[1].name === "Laura Bianchi" && semi.rows[1].phone === "+39 333 123 4567" && semi.noEmail.length === 1, show(semi));
 }
 
 // ---------- Contact Picker (Android)
@@ -252,6 +252,15 @@ const outlookIt = [
   check("ordine per ultima mail", ids("ultima") === "4231", ids("ultima"));
   check("ordine per aggiunti da poco", ids("recenti") === "4132", ids("recenti"));
 }
+
+// Telefono in un formato solo: i cellulari italiani «+39 333 111 2222», fissi ed esteri come scritti.
+check(
+  "tidyPhone: cellulari uguali comunque scritti, fissi ed esteri intatti",
+  ["3334445555", "393334445555", "0039 333-444-5555", "+39 333 444 5555", "333 44 45 555"].every((x) => R.tidyPhone(x) === "+39 333 444 5555") &&
+    R.tidyPhone("0577 12 34 56") === "0577 12 34 56" &&
+    R.tidyPhone("+44 20 7946 0958") === "+44 20 7946 0958" &&
+    R.tidyPhone(null) === "",
+);
 
 const ok = results.filter(Boolean).length;
 console.log(`\n${ok}/${results.length} ok`);

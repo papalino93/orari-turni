@@ -8,7 +8,7 @@
 // Poi planImport confronta con la rubrica: nuovi, già presenti, senza email, cancellati.
 
 import { guessDelimiter, isValidEmail, parseCsv } from "@/lib/mail-text";
-import { cleanEmail, cleanName, fold } from "@/lib/mail-rubrica";
+import { cleanEmail, cleanName, fold, tidyPhone } from "@/lib/mail-rubrica";
 
 // groups: i gruppi scritti nel file (colonna «Gruppo» o «Gruppi», più gruppi separati da virgole).
 export type ImportRow = { name: string; emails: string[]; phone: string; groups: string[] };
@@ -69,7 +69,7 @@ function finish(format: ImportFormat, list: RawRow[]): ParsedImport {
   const rows: ImportRow[] = [];
   const noEmail: string[] = [];
   for (const r of list) {
-    if (r.emails.length) rows.push({ name: cleanName(r.name), emails: r.emails, phone: cleanPhone(r.phone), groups: splitGroups(r.groups ?? "") });
+    if (r.emails.length) rows.push({ name: cleanName(r.name), emails: r.emails, phone: tidyPhone(cleanPhone(r.phone)), groups: splitGroups(r.groups ?? "") });
     else if (r.name.trim() || r.raw.trim()) {
       // Un indirizzo scritto male («lucia.example.com», «a@b») si mostra accanto al nome: così si capisce
       // che l'email c'era ma non è giusta, invece di sembrare una colonna vuota.

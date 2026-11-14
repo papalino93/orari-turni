@@ -4,7 +4,7 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { isValidEmail } from "@/lib/mail-text";
-import { BOOKING_OPTIN_TEXT, cleanEmail, GROUP_COLORS, cleanName, SITE_GROUP_NAME, type Consent, type RContact, type RubricaData } from "@/lib/mail-rubrica";
+import { BOOKING_OPTIN_TEXT, cleanEmail, GROUP_COLORS, cleanName, SITE_GROUP_NAME, tidyPhone, type Consent, type RContact, type RubricaData } from "@/lib/mail-rubrica";
 
 // Dopo quanti giorni un contatto eliminato (che si poteva ancora rimettere) si cancella davvero.
 export const PURGE_DAYS = 30;
@@ -52,7 +52,7 @@ export async function loadRubrica(): Promise<RubricaData> {
         id: c.id,
         email: c.email,
         name: c.name,
-        phone: c.phone ?? "",
+        phone: tidyPhone(c.phone),
         notes: c.notes ?? "",
         source: c.source,
         consent: c.consent,
@@ -127,6 +127,7 @@ export async function recordSent(input: {
 // già, il consenso diventa questo e il nome o il telefono si riempiono se mancavano. Chi si era
 // cancellato resta cancellato: un modulo senza conferma dell'indirizzo non basta a riattivarlo.
 export async function subscribeFromBooking(input: { email: string; name: string; phone: string | null }, now = new Date()): Promise<void> {
+  input = { ...input, phone: tidyPhone(input.phone) || null };
   const email = cleanEmail(input.email);
   if (!isValidEmail(email)) return;
   const name = cleanName(input.name);
