@@ -90,7 +90,7 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
           <div className="flex min-h-11 min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
             <span className={`inline-flex items-center gap-1.5 tabular-nums ${closed ? "font-semibold text-danger" : "text-foreground-muted"}`} data-testid="agenda-orari">
               <ClockIcon />
-              {closed ? `Chiuso${closure?.kind === "closed" && closure.reason ? ` · ${closure.reason}` : ""}` : ranges.map((r) => `${r.open}–${r.close}`).join(" · ")}
+              {closed ? `Chiuso${closure?.kind === "closed" && closure.reason ? ` · ${closure.reason}` : ""}` : `Aperti ${ranges.map((r) => `${r.open}–${r.close}`).join(" · ")}`}
             </span>
             {requestsClosed && !closed && <ClosedChip />}
             {events.map((e) => (
@@ -98,8 +98,8 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
                 <EventPill title={e.title} time={eventTime(e) || undefined} compact />
               </a>
             ))}
-            <button type="button" onClick={() => setNoteEdit({ note: null })} className="-mx-1 min-h-9 rounded-full px-1 text-xs font-semibold text-foreground-muted underline decoration-dotted underline-offset-4 hover:text-foreground">
-              + Nota del giorno
+            <button type="button" onClick={() => setNoteEdit({ note: null })} title="Un promemoria per tutti in cima al giorno (es. «sala piccola riservata»)" className="-mx-1 min-h-9 rounded-full px-1 text-xs font-semibold text-foreground-muted underline decoration-dotted underline-offset-4 hover:text-foreground">
+              + Scrivi una nota per la giornata
             </button>
           </div>
           {/* Le azioni del giorno: stampa, chiudere o riaprire le richieste online, una nota. */}
@@ -107,7 +107,7 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
             small
             label="Azioni del giorno"
             items={[
-              { label: "+ Nota del giorno", hint: "Un promemoria in cima al giorno", onSelect: () => setNoteEdit({ note: null }) },
+              { label: "+ Scrivi una nota per la giornata", hint: "Un promemoria per tutti in cima al giorno", onSelect: () => setNoteEdit({ note: null }) },
               ...(printList.length ? [{ label: "Stampa il giorno", hint: "Il foglio con tutte le prenotazioni", onSelect: () => window.print() }] : []),
               ...(!past && !closed
                 ? [

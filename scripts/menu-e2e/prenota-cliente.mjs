@@ -85,6 +85,11 @@ try {
     const again = await postRequest(twin, { ip: twinIp });
     const again2 = await postRequest(twin, { ip: twinIp });
     check("doppio invio uno dopo l'altro (stesso indirizzo): la stessa richiesta", !!again.json?.statusPath && again.json?.statusPath === again2.json?.statusPath && rowsBy(`name='Prova C Doppio'`) === "1");
+    check("doppio invio: la seconda risposta dice che è la stessa richiesta", again.json?.reused === false && again2.json?.reused === true);
+    {
+      const html = await (await fetch(`${BASE}${again2.json.statusPath}?gia=1`)).text();
+      check("pagina di stato con ?gia=1: «l'avevi già mandata»", /già mandata poco fa/.test(html));
+    }
     // Chi conosce solo telefono, giorno e ora di qualcun altro non ottiene il suo link.
     const thief = await postRequest(twin);
     check("stessi dati da un altro indirizzo: niente link, «c'è già una richiesta»", thief.json?.ok === false && !thief.json.statusPath && /c'è già una richiesta/.test(thief.json.error ?? "") && thief.json.field === "time", JSON.stringify(thief.json));

@@ -272,7 +272,7 @@ try {
   await P.waitForTimeout(300);
 
   // ================= Note del giorno =================
-  await agenda(P).getByRole("button", { name: "+ Nota del giorno" }).click();
+  await agenda(P).getByRole("button", { name: "+ Scrivi una nota per la giornata" }).click();
   let ns = P.getByRole("dialog", { name: "Nuova nota del giorno" });
   await ns.getByRole("textbox", { name: "Nota" }).fill("Cena aziendale (prova agv)");
   await ns.getByRole("button", { name: "Salva la nota" }).click();
