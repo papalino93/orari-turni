@@ -596,7 +596,7 @@ try {
   await A.getByRole("button", { name: "Altre azioni" }).click();
   await A.getByRole("menuitem", { name: /^Impostazioni/ }).click();
   const st = A.getByRole("dialog");
-  check("impostazioni: link per Google …/prenota?da=google", /\/prenota\?da=google/.test(await st.innerText()));
+  check("impostazioni: link brevi …/g, …/ig, …/fb", /vercel\.app\/g\b|:\d+\/g\b/.test(await st.innerText()) && /\/ig\b/.test(await st.innerText()) && /\/fb\b/.test(await st.innerText()));
   await st.locator('input[name="maxPeople"]').fill("8");
   await st.getByRole("button", { name: "Salva" }).click();
   check("impostazioni: «Persone massime» 8 salvato", await waitDb(() => /"maxPeople":8/.test(DB(`select value from "MenuSetting" where id='bookings'`))));

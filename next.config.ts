@@ -15,9 +15,15 @@ const nextConfig: NextConfig = {
     "/gestione-menu/guida": ["./docs/guida/Guida-gestione-menu.pdf"],
     "/gestione-menu/guida/video": ["./docs/guida/Guida-gestione-menu.mp4"],
   },
-  // Link breve delle prenotazioni (es. nella scheda Google: /prenota?da=google). La query resta.
+  // Link brevi delle prenotazioni: /g (Google), /ig (Instagram), /fb (Facebook), già con la loro
+  // provenienza. Restano validi anche quelli lunghi (/prenota?da=google: la query resta).
   async redirects() {
-    return [{ source: "/prenota", destination: "/menu/prenota", permanent: true }];
+    return [
+      { source: "/prenota", destination: "/menu/prenota", permanent: true },
+      { source: "/g", destination: "/menu/prenota?da=google", permanent: false },
+      { source: "/ig", destination: "/menu/prenota?da=instagram", permanent: false },
+      { source: "/fb", destination: "/menu/prenota?da=facebook", permanent: false },
+    ];
   },
   async headers() {
     // Pagine dell'area riservata: mai conservate dal browser, così dopo «Esci» il tasto

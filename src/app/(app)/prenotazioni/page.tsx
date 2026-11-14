@@ -126,7 +126,7 @@ export default async function PrenotazioniPage({ searchParams }: { searchParams:
       mailReady={mailConfigured()}
       push={{ publicKey: pushPublicKey(), myEndpoints: subs.map((s) => s.endpoint), localPhoneEndpoints: subs.filter((s) => s.localPhone).map((s) => s.endpoint) }}
       preview={process.env.VERCEL_ENV === "preview"}
-      googleLink={`${origin}/prenota?da=google`}
+      googleLink={`${origin}/g`}
       openRequest={typeof r === "string" && /^[a-z0-9_]{10,40}$/i.test(r) ? r : null}
       link={link}
       devices={devices}
