@@ -366,7 +366,7 @@ export function Rubrica() {
 }
 
 function ContactRow({ c, on, onToggle, onOpen, groupMap }: { c: RContact; on: boolean; onToggle: (v: boolean) => void; onOpen: () => void; groupMap: Map<string, import("@/lib/mail-rubrica").RGroup> }) {
-  const last = c.lastSentAt ? `ultima mail ${shortDay(c.lastSentAt)}` : "nessuna mail";
+  const last = c.lastSentAt ? `ultima mail ${shortDay(c.lastSentAt)}` : "ancora nessuna mail";
   return (
     <li className={`flex items-start gap-1 py-1 ${on ? "bg-accent/[0.06]" : ""}`}>
       <label className="flex h-12 w-11 shrink-0 cursor-pointer items-center justify-center">
