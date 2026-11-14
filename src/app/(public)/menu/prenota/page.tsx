@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { loadVenue } from "@/lib/menu";
 import { mailConfigured } from "@/lib/mail";
 import { rangesFor, telHref, whatsappHref } from "@/lib/menu-venue";
 import { prisma } from "@/lib/prisma";
 import { bookingDays, loadBookingSettings } from "@/lib/booking/service";
+import { effectiveMode, venueDeviceExists } from "@/lib/booking/venue";
 import { addDays, businessDay, dayLong, normalizeSource, onlineUntilInstant, pausedNow, romeInstant, romeParts } from "@/lib/booking/rules";
 import { formatPromoDates } from "@/lib/menu-format";
 import { MenuFooter } from "../venue-footer";
 import { Ornament } from "../ornament";
 import { formStamp, isOwner } from "./server-utils";
-import { PrenotaHeader, PreviewBand } from "./ui";
+import { ContactButtons, PrenotaHeader, PreviewBand, pillOutline } from "./ui";
 import { LargeText } from "./large-text";
 import { BookingForm, type FormDay } from "./booking-form";
 
@@ -28,8 +28,33 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 
 export default async function PrenotaPage({ searchParams }: { searchParams: Promise<Search> }) {
   const [settings, owner, venue, sp] = await Promise.all([loadBookingSettings(), isOwner(), loadVenue(), searchParams]);
-  // Spenta: per i clienti la pagina non esiste; il titolare la vede in anteprima.
-  if (!settings.enabled && !owner) notFound();
+  // Spenta: il titolare la vede in anteprima; i clienti, arrivati magari da un link su Instagram o
+  // Google, leggono che per ora si prenota chiamando (prima trovavano «Pagina non trovata»).
+  if (!settings.enabled && !owner) {
+    const { contacts } = venue;
+    const tel = contacts.phone ? telHref(contacts.phone) : null;
+    const wa = contacts.phone ? whatsappHref(contacts.phone, contacts.whatsappMessage) : null;
+    return (
+      <>
+        <PrenotaHeader />
+        <main className="menu-prenota mx-auto max-w-[600px] px-6 pb-[72px] pt-9 [color-scheme:light]" data-testid="prenotazioni-chiuse">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <div className="menu-sans text-[11px] uppercase tracking-[0.34em] text-[#5B605A]">Prenotazioni</div>
+            <h1 className="menu-serif m-0 mb-2 text-balance text-[40px] font-medium leading-[1.05] text-[#6B1020]">Prenota chiamandoci</h1>
+            <Ornament color="#9C7A45" />
+            <p className="m-0 mt-3 max-w-[440px] text-balance text-[16.5px] italic leading-normal text-[#3F4540]">
+              Per ora i tavoli si prenotano al telefono o su WhatsApp: ti rispondiamo subito.
+            </p>
+            {(tel || wa) && <ContactButtons tel={tel} wa={wa} className="mt-5" />}
+            <a href="/menu" className={`${pillOutline} mt-3 min-w-[240px]`}>
+              Guarda il menù
+            </a>
+          </div>
+        </main>
+        <MenuFooter hours={venue.hours} contacts={contacts} hideBooking />
+      </>
+    );
+  }
 
   const now = new Date();
   const slug = one(sp.evento).slice(0, 120);
@@ -135,6 +160,7 @@ export default async function PrenotaPage({ searchParams }: { searchParams: Prom
           groupWa={groupWa}
           address={contacts.address}
           phone={contacts.phone}
+          fromVenue={effectiveMode(settings, await venueDeviceExists()) === "venue"}
           paused={Boolean(paused)}
         />
       </main>

@@ -143,6 +143,20 @@ export function BookingsView({
   const [askTests, setAskTests] = useState<{ which: "agenda" | "online"; on: boolean; tests: number; keepable: number } | null>(null);
   // Appena segnata dal foglio «Nuova prenotazione»: «✓ Segnata: Rossi, sab 20:30, 4 persone» con «Annulla».
   const [justSaved, setJustSaved] = useState<SavedInfo | null>(null);
+  // Il «+» tondo sul telefono: scorrendo verso il basso si toglie (copriva «Arrivati?» delle ultime
+  // righe), tornando su o fermi in cima ricompare.
+  const [fabAway, setFabAway] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (Math.abs(y - last) < 8) return;
+      setFabAway(y > last && y > 120);
+      last = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [askClose, setAskClose] = useState<{ day: string; pending: number } | null>(null);
   const push = usePush(pushConfig.publicKey, pushConfig.myEndpoints);
@@ -407,7 +421,8 @@ export function BookingsView({
         todo ? "bg-accent/10 text-foreground ring-accent/45 hover:ring-accent" : "bg-surface text-foreground-muted ring-border hover:text-foreground hover:ring-accent"
       }`}
     >
-      <InboxIcon className={`max-sm:hidden ${todo ? "text-accent-ink" : ""}`} />
+      {/* Sotto i 375 px la scritta non ci sta: resta l'icona, così il numero non è un pallino rosso senza spiegazione. */}
+      <InboxIcon className={`min-[375px]:max-sm:hidden ${todo ? "text-accent-ink" : ""}`} />
       <span className="max-[374px]:sr-only">Richieste</span>
       <span
         aria-hidden
@@ -558,7 +573,8 @@ export function BookingsView({
             onClick={() => newBooking(agendaDay >= today ? agendaDay : today)}
             aria-label="Nuova prenotazione"
             title="Nuova prenotazione"
-            className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_10px_24px_-8px_var(--accent-glow),0_4px_10px_rgb(0_0_0/0.25)] hover:bg-accent-hover md:hidden [body:has(.brand-band-bar-bottom)_&]:bottom-[calc(5.25rem+env(safe-area-inset-bottom))]"
+            tabIndex={fabAway ? -1 : undefined}
+            className={`fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_10px_24px_-8px_var(--accent-glow),0_4px_10px_rgb(0_0_0/0.25)] transition-[transform,opacity] duration-200 hover:bg-accent-hover md:hidden [body:has(.brand-band-bar-bottom)_&]:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] ${fabAway ? "pointer-events-none translate-y-24 opacity-0" : ""}`}
           >
             <svg aria-hidden width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
               <path d="M12 5v14M5 12h14" />

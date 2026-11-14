@@ -85,7 +85,7 @@ export function RequestCard({ b, now, today, onOpen, showStatus = false }: { b: 
               (waiting >= 30 ? (
                 <span className="font-semibold text-danger">in attesa da {duration(waiting)}</span>
               ) : (
-                <span className="text-foreground-muted">arrivata {duration(waiting)} fa</span>
+                <span className="text-foreground-muted">{waiting < 1 ? "appena arrivata" : `arrivata ${duration(waiting)} fa`}</span>
               ))}
             {v === "PROPOSED" && <span className="text-foreground-muted">aveva chiesto le {b.time}</span>}
             {b.table && <span className="rounded-md bg-accent/10 px-1.5 py-0.5 font-semibold text-accent-ink">{tableText(b.table)}</span>}

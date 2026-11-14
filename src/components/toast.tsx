@@ -53,9 +53,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!visible) return;
     let frame = 0;
+    let wasOpen = dialogOpen();
     const observer = new MutationObserver(() => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => setOnTop(dialogOpen()));
+      frame = requestAnimationFrame(() => {
+        const open = dialogOpen();
+        // Si apre una scheda mentre c'è ancora il messaggio dell'azione di prima («Segnata esaurita»,
+        // «Arrivati»): in alto coprirebbe il titolo e la ×. Riguardava la schermata di prima: si toglie
+        // (gli errori restano).
+        if (open && !wasOpen) setToasts((prev) => prev.filter((t) => t.kind === "error"));
+        wasOpen = open;
+        setOnTop(open);
+      });
     });
     observer.observe(document.body, { childList: true, subtree: true });
     // La scheda può essersi chiusa nello stesso momento in cui è comparso il messaggio (es. «Importa»):

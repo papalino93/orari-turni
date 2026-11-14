@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
 import { CardList, Empty, RequestCard, SearchIcon } from "./lists";
 import type { BookingItem } from "./types";
+import { foldSearch } from "@/lib/booking/agenda";
 
 export function SearchSheet({ rows, archive, now, today, onOpen, onClose }: { rows: BookingItem[]; archive: BookingItem[]; now: number; today: string; onOpen: (id: string) => void; onClose: () => void }) {
   const [query, setQuery] = useState("");
@@ -34,9 +35,9 @@ export function SearchSheet({ rows, archive, now, today, onOpen, onClose }: { ro
   }, [q]);
 
   // Subito quelle già nella pagina (ultimi 30 giorni e prossime), poi tutte dal server.
-  const lower = q.toLowerCase();
+  const lower = foldSearch(q);
   const digits = q.replace(/\D/g, "");
-  const local = q.length >= 2 ? rows.filter((b) => b.name.toLowerCase().includes(lower) || b.code.toLowerCase() === lower || (b.menu ?? "").toLowerCase().includes(lower) || (b.note ?? "").toLowerCase().includes(lower) || (digits.length >= 3 && b.phone.includes(digits))) : [];
+  const local = q.length >= 2 ? rows.filter((b) => foldSearch(b.name).includes(lower) || b.code.toLowerCase() === lower || foldSearch(b.menu ?? "").includes(lower) || foldSearch(b.note ?? "").includes(lower) || (digits.length >= 3 && b.phone.includes(digits))) : [];
   const results = remote && remote.q === q ? remote.results : local;
   const loading = q.length >= 2 && (!remote || remote.q !== q) && !failed;
 

@@ -448,7 +448,8 @@ export function phoneProblem(raw: string, contact: "whatsapp" | "email"): string
   if (plain.startsWith("+39")) national = plain.slice(3);
   else if (plain.startsWith("0039")) national = plain.slice(4);
   else if (!plain.startsWith("+") && !plain.startsWith("00")) {
-    if (!/^[03]/.test(plain)) return "Se è un numero estero, scrivilo con il prefisso, es. +44 …";
+    // Poche cifre (es. «12345») non sono un numero estero: sono un numero incompleto.
+    if (!/^[03]/.test(plain)) return plain.length < 9 ? "Il numero sembra incompleto: un cellulare ha 10 cifre (es. 333 123 4567)." : "Se è un numero estero, scrivilo con il prefisso, es. +44 …";
     national = plain;
   }
   if (national !== null) {
@@ -474,7 +475,19 @@ export function phoneReadable(international: string): string {
     const n = international.slice(2);
     return `${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}`;
   }
-  return `+${international}`;
+  // Esteri: prefisso staccato e cifre a gruppi («+44 791 112 3456»), invece di un blocco unico.
+  if (!/^\d{8,15}$/.test(international)) return `+${international}`;
+  const two = /^(2[07]|3[0-469]|4[013-9]|5[1-8]|6[0-6]|8[1246]|9[0-58])/;
+  const cc = /^[17]/.test(international) ? 1 : two.test(international) ? 2 : 3;
+  const rest = international.slice(cc);
+  const groups: string[] = [];
+  for (let i = 0; i < rest.length; ) {
+    const left = rest.length - i;
+    const size = left <= 5 ? left : 3;
+    groups.push(rest.slice(i, i + size));
+    i += size;
+  }
+  return `+${international.slice(0, cc)} ${groups.join(" ")}`;
 }
 
 // Il modulo del cliente non ha più la domanda sulle allergie: basta scriverlo nelle note. Se la

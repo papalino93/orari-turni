@@ -6,6 +6,7 @@ import { telHref, whatsappHref } from "@/lib/menu-venue";
 import { prisma } from "@/lib/prisma";
 import { addDays, businessDay, dayLong, dayRelative, peopleText, phoneReadable, romeInstant, UNKNOWN_TIME_MINUTES, viewStatus, type BookingView } from "@/lib/booking/rules";
 import { findByToken, loadBookingSettings } from "@/lib/booking/service";
+import { effectiveMode, venueDeviceExists } from "@/lib/booking/venue";
 import { MenuFooter } from "../../../venue-footer";
 import { Ornament } from "../../../ornament";
 import { ContactButtons, PrenotaHeader, PreviewBand, pillFilled, pillOutline } from "../../ui";
@@ -49,6 +50,7 @@ export default async function BookingStatusPage({ params, searchParams }: { para
   const tonight = forToday && fresh;
 
   const { contacts } = venue;
+  const fromVenue = effectiveMode(settings, await venueDeviceExists()) === "venue";
   const tel = contacts.phone ? telHref(contacts.phone) : null;
   const wa = contacts.phone
     ? whatsappHref(contacts.phone, `Ciao! Ho chiesto un tavolo per ${dayLong(b.day)}${b.timeUnknown ? "" : ` alle ${b.time}`}${b.peopleUnknown ? "" : `, ${peopleText(b.people)}`}, a nome ${b.name}.`)
@@ -93,7 +95,7 @@ export default async function BookingStatusPage({ params, searchParams }: { para
       case "CANCELLED":
         return b.cancelledBy === "locale"
           ? { icon: "no", kicker: "Annullata", title: "Prenotazione annullata", text: "Ci dispiace: abbiamo dovuto annullare il tavolo. Ci scusiamo davvero." }
-          : { icon: "no", kicker: "Annullata", title: "Richiesta annullata", text: "Annullata come ci hai chiesto. Grazie per averci avvisato!" };
+          : { icon: "no", kicker: "Annullata", title: "Annullata, come ci hai chiesto", text: "Grazie per averci avvisato! Ti aspettiamo un'altra volta." };
       case "EXPIRED":
         return {
           icon: "expired",
@@ -127,7 +129,8 @@ export default async function BookingStatusPage({ params, searchParams }: { para
         </div>
 
         {/* Da quale numero gli scriviamo: un messaggio da un numero sconosciuto si ignora, o finisce nello spam. */}
-        {active && b.contact !== "email" && b.phone && contacts.phone && (
+        {/* Solo se partono davvero dal telefono dell'enoteca: altrimenti scrive il titolare dal suo numero. */}
+        {active && b.contact !== "email" && b.phone && contacts.phone && fromVenue && (
           <div className="mx-auto mt-6 max-w-[440px] rounded-2xl border !border-[#BFD3C4] bg-[#F1F7F2] px-5 py-4 text-center" data-testid="numero-enoteca">
             <p className="m-0 text-balance text-[16px] leading-normal text-[#23402D]">
               Ti scriviamo dal numero WhatsApp dell&apos;enoteca, <strong className="whitespace-nowrap font-semibold">{contacts.phone}</strong>: salvalo in rubrica.

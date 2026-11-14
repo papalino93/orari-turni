@@ -552,6 +552,11 @@ export function DayEditorModal({
             quantity: mode === "FERIE" || mode === "PERMESSO" ? quantity : 0,
           };
     const blocks = mode === "WORK" ? [mattina, pomeriggio].filter((r) => r.enabled && r.startTime && r.endTime) : [];
+    // Lavoro senza fasce spuntate: prima diceva «Turno salvato» e non salvava niente.
+    if (mode === "WORK" && permessoHours === 0 && blocks.length === 0) {
+      toast.showError("Spunta Mattina o Pomeriggio e scrivi l'orario. Se quel giorno non lavora, scegli Riposo, Ferie o Permesso.");
+      return;
+    }
     if (mode === "WORK" && permessoHours > 0 && blocks.length === 0) {
       toast.showError("Il permesso a ore va insieme al turno: spunta Mattina o Pomeriggio e scrivi l'orario lavorato.");
       return;

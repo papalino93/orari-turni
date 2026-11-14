@@ -327,7 +327,7 @@ export function BookingSheet({
             {b.manual && !b.phone && v === "CONFIRMED" && <NoPhoneChip />}
             {v === "PENDING" && (
               <span className={`text-xs ${waiting >= 30 ? "font-semibold text-danger" : "text-foreground-muted"}`}>
-                {waiting >= 30 ? `in attesa da ${duration(waiting)}` : `arrivata ${duration(waiting)} fa`}
+                {waiting >= 30 ? `in attesa da ${duration(waiting)}` : waiting < 1 ? "appena arrivata" : `arrivata ${duration(waiting)} fa`}
               </span>
             )}
           </div>
@@ -720,7 +720,8 @@ export function BookingSheet({
           <div className="px-3 py-2.5">
             <dt className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Quel giorno</dt>
             <dd className="text-foreground">
-              {sameDay.length ? `Già confermate: ${bookingsText(sameDay.length)} · ${peopleText(sameDayPeople)}` : "Nessun'altra prenotazione confermata"}
+              {/* Questa esclusa: dopo «Conferma» il numero non cambia, quindi si dice «oltre a questa». */}
+              {sameDay.length ? `${b.status === "CONFIRMED" ? "Altre confermate, oltre a questa" : "Già confermate"}: ${bookingsText(sameDay.length)} · ${peopleText(sameDayPeople)}` : "Nessun'altra prenotazione confermata"}
               {settings.capacityHint > 0 && <span className="text-foreground-muted"> · di solito pieni oltre {peopleText(settings.capacityHint)}</span>}
               {dayFull && <span className="text-foreground-muted"> · richieste chiuse</span>}
             </dd>
@@ -759,7 +760,7 @@ export function BookingSheet({
         {/* Per chi chiede di cancellare i suoi dati (informativa): solo il titolare. */}
         {isOwner && (
           <button type="button" disabled={busy} onClick={() => setAskErase(true)} className="min-h-10 w-full text-center text-xs font-medium text-danger underline decoration-dotted underline-offset-2 hover:opacity-80">
-            Cancella i dati di questa richiesta
+            Cancella i dati di questa {b.manual ? "prenotazione" : "richiesta"}
           </button>
         )}
       </div>

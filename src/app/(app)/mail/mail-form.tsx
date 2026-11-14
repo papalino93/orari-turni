@@ -940,7 +940,7 @@ function MailPreview({
   return (
     <div className="overflow-hidden rounded-xl border border-border text-sm">
       <div className="space-y-0.5 border-b border-border bg-surface-2 px-4 py-3 text-xs text-foreground-muted">
-        <p className="break-words">Da: {from ?? "indirizzo mittente (da attivare)"}</p>
+        <p className="break-words">Da: {from ?? "L'Angolo del Vino"}</p>
         <p className="break-words">A: {sample?.email ?? "—"}</p>
         <p className="break-words font-medium text-foreground">Oggetto: {subject.trim() || "—"}</p>
       </div>

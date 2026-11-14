@@ -146,6 +146,16 @@ export function BookingForm({
   useEffect(() => {
     if (conflict) conflictRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [conflict]);
+  // Un errore dopo «Segna in agenda» (es. «Scrivi il nome.»): sul telefono finiva fuori schermo e il
+  // pulsante sembrava non fare niente. Si porta in vista il campo sbagliato (o il messaggio).
+  useEffect(() => {
+    if (!errors) return;
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>('[role="dialog"] [aria-invalid="true"], [role="dialog"] [role="alert"]');
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (el instanceof HTMLInputElement) el.focus({ preventScroll: true });
+    });
+  }, [errors]);
   // «Scrivi o detta»: il testo e quello che ne ha capito il sito. I campi toccati a mano non li
   // sovrascrive più; quelli riempiti dal testo si aggiornano (o si svuotano) mentre si scrive.
   const [quickText, setQuickText] = useState("");

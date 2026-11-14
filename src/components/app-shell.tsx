@@ -179,6 +179,9 @@ export function AppShell({
                   aria-label={navLabel(item)}
                   title={navLabel(item)}
                   className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors lg:gap-2 lg:px-3.5 ${
+                    // Quando le parole non stanno accanto, vanno piccole sotto l'icona (solo icone non si capiva).
+                    navItems.length > 6 ? "md:max-xl:flex-col md:max-xl:gap-0.5 md:max-xl:px-2 md:max-xl:py-1 md:max-xl:text-[10.5px]" : navItems.length > 4 ? "md:max-lg:flex-col md:max-lg:gap-0.5 md:max-lg:px-2 md:max-lg:py-1 md:max-lg:text-[10.5px]" : ""
+                  } ${
                     active
                       ? "nav-mark-bottom bg-brand-band-active text-brand-band-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
                       : "text-brand-band-foreground-muted hover:bg-brand-band-hover/50 hover:text-brand-band-foreground"
@@ -188,9 +191,9 @@ export function AppShell({
                     <Icon active={!!active} />
                     {badge(item.href)}
                   </span>
-                  {/* Con 5 voci («Mail» o «Ferie» accese) sul tablet verticale le parole non starebbero, con 7
-                      neanche sul computer piccolo: lì solo icone (il nome compare passandoci sopra). */}
-                  <span className={navItems.length > 6 ? "md:max-xl:hidden" : navItems.length > 4 ? "md:max-lg:hidden" : ""}>{item.label}</span>
+                  {/* Con 5 voci («Mail» o «Ferie» accese) sul tablet verticale le parole non starebbero accanto, con 7
+                      neanche sul computer piccolo: lì il nome va piccolo sotto l'icona. */}
+                  <span className="whitespace-nowrap leading-tight">{item.label}</span>
                 </Link>
               );
             })}

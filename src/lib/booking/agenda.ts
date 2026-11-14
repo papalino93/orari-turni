@@ -238,12 +238,14 @@ export function fullness(people: number, capacity: number): 0 | 1 | 2 | 3 | 4 {
 export const FULLNESS_TEXT = ["Nessuna prenotazione", "Tranquillo", "Si riempie", "Quasi pieno", "Oltre il solito"] as const;
 
 // Cerca nel giorno: nome, telefono (anche solo le cifre), nota, menù, tavolo.
+// Minuscole, senza accenti, apostrofo dell'iPhone (’) uguale a quello dritto: «D’Angelo» trova «d'angelo», «nicolo» trova «Nicolò».
+export const foldSearch = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’‘`]/g, "'").toLowerCase();
 export function matchesSearch(b: Pick<AgendaBooking, "name" | "phone" | "note" | "menu" | "table">, query: string): boolean {
-  const q = query.trim().toLowerCase();
+  const q = foldSearch(query.trim());
   if (!q) return true;
   const digits = q.replace(/\D/g, "");
   if (digits.length >= 3 && b.phone.includes(digits)) return true;
-  return [b.name, b.note ?? "", b.menu ?? "", b.table ?? ""].some((t) => t.toLowerCase().includes(q));
+  return [b.name, b.note ?? "", b.menu ?? "", b.table ?? ""].some((t) => foldSearch(t).includes(q));
 }
 
 // Eventi del menù che toccano un giorno.

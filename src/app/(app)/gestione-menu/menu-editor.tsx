@@ -412,7 +412,7 @@ export function MenuEditor({
         next
           ? wineIds.has(item.id)
             ? `«${item.name}» esaurito: tolto dalla carta fino a domattina`
-            : `«${item.name}» segnata esaurita`
+            : `«${item.name}»: esaurito fino a domattina`
           : `«${item.name}» di nuovo disponibile`,
       );
       if (result === null) setLocal({ base: sections, map: { ...localSold } });
