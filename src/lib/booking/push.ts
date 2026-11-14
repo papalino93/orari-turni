@@ -66,8 +66,12 @@ export function pushPublicKey(): string | null {
 }
 
 // only.endpoint: solo quel dispositivo («Prova una notifica»).
-export async function sendPushToStaff(payload: PushPayload, only?: { endpoint: string }, audience: PushAudience = "staff"): Promise<{ sent: number; failed: number }> {
-  const pick = async () => (await recipients(audience)).filter((s) => !only || s.endpoint === only.endpoint);
+// only.ids: proprio quei telefoni, chiunque siano (Impostazioni → «Prova» accanto a ogni telefono).
+export async function sendPushToStaff(payload: PushPayload, only?: { endpoint?: string; ids?: string[] }, audience: PushAudience = "staff"): Promise<{ sent: number; failed: number }> {
+  const pick = async () =>
+    only?.ids
+      ? await prisma.pushSubscription.findMany({ where: { id: { in: only.ids } } })
+      : (await recipients(audience)).filter((s) => !only?.endpoint || s.endpoint === only.endpoint);
   // Modalità di prova (MAIL_PROVIDER=log in locale): non spedisce, conta solo gli iscritti.
   if (process.env.PUSH_PROVIDER === "log") {
     const subs = await pick();

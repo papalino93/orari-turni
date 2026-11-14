@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { runWithToast, useToast } from "@/components/toast";
+import { runWithToast, showActionError, useToast } from "@/components/toast";
 import { Field, Sheet, inputClass } from "../gestione-menu/sheet";
 import { pausedNow, type BookingSettings } from "@/lib/booking/rules";
 import { DEFAULT_CAPACITY } from "@/lib/booking/agenda";
-import { removePushDevice, saveSettings } from "./actions";
+import { removePushDevice, saveSettings, sendTestPushToDevices } from "./actions";
 import { clock } from "./format";
 import type { PushDevice } from "@/lib/booking/push";
 import { Switch } from "./device";
@@ -284,6 +284,25 @@ function PushDevices({ devices }: { devices: PushDevice[] }) {
       router.refresh();
     }
   }
+  // «Prova»: un avviso a quel telefono (o «Prova su tutti»). Se il sito lo consegna ma sul telefono non
+  // compare, il problema è lì: permesso delle notifiche, «Non disturbare», o (iPhone) sito non aperto dall'icona.
+  async function test(target: string, label: string) {
+    setBusy(`t:${target}`);
+    try {
+      const res = await sendTestPushToDevices(target);
+      if (!res.ok) return toast.showError(res.error);
+      const { sent, failed, total } = res.data;
+      if (sent === total)
+        toast.showSuccess(`Avviso di prova mandato ${target === "all" ? `a ${total === 1 ? "1 telefono" : `${total} telefoni`}` : `a ${label}`}: deve arrivare entro qualche secondo.`);
+      else if (sent > 0) toast.showError(`Arrivato a ${sent} su ${total}. Sugli altri gli avvisi vanno riaccesi da quel telefono (⋯ → «Avvisi su questo telefono»).`);
+      else toast.showError(`Non è partito${failed ? "" : " niente"}: su ${target === "all" ? "quei telefoni" : "quel telefono"} gli avvisi vanno riaccesi (⋯ → «Avvisi su questo telefono» → «Attiva gli avvisi»).`);
+      router.refresh();
+    } catch (e) {
+      showActionError(toast, e);
+    } finally {
+      setBusy(null);
+    }
+  }
   return (
     <section className="space-y-3 rounded-xl border border-border p-4" data-testid="telefoni-avvisi" data-unsaved-ignore>
       <div>
@@ -320,6 +339,15 @@ function PushDevices({ devices }: { devices: PushDevice[] }) {
               </span>
               <button
                 type="button"
+                disabled={busy !== null}
+                onClick={() => test(d.id, `${d.who} (${d.kind})`)}
+                aria-label={`Prova un avviso: ${d.kind} di ${d.who}`}
+                className="min-h-10 shrink-0 rounded-full px-3.5 text-sm font-medium text-foreground ring-1 ring-inset ring-border hover:ring-accent disabled:opacity-60"
+              >
+                {busy === `t:${d.id}` ? "…" : "Prova"}
+              </button>
+              <button
+                type="button"
                 disabled={busy === d.id}
                 onClick={() => remove(d)}
                 aria-label={`Togli gli avvisi: ${d.kind} di ${d.who}`}
@@ -331,6 +359,14 @@ function PushDevices({ devices }: { devices: PushDevice[] }) {
           ))}
         </ul>
       )}
+      {list.length > 1 && (
+        <button type="button" disabled={busy !== null} onClick={() => test("all", "")} className="min-h-10 w-full rounded-full text-sm font-medium text-accent-ink ring-1 ring-inset ring-border hover:ring-accent disabled:opacity-60">
+          {busy === "t:all" ? "Mando…" : "Prova su tutti i telefoni"}
+        </button>
+      )}
+      <p className="text-xs text-foreground-muted">
+        Se «Prova» dice che l&apos;avviso è partito ma sul telefono non compare: sull&apos;iPhone il sito va aperto dall&apos;icona sulla schermata Home; controlla poi che le notifiche del sito siano permesse e che non sia attivo «Non disturbare».
+      </p>
     </section>
   );
 }

@@ -151,7 +151,9 @@ export function BookingsView({
     const onScroll = () => {
       const y = window.scrollY;
       if (Math.abs(y - last) < 8) return;
-      setFabAway(y > last && y > 120);
+      // In fondo alla pagina ricompare: lì c'è già lo spazio libero sotto l'ultima riga.
+      const atEnd = y + window.innerHeight >= document.documentElement.scrollHeight - 40;
+      setFabAway(y > last && y > 120 && !atEnd);
       last = y;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
