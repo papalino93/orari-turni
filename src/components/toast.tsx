@@ -87,7 +87,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         aria-live="polite"
         className={`pointer-events-none fixed inset-x-0 z-[100] flex flex-col items-center gap-2 px-4 ${
-          onTop ? "top-[calc(env(safe-area-inset-top)+0.75rem)]" : "bottom-20 md:bottom-6"
+          // Con una scheda aperta: in alto ma sotto la riga del titolo e della ×, che restano toccabili.
+          // Senza: sopra la barra in basso (più lo spazio della barra Home dell'iPhone).
+          onTop ? "top-[calc(env(safe-area-inset-top)+4.75rem)] sm:top-6" : "bottom-[calc(6rem+env(safe-area-inset-bottom))] md:bottom-6"
         }`}
       >
         {toasts.map((t) => (

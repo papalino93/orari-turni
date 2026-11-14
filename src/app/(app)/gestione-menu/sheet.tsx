@@ -59,7 +59,7 @@ export function Sheet({
           className={`max-h-[calc(100dvh-env(safe-area-inset-top)-0.5rem)] w-full overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-surface px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl sm:px-6 sm:pb-6 ${wide ? "max-w-lg lg:max-w-3xl" : "max-w-lg lg:max-w-xl"}`}
         >
           <div className="sticky top-0 z-20 -mx-5 mb-4 flex items-center justify-between gap-3 border-b border-transparent bg-surface px-5 pb-2 pt-5 sm:-mx-6 sm:px-6 sm:pt-6">
-            <h2 className="min-w-0 truncate text-base font-semibold text-foreground">{title}</h2>
+            <h2 className="min-w-0 line-clamp-2 break-words text-base font-semibold text-foreground">{title}</h2>
             <button
               type="button"
               onClick={requestClose}

@@ -402,8 +402,8 @@ try {
   check("…aperta: segnata nella cronologia", await waitDb(() => DB(`select count(*) from "BookingLog" where "requestId"='${R.decl.id}' and kind='WHATSAPP_OPENED'`) === "1"));
   await A.waitForTimeout(1200);
   const declRow = waList.getByTestId("wa-riga").filter({ hasText: R.decl.name });
-  check("…e la riga resta «in invio» con «✓ Mandato» e «Annulla» (aprire non vuol dire mandato)", (await declRow.getByTestId("wa-in-invio").count()) === 1 && (await declRow.getByRole("button", { name: "✓ Mandato" }).count()) === 1);
-  await declRow.getByRole("button", { name: "✓ Mandato" }).click();
+  check("…e la riga resta «in invio» con «✓ Mandato» e «Annulla» (aprire non vuol dire mandato)", (await declRow.getByTestId("wa-in-invio").count()) === 1 && (await declRow.getByRole("button", { name: "L'ho mandato" }).count()) === 1);
+  await declRow.getByRole("button", { name: "L'ho mandato" }).click();
   check("«✓ Mandato»: segnato in cronologia", await waitDb(() => DB(`select count(*) from "BookingLog" where "requestId"='${R.decl.id}' and kind='WHATSAPP_DONE'`) === "1"));
   await A.waitForTimeout(1500);
   check("…e la riga diventa «Già mandato da … alle …»", new RegExp(`Prova C Completo · Già mandato da ${ADMIN_NAME} alle \\d{2}:\\d{2}`).test(await waList.innerText()), (await waList.innerText()).replace(/\n/g, " | "));

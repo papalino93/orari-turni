@@ -49,16 +49,26 @@ export async function GET(request: Request) {
     const text = search.trim().slice(0, 60);
     if (text.length < 2) return NextResponse.json({ results: [] }, { headers: NO_STORE });
     const digits = text.replace(/\D/g, "");
-    // Apostrofo dritto o curvo (quello dell'iPhone): «D'Angelo» e «D’Angelo» si trovano a vicenda.
-    const variants = [...new Set([text, text.replace(/[’‘`]/g, "'"), text.replace(/'/g, "’")])];
+    // Nome, menù e nota senza accenti, apostrofi e spazi da tutte e due le parti: «niccolo» trova
+    // «Niccolò», «dambrosio» trova «D'Ambrosio» (anche con l'apostrofo curvo dell'iPhone).
+    const folded = text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/['’‘`\s-]/g, "");
+    const byText =
+      folded.length >= 2
+        ? await prisma.$queryRaw<{ id: string }[]>`
+            SELECT id FROM "BookingRequest"
+            WHERE translate(lower(name || '|' || coalesce(menu, '') || '|' || coalesce(note, '')),
+                            'àáâäãèéêëìíîïòóôöõùúûüçñ''’‘\` -', 'aaaaaeeeeiiiiooooouuuucn')
+                  LIKE ${"%" + folded + "%"}
+            ORDER BY "startsAt" DESC LIMIT 60`
+        : [];
     const rows = await prisma.bookingRequest.findMany({
       where: {
         OR: [
-          ...variants.flatMap((v) => [
-            { name: { contains: v, mode: "insensitive" as const } },
-            { menu: { contains: v, mode: "insensitive" as const } },
-            { note: { contains: v, mode: "insensitive" as const } },
-          ]),
+          { id: { in: byText.map((r) => r.id) } },
           { code: { equals: text.toUpperCase() } },
           ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
         ],

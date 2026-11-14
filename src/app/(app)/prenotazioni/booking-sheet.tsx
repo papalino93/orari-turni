@@ -348,6 +348,8 @@ export function BookingSheet({
             ) : (
               b.time
             )}
+            {/* Dalle 00 alle 5 è la notte dopo: «Oggi · sabato… 01:00» sembrava l'una di questa mattina. */}
+            {!b.timeUnknown && b.time < "05:00" && b.status !== "PROPOSED" && <span className="ml-1.5 align-middle text-sm font-medium text-foreground-muted">dopo mezzanotte</span>}
             <span className="font-normal text-foreground-muted"> · </span>
             {b.peopleUnknown ? <span className="text-gold">persone da definire</span> : peopleText(b.people)}
           </p>
@@ -415,7 +417,8 @@ export function BookingSheet({
                 <p className="text-sm text-foreground">Lo manda il telefono della sala: gli è arrivato l&apos;avviso. Finché non parte, la trovi in «Richieste» → «Da mandare su WhatsApp».</p>
               ))}
             <div className={`grid gap-2 pt-1 ${next ? "sm:grid-cols-2" : ""}`}>
-              {next && (
+              {/* «Prossima richiesta» solo dopo aver risposto a una richiesta, non dopo un annullamento. */}
+              {next && (result.reply === "confirm" || result.reply === "propose" || result.reply === "decline") && (
                 <button
                   type="button"
                   onClick={() => onOpen(next.id)}
@@ -590,13 +593,26 @@ export function BookingSheet({
 
         {/* Segnata al telefono senza numero: si aggiunge con un tocco. */}
         {!result && b.manual && !b.phone && v === "CONFIRMED" && panel === null && b.day >= today && (
-          <button type="button" disabled={busy} onClick={() => onEdit(b)} className={`${bigBtn} border border-gold/40 bg-gold/10 text-foreground hover:border-accent`}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              // Si apre «Modifica» già sul campo del telefono (non in cima, su persone e ora).
+              try {
+                sessionStorage.setItem("prenotazione-vai-a", "telefono");
+              } catch {
+                /* niente memoria: si apre in cima */
+              }
+              onEdit(b);
+            }}
+            className={`${bigBtn} border border-gold/40 bg-gold/10 text-foreground hover:border-accent`}
+          >
             Aggiungi il numero
           </button>
         )}
 
         {/* Già gestita: rimandare il messaggio, arrivi, annullare */}
-        {!result && v === "CONFIRMED" && panel === null && b.day >= today && !incomplete && (
+        {!result && v === "CONFIRMED" && panel === null && b.day >= today && !incomplete && !b.noShowAt && (
           <button type="button" disabled={busy} onClick={() => onEdit(b)} className={`${bigBtn} border border-border text-foreground hover:border-accent`}>
             <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
@@ -607,7 +623,7 @@ export function BookingSheet({
 
         {!result && v !== "PENDING" && (
           <div className="space-y-2">
-            {b.handledBy && b.handledAt && (v === "CONFIRMED" || v === "PROPOSED" || v === "DECLINED" || (v === "CANCELLED" && b.cancelledBy === "locale")) && (
+            {!b.manual && b.handledBy && b.handledAt && (v === "CONFIRMED" || v === "PROPOSED" || v === "DECLINED" || (v === "CANCELLED" && b.cancelledBy === "locale")) && (
               <p className="text-sm text-foreground-muted">
                 Risposta di {b.handledBy}, {whenText(b.handledAt, today)}.
                 {b.staffMessage ? ` «${b.staffMessage}»` : ""}
@@ -625,7 +641,7 @@ export function BookingSheet({
                   </>
                 ) : (
                   <p className="text-sm text-foreground-muted">
-                    La risposta su WhatsApp la manda il telefono enoteca{b.waClaimBy && b.waClaimAt && now - b.waClaimAt < 5 * 60000 ? ` (in invio da ${b.waClaimBy})` : ""}.
+                    La risposta su WhatsApp la manda il telefono della sala{b.waClaimBy && b.waClaimAt && now - b.waClaimAt < 5 * 60000 ? ` (in invio da ${b.waClaimBy})` : ""}.
                   </p>
                 )}
                 <button
@@ -639,7 +655,8 @@ export function BookingSheet({
               </div>
             )}
 
-            {v === "CONFIRMED" && b.day <= today && (
+            {/* Mentre si annulla (o si risponde) restano solo quelle scelte: niente «Segna arrivati» o WhatsApp sotto. */}
+            {v === "CONFIRMED" && b.day <= today && panel === null && (
               <div className="grid grid-cols-2 gap-2">
                 {b.arrivedAt || b.noShowAt ? (
                   <button type="button" disabled={busy} onClick={() => arrival(null)} className={`${bigBtn} col-span-2 border border-border text-foreground-muted hover:text-foreground`}>
@@ -667,7 +684,7 @@ export function BookingSheet({
                 La conferma su WhatsApp si manda quando ora e persone sono decise: così il cliente non riceve un orario sbagliato.
               </p>
             )}
-            {b.manual && v === "CONFIRMED" && !incomplete && !pendingWa && !confirmationSent(b) && b.phone && b.startsAt > now && resendHref("confirmed") && (
+            {b.manual && v === "CONFIRMED" && panel === null && !b.arrivedAt && !b.noShowAt && !incomplete && !pendingWa && !confirmationSent(b) && b.phone && b.startsAt > now && resendHref("confirmed") && (
               <div className="space-y-1.5 rounded-xl border border-border p-3">
                 {canWhatsapp ? (
                   <WhatsappButton href={resendHref("confirmed")!} bookingId={b.id} label="Manda la conferma su WhatsApp" compact onOpened={() => onWaOpened(b.id, "confirmed")} />
@@ -680,7 +697,7 @@ export function BookingSheet({
               </div>
             )}
 
-            {canWhatsapp && !pendingWa && !(b.manual && !confirmationSent(b)) && !(v === "CONFIRMED" && incomplete) && (v === "CONFIRMED" || v === "PROPOSED" || v === "DECLINED") && resendHref(v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined") && (
+            {canWhatsapp && panel === null && !pendingWa && !(b.manual && !confirmationSent(b)) && !(v === "CONFIRMED" && incomplete) && (v === "CONFIRMED" || v === "PROPOSED" || v === "DECLINED") && resendHref(v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined") && (
               <details className="rounded-xl px-3 py-2 ring-1 ring-inset ring-border">
                 <summary className="flex min-h-9 cursor-pointer items-center gap-2 text-sm font-medium text-foreground">
                   <WhatsappIcon className="text-[#137a43] dark:text-[#3fae74]" /> Manda di nuovo: {REPLY_LABEL[v === "CONFIRMED" ? "confirmed" : v === "PROPOSED" ? "proposed" : "declined"].toLowerCase()}
@@ -697,7 +714,7 @@ export function BookingSheet({
               </details>
             )}
 
-            {v === "CONFIRMED" && panel === null && (b.timeUnknown ? b.day >= today : b.startsAt > now - 3 * 3600000) && (
+            {v === "CONFIRMED" && panel === null && !b.noShowAt && (b.timeUnknown ? b.day >= today : b.startsAt > now - 3 * 3600000) && (
               <button type="button" disabled={busy} onClick={() => openPanel("cancel")} className="min-h-11 w-full rounded-xl text-sm font-medium text-danger hover:bg-danger-bg">
                 Annulla la prenotazione
               </button>

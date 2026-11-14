@@ -311,7 +311,8 @@ export const MANUAL_SOURCES = ["telefono", "whatsapp", "persona"] as const;
 export type ManualSource = (typeof MANUAL_SOURCES)[number];
 
 // Solo le provenienze del sito: un cliente non può dichiararsi «telefono» o «di persona».
-const ONLINE_SOURCES = ["google", "instagram", "facebook", "menu", "evento", "altro"];
+// «whatsapp-profilo»: il link nel profilo WhatsApp dell'enoteca (/wa).
+const ONLINE_SOURCES = ["google", "instagram", "facebook", "whatsapp-profilo", "menu", "evento", "altro"];
 export function normalizeSource(v: unknown): string {
   return typeof v === "string" && ONLINE_SOURCES.includes(v) ? v : "altro";
 }

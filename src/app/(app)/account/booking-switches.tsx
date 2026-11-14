@@ -17,7 +17,7 @@ import { Switch } from "../prenotazioni/device";
 
 type Which = "agenda" | "online";
 
-export function BookingSwitches({ agendaEnabled, enabled, pending, hasVenueDevice }: { agendaEnabled: boolean; enabled: boolean; pending: number; hasVenueDevice: boolean }) {
+export function BookingSwitches({ agendaEnabled, enabled, pending, hasVenueDevice, hasPush = false }: { agendaEnabled: boolean; enabled: boolean; pending: number; hasVenueDevice: boolean; hasPush?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -142,7 +142,7 @@ export function BookingSwitches({ agendaEnabled, enabled, pending, hasVenueDevic
                   {hasVenueDevice ? "C'è il telefono dell'enoteca" : "Il telefono dell'enoteca (Dipendenti → «+ Telefono dell'enoteca»): da lì si risponde su WhatsApp"}
                 </li>
                 <li className="flex gap-2">
-                  <Mark done={false} />
+                  <Mark done={hasPush} />
                   Gli avvisi accesi sul telefono che risponde (Prenotazioni → ⋯ → «Avvisi su questo telefono» → «Prova un avviso»)
                 </li>
                 <li className="flex gap-2">

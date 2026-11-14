@@ -146,6 +146,23 @@ export function BookingForm({
   useEffect(() => {
     if (conflict) conflictRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [conflict]);
+  // «Aggiungi il numero» (dalla scheda): la modifica si apre già sul campo del telefono.
+  useEffect(() => {
+    let go: string | null = null;
+    try {
+      go = sessionStorage.getItem("prenotazione-vai-a");
+      sessionStorage.removeItem("prenotazione-vai-a");
+    } catch {
+      /* niente memoria */
+    }
+    if (go !== "telefono") return;
+    const t = window.setTimeout(() => {
+      const el = document.getElementById("prenotazione-telefono");
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      (el as HTMLInputElement | null)?.focus({ preventScroll: true });
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, []);
   // Un errore dopo «Segna in agenda» (es. «Scrivi il nome.»): sul telefono finiva fuori schermo e il
   // pulsante sembrava non fare niente. Si porta in vista il campo sbagliato (o il messaggio).
   useEffect(() => {
@@ -536,7 +553,7 @@ export function BookingForm({
 
         <label className="block">
           <span className={fieldLabel}>Telefono{booking && booking.phone ? "" : " (facoltativo)"}</span>
-          <input value={f.phone} onChange={(e) => set("phone", e.target.value)} maxLength={40} type="tel" inputMode="tel" autoComplete="off" placeholder="es. 333 123 4567" className={inputClass} aria-invalid={errors?.field === "phone" || undefined} />
+          <input id="prenotazione-telefono" value={f.phone} onChange={(e) => set("phone", e.target.value)} maxLength={40} type="tel" inputMode="tel" autoComplete="off" placeholder="es. 333 123 4567" className={inputClass} aria-invalid={errors?.field === "phone" || undefined} />
           {err("phone") ?? <span className="mt-1 block text-xs text-foreground-muted">Con il numero puoi mandare la conferma su WhatsApp e avvisare se cambia qualcosa. Si può aggiungere dopo.</span>}
         </label>
 
@@ -602,7 +619,7 @@ export function BookingForm({
         )}
 
         {/* Su telefono il pulsante per salvare resta sempre in vista, in una barra in fondo al foglio. */}
-        <div className="sticky bottom-0 z-10 -mx-5 flex gap-2 border-t border-border bg-surface px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
+        <div className="sticky bottom-[calc(-1.25rem-env(safe-area-inset-bottom))] z-10 mb-[calc(-1.25rem-env(safe-area-inset-bottom))] -mx-5 flex gap-2 border-t border-border bg-surface px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:mb-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
           <button type="button" onClick={onClose} className="min-h-12 shrink-0 rounded-full border border-border px-5 text-sm font-medium text-foreground-muted hover:text-foreground sm:min-h-11">
             Annulla
           </button>

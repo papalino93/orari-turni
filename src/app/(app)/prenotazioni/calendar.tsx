@@ -383,6 +383,9 @@ function monthEmpty(data: AgendaData, from: string, to: string, anchor: string) 
   return !daysBetween(from, to).some((d) => inMonth(d, anchor) && ((data.summary[d]?.count ?? 0) > 0 || (data.summary[d]?.pending ?? 0) > 0));
 }
 
+// Persone di un giorno con quelle «da definire»: «12», «12 + ?», o «?» se non se ne sa nessuna (mai «0»).
+const peopleSum = (s: { people: number; peopleUnknown: number }) => (s.peopleUnknown ? (s.people ? `${s.people} + ?` : "?") : `${s.people}`);
+
 export function PeriodEmpty({ what, past, onNew, onImport }: { what: "day" | "today" | "week" | "month"; past: boolean; onNew: () => void; onImport?: () => void }) {
   const title = {
     day: "Nessuna prenotazione in questo giorno",
@@ -552,7 +555,7 @@ function WeekView({
                     </span>
                   ))}
                   <span className="flex flex-wrap items-baseline gap-x-2 text-sm text-foreground">
-                    <span className="font-semibold tabular-nums">{sum.count ? `${sum.count} pren. · ${sum.people} pers.` : "Nessuna prenotazione"}</span>
+                    <span className="font-semibold tabular-nums">{sum.count ? `${sum.count} pren. · ${peopleSum(sum)} pers.` : "Nessuna prenotazione"}</span>
                     {sum.pending > 0 && <span className="text-xs font-semibold text-gold">+{sum.pending} da confermare</span>}
                     {sum.incomplete > 0 && <span className="text-xs font-semibold text-gold">{sum.incomplete} da completare</span>}
                   </span>
@@ -632,7 +635,7 @@ function WeekView({
                   <span className="flex flex-col gap-0.5 text-[12px] tabular-nums">
                     {sum.count ? (
                       <span className="whitespace-nowrap font-semibold text-foreground">
-                        {sum.count} · {sum.people} <span className="xl:hidden">p.</span>
+                        {sum.count} · {peopleSum(sum)} <span className="xl:hidden">p.</span>
                         <span className="max-xl:hidden">pers.</span>
                       </span>
                     ) : (
@@ -760,7 +763,7 @@ function MonthView({
                     <span className="text-[11px] leading-tight tabular-nums text-foreground sm:text-[12px]">
                       <span className="font-semibold">{sum.count}</span>
                       <span className="text-foreground-muted max-sm:hidden"> · </span>
-                      <span className="text-foreground-muted max-sm:block">{sum.people} p.</span>
+                      <span className="text-foreground-muted max-sm:block">{peopleSum(sum)} p.</span>
                     </span>
                   ) : null}
                   {sum.pending > 0 && (

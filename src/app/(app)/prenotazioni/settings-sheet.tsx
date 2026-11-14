@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ConfirmSheet } from "@/components/confirm-sheet";
 import { useRouter } from "next/navigation";
 import { runWithToast, showActionError, useToast } from "@/components/toast";
 import { Field, Sheet, inputClass } from "../gestione-menu/sheet";
@@ -237,13 +238,13 @@ export function SettingsSheet({
         </section>
 
         <section className="space-y-3 rounded-xl border border-border p-4">
-          <h3 className="text-sm font-semibold text-foreground">Instagram e Facebook</h3>
+          <h3 className="text-sm font-semibold text-foreground">Instagram, Facebook e WhatsApp</h3>
           <p className="text-sm text-foreground-muted">
             Ogni link ha il suo segno: nelle richieste vedi «da Instagram» o «da Facebook» e capisci da dove arrivano i clienti.
           </p>
           {SOCIAL_LINKS.map((s) => {
             // Link brevi: /ig e /fb (portano al modulo con la provenienza giusta).
-            const link = googleLink.replace(/\/g$/, s.source === "instagram" ? "/ig" : "/fb");
+            const link = googleLink.replace(/\/g$/, SHORT[s.source]);
             return (
               <div key={s.source} className="space-y-1.5">
                 <p className="text-sm font-medium text-foreground">{s.title}</p>
@@ -266,7 +267,9 @@ export function SettingsSheet({
 const SOCIAL_LINKS = [
   { source: "instagram", title: "Link nella bio di Instagram", hint: "Profilo → «Modifica profilo» → «Link» → «Aggiungi link esterno»: incolla, come titolo «Prenota un tavolo»." },
   { source: "facebook", title: "Pulsante «Prenota» su Facebook", hint: "Pagina → «Modifica» sul pulsante blu → «Prenota ora» → «Link a sito web»: incolla e salva." },
+  { source: "whatsapp-profilo", title: "Profilo WhatsApp dell'enoteca", hint: "Sul telefono della sala, WhatsApp Business → Impostazioni → Strumenti per l'attività → Profilo dell'attività → «Sito web»: incolla e salva." },
 ];
+const SHORT: Record<string, string> = { instagram: "/ig", facebook: "/fb", "whatsapp-profilo": "/wa" };
 
 // «Telefoni che ricevono gli avvisi»: un telefono perso o passato a un altro si toglie da qui.
 function PushDevices({ devices }: { devices: PushDevice[] }) {
@@ -275,6 +278,13 @@ function PushDevices({ devices }: { devices: PushDevice[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [gone, setGone] = useState<string[]>([]);
   const list = devices.filter((d) => !gone.includes(d.id));
+  // «Togli» chiede prima: un telefono tolto per sbaglio si riaccende solo avendolo in mano.
+  const [askRemove, setAskRemove] = useState<PushDevice | null>(null);
+  // «questo telefono»: l'iscrizione di questo apparecchio, per riconoscerlo nell'elenco.
+  const [mine, setMine] = useState<string | null>(null);
+  useEffect(() => {
+    navigator.serviceWorker?.getRegistration().then((r) => r?.pushManager.getSubscription()).then((sub) => setMine(sub?.endpoint ?? null)).catch(() => {});
+  }, []);
   async function remove(d: PushDevice) {
     setBusy(d.id);
     const ok = await runWithToast(toast, () => removePushDevice(d.id), `Avvisi tolti: ${d.kind} di ${d.who}`);
@@ -293,7 +303,7 @@ function PushDevices({ devices }: { devices: PushDevice[] }) {
       if (!res.ok) return toast.showError(res.error);
       const { sent, failed, total } = res.data;
       if (sent === total)
-        toast.showSuccess(`Avviso di prova mandato ${target === "all" ? `a ${total === 1 ? "1 telefono" : `${total} telefoni`}` : `a ${label}`}: deve arrivare entro qualche secondo.`);
+        toast.showSuccess(`Avviso di prova mandato ${target === "all" ? `a ${total === 1 ? "1 telefono" : `${total} telefoni`}` : `${/^[aeiouAEIOU]/.test(label) ? "ad" : "a"} ${label}`}: deve arrivare entro qualche secondo.`);
       else if (sent > 0) toast.showError(`Arrivato a ${sent} su ${total}. Sugli altri gli avvisi vanno riaccesi da quel telefono (⋯ → «Avvisi su questo telefono»).`);
       else toast.showError(`Non è partito${failed ? "" : " niente"}: su ${target === "all" ? "quei telefoni" : "quel telefono"} gli avvisi vanno riaccesi (⋯ → «Avvisi su questo telefono» → «Attiva gli avvisi»).`);
       router.refresh();
@@ -332,6 +342,7 @@ function PushDevices({ devices }: { devices: PushDevice[] }) {
               <span className="min-w-0 flex-1 basis-40">
                 <span className="block text-sm font-medium text-foreground [overflow-wrap:anywhere]">
                   {d.who}
+                  {mine === d.endpoint && <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-surface-2 px-2 py-0.5 align-middle text-[11px] font-semibold text-foreground-muted ring-1 ring-inset ring-border">questo telefono</span>}
                   {d.venue && <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-accent/10 px-2 py-0.5 align-middle text-[11px] font-semibold text-accent-ink">in sala</span>}
                 </span>
                 <span className="block text-xs text-foreground-muted">
@@ -351,7 +362,7 @@ function PushDevices({ devices }: { devices: PushDevice[] }) {
               <button
                 type="button"
                 disabled={busy === d.id}
-                onClick={() => remove(d)}
+                onClick={() => setAskRemove(d)}
                 aria-label={`Togli gli avvisi: ${d.kind} di ${d.who}`}
                 className="min-h-10 shrink-0 rounded-full px-3.5 text-sm font-medium text-danger ring-1 ring-inset ring-danger/30 hover:bg-danger-bg disabled:opacity-60"
               >
@@ -366,6 +377,22 @@ function PushDevices({ devices }: { devices: PushDevice[] }) {
         <button type="button" disabled={busy !== null} onClick={() => test("all", "")} className="min-h-10 w-full rounded-full text-sm font-medium text-accent-ink ring-1 ring-inset ring-border hover:ring-accent disabled:opacity-60">
           {busy === "t:all" ? "Mando…" : "Prova su tutti i telefoni"}
         </button>
+      )}
+      {askRemove && (
+        <ConfirmSheet
+          title={`Togliere gli avvisi a ${askRemove.who}?`}
+          confirmLabel="Togli gli avvisi"
+          danger
+          busy={busy === askRemove.id}
+          onConfirm={async () => {
+            const d = askRemove;
+            setAskRemove(null);
+            await remove(d);
+          }}
+          onCancel={() => setAskRemove(null)}
+        >
+          <p>{askRemove.kind} di {askRemove.who}: non riceverà più gli avvisi. Per riaccenderli serve quel telefono in mano (⋯ → «Avvisi su questo telefono»).</p>
+        </ConfirmSheet>
       )}
       <p className="text-xs text-foreground-muted">
         Se «Prova» dice che l&apos;avviso è partito ma sul telefono non compare: sull&apos;iPhone il sito va aperto dall&apos;icona sulla schermata Home; controlla poi che le notifiche del sito siano permesse e che non sia attivo «Non disturbare».

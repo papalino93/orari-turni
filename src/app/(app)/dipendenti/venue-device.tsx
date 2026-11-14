@@ -84,11 +84,11 @@ export function HowToConnect({ username, password, onClose }: { username: string
       ?.writeText(value)
       .then(() => toast.showSuccess(`${what} copiato`))
       .catch(() => toast.showError("Non riesco a copiare: scrivilo a mano."));
-  const row = (label: string, value: string) => (
+  const row = (label: string, value: string, key: string) => (
     <div className="flex items-center justify-between gap-3 px-3 py-2.5">
       <div className="min-w-0">
         <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">{label}</p>
-        <p className="font-mono text-base font-semibold text-foreground [overflow-wrap:anywhere]" data-testid={`collega-${label.toLowerCase()}`}>
+        <p className="font-mono text-base font-semibold text-foreground [overflow-wrap:anywhere]" data-testid={`collega-${key}`}>
           {value}
         </p>
       </div>
@@ -102,12 +102,12 @@ export function HowToConnect({ username, password, onClose }: { username: string
       <div className="space-y-4" data-testid="come-collegarlo">
         <p className="text-sm text-foreground">Il telefono dell&apos;enoteca è pronto. Ecco con che cosa entra:</p>
         <div className="divide-y divide-border rounded-xl ring-1 ring-inset ring-border">
-          {row("Username", username)}
-          {row("Password", password)}
+          {row("Nome utente", username, "username")}
+          {row("Password", password, "password")}
         </div>
         <ol className="space-y-2.5 text-sm text-foreground">
           {[
-            "Sul telefono della sala apri orari-turni.vercel.app ed entra con username e password.",
+            "Sul telefono della sala apri orari-turni.vercel.app ed entra con nome utente e password.",
             "Aggiungilo alla schermata Home (su iPhone: Condividi → «Aggiungi alla schermata Home») e aprilo da lì.",
             "Apri Prenotazioni, tocca ⋯ → «Avvisi su questo telefono» e accendili: arrivano le nuove richieste e i WhatsApp da mandare.",
           ].map((t, i) => (
@@ -156,6 +156,8 @@ export function VenueDeviceCard({ device }: { device: VenueRow }) {
   const [pending, start] = useTransition();
   const [askMenu, setAskMenu] = useState(false);
   const [askDelete, setAskDelete] = useState(false);
+  // «Come collegarlo» si riapre quando serve (prima si vedeva solo appena creato il telefono).
+  const [howTo, setHowTo] = useState(false);
   const router = useRouter();
   const toast = useToast();
   const run = (fn: () => Promise<unknown>, ok: string) =>
@@ -171,11 +173,17 @@ export function VenueDeviceCard({ device }: { device: VenueRow }) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">{device.name}</p>
-          <p className="text-xs text-foreground-muted">Telefono enoteca · solo prenotazioni</p>
+          <p className="text-xs text-foreground-muted">Il telefono in sala · solo prenotazioni</p>
         </div>
       </div>
       <EmployeeCredentials employeeId={device.id} username={device.username} password={device.password} />
       <p className="border-t border-border px-4 py-2 text-[11px] text-foreground-muted">Se il telefono si perde: «Nuova password» qui sopra, e il vecchio accesso smette di funzionare.</p>
+      <div className="border-t border-border px-4 py-2">
+        <button type="button" onClick={() => setHowTo(true)} className="min-h-10 text-sm font-semibold text-accent-ink hover:underline">
+          Come collegarlo ›
+        </button>
+      </div>
+      {howTo && <HowToConnect username={device.username ?? ""} password={device.password ?? "(scelta da te: se non la ricordi, «Nuova password»)"} onClose={() => setHowTo(false)} />}
       <Toggle
         on={device.canManageBookings}
         label="Può gestire le prenotazioni"

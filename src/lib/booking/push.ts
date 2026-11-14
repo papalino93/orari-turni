@@ -124,7 +124,7 @@ export function deviceKind(userAgent: string | null | undefined): string {
   return "Apparecchio";
 }
 
-export type PushDevice = { id: string; who: string; kind: string; venue: boolean; lastUsed: number | null; createdAt: number };
+export type PushDevice = { id: string; who: string; kind: string; venue: boolean; lastUsed: number | null; createdAt: number; endpoint: string };
 
 // «Telefoni che ricevono gli avvisi» (Impostazioni, solo titolare e consulente).
 export async function listPushDevices(): Promise<PushDevice[]> {
@@ -142,6 +142,10 @@ export async function listPushDevices(): Promise<PushDevice[]> {
       venue: Boolean(s.employee?.isVenueDevice),
       lastUsed: (s.lastOkAt ?? null)?.getTime() ?? null,
       createdAt: s.createdAt.getTime(),
+      // Per riconoscere «questo telefono» nell'elenco (pagina solo del titolare e del consulente).
+      endpoint: s.endpoint,
     }))
-    .sort((a, b) => Number(b.venue) - Number(a.venue) || (b.lastUsed ?? b.createdAt) - (a.lastUsed ?? a.createdAt));
+    // Ordine fisso (sala prima, poi dal più vecchio): dopo «Prova» le righe non saltano più di posto,
+    // e il tocco dopo non finisce su «Togli» di un altro telefono.
+    .sort((a, b) => Number(b.venue) - Number(a.venue) || a.createdAt - b.createdAt);
 }

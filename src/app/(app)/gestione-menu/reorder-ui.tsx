@@ -285,7 +285,7 @@ export function ReorderSheet({
       )}
 
       {/* Margine sotto anche sopra la barra di iPhone (come «Salva» nella scheda della voce). */}
-      <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap gap-2 -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-6">
+      <div className="sticky bottom-[calc(-1.25rem-env(safe-area-inset-bottom))] z-10 mb-[calc(-1.25rem-env(safe-area-inset-bottom))] mt-4 flex flex-wrap gap-2 -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-6">
         {isWineGroup && rows.length > 1 && (
           <button
             type="button"
