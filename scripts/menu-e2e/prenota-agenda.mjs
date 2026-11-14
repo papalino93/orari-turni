@@ -650,7 +650,9 @@ try {
   }
   // Doppione: stesso nome lo stesso giorno → «C'è già … è la stessa?»
   {
-    const d = await fillNew(A, { name: "prova agenda rossi", people: 2, day: D1.day, time: "21:30" });
+    // Un orario dentro l'apertura di D1 (non sempre fino alle 22: la domenica si chiude alle 21) e diverso dalle 20:00.
+    const dupTime = [...D1.slots].reverse().find((t) => t !== "20:00") ?? "21:30";
+    const d = await fillNew(A, { name: "prova agenda rossi", people: 2, day: D1.day, time: dupTime });
     const r = await saveNew(A, d, { confirm: false });
     check("doppione: «C'è già Prova Agenda Rossi … alle 20:00 (4 persone): è la stessa?» con «È un'altra, segna lo stesso»", r.outcome === "warn" && /C'è già Prova Agenda Rossi \S+ alle 20:00 \(4 persone\): è la stessa\?/.test(r.warnText) && /È un'altra, segna lo stesso/.test(r.warnText), r.warnText);
     await shot(A, "doppione");

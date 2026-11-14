@@ -272,10 +272,12 @@ function PeriodsLayout({
 
   // Mattina e Pomeriggio si chiudono con un tocco sul loro nome (per vedere l'altro senza scorrere).
   // La scelta resta su questo dispositivo.
-  const [folded, setFolded] = useState<Period[]>([]);
+  // La prima volta la Mattina è chiusa (di solito si guarda il pomeriggio); poi vale la scelta di
+  // ognuno, ricordata su quel telefono o computer: chi la lascia aperta la ritrova aperta.
+  const [folded, setFolded] = useState<Period[]>(["mattina"]);
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem("orari-fasce-chiuse") ?? "[]");
+      const saved = JSON.parse(localStorage.getItem("orari-fasce-chiuse") ?? '["mattina"]');
       // eslint-disable-next-line react-hooks/set-state-in-effect -- preferenza letta una volta dopo il caricamento
       if (Array.isArray(saved)) setFolded(PERIODS.filter((p) => saved.includes(p)));
     } catch {}

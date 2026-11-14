@@ -567,7 +567,7 @@ try {
   check("telefono del cliente tocca-per-chiamare nella riga", /^tel:\+39/.test((await callLink.getAttribute("href")) ?? ""));
   const arr = row1.getByRole("button", { name: "Segna arrivati: Prova C Tavolo arrivato" });
   const arrBox = await arr.boundingBox();
-  check("«✓» arrivati: tondo di 44 px nella riga", Math.round(arrBox?.width ?? 0) === 44 && Math.round(arrBox?.height ?? 0) === 44, JSON.stringify(arrBox));
+  check("«Arrivati?»: pulsante con la scritta, almeno 44 px", Math.round(arrBox?.width ?? 0) >= 44 && Math.round(arrBox?.height ?? 0) >= 44, JSON.stringify(arrBox));
   await shot(A, "stasera");
   await arr.click();
   check("«✓ Arrivati»: segnato", await waitDb(() => DB(`select "arrivedAt" is not null from "BookingRequest" where id='${t1.id}'`) === "t"));
