@@ -18,6 +18,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "La tua richiesta — L'Angolo del Vino",
+  // L'anteprima nel WhatsApp al cliente: «La tua prenotazione», non «Carta dei vini e Menù».
+  openGraph: { title: "La tua prenotazione · L'Angolo del Vino", description: "Qui vedi a che punto è e, se serve, puoi annullare." },
   robots: { index: false, follow: false },
   // Il link è la chiave della pagina: non lo si passa ad altri siti.
   referrer: "no-referrer",
