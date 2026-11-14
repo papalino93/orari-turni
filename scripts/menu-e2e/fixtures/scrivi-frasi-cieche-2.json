@@ -1,0 +1,6692 @@
+[
+ {
+  "id": 1,
+  "kind": "scritta",
+  "text": "Rossi 4 pers sab 20:30",
+  "expect": {
+   "name": "Rossi",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 2,
+  "kind": "scritta",
+  "text": "bianchi x2 stasera h21",
+  "expect": {
+   "name": "Bianchi",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 3,
+  "kind": "scritta",
+  "text": "Esposito, 6 persone, domani ore 20, cell 3331234567",
+  "expect": {
+   "name": "Esposito",
+   "people": 6,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": "333 123 4567",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 4,
+  "kind": "scritta",
+  "text": "tav 5 Greco 3 pax domenica 19.30",
+  "expect": {
+   "name": "Greco",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "19:30",
+   "phone": null,
+   "table": "5",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 5,
+  "kind": "scritta",
+  "text": "De Luca in 4 giovedì alle 8",
+  "expect": {
+   "name": "De Luca",
+   "people": 4,
+   "day": "2026-11-19",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 6,
+  "kind": "scritta",
+  "text": "Mancini tavolo per 2 venerdì 20 alle 21",
+  "expect": {
+   "name": "Mancini",
+   "people": 2,
+   "day": "2026-11-20",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 7,
+  "kind": "scritta",
+  "text": "costa 5 persone mercoledì 18 ore 19",
+  "expect": {
+   "name": "Costa",
+   "people": 5,
+   "day": "2026-11-18",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 8,
+  "kind": "scritta",
+  "text": "Giordano x4 lun 20.15",
+  "expect": {
+   "name": "Giordano",
+   "people": 4,
+   "day": "2026-11-16",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 9,
+  "kind": "scritta",
+  "text": "rizzo 2 pax mar 18:30 tel 347 528 1990",
+  "expect": {
+   "name": "Rizzo",
+   "people": 2,
+   "day": "2026-11-17",
+   "time": "18:30",
+   "phone": "347 528 1990",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 10,
+  "kind": "scritta",
+  "text": "Lombardi famiglia 2 adulti e 2 bambini sabato pranzo 12:30",
+  "expect": {
+   "name": "Lombardi",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 11,
+  "kind": "scritta",
+  "text": "Moretti 8 persone sab 21/11 h 20:30 menù da 35 €",
+  "expect": {
+   "name": "Moretti",
+   "people": 8,
+   "day": "2026-11-21",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 35 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 12,
+  "kind": "scritta",
+  "text": "barbieri - 3 - domani - 21:00",
+  "expect": {
+   "name": "Barbieri",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 13,
+  "kind": "scritta",
+  "text": "Fontana in 2 stasera alle 9 tav 7",
+  "expect": {
+   "name": "Fontana",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": "7",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 14,
+  "kind": "scritta",
+  "text": "Santoro 10 pers 3/12 ore 20 menu 25 euro",
+  "expect": {
+   "name": "Santoro",
+   "people": 10,
+   "day": "2026-12-03",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 15,
+  "kind": "scritta",
+  "text": "MARIANI 4 SABATO 20.30",
+  "expect": {
+   "name": "Mariani",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 16,
+  "kind": "scritta",
+  "text": "Rinaldi x6 gio 26 ore 20",
+  "expect": {
+   "name": "Rinaldi",
+   "people": 6,
+   "day": "2026-11-26",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 17,
+  "kind": "scritta",
+  "text": "caruso 2 persone oggi h18 tel 055 7221234",
+  "expect": {
+   "name": "Caruso",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "18:00",
+   "phone": "0557221234",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 18,
+  "kind": "scritta",
+  "text": "Ferrara, una coppia, domenica alle 7",
+  "expect": {
+   "name": "Ferrara",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 19,
+  "kind": "scritta",
+  "text": "Galli 5 pax mer h 19:45, uno celiaco",
+  "expect": {
+   "name": "Galli",
+   "people": 5,
+   "day": "2026-11-18",
+   "time": "19:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "celiaco"
+  }
+ },
+ {
+  "id": 20,
+  "kind": "scritta",
+  "text": "Martini 3 ven 20 h20:30",
+  "expect": {
+   "name": "Martini",
+   "people": 3,
+   "day": "2026-11-20",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 21,
+  "kind": "scritta",
+  "text": "Leone tav 12 x8 sabato 28 alle 20",
+  "expect": {
+   "name": "Leone",
+   "people": 8,
+   "day": "2026-11-28",
+   "time": "20:00",
+   "phone": null,
+   "table": "12",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 22,
+  "kind": "scritta",
+  "text": "longo 2 dopodomani 19:30",
+  "expect": {
+   "name": "Longo",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 23,
+  "kind": "scritta",
+  "text": "Gentile 4 persone il 3 alle 8 e mezza",
+  "expect": {
+   "name": "Gentile",
+   "people": 4,
+   "day": "2026-12-03",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 24,
+  "kind": "scritta",
+  "text": "Martinelli 7 pers 5 dicembre ore 21 menù 40€",
+  "expect": {
+   "name": "Martinelli",
+   "people": 7,
+   "day": "2026-12-05",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 40 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 25,
+  "kind": "scritta",
+  "text": "Vitale x3 lunedì 16 h 18",
+  "expect": {
+   "name": "Vitale",
+   "people": 3,
+   "day": "2026-11-16",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 26,
+  "kind": "scritta",
+  "text": "Serra 2 sab 12:00 pranzo tel +39 338 4417721",
+  "expect": {
+   "name": "Serra",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "12:00",
+   "phone": "338 441 7721",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 27,
+  "kind": "scritta",
+  "text": "Coppola in 6 domani 20:30 allergia noci",
+  "expect": {
+   "name": "Coppola",
+   "people": 6,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "noci"
+  }
+ },
+ {
+  "id": 28,
+  "kind": "scritta",
+  "text": "De Santis 4 martedì h 19 compleanno",
+  "expect": {
+   "name": "De Santis",
+   "people": 4,
+   "day": "2026-11-17",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "compleanno"
+  }
+ },
+ {
+  "id": 29,
+  "kind": "scritta",
+  "text": "d'angelo x2 oggi 21:15",
+  "expect": {
+   "name": "D'Angelo",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 30,
+  "kind": "scritta",
+  "text": "Marchetti 12 persone sab 5/12 h20 menu da 30 euro",
+  "expect": {
+   "name": "Marchetti",
+   "people": 12,
+   "day": "2026-12-05",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 30 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 31,
+  "kind": "scritta",
+  "text": "Parisi 4 pax t3 stasera 20:00",
+  "expect": {
+   "name": "Parisi",
+   "people": 4,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": "3",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 32,
+  "kind": "scritta",
+  "text": "Villa 2+2 bimbi domenica 18:30",
+  "expect": {
+   "name": "Villa",
+   "people": 4,
+   "day": "2026-11-15",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 33,
+  "kind": "scritta",
+  "text": "conte 5 gio 19 ore 21",
+  "expect": {
+   "name": "Conte",
+   "people": 5,
+   "day": "2026-11-19",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 34,
+  "kind": "scritta",
+  "text": "Ferraro x 4 merc 20:00 tav 9",
+  "expect": {
+   "name": "Ferraro",
+   "people": 4,
+   "day": "2026-11-18",
+   "time": "20:00",
+   "phone": null,
+   "table": "9",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 35,
+  "kind": "scritta",
+  "text": "Ferri e la moglie sabato alle 9",
+  "expect": {
+   "name": "Ferri",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 36,
+  "kind": "scritta",
+  "text": "Fabbri 3 persone 28/11 19.30",
+  "expect": {
+   "name": "Fabbri",
+   "people": 3,
+   "day": "2026-11-28",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 37,
+  "kind": "scritta",
+  "text": "Bianco 4 domenica 29 h 17",
+  "expect": {
+   "name": "Bianco",
+   "people": 4,
+   "day": "2026-11-29",
+   "time": "17:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 38,
+  "kind": "scritta",
+  "text": "Marini, 2, venerdì prossimo, 20:45",
+  "expect": {
+   "name": "Marini",
+   "people": 2,
+   "day": "2026-11-20",
+   "time": "20:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 39,
+  "kind": "scritta",
+  "text": "Grasso 6 pers sab sera 21.00 tel 3409988776",
+  "expect": {
+   "name": "Grasso",
+   "people": 6,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": "340 998 8776",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 40,
+  "kind": "scritta",
+  "text": "Valentini 2 stasera ore 19 tav 4",
+  "expect": {
+   "name": "Valentini",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "19:00",
+   "phone": null,
+   "table": "4",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 41,
+  "kind": "scritta",
+  "text": "Messina 9 persone 12/12 h 20 menù 35 euro",
+  "expect": {
+   "name": "Messina",
+   "people": 9,
+   "day": "2026-12-12",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 35 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 42,
+  "kind": "scritta",
+  "text": "Sala 4 pax giovedì alle 20:30",
+  "expect": {
+   "name": "Sala",
+   "people": 4,
+   "day": "2026-11-19",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 43,
+  "kind": "scritta",
+  "text": "De Angelis 3 domani 12:30 pranzo, intollerante lattosio",
+  "expect": {
+   "name": "De Angelis",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "lattosio"
+  }
+ },
+ {
+  "id": 44,
+  "kind": "scritta",
+  "text": "Gatti x5 lun 23 h19",
+  "expect": {
+   "name": "Gatti",
+   "people": 5,
+   "day": "2026-11-23",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 45,
+  "kind": "scritta",
+  "text": "pellegrini 2 sab 20:30 tav 1",
+  "expect": {
+   "name": "Pellegrini",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": "1",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 46,
+  "kind": "scritta",
+  "text": "Palumbo 4 persone mar 1/12 ore 18:30",
+  "expect": {
+   "name": "Palumbo",
+   "people": 4,
+   "day": "2026-12-01",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 47,
+  "kind": "scritta",
+  "text": "Sanna 2 stasera 21:30 anniversario",
+  "expect": {
+   "name": "Sanna",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "anniversario"
+  }
+ },
+ {
+  "id": 48,
+  "kind": "scritta",
+  "text": "Farina in 3, mer 2/12, h 20",
+  "expect": {
+   "name": "Farina",
+   "people": 3,
+   "day": "2026-12-02",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 49,
+  "kind": "scritta",
+  "text": "Monti 15 pers sab 19/12 h 20 menu 25€ tel 335 600 1122",
+  "expect": {
+   "name": "Monti",
+   "people": 15,
+   "day": "2026-12-19",
+   "time": "20:00",
+   "phone": "335 600 1122",
+   "table": null,
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 50,
+  "kind": "scritta",
+  "text": "cattaneo x2 domenica alle 8",
+  "expect": {
+   "name": "Cattaneo",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 51,
+  "kind": "scritta",
+  "text": "Morelli 4 pax domani pranzo h 11:30",
+  "expect": {
+   "name": "Morelli",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "11:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 52,
+  "kind": "scritta",
+  "text": "Amato 2 persone ven h 20 tel 055/7351890",
+  "expect": {
+   "name": "Amato",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": "0557351890",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 53,
+  "kind": "scritta",
+  "text": "Silvestri 6 sabato 21 ore 20:15",
+  "expect": {
+   "name": "Silvestri",
+   "people": 6,
+   "day": "2026-11-21",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 54,
+  "kind": "scritta",
+  "text": "Mazza 3 oggi pranzo 12:45",
+  "expect": {
+   "name": "Mazza",
+   "people": 3,
+   "day": "2026-11-13",
+   "time": "12:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 55,
+  "kind": "scritta",
+  "text": "testa x4 gio h 21:00 menù da 25 €",
+  "expect": {
+   "name": "Testa",
+   "people": 4,
+   "day": "2026-11-19",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 56,
+  "kind": "scritta",
+  "text": "Grassi 2 domenica 22/11 h 19",
+  "expect": {
+   "name": "Grassi",
+   "people": 2,
+   "day": "2026-11-22",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 57,
+  "kind": "scritta",
+  "text": "Pellegrino 8 pers 4/12 20:30 tav 10",
+  "expect": {
+   "name": "Pellegrino",
+   "people": 8,
+   "day": "2026-12-04",
+   "time": "20:30",
+   "phone": null,
+   "table": "10",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 58,
+  "kind": "scritta",
+  "text": "Carbone in 5 stasera 20:00 una celiaca",
+  "expect": {
+   "name": "Carbone",
+   "people": 5,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "celiaca"
+  }
+ },
+ {
+  "id": 59,
+  "kind": "scritta",
+  "text": "Giuliani 2 mer 25 ore 19:30",
+  "expect": {
+   "name": "Giuliani",
+   "people": 2,
+   "day": "2026-11-25",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 60,
+  "kind": "scritta",
+  "text": "Benedetti 4 domani 20:30 cell. 3289012345",
+  "expect": {
+   "name": "Benedetti",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": "328 901 2345",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 61,
+  "kind": "scritta",
+  "text": "barone x3 lun h 20",
+  "expect": {
+   "name": "Barone",
+   "people": 3,
+   "day": "2026-11-16",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 62,
+  "kind": "scritta",
+  "text": "Rossetti 2 pax martedì 24 alle 7 e mezza",
+  "expect": {
+   "name": "Rossetti",
+   "people": 2,
+   "day": "2026-11-24",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 63,
+  "kind": "scritta",
+  "text": "Caputo 11 persone 10/12 h 20 menù 30 €",
+  "expect": {
+   "name": "Caputo",
+   "people": 11,
+   "day": "2026-12-10",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 30 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 64,
+  "kind": "scritta",
+  "text": "Montanari 4 sab 20:00 seggiolone",
+  "expect": {
+   "name": "Montanari",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "seggiolone"
+  }
+ },
+ {
+  "id": 65,
+  "kind": "scritta",
+  "text": "Guerra 2 stasera 21:45",
+  "expect": {
+   "name": "Guerra",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 66,
+  "kind": "scritta",
+  "text": "Palmieri tav 6 x4 domenica h 18",
+  "expect": {
+   "name": "Palmieri",
+   "people": 4,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": "6",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 67,
+  "kind": "scritta",
+  "text": "Bernardi 3 pers giovedì 3 dicembre 20:30",
+  "expect": {
+   "name": "Bernardi",
+   "people": 3,
+   "day": "2026-12-03",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 68,
+  "kind": "scritta",
+  "text": "Martino 2 venerdì alle 8 e un quarto",
+  "expect": {
+   "name": "Martino",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 69,
+  "kind": "scritta",
+  "text": "Fiore 5 pax sab 28/11 h 21",
+  "expect": {
+   "name": "Fiore",
+   "people": 5,
+   "day": "2026-11-28",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 70,
+  "kind": "scritta",
+  "text": "De Rosa 2 domenica 15 alle 20",
+  "expect": {
+   "name": "De Rosa",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 71,
+  "kind": "scritta",
+  "text": "ferretti 7 domani sera 20:30 menu da 35 euro tel 3497766554",
+  "expect": {
+   "name": "Ferretti",
+   "people": 7,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": "349 776 6554",
+   "table": null,
+   "menu": "Menù da 35 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 72,
+  "kind": "scritta",
+  "text": "Bellini 2 mercoledì h 18:00 tav 2",
+  "expect": {
+   "name": "Bellini",
+   "people": 2,
+   "day": "2026-11-18",
+   "time": "18:00",
+   "phone": null,
+   "table": "2",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 73,
+  "kind": "scritta",
+  "text": "Basile x6 gio 10/12 h 20",
+  "expect": {
+   "name": "Basile",
+   "people": 6,
+   "day": "2026-12-10",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 74,
+  "kind": "scritta",
+  "text": "Riva 4 pers stasera 20.45 tel 055 721 9090",
+  "expect": {
+   "name": "Riva",
+   "people": 4,
+   "day": "2026-11-13",
+   "time": "20:45",
+   "phone": "0557219090",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 75,
+  "kind": "scritta",
+  "text": "Donati 3 lunedì 30 ore 19",
+  "expect": {
+   "name": "Donati",
+   "people": 3,
+   "day": "2026-11-30",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 76,
+  "kind": "scritta",
+  "text": "Piras 2 domani a pranzo h 12",
+  "expect": {
+   "name": "Piras",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "12:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 77,
+  "kind": "scritta",
+  "text": "Vitali 4 pax sab 20:30 allergia crostacei",
+  "expect": {
+   "name": "Vitali",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "crostacei"
+  }
+ },
+ {
+  "id": 78,
+  "kind": "scritta",
+  "text": "Battaglia in 8 il 18 h 20",
+  "expect": {
+   "name": "Battaglia",
+   "people": 8,
+   "day": "2026-11-18",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 79,
+  "kind": "scritta",
+  "text": "Sartori 2 il 27 alle 21",
+  "expect": {
+   "name": "Sartori",
+   "people": 2,
+   "day": "2026-11-27",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 80,
+  "kind": "scritta",
+  "text": "neri 3 domenica h 19:30 tav 8",
+  "expect": {
+   "name": "Neri",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "19:30",
+   "phone": null,
+   "table": "8",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 81,
+  "kind": "scritta",
+  "text": "Costantini 5 mar 17:30",
+  "expect": {
+   "name": "Costantini",
+   "people": 5,
+   "day": "2026-11-17",
+   "time": "17:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 82,
+  "kind": "scritta",
+  "text": "Milani x2 ven 27/11 20:00",
+  "expect": {
+   "name": "Milani",
+   "people": 2,
+   "day": "2026-11-27",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 83,
+  "kind": "scritta",
+  "text": "Pagano 4 persone 6/12 ore 18",
+  "expect": {
+   "name": "Pagano",
+   "people": 4,
+   "day": "2026-12-06",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 84,
+  "kind": "scritta",
+  "text": "Ruggiero 2 oggi 17:00",
+  "expect": {
+   "name": "Ruggiero",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "17:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 85,
+  "kind": "scritta",
+  "text": "Sorrentino 10 pers sab 12/12 h 20:30 menù da 40 € tel 3381122334",
+  "expect": {
+   "name": "Sorrentino",
+   "people": 10,
+   "day": "2026-12-12",
+   "time": "20:30",
+   "phone": "338 112 2334",
+   "table": null,
+   "menu": "Menù da 40 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 86,
+  "kind": "scritta",
+  "text": "D'Amico 2 domani alle 9 tav 3",
+  "expect": {
+   "name": "D'Amico",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": null,
+   "table": "3",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 87,
+  "kind": "scritta",
+  "text": "Orlando 4 mer h 12:30 pranzo",
+  "expect": {
+   "name": "Orlando",
+   "people": 4,
+   "day": "2026-11-18",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 88,
+  "kind": "scritta",
+  "text": "Lo Russo x3 sabato alle 8",
+  "expect": {
+   "name": "Lo Russo",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 89,
+  "kind": "scritta",
+  "text": "La Rosa 2 pax gio 20:15 senza glutine",
+  "expect": {
+   "name": "La Rosa",
+   "people": 2,
+   "day": "2026-11-19",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "glutine"
+  }
+ },
+ {
+  "id": 90,
+  "kind": "scritta",
+  "text": "Di Stefano 6 domenica 6 dicembre h 18:30",
+  "expect": {
+   "name": "Di Stefano",
+   "people": 6,
+   "day": "2026-12-06",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 91,
+  "kind": "scritta",
+  "text": "Del Piero 4 stasera 20:30 tel 3311234098",
+  "expect": {
+   "name": "Del Piero",
+   "people": 4,
+   "day": "2026-11-13",
+   "time": "20:30",
+   "phone": "331 123 4098",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 92,
+  "kind": "scritta",
+  "text": "Dal Molin 2 lun 19:00",
+  "expect": {
+   "name": "Dal Molin",
+   "people": 2,
+   "day": "2026-11-16",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 93,
+  "kind": "scritta",
+  "text": "della valle 5 sab 21/11 ore 21",
+  "expect": {
+   "name": "Della Valle",
+   "people": 5,
+   "day": "2026-11-21",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 94,
+  "kind": "scritta",
+  "text": "Dell'Acqua 3 domani 19.15",
+  "expect": {
+   "name": "Dell'Acqua",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "19:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 95,
+  "kind": "scritta",
+  "text": "Degli Innocenti 4 pers domenica alle 7",
+  "expect": {
+   "name": "Degli Innocenti",
+   "people": 4,
+   "day": "2026-11-15",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 96,
+  "kind": "scritta",
+  "text": "Di Pietro x2 mercoledì 2 dicembre h 20",
+  "expect": {
+   "name": "Di Pietro",
+   "people": 2,
+   "day": "2026-12-02",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 97,
+  "kind": "scritta",
+  "text": "lo bianco 6 persone 8/12 h 20 menu 25",
+  "expect": {
+   "name": "Lo Bianco",
+   "people": 6,
+   "day": "2026-12-08",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 98,
+  "kind": "scritta",
+  "text": "De Marco 2 stasera 18:45",
+  "expect": {
+   "name": "De Marco",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "18:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 99,
+  "kind": "scritta",
+  "text": "Müller 4 Pers sabato 20:00",
+  "expect": {
+   "name": "Müller",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 100,
+  "kind": "scritta",
+  "text": "Smith 2 pax stasera 19:30 inglesi",
+  "expect": {
+   "name": "Smith",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "inglesi"
+  }
+ },
+ {
+  "id": 101,
+  "kind": "scritta",
+  "text": "O'Brien 3 domani h 21",
+  "expect": {
+   "name": "O'Brien",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 102,
+  "kind": "scritta",
+  "text": "Dubois 2 gio 26/11 20.30",
+  "expect": {
+   "name": "Dubois",
+   "people": 2,
+   "day": "2026-11-26",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 103,
+  "kind": "scritta",
+  "text": "García 5 pers domenica h 17:30",
+  "expect": {
+   "name": "García",
+   "people": 5,
+   "day": "2026-11-15",
+   "time": "17:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 104,
+  "kind": "scritta",
+  "text": "Kowalski 4 lunedì alle 8",
+  "expect": {
+   "name": "Kowalski",
+   "people": 4,
+   "day": "2026-11-16",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 105,
+  "kind": "scritta",
+  "text": "Nguyen 2 sab 12:30 pranzo tel 3209988112",
+  "expect": {
+   "name": "Nguyen",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "12:30",
+   "phone": "320 998 8112",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 106,
+  "kind": "scritta",
+  "text": "Chen x6 mar 24/11 h 19",
+  "expect": {
+   "name": "Chen",
+   "people": 6,
+   "day": "2026-11-24",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 107,
+  "kind": "scritta",
+  "text": "Popescu 3 stasera 20:15",
+  "expect": {
+   "name": "Popescu",
+   "people": 3,
+   "day": "2026-11-13",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 108,
+  "kind": "scritta",
+  "text": "Hoxha 4 pax mer 18/11 ore 20",
+  "expect": {
+   "name": "Hoxha",
+   "people": 4,
+   "day": "2026-11-18",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 109,
+  "kind": "scritta",
+  "text": "Yamamoto 2 venerdì prossimo h 19:30",
+  "expect": {
+   "name": "Yamamoto",
+   "people": 2,
+   "day": "2026-11-20",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 110,
+  "kind": "scritta",
+  "text": "Jensen 4 domani 18:00 tav 11",
+  "expect": {
+   "name": "Jensen",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "18:00",
+   "phone": null,
+   "table": "11",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 111,
+  "kind": "scritta",
+  "text": "Petrova 2 domenica 20:30",
+  "expect": {
+   "name": "Petrova",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 112,
+  "kind": "scritta",
+  "text": "Silva 3 gio h 21:15",
+  "expect": {
+   "name": "Silva",
+   "people": 3,
+   "day": "2026-11-19",
+   "time": "21:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 113,
+  "kind": "scritta",
+  "text": "Ben Ali 5 pers sab 28 ore 20",
+  "expect": {
+   "name": "Ben Ali",
+   "people": 5,
+   "day": "2026-11-28",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 114,
+  "kind": "scritta",
+  "text": "Singh 2 lun 16/11 ore 18.30",
+  "expect": {
+   "name": "Singh",
+   "people": 2,
+   "day": "2026-11-16",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 115,
+  "kind": "scritta",
+  "text": "Murphy 8 pax 11/12 h 20 menù da 35 €",
+  "expect": {
+   "name": "Murphy",
+   "people": 8,
+   "day": "2026-12-11",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 35 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 116,
+  "kind": "scritta",
+  "text": "Svensson 2 oggi 12:15",
+  "expect": {
+   "name": "Svensson",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "12:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 117,
+  "kind": "scritta",
+  "text": "Van Dijk 4 domani alle 8 e mezza",
+  "expect": {
+   "name": "Van Dijk",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 118,
+  "kind": "scritta",
+  "text": "Horvath 3 pers dopodomani h 19",
+  "expect": {
+   "name": "Horvath",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 119,
+  "kind": "scritta",
+  "text": "Okafor 2 mer h 20:45",
+  "expect": {
+   "name": "Okafor",
+   "people": 2,
+   "day": "2026-11-18",
+   "time": "20:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 120,
+  "kind": "scritta",
+  "text": "Rodríguez 6 sab 19/12 ore 21",
+  "expect": {
+   "name": "Rodríguez",
+   "people": 6,
+   "day": "2026-12-19",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 121,
+  "kind": "scritta",
+  "text": "Kim x2 stasera alle 7",
+  "expect": {
+   "name": "Kim",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 122,
+  "kind": "scritta",
+  "text": "Haddad 4 gio 3/12 20:30 vegetariani",
+  "expect": {
+   "name": "Haddad",
+   "people": 4,
+   "day": "2026-12-03",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "vegetariani"
+  }
+ },
+ {
+  "id": 123,
+  "kind": "scritta",
+  "text": "Diallo 3 domenica alle 6",
+  "expect": {
+   "name": "Diallo",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 124,
+  "kind": "scritta",
+  "text": "Giulia Bencini 2 sab 20:30",
+  "expect": {
+   "name": "Giulia Bencini",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 125,
+  "kind": "scritta",
+  "text": "Lorenzo Bacci x4 domani h 21",
+  "expect": {
+   "name": "Lorenzo Bacci",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 126,
+  "kind": "scritta",
+  "text": "chiara innocenti 3 stasera 19:45",
+  "expect": {
+   "name": "Chiara Innocenti",
+   "people": 3,
+   "day": "2026-11-13",
+   "time": "19:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 127,
+  "kind": "scritta",
+  "text": "Paolo Cecchi 6 pers mer 25/11 h 20 tel 3923344556",
+  "expect": {
+   "name": "Paolo Cecchi",
+   "people": 6,
+   "day": "2026-11-25",
+   "time": "20:00",
+   "phone": "392 334 4556",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 128,
+  "kind": "scritta",
+  "text": "Francesca Nencini 2 gio alle 9",
+  "expect": {
+   "name": "Francesca Nencini",
+   "people": 2,
+   "day": "2026-11-19",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 129,
+  "kind": "scritta",
+  "text": "Tommaso Mugnai 4 lun 17:30",
+  "expect": {
+   "name": "Tommaso Mugnai",
+   "people": 4,
+   "day": "2026-11-16",
+   "time": "17:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 130,
+  "kind": "scritta",
+  "text": "Ginevra Lastrucci 5 sab 21/11 pranzo 12:30",
+  "expect": {
+   "name": "Ginevra Lastrucci",
+   "people": 5,
+   "day": "2026-11-21",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 131,
+  "kind": "scritta",
+  "text": "Iacopo Giannini x3 domenica 18:30 tav 2",
+  "expect": {
+   "name": "Iacopo Giannini",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "18:30",
+   "phone": null,
+   "table": "2",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 132,
+  "kind": "scritta",
+  "text": "Duccio Pieri 2 il 4 dicembre h 20",
+  "expect": {
+   "name": "Duccio Pieri",
+   "people": 2,
+   "day": "2026-12-04",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 133,
+  "kind": "scritta",
+  "text": "Elena Baldi 7 pers 29/11 19.00",
+  "expect": {
+   "name": "Elena Baldi",
+   "people": 7,
+   "day": "2026-11-29",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 134,
+  "kind": "scritta",
+  "text": "Cosimo Bigazzi 2 stasera h 20:30 tel 055 790 1234",
+  "expect": {
+   "name": "Cosimo Bigazzi",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:30",
+   "phone": "0557901234",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 135,
+  "kind": "scritta",
+  "text": "Beatrice Biagini 4 mar h 18",
+  "expect": {
+   "name": "Beatrice Biagini",
+   "people": 4,
+   "day": "2026-11-17",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 136,
+  "kind": "scritta",
+  "text": "Lapo Cappelli 2 domani 20:00 aperitivo",
+  "expect": {
+   "name": "Lapo Cappelli",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "aperitivo"
+  }
+ },
+ {
+  "id": 137,
+  "kind": "scritta",
+  "text": "Niccolò Frosali x5 ven 20/11 h 21",
+  "expect": {
+   "name": "Niccolò Frosali",
+   "people": 5,
+   "day": "2026-11-20",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 138,
+  "kind": "scritta",
+  "text": "Mirella Lapi 3 mercoledì h 11:00 a pranzo",
+  "expect": {
+   "name": "Mirella Lapi",
+   "people": 3,
+   "day": "2026-11-18",
+   "time": "11:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 139,
+  "kind": "scritta",
+  "text": "Piero Paoli 2 sab 20.30 tav 6 tel 3346677889",
+  "expect": {
+   "name": "Piero Paoli",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": "334 667 7889",
+   "table": "6",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 140,
+  "kind": "scritta",
+  "text": "Rosanna Pecchioli 4 domenica 13/12 ore 18",
+  "expect": {
+   "name": "Rosanna Pecchioli",
+   "people": 4,
+   "day": "2026-12-13",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 141,
+  "kind": "scritta",
+  "text": "gianni tognetti 6 gio 19:30 menu 30 euro",
+  "expect": {
+   "name": "Gianni Tognetti",
+   "people": 6,
+   "day": "2026-11-19",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 30 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 142,
+  "kind": "scritta",
+  "text": "Vannucci 2 persone stasera alle 8 e mezza",
+  "expect": {
+   "name": "Vannucci",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 143,
+  "kind": "scritta",
+  "text": "Becattini x2 domani alle 20 e 30",
+  "expect": {
+   "name": "Becattini",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 144,
+  "kind": "scritta",
+  "text": "Cioni 4 sab ore 20 e 15",
+  "expect": {
+   "name": "Cioni",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 145,
+  "kind": "scritta",
+  "text": "Corsi 3 lunedì ore 19 e 45",
+  "expect": {
+   "name": "Corsi",
+   "people": 3,
+   "day": "2026-11-16",
+   "time": "19:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 146,
+  "kind": "scritta",
+  "text": "Fusi 5 pers mar 1 dicembre h 19",
+  "expect": {
+   "name": "Fusi",
+   "people": 5,
+   "day": "2026-12-01",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 147,
+  "kind": "scritta",
+  "text": "Guarducci 2 domenica alle 5 e mezza",
+  "expect": {
+   "name": "Guarducci",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "17:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 148,
+  "kind": "scritta",
+  "text": "Lotti 4 pax mer 2/12 alle 20:30 tav 4 menù da 25 €",
+  "expect": {
+   "name": "Lotti",
+   "people": 4,
+   "day": "2026-12-02",
+   "time": "20:30",
+   "phone": null,
+   "table": "4",
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 149,
+  "kind": "scritta",
+  "text": "Mannelli 2 oggi alle 6",
+  "expect": {
+   "name": "Mannelli",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 150,
+  "kind": "scritta",
+  "text": "Nardi 12 persone sab 19/12 h 20 menù 40 € tel 3480011223",
+  "expect": {
+   "name": "Nardi",
+   "people": 12,
+   "day": "2026-12-19",
+   "time": "20:00",
+   "phone": "348 001 1223",
+   "table": null,
+   "menu": "Menù da 40 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 151,
+  "kind": "scritta",
+  "text": "papini 2 gio 19/11 20:00 celiachia",
+  "expect": {
+   "name": "Papini",
+   "people": 2,
+   "day": "2026-11-19",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "celiachia"
+  }
+ },
+ {
+  "id": 152,
+  "kind": "scritta",
+  "text": "Righini 4 domani 19:00 con cane",
+  "expect": {
+   "name": "Righini",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "cane"
+  }
+ },
+ {
+  "id": 153,
+  "kind": "scritta",
+  "text": "Signorini 2 domenica h 20",
+  "expect": {
+   "name": "Signorini",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 154,
+  "kind": "scritta",
+  "text": "Tarchi x3 stasera alle nove",
+  "expect": {
+   "name": "Tarchi",
+   "people": 3,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 155,
+  "kind": "scritta",
+  "text": "Ulivi 6 pers sab alle 8 tav 5 tel 3383456789",
+  "expect": {
+   "name": "Ulivi",
+   "people": 6,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": "338 345 6789",
+   "table": "5",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 156,
+  "kind": "scritta",
+  "text": "Zoppi 2 merc 18:15",
+  "expect": {
+   "name": "Zoppi",
+   "people": 2,
+   "day": "2026-11-18",
+   "time": "18:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 157,
+  "kind": "scritta",
+  "text": "Borchi 4 il 10 alle 20",
+  "expect": {
+   "name": "Borchi",
+   "people": 4,
+   "day": "2026-12-10",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 158,
+  "kind": "scritta",
+  "text": "Calamai 3 pax il 20 ore 21",
+  "expect": {
+   "name": "Calamai",
+   "people": 3,
+   "day": "2026-11-20",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 159,
+  "kind": "scritta",
+  "text": "Bagni 2 domani 12:00",
+  "expect": {
+   "name": "Bagni",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "12:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 160,
+  "kind": "scritta",
+  "text": "Giachi 8 pers dopodomani 18:30 compleanno 50 anni",
+  "expect": {
+   "name": "Giachi",
+   "people": 8,
+   "day": "2026-11-15",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "compleanno"
+  }
+ },
+ {
+  "id": 161,
+  "kind": "scritta",
+  "text": "Masi tav 3 x2 stasera h 19.30",
+  "expect": {
+   "name": "Masi",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "19:30",
+   "phone": null,
+   "table": "3",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 162,
+  "kind": "scritta",
+  "text": "Brogi 5 gio 26/11 ore 20 menu da 35€",
+  "expect": {
+   "name": "Brogi",
+   "people": 5,
+   "day": "2026-11-26",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 35 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 163,
+  "kind": "scritta",
+  "text": "sig. Bartolini 2 sab 20:30",
+  "expect": {
+   "name": "Bartolini",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 164,
+  "kind": "scritta",
+  "text": "sig.ra Fani 3 domenica h 18",
+  "expect": {
+   "name": "Fani",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 165,
+  "kind": "scritta",
+  "text": "Sarti 4 pers 2 dic 20:00",
+  "expect": {
+   "name": "Sarti",
+   "people": 4,
+   "day": "2026-12-02",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 166,
+  "kind": "scritta",
+  "text": "Lombardo 2 pax 21 nov h 21",
+  "expect": {
+   "name": "Lombardo",
+   "people": 2,
+   "day": "2026-11-21",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 167,
+  "kind": "scritta",
+  "text": "Gallo 6 pers sab 20:30 serve seggiolone",
+  "expect": {
+   "name": "Gallo",
+   "people": 6,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "seggiolone"
+  }
+ },
+ {
+  "id": 168,
+  "kind": "scritta",
+  "text": "Volpe x4 domani h 18:45 tel 331-778-8990",
+  "expect": {
+   "name": "Volpe",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "18:45",
+   "phone": "331 778 8990",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 169,
+  "kind": "scritta",
+  "text": "Pace 2 stasera 20:30 tav 1 vicino finestra",
+  "expect": {
+   "name": "Pace",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:30",
+   "phone": null,
+   "table": "1",
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "finestra"
+  }
+ },
+ {
+  "id": 170,
+  "kind": "scritta",
+  "text": "Porta 3 gio h 12:30 pranzo veloce",
+  "expect": {
+   "name": "Porta",
+   "people": 3,
+   "day": "2026-11-19",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "veloce"
+  }
+ },
+ {
+  "id": 171,
+  "kind": "scritta",
+  "text": "Lupo 4 sab 5 dic h 21",
+  "expect": {
+   "name": "Lupo",
+   "people": 4,
+   "day": "2026-12-05",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 172,
+  "kind": "scritta",
+  "text": "Vigna 2 domenica alle 7 e un quarto",
+  "expect": {
+   "name": "Vigna",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "19:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 173,
+  "kind": "scritta",
+  "text": "Botti 10 pers 18/12 h 20 menù da 30 € acconto",
+  "expect": {
+   "name": "Botti",
+   "people": 10,
+   "day": "2026-12-18",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 30 €",
+   "allergies": false,
+   "noteIncludes": "acconto"
+  }
+ },
+ {
+  "id": 174,
+  "kind": "scritta",
+  "text": "Coppa 2 mar 17:15",
+  "expect": {
+   "name": "Coppa",
+   "people": 2,
+   "day": "2026-11-17",
+   "time": "17:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 175,
+  "kind": "scritta",
+  "text": "3471122334 Lenzi 4 sab 20:00",
+  "expect": {
+   "name": "Lenzi",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": "347 112 2334",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 176,
+  "kind": "scritta",
+  "text": "domani 20:30 x4 Bertini",
+  "expect": {
+   "name": "Bertini",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 177,
+  "kind": "scritta",
+  "text": "h 21 stasera tav 2 Cini 2 pers",
+  "expect": {
+   "name": "Cini",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": "2",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 178,
+  "kind": "scritta",
+  "text": "sab 28/11 h 20 - 6 pers - Falciani - tel 055 756 4321",
+  "expect": {
+   "name": "Falciani",
+   "people": 6,
+   "day": "2026-11-28",
+   "time": "20:00",
+   "phone": "0557564321",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 179,
+  "kind": "scritta",
+  "text": "x2 domenica 18:00 Mazzoni",
+  "expect": {
+   "name": "Mazzoni",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 180,
+  "kind": "scritta",
+  "text": "gio 19.30 in 3 a nome Puccini",
+  "expect": {
+   "name": "Puccini",
+   "people": 3,
+   "day": "2026-11-19",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 181,
+  "kind": "scritta",
+  "text": "4 pers. merc. h20 - Ristori",
+  "expect": {
+   "name": "Ristori",
+   "people": 4,
+   "day": "2026-11-18",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 182,
+  "kind": "scritta",
+  "text": "lun 20:15 t7 x2 Gori",
+  "expect": {
+   "name": "Gori",
+   "people": 2,
+   "day": "2026-11-16",
+   "time": "20:15",
+   "phone": null,
+   "table": "7",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 183,
+  "kind": "scritta",
+  "text": "menù 25€ x8 sab 21/11 h20 Pratesi",
+  "expect": {
+   "name": "Pratesi",
+   "people": 8,
+   "day": "2026-11-21",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 184,
+  "kind": "scritta",
+  "text": "stasera alle 8 2 pers Ciampi",
+  "expect": {
+   "name": "Ciampi",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 185,
+  "kind": "scritta",
+  "text": "Ferrante per 10 sab 12/12 h 20:30 menù da 30 €",
+  "expect": {
+   "name": "Ferrante",
+   "people": 10,
+   "day": "2026-12-12",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 30 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 186,
+  "kind": "scritta",
+  "text": "Ricci x4 t5 h20:30 sab",
+  "expect": {
+   "name": "Ricci",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": "5",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 187,
+  "kind": "dettata",
+  "text": "allora segnami Moretti per quattro persone sabato sera alle otto e mezza",
+  "expect": {
+   "name": "Moretti",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 188,
+  "kind": "dettata",
+  "text": "ehm prenotazione a nome Bianchi siamo in sei domani alle 20:30",
+  "expect": {
+   "name": "Bianchi",
+   "people": 6,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 189,
+  "kind": "dettata",
+  "text": "senti metti la signora Esposito per due stasera alle nove",
+  "expect": {
+   "name": "Esposito",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 190,
+  "kind": "dettata",
+  "text": "allora a nome Greco tavolo per tre domenica alle sette e mezza il numero è 333 456 7890",
+  "expect": {
+   "name": "Greco",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "19:30",
+   "phone": "333 456 7890",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 191,
+  "kind": "dettata",
+  "text": "prenota per Giordano in cinque giovedì alle 20",
+  "expect": {
+   "name": "Giordano",
+   "people": 5,
+   "day": "2026-11-19",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 192,
+  "kind": "dettata",
+  "text": "allora è il signor Ricci vengono in otto sabato 21 alle 20:30 e vogliono il menù da 35 euro",
+  "expect": {
+   "name": "Ricci",
+   "people": 8,
+   "day": "2026-11-21",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 35 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 193,
+  "kind": "dettata",
+  "text": "segna angelo per due stasera alle otto",
+  "expect": {
+   "name": "Angelo",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 194,
+  "kind": "dettata",
+  "text": "allora dei grandi quattro persone domani alle venti e trenta",
+  "expect": {
+   "name": "Dei Grandi",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 195,
+  "kind": "dettata",
+  "text": "d'angelo in tre domenica alle sei",
+  "expect": {
+   "name": "D'Angelo",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 196,
+  "kind": "dettata",
+  "text": "ehm allora mettimi Conti virgola cinque persone virgola mercoledì alle 19 e 30",
+  "expect": {
+   "name": "Conti",
+   "people": 5,
+   "day": "2026-11-18",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 197,
+  "kind": "dettata",
+  "text": "senti segna Romano due persone venerdì prossimo alle nove meno un quarto",
+  "expect": {
+   "name": "Romano",
+   "people": 2,
+   "day": "2026-11-20",
+   "time": "20:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 198,
+  "kind": "dettata",
+  "text": "allora la prenotazione è per Colombo sono in dieci il 3 dicembre alle 20 menù da venticinque euro",
+  "expect": {
+   "name": "Colombo",
+   "people": 10,
+   "day": "2026-12-03",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 199,
+  "kind": "dettata",
+  "text": "a nome Marino una coppia domani a pranzo alle 12 e mezza",
+  "expect": {
+   "name": "Marino",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 200,
+  "kind": "dettata",
+  "text": "ehm Bruno per quattro lunedì alle sette",
+  "expect": {
+   "name": "Bruno",
+   "people": 4,
+   "day": "2026-11-16",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 201,
+  "kind": "dettata",
+  "text": "allora segna la signora Lombardi sono in tre stasera alle 20:15 il telefono è 347 123 9876",
+  "expect": {
+   "name": "Lombardi",
+   "people": 3,
+   "day": "2026-11-13",
+   "time": "20:15",
+   "phone": "347 123 9876",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 202,
+  "kind": "dettata",
+  "text": "metti Barbieri tavolo 6 in quattro sabato alle 21",
+  "expect": {
+   "name": "Barbieri",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": null,
+   "table": "6",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 203,
+  "kind": "dettata",
+  "text": "allora senti Fontana Giulia due persone martedì alle sei e mezza",
+  "expect": {
+   "name": "Fontana Giulia",
+   "people": 2,
+   "day": "2026-11-17",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 204,
+  "kind": "dettata",
+  "text": "prenotazione per Santoro sono in 12 sabato 5 dicembre alle 20 menù da 30 euro numero 3381234567",
+  "expect": {
+   "name": "Santoro",
+   "people": 12,
+   "day": "2026-12-05",
+   "time": "20:00",
+   "phone": "338 123 4567",
+   "table": null,
+   "menu": "Menù da 30 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 205,
+  "kind": "dettata",
+  "text": "ehm la signora caruso per due giovedì 26 alle otto",
+  "expect": {
+   "name": "Caruso",
+   "people": 2,
+   "day": "2026-11-26",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 206,
+  "kind": "dettata",
+  "text": "allora segna Ferrara quattro persone domani alle venti",
+  "expect": {
+   "name": "Ferrara",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 207,
+  "kind": "dettata",
+  "text": "Martini per due stasera alle 9 e mezza",
+  "expect": {
+   "name": "Martini",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 208,
+  "kind": "dettata",
+  "text": "senti metti Leone in sei domenica 29 alle sette il cliente è celiaco",
+  "expect": {
+   "name": "Leone",
+   "people": 6,
+   "day": "2026-11-29",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "celiaco"
+  }
+ },
+ {
+  "id": 209,
+  "kind": "dettata",
+  "text": "allora Longo cinque persone dopodomani alle 18",
+  "expect": {
+   "name": "Longo",
+   "people": 5,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 210,
+  "kind": "dettata",
+  "text": "segna Gentile per due mercoledì alle otto e un quarto",
+  "expect": {
+   "name": "Gentile",
+   "people": 2,
+   "day": "2026-11-18",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 211,
+  "kind": "dettata",
+  "text": "a nome Vitale siamo in quattro sabato alle 20 e 45",
+  "expect": {
+   "name": "Vitale",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 212,
+  "kind": "dettata",
+  "text": "ehm allora Serra per tre lunedì 23 alle 18:30",
+  "expect": {
+   "name": "Serra",
+   "people": 3,
+   "day": "2026-11-23",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 213,
+  "kind": "dettata",
+  "text": "metti Coppola due adulti e due bambini domenica alle sei",
+  "expect": {
+   "name": "Coppola",
+   "people": 4,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 214,
+  "kind": "dettata",
+  "text": "allora De Santis in otto il 12 dicembre alle venti menù da quaranta euro",
+  "expect": {
+   "name": "De Santis",
+   "people": 8,
+   "day": "2026-12-12",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 40 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 215,
+  "kind": "dettata",
+  "text": "segna Marchetti per due stasera alle sette e mezza tavolo 4",
+  "expect": {
+   "name": "Marchetti",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "19:30",
+   "phone": null,
+   "table": "4",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 216,
+  "kind": "dettata",
+  "text": "Parisi quattro persone giovedì alle 21 il numero è tre tre tre sette sette sette uno due uno due",
+  "expect": {
+   "name": "Parisi",
+   "people": 4,
+   "day": "2026-11-19",
+   "time": "21:00",
+   "phone": "333 777 1212",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 217,
+  "kind": "dettata",
+  "text": "allora mi segni Villa in cinque domani alle 12 a pranzo",
+  "expect": {
+   "name": "Villa",
+   "people": 5,
+   "day": "2026-11-14",
+   "time": "12:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 218,
+  "kind": "dettata",
+  "text": "ehm Conte per due venerdì 27 alle 20:30",
+  "expect": {
+   "name": "Conte",
+   "people": 2,
+   "day": "2026-11-27",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 219,
+  "kind": "dettata",
+  "text": "allora Ferri e la moglie stasera alle otto",
+  "expect": {
+   "name": "Ferri",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 220,
+  "kind": "dettata",
+  "text": "prenota Fabbri sei persone martedì 1 dicembre alle sette",
+  "expect": {
+   "name": "Fabbri",
+   "people": 6,
+   "day": "2026-12-01",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 221,
+  "kind": "dettata",
+  "text": "senti c'è Bianco che vuole venire in tre sabato alle nove meno un quarto",
+  "expect": {
+   "name": "Bianco",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "20:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 222,
+  "kind": "dettata",
+  "text": "allora Marini due persone domenica alle cinque e mezza",
+  "expect": {
+   "name": "Marini",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "17:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 223,
+  "kind": "dettata",
+  "text": "segna Grasso per quattro mercoledì 2 dicembre alle venti e quindici",
+  "expect": {
+   "name": "Grasso",
+   "people": 4,
+   "day": "2026-12-02",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 224,
+  "kind": "dettata",
+  "text": "Valentini in due stasera alle 18 e 30 tavolo 3",
+  "expect": {
+   "name": "Valentini",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "18:30",
+   "phone": null,
+   "table": "3",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 225,
+  "kind": "dettata",
+  "text": "allora Messina in sette il 4 dicembre alle venti e trenta menù da 25 euro",
+  "expect": {
+   "name": "Messina",
+   "people": 7,
+   "day": "2026-12-04",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 226,
+  "kind": "dettata",
+  "text": "ehm metti De Angelis per due domani alle otto è intollerante al lattosio",
+  "expect": {
+   "name": "De Angelis",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "lattosio"
+  }
+ },
+ {
+  "id": 227,
+  "kind": "dettata",
+  "text": "allora Gatti in quattro lunedì alle 20",
+  "expect": {
+   "name": "Gatti",
+   "people": 4,
+   "day": "2026-11-16",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 228,
+  "kind": "dettata",
+  "text": "prenotazione Pellegrini tre persone giovedì 19 alle sette e un quarto",
+  "expect": {
+   "name": "Pellegrini",
+   "people": 3,
+   "day": "2026-11-19",
+   "time": "19:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 229,
+  "kind": "dettata",
+  "text": "Palumbo per due sabato a pranzo a mezzogiorno",
+  "expect": {
+   "name": "Palumbo",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "12:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 230,
+  "kind": "dettata",
+  "text": "allora Sanna in dieci sabato 28 alle 20 vogliono il menù da trentacinque euro telefono 349 876 5432",
+  "expect": {
+   "name": "Sanna",
+   "people": 10,
+   "day": "2026-11-28",
+   "time": "20:00",
+   "phone": "349 876 5432",
+   "table": null,
+   "menu": "Menù da 35 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 231,
+  "kind": "dettata",
+  "text": "senti Farina per quattro stasera alle otto meno un quarto",
+  "expect": {
+   "name": "Farina",
+   "people": 4,
+   "day": "2026-11-13",
+   "time": "19:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 232,
+  "kind": "dettata",
+  "text": "segna Monti due persone mercoledì alle 18",
+  "expect": {
+   "name": "Monti",
+   "people": 2,
+   "day": "2026-11-18",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 233,
+  "kind": "dettata",
+  "text": "allora la signora Cattaneo in tre domani alle venti e quarantacinque",
+  "expect": {
+   "name": "Cattaneo",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "20:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 234,
+  "kind": "dettata",
+  "text": "ehm Morelli per sei domenica 6 dicembre alle sei",
+  "expect": {
+   "name": "Morelli",
+   "people": 6,
+   "day": "2026-12-06",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 235,
+  "kind": "dettata",
+  "text": "Amato due persone martedì alle nove",
+  "expect": {
+   "name": "Amato",
+   "people": 2,
+   "day": "2026-11-17",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 236,
+  "kind": "dettata",
+  "text": "allora Silvestri quattro persone venerdì 4 dicembre alle 20 e un quarto",
+  "expect": {
+   "name": "Silvestri",
+   "people": 4,
+   "day": "2026-12-04",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 237,
+  "kind": "dettata",
+  "text": "metti Mazza in due stasera alle sette",
+  "expect": {
+   "name": "Mazza",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 238,
+  "kind": "dettata",
+  "text": "allora segna Testa otto persone sabato 21 alle otto e mezza tavolo 10",
+  "expect": {
+   "name": "Testa",
+   "people": 8,
+   "day": "2026-11-21",
+   "time": "20:30",
+   "phone": null,
+   "table": "10",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 239,
+  "kind": "dettata",
+  "text": "senti Grassi per tre domani a pranzo alle 12:30",
+  "expect": {
+   "name": "Grassi",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 240,
+  "kind": "dettata",
+  "text": "Pellegrino in due giovedì alle venti",
+  "expect": {
+   "name": "Pellegrino",
+   "people": 2,
+   "day": "2026-11-19",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 241,
+  "kind": "dettata",
+  "text": "allora Carbone per cinque dopodomani alle sette e mezza uno è allergico alle noci",
+  "expect": {
+   "name": "Carbone",
+   "people": 5,
+   "day": "2026-11-15",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "noci"
+  }
+ },
+ {
+  "id": 242,
+  "kind": "dettata",
+  "text": "segna Giuliani quattro persone lunedì 30 alle diciannove",
+  "expect": {
+   "name": "Giuliani",
+   "people": 4,
+   "day": "2026-11-30",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 243,
+  "kind": "dettata",
+  "text": "ehm Benedetti in due stasera alle 21",
+  "expect": {
+   "name": "Benedetti",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 244,
+  "kind": "dettata",
+  "text": "allora Barone sei persone il 10 dicembre alle venti il numero è 340 112 2334",
+  "expect": {
+   "name": "Barone",
+   "people": 6,
+   "day": "2026-12-10",
+   "time": "20:00",
+   "phone": "340 112 2334",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 245,
+  "kind": "dettata",
+  "text": "Rossetti per due domenica alle sette e quarantacinque",
+  "expect": {
+   "name": "Rossetti",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "19:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 246,
+  "kind": "dettata",
+  "text": "allora Caputo in quattro mercoledì 25 alle 20:30",
+  "expect": {
+   "name": "Caputo",
+   "people": 4,
+   "day": "2026-11-25",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 247,
+  "kind": "dettata",
+  "text": "senti Montanari tre persone domani alle otto vuole il tavolo fuori",
+  "expect": {
+   "name": "Montanari",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "fuori"
+  }
+ },
+ {
+  "id": 248,
+  "kind": "dettata",
+  "text": "metti Guerra due persone sabato alle nove e un quarto",
+  "expect": {
+   "name": "Guerra",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "21:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 249,
+  "kind": "dettata",
+  "text": "allora Palmieri in otto il 19 dicembre alle venti menù da 35 €",
+  "expect": {
+   "name": "Palmieri",
+   "people": 8,
+   "day": "2026-12-19",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 35 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 250,
+  "kind": "dettata",
+  "text": "segna Bernardi per quattro giovedì alle sette tavolo 2",
+  "expect": {
+   "name": "Bernardi",
+   "people": 4,
+   "day": "2026-11-19",
+   "time": "19:00",
+   "phone": null,
+   "table": "2",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 251,
+  "kind": "dettata",
+  "text": "ehm Martino una coppia stasera alle 20:45",
+  "expect": {
+   "name": "Martino",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 252,
+  "kind": "dettata",
+  "text": "allora Fiore cinque persone martedì 24 alle 18 e 15",
+  "expect": {
+   "name": "Fiore",
+   "people": 5,
+   "day": "2026-11-24",
+   "time": "18:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 253,
+  "kind": "dettata",
+  "text": "De Rosa in due domani alle venti e trenta il numero è 328 990 1122",
+  "expect": {
+   "name": "De Rosa",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": "328 990 1122",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 254,
+  "kind": "dettata",
+  "text": "allora Ferretti per tre domenica alle 17",
+  "expect": {
+   "name": "Ferretti",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "17:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 255,
+  "kind": "dettata",
+  "text": "senti Bellini sei persone sabato 12 dicembre alle 21",
+  "expect": {
+   "name": "Bellini",
+   "people": 6,
+   "day": "2026-12-12",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 256,
+  "kind": "dettata",
+  "text": "segna Basile due persone mercoledì 18 alle otto",
+  "expect": {
+   "name": "Basile",
+   "people": 2,
+   "day": "2026-11-18",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 257,
+  "kind": "dettata",
+  "text": "allora Riva in quattro stasera alle 8 e mezza",
+  "expect": {
+   "name": "Riva",
+   "people": 4,
+   "day": "2026-11-13",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 258,
+  "kind": "dettata",
+  "text": "ehm Donati per due lunedì alle sei e mezza",
+  "expect": {
+   "name": "Donati",
+   "people": 2,
+   "day": "2026-11-16",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 259,
+  "kind": "dettata",
+  "text": "Piras quattro persone giovedì 3 dicembre alle 20 menù da 25 euro",
+  "expect": {
+   "name": "Piras",
+   "people": 4,
+   "day": "2026-12-03",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 260,
+  "kind": "dettata",
+  "text": "allora Battaglia per due domani alle 7",
+  "expect": {
+   "name": "Battaglia",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 261,
+  "kind": "dettata",
+  "text": "segna Sartori in cinque venerdì prossimo alle 20:30",
+  "expect": {
+   "name": "Sartori",
+   "people": 5,
+   "day": "2026-11-20",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 262,
+  "kind": "dettata",
+  "text": "allora Neri sette persone dopodomani alle sei",
+  "expect": {
+   "name": "Neri",
+   "people": 7,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 263,
+  "kind": "dettata",
+  "text": "ehm Costantini per due mercoledì alle 12 a pranzo",
+  "expect": {
+   "name": "Costantini",
+   "people": 2,
+   "day": "2026-11-18",
+   "time": "12:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 264,
+  "kind": "dettata",
+  "text": "metti Milani in tre sabato alle otto e mezza numero 335 778 8990",
+  "expect": {
+   "name": "Milani",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": "335 778 8990",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 265,
+  "kind": "dettata",
+  "text": "allora Pagano per quattro domenica 22 alle sette",
+  "expect": {
+   "name": "Pagano",
+   "people": 4,
+   "day": "2026-11-22",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 266,
+  "kind": "dettata",
+  "text": "senti Ruggiero due persone stasera alle sei e un quarto",
+  "expect": {
+   "name": "Ruggiero",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "18:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 267,
+  "kind": "dettata",
+  "text": "allora Sorrentino in dodici sabato 19 dicembre alle venti menù da quaranta euro",
+  "expect": {
+   "name": "Sorrentino",
+   "people": 12,
+   "day": "2026-12-19",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 40 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 268,
+  "kind": "dettata",
+  "text": "segna D'Amico per due martedì alle 20",
+  "expect": {
+   "name": "D'Amico",
+   "people": 2,
+   "day": "2026-11-17",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 269,
+  "kind": "dettata",
+  "text": "allora Orlando in sei domani alle venti e quindici",
+  "expect": {
+   "name": "Orlando",
+   "people": 6,
+   "day": "2026-11-14",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 270,
+  "kind": "dettata",
+  "text": "allora segna lo russo per quattro sabato alle otto",
+  "expect": {
+   "name": "Lo Russo",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 271,
+  "kind": "dettata",
+  "text": "la rosa due persone domenica alle sette e mezza",
+  "expect": {
+   "name": "La Rosa",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 272,
+  "kind": "dettata",
+  "text": "ehm di stefano in tre giovedì alle 21",
+  "expect": {
+   "name": "Di Stefano",
+   "people": 3,
+   "day": "2026-11-19",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 273,
+  "kind": "dettata",
+  "text": "a nome del piero cinque persone stasera alle venti",
+  "expect": {
+   "name": "Del Piero",
+   "people": 5,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 274,
+  "kind": "dettata",
+  "text": "allora dal pozzo per due mercoledì alle diciotto e trenta",
+  "expect": {
+   "name": "Dal Pozzo",
+   "people": 2,
+   "day": "2026-11-18",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 275,
+  "kind": "dettata",
+  "text": "segna della valle sei persone sabato 28 alle nove",
+  "expect": {
+   "name": "Della Valle",
+   "people": 6,
+   "day": "2026-11-28",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 276,
+  "kind": "dettata",
+  "text": "dell'acqua per due domani alle otto e un quarto",
+  "expect": {
+   "name": "Dell'Acqua",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 277,
+  "kind": "dettata",
+  "text": "allora degli innocenti in quattro lunedì alle sette",
+  "expect": {
+   "name": "Degli Innocenti",
+   "people": 4,
+   "day": "2026-11-16",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 278,
+  "kind": "dettata",
+  "text": "senti d'alessandro due persone stasera alle nove meno un quarto",
+  "expect": {
+   "name": "D'Alessandro",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 279,
+  "kind": "dettata",
+  "text": "lo presti per cinque domenica alle 18",
+  "expect": {
+   "name": "Lo Presti",
+   "people": 5,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 280,
+  "kind": "dettata",
+  "text": "allora la torre in due giovedì 26 alle venti e trenta",
+  "expect": {
+   "name": "La Torre",
+   "people": 2,
+   "day": "2026-11-26",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 281,
+  "kind": "dettata",
+  "text": "di giovanni otto persone sabato 5 dicembre alle 20 menù da 30 euro",
+  "expect": {
+   "name": "Di Giovanni",
+   "people": 8,
+   "day": "2026-12-05",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 30 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 282,
+  "kind": "dettata",
+  "text": "de luca tre persone martedì alle 18:45",
+  "expect": {
+   "name": "De Luca",
+   "people": 3,
+   "day": "2026-11-17",
+   "time": "18:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 283,
+  "kind": "dettata",
+  "text": "del bene in due stasera alle sette e un quarto",
+  "expect": {
+   "name": "Del Bene",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "19:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 284,
+  "kind": "dettata",
+  "text": "dalla costa quattro persone domani alle 21:15",
+  "expect": {
+   "name": "Dalla Costa",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "21:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 285,
+  "kind": "dettata",
+  "text": "di benedetto per due mercoledì 25 alle otto",
+  "expect": {
+   "name": "Di Benedetto",
+   "people": 2,
+   "day": "2026-11-25",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 286,
+  "kind": "dettata",
+  "text": "lo iacono sei persone venerdì 27 alle nove",
+  "expect": {
+   "name": "Lo Iacono",
+   "people": 6,
+   "day": "2026-11-27",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 287,
+  "kind": "dettata",
+  "text": "allora segna Schmidt in quattro sabato alle 20",
+  "expect": {
+   "name": "Schmidt",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 288,
+  "kind": "dettata",
+  "text": "ehm a nome Smith due persone stasera alle sette e mezza sono turisti",
+  "expect": {
+   "name": "Smith",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "turisti"
+  }
+ },
+ {
+  "id": 289,
+  "kind": "dettata",
+  "text": "o'brien in tre domenica alle sei",
+  "expect": {
+   "name": "O'Brien",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 290,
+  "kind": "dettata",
+  "text": "allora Dubois per due giovedì alle venti e trenta",
+  "expect": {
+   "name": "Dubois",
+   "people": 2,
+   "day": "2026-11-19",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 291,
+  "kind": "dettata",
+  "text": "prenotazione Garcia sei persone sabato 21 alle 21",
+  "expect": {
+   "name": "Garcia",
+   "people": 6,
+   "day": "2026-11-21",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 292,
+  "kind": "dettata",
+  "text": "Kowalski per due lunedì 16 alle 18",
+  "expect": {
+   "name": "Kowalski",
+   "people": 2,
+   "day": "2026-11-16",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 293,
+  "kind": "dettata",
+  "text": "allora Nguyen in quattro domani alle 12 e 30 a pranzo",
+  "expect": {
+   "name": "Nguyen",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 294,
+  "kind": "dettata",
+  "text": "senti segna Chen tre persone mercoledì alle nove",
+  "expect": {
+   "name": "Chen",
+   "people": 3,
+   "day": "2026-11-18",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 295,
+  "kind": "dettata",
+  "text": "Popescu due persone stasera alle sei telefono 389 445 5667",
+  "expect": {
+   "name": "Popescu",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "18:00",
+   "phone": "389 445 5667",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 296,
+  "kind": "dettata",
+  "text": "allora Hoxha in cinque sabato alle otto meno un quarto",
+  "expect": {
+   "name": "Hoxha",
+   "people": 5,
+   "day": "2026-11-14",
+   "time": "19:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 297,
+  "kind": "dettata",
+  "text": "Tanaka per due martedì alle 19",
+  "expect": {
+   "name": "Tanaka",
+   "people": 2,
+   "day": "2026-11-17",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 298,
+  "kind": "dettata",
+  "text": "allora Jensen quattro persone domenica 13 dicembre alle sei e mezza",
+  "expect": {
+   "name": "Jensen",
+   "people": 4,
+   "day": "2026-12-13",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 299,
+  "kind": "dettata",
+  "text": "Petrov in due giovedì 10 dicembre alle venti",
+  "expect": {
+   "name": "Petrov",
+   "people": 2,
+   "day": "2026-12-10",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 300,
+  "kind": "dettata",
+  "text": "segna Santos cinque persone domani alle nove meno dieci",
+  "expect": {
+   "name": "Santos",
+   "people": 5,
+   "day": "2026-11-14",
+   "time": "20:50",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 301,
+  "kind": "dettata",
+  "text": "allora el amrani per tre stasera alle venti e quindici",
+  "expect": {
+   "name": "El Amrani",
+   "people": 3,
+   "day": "2026-11-13",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 302,
+  "kind": "dettata",
+  "text": "Okafor due persone sabato a mezzogiorno e mezzo",
+  "expect": {
+   "name": "Okafor",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 303,
+  "kind": "dettata",
+  "text": "allora Patel in sei mercoledì 2 dicembre alle sette sono vegetariani",
+  "expect": {
+   "name": "Patel",
+   "people": 6,
+   "day": "2026-12-02",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "vegetariani"
+  }
+ },
+ {
+  "id": 304,
+  "kind": "dettata",
+  "text": "Walsh per due domenica alle cinque",
+  "expect": {
+   "name": "Walsh",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "17:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 305,
+  "kind": "dettata",
+  "text": "ehm segna Nagy quattro persone lunedì alle otto e mezza",
+  "expect": {
+   "name": "Nagy",
+   "people": 4,
+   "day": "2026-11-16",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 306,
+  "kind": "dettata",
+  "text": "allora De Jong in tre venerdì prossimo alle sette",
+  "expect": {
+   "name": "De Jong",
+   "people": 3,
+   "day": "2026-11-20",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 307,
+  "kind": "dettata",
+  "text": "Ahmed due persone domani alle 18 e 45",
+  "expect": {
+   "name": "Ahmed",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "18:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 308,
+  "kind": "dettata",
+  "text": "allora Krasniqi in otto il 18 dicembre alle venti menù da venticinque euro",
+  "expect": {
+   "name": "Krasniqi",
+   "people": 8,
+   "day": "2026-12-18",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 309,
+  "kind": "dettata",
+  "text": "Larsen per due stasera alle venti e trenta tavolo 9",
+  "expect": {
+   "name": "Larsen",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:30",
+   "phone": null,
+   "table": "9",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 310,
+  "kind": "dettata",
+  "text": "Oliveira quattro persone giovedì alle sei",
+  "expect": {
+   "name": "Oliveira",
+   "people": 4,
+   "day": "2026-11-19",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 311,
+  "kind": "dettata",
+  "text": "allora Zhang in due sabato 28 alle 20:15",
+  "expect": {
+   "name": "Zhang",
+   "people": 2,
+   "day": "2026-11-28",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 312,
+  "kind": "dettata",
+  "text": "allora segna Giulia per due stasera alle otto",
+  "expect": {
+   "name": "Giulia",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 313,
+  "kind": "dettata",
+  "text": "ehm Matteo in sei sabato alle nove",
+  "expect": {
+   "name": "Matteo",
+   "people": 6,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 314,
+  "kind": "dettata",
+  "text": "Marco Ulivi per tre domenica alle 18:30",
+  "expect": {
+   "name": "Marco Ulivi",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 315,
+  "kind": "dettata",
+  "text": "allora Chiara Mugnai quattro persone mercoledì alle venti",
+  "expect": {
+   "name": "Chiara Mugnai",
+   "people": 4,
+   "day": "2026-11-18",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 316,
+  "kind": "dettata",
+  "text": "senti Alessandro Corsi due persone domani alle sette e mezza",
+  "expect": {
+   "name": "Alessandro Corsi",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 317,
+  "kind": "dettata",
+  "text": "a nome Federica Lotti siamo in cinque giovedì 19 alle otto e mezza",
+  "expect": {
+   "name": "Federica Lotti",
+   "people": 5,
+   "day": "2026-11-19",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 318,
+  "kind": "dettata",
+  "text": "allora Simone Fusi per due lunedì 23 alle 20",
+  "expect": {
+   "name": "Simone Fusi",
+   "people": 2,
+   "day": "2026-11-23",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 319,
+  "kind": "dettata",
+  "text": "segna Martina Papini e il marito sabato alle nove",
+  "expect": {
+   "name": "Martina Papini",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 320,
+  "kind": "dettata",
+  "text": "ehm Filippo Righini tre persone stasera alle venti e quindici",
+  "expect": {
+   "name": "Filippo Righini",
+   "people": 3,
+   "day": "2026-11-13",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 321,
+  "kind": "dettata",
+  "text": "allora Vittoria Masi in quattro domenica alle sei e mezza",
+  "expect": {
+   "name": "Vittoria Masi",
+   "people": 4,
+   "day": "2026-11-15",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 322,
+  "kind": "dettata",
+  "text": "Pietro Tarchi per due martedì 17 alle sette",
+  "expect": {
+   "name": "Pietro Tarchi",
+   "people": 2,
+   "day": "2026-11-17",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 323,
+  "kind": "dettata",
+  "text": "allora Leonardo Brogi sei persone sabato 12 dicembre alle venti e trenta",
+  "expect": {
+   "name": "Leonardo Brogi",
+   "people": 6,
+   "day": "2026-12-12",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 324,
+  "kind": "dettata",
+  "text": "Bernardo Ciampi per quattro mercoledì alle 12:30 a pranzo",
+  "expect": {
+   "name": "Bernardo Ciampi",
+   "people": 4,
+   "day": "2026-11-18",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 325,
+  "kind": "dettata",
+  "text": "allora Tiziana Gori in due domani alle 8",
+  "expect": {
+   "name": "Tiziana Gori",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 326,
+  "kind": "dettata",
+  "text": "segna Andrea Puccini cinque persone giovedì 3 dicembre alle venti",
+  "expect": {
+   "name": "Andrea Puccini",
+   "people": 5,
+   "day": "2026-12-03",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 327,
+  "kind": "dettata",
+  "text": "allora Cecchi virgola quattro persone virgola sabato alle otto e mezza punto",
+  "expect": {
+   "name": "Cecchi",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 328,
+  "kind": "dettata",
+  "text": "prenotazione punto nome Bigazzi virgola due persone virgola stasera alle nove punto",
+  "expect": {
+   "name": "Bigazzi",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 329,
+  "kind": "dettata",
+  "text": "Falciani virgola sei persone virgola domenica alle sette virgola telefono 347 223 3445 punto",
+  "expect": {
+   "name": "Falciani",
+   "people": 6,
+   "day": "2026-11-15",
+   "time": "19:00",
+   "phone": "347 223 3445",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 330,
+  "kind": "dettata",
+  "text": "segna Nencini virgola in tre virgola giovedì 26 alle 20 punto",
+  "expect": {
+   "name": "Nencini",
+   "people": 3,
+   "day": "2026-11-26",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 331,
+  "kind": "dettata",
+  "text": "allora virgola Bacci per due virgola domani a pranzo alle 12 punto",
+  "expect": {
+   "name": "Bacci",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "12:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 332,
+  "kind": "dettata",
+  "text": "allora Innocenti quattro persone sabato alle venti il numero è tre quattro sette uno due tre quattro cinque sei sette",
+  "expect": {
+   "name": "Innocenti",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": "347 123 4567",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 333,
+  "kind": "dettata",
+  "text": "segna Lapi per due domenica alle sei e mezza cellulare tre tre otto nove otto sette sei cinque quattro tre",
+  "expect": {
+   "name": "Lapi",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "18:30",
+   "phone": "338 987 6543",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 334,
+  "kind": "dettata",
+  "text": "Paoli in cinque mercoledì alle otto numero fisso zero cinque cinque sette nove zero uno uno due tre",
+  "expect": {
+   "name": "Paoli",
+   "people": 5,
+   "day": "2026-11-18",
+   "time": "20:00",
+   "phone": "0557901123",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 335,
+  "kind": "dettata",
+  "text": "allora Frosali due persone stasera alle 20 telefono 055 756 1122",
+  "expect": {
+   "name": "Frosali",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": "0557561122",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 336,
+  "kind": "dettata",
+  "text": "Pecchioli per tre domani alle 21 il cellulare è più 39 333 222 1100",
+  "expect": {
+   "name": "Pecchioli",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": "333 222 1100",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 337,
+  "kind": "dettata",
+  "text": "allora Tognetti quattro persone giovedì alle sette e mezza il numero 320 55 66 778",
+  "expect": {
+   "name": "Tognetti",
+   "people": 4,
+   "day": "2026-11-19",
+   "time": "19:30",
+   "phone": "320 556 6778",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 338,
+  "kind": "dettata",
+  "text": "Vannucci sei persone sabato 21 alle otto il numero è 3 4 8 7 6 5 4 3 2 1",
+  "expect": {
+   "name": "Vannucci",
+   "people": 6,
+   "day": "2026-11-21",
+   "time": "20:00",
+   "phone": "348 765 4321",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 339,
+  "kind": "dettata",
+  "text": "allora segna Becattini per quattro sabato alle otto e mezza una signora è celiaca",
+  "expect": {
+   "name": "Becattini",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "celiaca"
+  }
+ },
+ {
+  "id": 340,
+  "kind": "dettata",
+  "text": "ehm Cioni due persone stasera alle nove lui ha un'allergia ai crostacei",
+  "expect": {
+   "name": "Cioni",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "crostacei"
+  }
+ },
+ {
+  "id": 341,
+  "kind": "dettata",
+  "text": "allora Mannelli in tre domenica alle sette uno è intollerante al glutine",
+  "expect": {
+   "name": "Mannelli",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "glutine"
+  }
+ },
+ {
+  "id": 342,
+  "kind": "dettata",
+  "text": "segna Nardi per due mercoledì alle venti festeggiano l'anniversario",
+  "expect": {
+   "name": "Nardi",
+   "people": 2,
+   "day": "2026-11-18",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "anniversario"
+  }
+ },
+ {
+  "id": 343,
+  "kind": "dettata",
+  "text": "allora Signorini sei persone sabato 28 alle 20 è un compleanno portano la torta",
+  "expect": {
+   "name": "Signorini",
+   "people": 6,
+   "day": "2026-11-28",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "torta"
+  }
+ },
+ {
+  "id": 344,
+  "kind": "dettata",
+  "text": "Ulivi per quattro giovedì alle otto compreso un bambino piccolo serve il seggiolone",
+  "expect": {
+   "name": "Ulivi",
+   "people": 4,
+   "day": "2026-11-19",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "seggiolone"
+  }
+ },
+ {
+  "id": 345,
+  "kind": "dettata",
+  "text": "allora Zoppi in due domani alle sette vogliono assaggiare il Brunello",
+  "expect": {
+   "name": "Zoppi",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "Brunello"
+  }
+ },
+ {
+  "id": 346,
+  "kind": "dettata",
+  "text": "Borchi cinque persone stasera alle 20 e 30 vengono col cane",
+  "expect": {
+   "name": "Borchi",
+   "people": 5,
+   "day": "2026-11-13",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "cane"
+  }
+ },
+ {
+  "id": 347,
+  "kind": "dettata",
+  "text": "allora Calamai per due lunedì alle 18 chiedono un tavolo tranquillo",
+  "expect": {
+   "name": "Calamai",
+   "people": 2,
+   "day": "2026-11-16",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "tranquillo"
+  }
+ },
+ {
+  "id": 348,
+  "kind": "dettata",
+  "text": "Giachi quattro persone domenica alle sei uno è in carrozzina",
+  "expect": {
+   "name": "Giachi",
+   "people": 4,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "carrozzina"
+  }
+ },
+ {
+  "id": 349,
+  "kind": "dettata",
+  "text": "allora Bagni in otto sabato 5 dicembre alle 20 menù da 30 euro due sono vegani",
+  "expect": {
+   "name": "Bagni",
+   "people": 8,
+   "day": "2026-12-05",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 30 €",
+   "allergies": false,
+   "noteIncludes": "vegani"
+  }
+ },
+ {
+  "id": 350,
+  "kind": "dettata",
+  "text": "segna Pratesi per tre mercoledì alle otto e mezza ha allergia alla frutta secca",
+  "expect": {
+   "name": "Pratesi",
+   "people": 3,
+   "day": "2026-11-18",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": true,
+   "noteIncludes": "frutta"
+  }
+ },
+ {
+  "id": 351,
+  "kind": "dettata",
+  "text": "allora Gori sei persone giovedì 10 dicembre alle venti vogliono la fattura",
+  "expect": {
+   "name": "Gori",
+   "people": 6,
+   "day": "2026-12-10",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "fattura"
+  }
+ },
+ {
+  "id": 352,
+  "kind": "dettata",
+  "text": "allora senti ha chiamato la signora Puccini ehm vorrebbe venire sabato sera verso le otto e mezza sono in quattro",
+  "expect": {
+   "name": "Puccini",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 353,
+  "kind": "dettata",
+  "text": "ehm allora c'è il signor Ristori al telefono dice che vengono domani in cinque alle nove meno un quarto",
+  "expect": {
+   "name": "Ristori",
+   "people": 5,
+   "day": "2026-11-14",
+   "time": "20:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 354,
+  "kind": "dettata",
+  "text": "allora senti mi segni un tavolo per due a nome Mazzoni per stasera alle sette e mezza grazie",
+  "expect": {
+   "name": "Mazzoni",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 355,
+  "kind": "dettata",
+  "text": "allora allora segna Bertini in tre per giovedì e vengono alle otto",
+  "expect": {
+   "name": "Bertini",
+   "people": 3,
+   "day": "2026-11-19",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 356,
+  "kind": "dettata",
+  "text": "ehm sì allora Cini per due persone mercoledì 25 alle venti e trenta",
+  "expect": {
+   "name": "Cini",
+   "people": 2,
+   "day": "2026-11-25",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 357,
+  "kind": "dettata",
+  "text": "senti metti per sabato a pranzo Ciampi in quattro alle 12 e mezza",
+  "expect": {
+   "name": "Ciampi",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 358,
+  "kind": "dettata",
+  "text": "allora una prenotazione per lunedì sera alle otto per sei persone a nome Rossi",
+  "expect": {
+   "name": "Rossi",
+   "people": 6,
+   "day": "2026-11-16",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 359,
+  "kind": "dettata",
+  "text": "ehm la signora Fani ha richiamato vengono in due stasera alle venti",
+  "expect": {
+   "name": "Fani",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 360,
+  "kind": "dettata",
+  "text": "allora segna per domani alle sette e mezza tavolo 8 quattro persone Sarti",
+  "expect": {
+   "name": "Sarti",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "19:30",
+   "phone": null,
+   "table": "8",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 361,
+  "kind": "dettata",
+  "text": "senti mettimi in agenda Bencini tre persone giovedì 26 alle 21",
+  "expect": {
+   "name": "Bencini",
+   "people": 3,
+   "day": "2026-11-26",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 362,
+  "kind": "dettata",
+  "text": "allora dunque Baldi otto persone il 3 alle 20 menù da 35",
+  "expect": {
+   "name": "Baldi",
+   "people": 8,
+   "day": "2026-12-03",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 35 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 363,
+  "kind": "dettata",
+  "text": "ehm segna Biagini per due il 28 alle otto e mezza",
+  "expect": {
+   "name": "Biagini",
+   "people": 2,
+   "day": "2026-11-28",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 364,
+  "kind": "dettata",
+  "text": "allora Cappelli vengono in quattro il 20 alle sette",
+  "expect": {
+   "name": "Cappelli",
+   "people": 4,
+   "day": "2026-11-20",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 365,
+  "kind": "dettata",
+  "text": "ok segna Lastrucci tre persone il 2 dicembre alle 18:30",
+  "expect": {
+   "name": "Lastrucci",
+   "people": 3,
+   "day": "2026-12-02",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 366,
+  "kind": "dettata",
+  "text": "allora Giannini per cinque persone dopodomani alle cinque e mezza",
+  "expect": {
+   "name": "Giannini",
+   "people": 5,
+   "day": "2026-11-15",
+   "time": "17:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 367,
+  "kind": "dettata",
+  "text": "senti Pieri due persone sabato 21 alle dodici e trenta a pranzo",
+  "expect": {
+   "name": "Pieri",
+   "people": 2,
+   "day": "2026-11-21",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 368,
+  "kind": "dettata",
+  "text": "allora Mugnai in sei domenica 29 alle sei e mezza",
+  "expect": {
+   "name": "Mugnai",
+   "people": 6,
+   "day": "2026-11-29",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 369,
+  "kind": "dettata",
+  "text": "allora segna Gallo per quattro sabato alle otto",
+  "expect": {
+   "name": "Gallo",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 370,
+  "kind": "dettata",
+  "text": "Volpe due persone domani alle venti e trenta",
+  "expect": {
+   "name": "Volpe",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 371,
+  "kind": "dettata",
+  "text": "allora la signora Rosa Fiore in tre giovedì alle sette",
+  "expect": {
+   "name": "Rosa Fiore",
+   "people": 3,
+   "day": "2026-11-19",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 372,
+  "kind": "dettata",
+  "text": "segna Bianca Neri per due stasera alle nove",
+  "expect": {
+   "name": "Bianca Neri",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 373,
+  "kind": "dettata",
+  "text": "allora Serena Pace quattro persone mercoledì alle 20",
+  "expect": {
+   "name": "Serena Pace",
+   "people": 4,
+   "day": "2026-11-18",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 374,
+  "kind": "dettata",
+  "text": "Gioia Martello per due domenica alle sei",
+  "expect": {
+   "name": "Gioia Martello",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 375,
+  "kind": "dettata",
+  "text": "allora Felice Castello in cinque sabato 12 dicembre alle venti",
+  "expect": {
+   "name": "Felice Castello",
+   "people": 5,
+   "day": "2026-12-12",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 376,
+  "kind": "dettata",
+  "text": "segna Porta per tre lunedì 30 alle otto",
+  "expect": {
+   "name": "Porta",
+   "people": 3,
+   "day": "2026-11-30",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 377,
+  "kind": "dettata",
+  "text": "allora Ponte sei persone domani alle 21",
+  "expect": {
+   "name": "Ponte",
+   "people": 6,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 378,
+  "kind": "dettata",
+  "text": "Fortuna due persone stasera alle venti e quindici",
+  "expect": {
+   "name": "Fortuna",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:15",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 379,
+  "kind": "dettata",
+  "text": "allora Allegra Testa in quattro giovedì 3 dicembre alle otto e mezza",
+  "expect": {
+   "name": "Allegra Testa",
+   "people": 4,
+   "day": "2026-12-03",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 380,
+  "kind": "dettata",
+  "text": "segna Natale Esposito per due domenica alle sette",
+  "expect": {
+   "name": "Natale Esposito",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 381,
+  "kind": "dettata",
+  "text": "allora Quattrocchi per due sabato alle otto e mezza",
+  "expect": {
+   "name": "Quattrocchi",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 382,
+  "kind": "dettata",
+  "text": "Settembrini quattro persone il 3 dicembre alle 20",
+  "expect": {
+   "name": "Settembrini",
+   "people": 4,
+   "day": "2026-12-03",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 383,
+  "kind": "dettata",
+  "text": "allora Novelli in tre stasera alle nove",
+  "expect": {
+   "name": "Novelli",
+   "people": 3,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 384,
+  "kind": "dettata",
+  "text": "allora segna Lombardo 4 persone domenica alle 18:30",
+  "expect": {
+   "name": "Lombardo",
+   "people": 4,
+   "day": "2026-11-15",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 385,
+  "kind": "dettata",
+  "text": "metti Galli 2 persone domani alle 20:00 e vogliono il menù da 25 €",
+  "expect": {
+   "name": "Galli",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 386,
+  "kind": "scritta",
+  "text": "Rossi 20",
+  "expect": {
+   "name": "Rossi",
+   "people": null,
+   "day": null,
+   "time": null,
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "ambiguous": [
+    "people"
+   ]
+  }
+ },
+ {
+  "id": 387,
+  "kind": "scritta",
+  "text": "Bianchi 18 domani",
+  "expect": {
+   "name": "Bianchi",
+   "people": null,
+   "day": "2026-11-14",
+   "time": null,
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "ambiguous": [
+    "people"
+   ]
+  }
+ },
+ {
+  "id": 388,
+  "kind": "scritta",
+  "text": "Ferri 6 sabato",
+  "expect": {
+   "name": "Ferri",
+   "people": null,
+   "day": "2026-11-14",
+   "time": null,
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "ambiguous": [
+    "people"
+   ]
+  }
+ },
+ {
+  "id": 389,
+  "kind": "scritta",
+  "text": "Dei Grandi 5 domenica",
+  "expect": {
+   "name": "Dei Grandi",
+   "people": null,
+   "day": "2026-11-15",
+   "time": null,
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "ambiguous": [
+    "people"
+   ]
+  }
+ },
+ {
+  "id": 390,
+  "kind": "scritta",
+  "text": "Costa 4 sabato alle 20:30",
+  "expect": {
+   "name": "Costa",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 391,
+  "kind": "scritta",
+  "text": "Gallo 3 domenica 19:30",
+  "expect": {
+   "name": "Gallo",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 392,
+  "kind": "scritta",
+  "text": "Neri domani alle 10",
+  "expect": {
+   "name": "Neri",
+   "people": null,
+   "day": "2026-11-14",
+   "time": null,
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "ambiguous": [
+    "time"
+   ]
+  }
+ },
+ {
+  "id": 393,
+  "kind": "dettata",
+  "text": "allora segna Morelli per quattro sabato alle 11",
+  "expect": {
+   "name": "Morelli",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": null,
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "ambiguous": [
+    "time"
+   ]
+  }
+ },
+ {
+  "id": 394,
+  "kind": "dettata",
+  "text": "senti Cappelli tre persone giovedì alle dieci",
+  "expect": {
+   "name": "Cappelli",
+   "people": 3,
+   "day": "2026-11-19",
+   "time": null,
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "ambiguous": [
+    "time"
+   ]
+  }
+ },
+ {
+  "id": 395,
+  "kind": "dettata",
+  "text": "Conti in due domani mattina alle 11",
+  "expect": {
+   "name": "Conti",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "11:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 396,
+  "kind": "scritta",
+  "text": "Lotti 3 sab alle 10 di mattina",
+  "expect": {
+   "name": "Lotti",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "10:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 397,
+  "kind": "dettata",
+  "text": "allora Marino in quattro domani anzi domenica alle otto",
+  "expect": {
+   "name": "Marino",
+   "people": 4,
+   "day": "2026-11-15",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 398,
+  "kind": "dettata",
+  "text": "segna Leone per due stasera alle 8 anzi alle 9",
+  "expect": {
+   "name": "Leone",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 399,
+  "kind": "dettata",
+  "text": "Bruno in quattro no scusa in cinque sabato alle venti",
+  "expect": {
+   "name": "Bruno",
+   "people": 5,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 400,
+  "kind": "scritta",
+  "text": "Fiore 2 sab 21 anzi 28 h 20",
+  "expect": {
+   "name": "Fiore",
+   "people": 2,
+   "day": "2026-11-28",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 401,
+  "kind": "dettata",
+  "text": "allora Villa sei persone giovedì alle sette anzi no alle sette e mezza",
+  "expect": {
+   "name": "Villa",
+   "people": 6,
+   "day": "2026-11-19",
+   "time": "19:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 402,
+  "kind": "dettata",
+  "text": "allora Ferrari per due il 3 dicembre anzi il 4 alle 20",
+  "expect": {
+   "name": "Ferrari",
+   "people": 2,
+   "day": "2026-12-04",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 403,
+  "kind": "dettata",
+  "text": "segna il signor Sabato per due persone domenica alle sette",
+  "expect": {
+   "name": "Sabato",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "19:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 404,
+  "kind": "dettata",
+  "text": "allora Domenica Russo in tre sabato alle otto",
+  "expect": {
+   "name": "Domenica Russo",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 405,
+  "kind": "scritta",
+  "text": "Marzo 4 pers 3 dic h 20",
+  "expect": {
+   "name": "Marzo",
+   "people": 4,
+   "day": "2026-12-03",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 406,
+  "kind": "dettata",
+  "text": "Aprile per due il 12 dicembre alle venti",
+  "expect": {
+   "name": "Aprile",
+   "people": 2,
+   "day": "2026-12-12",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 407,
+  "kind": "dettata",
+  "text": "allora Primo Ottaviani in due il primo dicembre alle 8",
+  "expect": {
+   "name": "Primo Ottaviani",
+   "people": 2,
+   "day": "2026-12-01",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 408,
+  "kind": "scritta",
+  "text": "sabato 22 Mariani 4 h 20",
+  "expect": {
+   "name": "Mariani",
+   "people": 4,
+   "day": "2026-11-22",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 409,
+  "kind": "scritta",
+  "text": "Lo Bianco x4 t6 sabato 20 h 21",
+  "expect": {
+   "name": "Lo Bianco",
+   "people": 4,
+   "day": "2026-11-20",
+   "time": "21:00",
+   "phone": null,
+   "table": "6",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 410,
+  "kind": "dettata",
+  "text": "allora Russo per cinque sabato 22 alle venti",
+  "expect": {
+   "name": "Russo",
+   "people": 5,
+   "day": "2026-11-22",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 411,
+  "kind": "dettata",
+  "text": "allora Pace due persone venerdì",
+  "expect": {
+   "name": "Pace",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": null,
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 412,
+  "kind": "dettata",
+  "text": "segna Romano in sei il 31 alle 20 per il cenone",
+  "expect": {
+   "name": "Romano",
+   "people": 6,
+   "day": "2026-12-31",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false,
+   "noteIncludes": "cenone"
+  }
+ },
+ {
+  "id": 413,
+  "kind": "scritta",
+  "text": "Moretti 5 pers 6/1 h 20",
+  "expect": {
+   "name": "Moretti",
+   "people": 5,
+   "day": "2027-01-06",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 414,
+  "kind": "dettata",
+  "text": "allora Greco quattro persone il 2 gennaio alle venti",
+  "expect": {
+   "name": "Greco",
+   "people": 4,
+   "day": "2027-01-02",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 415,
+  "kind": "scritta",
+  "text": "Quattrocchi 2 sab 20:30",
+  "expect": {
+   "name": "Quattrocchi",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 416,
+  "kind": "dettata",
+  "text": "allora Cento in quattro domenica alle sei",
+  "expect": {
+   "name": "Cento",
+   "people": 4,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 417,
+  "kind": "scritta",
+  "text": "Settembrini x3 3/12 h 20",
+  "expect": {
+   "name": "Settembrini",
+   "people": 3,
+   "day": "2026-12-03",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 418,
+  "kind": "dettata",
+  "text": "ok allora prenotazione per domenica alle sei persone quattro nome Fantoni",
+  "expect": {
+   "name": "Fantoni",
+   "people": 4,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 419,
+  "kind": "scritta",
+  "text": "tavolo per 6 tav 4 Basile domani 20:30",
+  "expect": {
+   "name": "Basile",
+   "people": 6,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": "4",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 420,
+  "kind": "dettata",
+  "text": "Ricci tavolo 7 per tre stasera alle venti",
+  "expect": {
+   "name": "Ricci",
+   "people": 3,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": "7",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 421,
+  "kind": "dettata",
+  "text": "allora Mariani al tavolo sette in due stasera alle nove",
+  "expect": {
+   "name": "Mariani",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "21:00",
+   "phone": null,
+   "table": "7",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 422,
+  "kind": "scritta",
+  "text": "Bianchi 2 menù 25 sab 20:30 tav 15",
+  "expect": {
+   "name": "Bianchi",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": "15",
+   "menu": "Menù da 25 €",
+   "allergies": false
+  }
+ },
+ {
+  "id": 423,
+  "kind": "scritta",
+  "text": "Gentile 2 adulti + 1 bimbo sab 12:30",
+  "expect": {
+   "name": "Gentile",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "12:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 424,
+  "kind": "dettata",
+  "text": "allora De Luca sono in quattro più un bambino domenica alle sei",
+  "expect": {
+   "name": "De Luca",
+   "people": 5,
+   "day": "2026-11-15",
+   "time": "18:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 425,
+  "kind": "dettata",
+  "text": "allora Ivanova sono due adulti e tre bambini sabato a pranzo alle 12",
+  "expect": {
+   "name": "Ivanova",
+   "people": 5,
+   "day": "2026-11-14",
+   "time": "12:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 426,
+  "kind": "dettata",
+  "text": "Marco e la moglie sabato alle nove",
+  "expect": {
+   "name": "Marco",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "21:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 427,
+  "kind": "dettata",
+  "text": "segna Angelo Del Lungo e la moglie domenica alle sei e mezza",
+  "expect": {
+   "name": "Angelo Del Lungo",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "18:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 428,
+  "kind": "scritta",
+  "text": "una coppia stasera h 20 Monti",
+  "expect": {
+   "name": "Monti",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 429,
+  "kind": "dettata",
+  "text": "segna Vitale per due stasera alle otto nessuna allergia",
+  "expect": {
+   "name": "Vitale",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 430,
+  "kind": "scritta",
+  "text": "Testa 4 sab 20:30 no allergie",
+  "expect": {
+   "name": "Testa",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 431,
+  "kind": "dettata",
+  "text": "allora Sala in otto alle venti punto trenta sabato 21",
+  "expect": {
+   "name": "Sala",
+   "people": 8,
+   "day": "2026-11-21",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 432,
+  "kind": "dettata",
+  "text": "segna Guerra per due alle otto in punto domani",
+  "expect": {
+   "name": "Guerra",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 433,
+  "kind": "dettata",
+  "text": "allora Rossetti in tre domenica alle sette e tre quarti",
+  "expect": {
+   "name": "Rossetti",
+   "people": 3,
+   "day": "2026-11-15",
+   "time": "19:45",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 434,
+  "kind": "scritta",
+  "text": "Esposito 3 oggi h17 tel 333.123.4567",
+  "expect": {
+   "name": "Esposito",
+   "people": 3,
+   "day": "2026-11-13",
+   "time": "17:00",
+   "phone": "333 123 4567",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 435,
+  "kind": "scritta",
+  "text": "0039 347 111 2233 Bellini 2 domenica 18:30",
+  "expect": {
+   "name": "Bellini",
+   "people": 2,
+   "day": "2026-11-15",
+   "time": "18:30",
+   "phone": "347 111 2233",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 436,
+  "kind": "dettata",
+  "text": "allora segna Pellegrini il numero è 340 12 34 567 per quattro persone domani alle venti",
+  "expect": {
+   "name": "Pellegrini",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": "340 123 4567",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 437,
+  "kind": "dettata",
+  "text": "allora Messina vengono in 4 sabato alle 20 il numero di casa è 055 752 8899",
+  "expect": {
+   "name": "Messina",
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": "0557528899",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 438,
+  "kind": "dettata",
+  "text": "allora in quattro sabato alle otto e mezza",
+  "expect": {
+   "name": null,
+   "people": 4,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 439,
+  "kind": "scritta",
+  "text": "2 pers domani 20:30 tel 3334445566",
+  "expect": {
+   "name": null,
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "20:30",
+   "phone": "333 444 5566",
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 440,
+  "kind": "dettata",
+  "text": "allora la signora Bianca per tre sabato alle otto",
+  "expect": {
+   "name": "Bianca",
+   "people": 3,
+   "day": "2026-11-14",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 441,
+  "kind": "dettata",
+  "text": "senti c'è la signora Celeste Gallo vuole il tavolo 3 per due a mezzogiorno di sabato",
+  "expect": {
+   "name": "Celeste Gallo",
+   "people": 2,
+   "day": "2026-11-14",
+   "time": "12:00",
+   "phone": null,
+   "table": "3",
+   "menu": null,
+   "allergies": false
+  }
+ },
+ {
+  "id": 442,
+  "kind": "dettata",
+  "text": "allora Benvenuti per due stasera alle otto",
+  "expect": {
+   "name": "Benvenuti",
+   "people": 2,
+   "day": "2026-11-13",
+   "time": "20:00",
+   "phone": null,
+   "table": null,
+   "menu": null,
+   "allergies": false
+  }
+ }
+]

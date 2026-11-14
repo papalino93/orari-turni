@@ -105,6 +105,7 @@ const FILLER = new Set([
   "senti", "segna", "segnami", "segni", "segno", "segnare", "segniamo", "metti", "mettimi", "mettiamo", "mettere", "mi", "ci", "ha", "hanno", "chiamato", "chiamata",
   "chiama", "chiamano", "cliente", "si", "chiede", "chiedono", "eh", "ehm", "uhm", "perfetto", "grazie", "va", "bene", "suo", "sua", "loro", "ecco", "dunque",
   "quindi", "aspetta", "richiamo", "richiama", "dopo", "non", "lasciato", "no", "favore", "piacere", "sempre", "solito", "tipo", "ma", "o", "che", "lui", "lei",
+  "c'e", "c'", "dice", "dicono", "vuole", "vogliono", "venire", "agenda", "famiglia", "fam", "scusa", "telefono", "ospite", "clienti",
 ]);
 // Parole con cui comincia una nota (come nel librone).
 const NOTE_START =
@@ -152,10 +153,14 @@ function nextWeekday(wd: number, today: string, next: boolean): string {
 
 // ---------- Lettura (con le correzioni dette a voce: «domani no anzi domenica», «alle 8 anzi alle 9»)
 
-const CORRECTION = /\s+(?:no[, ]+)?(?:anzi|cioè|cioe|o meglio)\s+/i;
+const CORRECTION = /\s+(?:no[, ]+)?(?:anzi(?:[, ]+no)?|cioè|cioe|o meglio|no[, ]+scusa|scusa)\s+/i;
 
 export function parseQuick(text: string, opts: QuickOptions): QuickResult {
-  const clean = text.replace(/\s+/g, " ").trim();
+  const clean = text
+    .replace(/\s+/g, " ")
+    .trim()
+    // «sab 21 anzi 28»: la correzione è il giorno del mese
+    .replace(/(\b(?:lun|mar|mer|gio|ven|sab|dom)[a-zìé]*\.?\s+)\d{1,2}\s+(?:no[, ]+)?(?:anzi|no[, ]+scusa|scusa)\s+(\d{1,2})\b/i, "$1$2");
   const m = clean.match(CORRECTION);
   if (m && m.index !== undefined && m.index > 0) {
     // Vale l'ultima: la parte dopo la correzione sostituisce i campi che ripete.
@@ -193,8 +198,17 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
   const words = spaced.split(/\s+/).filter(Boolean);
   for (let k = 0; k < words.length; k++) {
     const raw = words[k];
-    if (raw === ",") {
+    if (raw === "," || /^[-–—/+|•·]+$/.test(raw)) {
+      // virgole e trattini da soli («barbieri - 3 - domani») separano i pezzi
       if (toks.length) toks[toks.length - 1].comma = true;
+      continue;
+    }
+    // «2+2 bimbi»
+    const plus = raw.match(/^(\d{1,2})\+(\d{1,2})$/);
+    if (plus) {
+      push(plus[1], plus[1]);
+      push("più", "più");
+      push(plus[2], plus[2]);
       continue;
     }
     const endsPiece = /[,.]$/.test(raw) && !/^\d+[.,]$/.test(raw) && !/^(sig|dott|sig\.ra|ing|avv|n|nr|tel|cell|tav)\.$/i.test(raw) && raw.length > 1;
@@ -279,7 +293,10 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
   // «Domenica per due sabato alle 20»: un giorno della settimana detto per primo, con la maiuscola,
   // seguito da «per», quando c'è un altro giorno nella frase, è un nome.
   const dayWords = T.filter((t) => weekdayWord(t.w) !== null || /^(oggi|stasera|domani|dopodomani)$/.test(t.w)).length;
-  const nameLikeDay = (i: number) => i === 0 && capitalized(T[i].raw) && T[i + 1]?.w === "per" && dayWords > 1;
+  const nameLikeDay = (i: number) =>
+    (i === 0 && capitalized(T[i].raw) && T[i + 1]?.w === "per" && dayWords > 1) ||
+    /^(signor|signora|sig|sigra|sig\.ra)$/.test(T[i - 1]?.w ?? "") ||
+    (capitalized(T[i].raw) && i + 1 < T.length && capitalized(T[i + 1].raw) && /^\p{Lu}\p{Ll}/u.test(T[i + 1].raw) && weekdayWord(T[i + 1].w) === null && !FILLER.has(T[i + 1].w) && dayWords > 1);
   const dotted = /^(\d{1,2})\.(\d{1,2})$/;
   for (let i = 0; i < T.length && !out.day; i++) {
     const w = at(i);
@@ -451,6 +468,11 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
       if (/^(alle|ore|verso|le|h)$/.test(at(i - 1))) take(i - 1);
       continue;
     }
+    m = w.match(/^h(\d{1,2})[:.](\d{2})$/);
+    if (m) {
+      setTime(+m[1], +m[2], [i]);
+      continue;
+    }
     m = w.match(/^h(\d{1,2})$/) ?? w.match(/^(\d{1,2})h$/);
     if (m) {
       withMinutes(+m[1], i + 1, [i]);
@@ -488,7 +510,7 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
   const okPeople = (n: number) => n >= 1 && n <= 60;
   const kidsAfter = (i: number): { n: number; used: number[] } | null => {
     // «+ 1 bambino», «e 2 bambini», «più due bimbi»
-    if (/^(e|piu|più)$/.test(at(i)) && /^\d{1,2}$/.test(at(i + 1)) && KIDS.test(at(i + 2))) return { n: +at(i + 1), used: [i, i + 1, i + 2] };
+    if (/^(e|piu|più)$/.test(at(i)) && /^(\d{1,2}|un|una|uno)$/.test(at(i + 1)) && KIDS.test(at(i + 2))) return { n: /^\d/.test(at(i + 1)) ? +at(i + 1) : 1, used: [i, i + 1, i + 2] };
     return null;
   };
   const setPeople = (n: number, idx: number[], after: number) => {
@@ -502,6 +524,16 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
     // «10 persone», «4 pax», «2 adulti (e 2 bambini)», «4 bambini»
     if (/^\d{1,2}$/.test(w) && (PEOPLE_AFTER.test(at(i + 1)) || KIDS.test(at(i + 1))) && okPeople(+w)) {
       setPeople(+w, [i, i + 1], i + 2);
+      break;
+    }
+    // «2 più 2 bimbi»
+    if (/^\d{1,2}$/.test(w) && okPeople(+w) && kidsAfter(i + 1)) {
+      setPeople(+w, [i], i + 1);
+      break;
+    }
+    // «persone quattro» (detto al contrario)
+    if (PEOPLE_AFTER.test(w) && /^\d{1,2}$/.test(at(i + 1)) && okPeople(+at(i + 1)) && !/^(alle|ore)$/.test(at(i - 1))) {
+      setPeople(+at(i + 1), [i, i + 1], i + 2);
       break;
     }
     // «4p», «x4», «4px», «x 4»
@@ -622,7 +654,12 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
   if (cur.length) segments.push(cur);
   // Una particella con la maiuscola davanti a un nome con la maiuscola fa parte del cognome («Lo Russo»).
   const keepParticle = (i: number) => PARTICLE.test(T[i].w) && capitalized(T[i].raw) && i + 1 < T.length && capitalized(T[i + 1].raw) && !FILLER.has(T[i + 1].w);
-  const isFill = (i: number) => FILLER.has(T[i].w) && !keepParticle(i);
+  // Dopo una particella («del bene», «la porta») una parola di contorno può essere un cognome.
+  const GRAMMAR = /^(il|lo|la|i|gli|le|l'|un|una|uno|di|del|della|a|al|alla|per|e|ed|con|da|in|che|signor|signora|sig)$/;
+  // (solo per le poche parole di contorno che sono anche cognomi: «del bene», «la porta», «del posto»)
+  const afterParticle = (i: number) =>
+    i > 0 && !T[i - 1].used && /^(del|della|dei|degli|dal|dalla|lo|la|di|de)$/.test(T[i - 1].w) && /^(bene|porta|posto|sala|sempre)$/.test(T[i].w) && !GRAMMAR.test(T[i].w) && !(T[i - 1].w === "di" && /^(nome|conto|parte)$/.test(T[i - 2]?.w ?? ""));
+  const isFill = (i: number) => FILLER.has(T[i].w) && !keepParticle(i) && !afterParticle(i);
   const trim = (seg: number[]) => {
     let a = 0;
     let b = seg.length;
@@ -630,13 +667,21 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
     while (b > a && isFill(seg[b - 1])) b--;
     return seg.slice(a, b);
   };
-  const capWord = (raw: string) => raw.replace(/(^|['’-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
+  const capWord = (raw: string) => {
+    const base = raw.length > 2 && raw === raw.toUpperCase() && /\p{L}{3}/u.test(raw) ? raw.toLowerCase() : raw; // «MARIANI» → «Mariani»
+    return base.replace(/(^|['’-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
+  };
   const noteWord = (i: number) => NOTE_START.test(T[i].w) || mentionsAllergy(T[i].w);
   const notes: string[] = [];
   for (const seg of segments) {
-    const core = trim(seg);
+    let core = trim(seg);
     if (!core.length) continue;
     if (!out.name && !noteWord(core[0])) {
+      const first = core[0];
+      const prev = first - 1;
+      if (prev >= 0 && !T[prev].used && seg.includes(prev) && PARTICLE.test(T[prev].w) && !(T[prev].w === "di" && /^(nome|conto|parte)$/.test(T[prev - 1]?.w ?? "")) && !/^(signor|signora|sig)$/.test(T[first].w)) {
+        core = [prev, ...core];
+      }
       // il nome finisce dove comincia una nota, o una parola di contorno dopo il nome («Lombardi chiede…»)
       let k = 0;
       while (k < core.length && !noteWord(core[k]) && !(k > 0 && isFill(core[k]) && !(T[core[k]].w === "e" && k + 1 < core.length && !isFill(core[k + 1]) && !noteWord(core[k + 1]) && capitalized(T[core[k + 1]].raw)))) k++;
@@ -657,6 +702,8 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
     .filter(Boolean)
     .join(", ");
   out.note = noteText ? noteText.slice(0, 300) : null;
-  out.allergies = mentionsAllergy(out.note) || mentionsAllergy(text);
+  // «nessuna allergia», «no allergie», «senza allergie»: non è un'allergia
+  const denied = text.replace(/\b(?:nessuna|niente|no|senza|non\s+(?:ha|hanno)(?:\s+nessuna)?)\s+allergi[ae]\b/gi, "");
+  out.allergies = mentionsAllergy(denied);
   return out;
 }

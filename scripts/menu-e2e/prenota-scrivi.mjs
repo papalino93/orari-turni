@@ -1,5 +1,5 @@
 // «Scrivi o detta»: la lettura delle prenotazioni scritte o dettate (funzioni pure, niente browser).
-// 1. le frasi «cieche» (fixtures/scrivi-frasi-cieche.json): scritte da chi non ha visto il codice,
+// 1. le frasi «cieche» (fixtures/scrivi-frasi-cieche*.json): scritte da chi non ha visto il codice,
 //    digitate di fretta e come le scrive la dettatura di iPhone/Android, con la risposta giusta;
 // 2. migliaia di combinazioni generate (nome × persone × giorno × ora × telefono × nota × ordine).
 // Oggi per tutte: venerdì 13 novembre 2026. Regola: mai indovinare (i campi ambigui restano vuoti).
@@ -30,7 +30,12 @@ function compare(text, expect) {
 }
 
 // ---------- 1. Frasi cieche
-const blind = JSON.parse(readFileSync(new URL("./fixtures/scrivi-frasi-cieche.json", import.meta.url), "utf8"));
+// due gruppi scritti da due persone diverse, nessuna delle due ha visto il codice (il secondo usato
+// prima solo per misurare: 409/442 al primo colpo, poi corretti i casi mancati)
+const blind = [
+  ...JSON.parse(readFileSync(new URL("./fixtures/scrivi-frasi-cieche.json", import.meta.url), "utf8")),
+  ...JSON.parse(readFileSync(new URL("./fixtures/scrivi-frasi-cieche-2.json", import.meta.url), "utf8")).map((c) => ({ ...c, id: `B${c.id}` })),
+];
 let ok1 = 0;
 const fails1 = [];
 for (const c of blind) {
