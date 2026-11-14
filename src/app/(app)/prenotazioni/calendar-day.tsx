@@ -205,7 +205,7 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
               <h3
                 className={`sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 -mx-1 flex flex-wrap items-baseline gap-x-2 rounded-lg px-2 py-1.5 backdrop-blur-md ${g.minutes < 0 ? "bg-gold/15" : "bg-background/85"}`}
               >
-                <span className={`whitespace-nowrap font-serif text-lg font-semibold tabular-nums ${g.minutes < 0 ? "text-gold" : "text-foreground"}`}>
+                <span className={`whitespace-nowrap font-sans text-lg font-semibold tabular-nums ${g.minutes < 0 ? "text-gold" : "text-foreground"}`}>
                   {g.label}
                   {g.minutes >= 1440 && <span className="ml-1 font-sans text-xs font-normal text-foreground-muted">dopo mezzanotte</span>}
                 </span>
@@ -305,7 +305,7 @@ function DayRow({
       {missing && !cancelled && <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-gold" />}
       {/* Persone, grandi (come sul librone) */}
       <span className={`flex w-11 shrink-0 flex-col items-center justify-center self-start rounded-lg py-1.5 ${b.peopleUnknown ? "bg-gold/15 text-gold" : "bg-surface-2 text-foreground"} ${cancelled ? "line-through" : ""}`}>
-        <span className="font-serif text-2xl font-semibold leading-none tabular-nums">{b.peopleUnknown ? "?" : b.people}</span>
+        <span className="font-sans text-2xl font-semibold leading-none tabular-nums">{b.peopleUnknown ? "?" : b.people}</span>
         <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide opacity-75">pers.</span>
       </span>
       <span className="min-w-0 flex-1">

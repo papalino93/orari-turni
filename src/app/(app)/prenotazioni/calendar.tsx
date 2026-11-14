@@ -221,7 +221,7 @@ export function AgendaCalendar(props: CalendarProps) {
       <span className="flex min-h-11 items-center gap-1.5 rounded-xl px-1 md:px-2">
         <span className="min-w-0">
           {near && <span className="block text-[11px] font-semibold uppercase leading-tight tracking-wider text-accent-ink">{near}</span>}
-          <span data-testid="agenda-titolo" className="block text-pretty font-serif text-[1.2rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.35rem] md:truncate md:text-[1.6rem]">
+          <span data-testid="agenda-titolo" className="block text-pretty font-sans text-[1.2rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.35rem] md:truncate md:text-[1.6rem]">
             {title}
           </span>
         </span>
@@ -546,7 +546,7 @@ function WeekView({
                 >
                   <span className={`text-[11px] font-semibold tracking-wider ${isToday ? "text-accent-ink" : "text-foreground-muted"}`}>{WEEKDAY_SHORT[i]}</span>
                   <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-full font-serif text-[1.45rem] font-semibold tabular-nums ${isToday ? "bg-accent text-accent-foreground" : day < today ? "text-foreground-muted" : "text-foreground"}`}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full font-sans text-[1.45rem] font-semibold tabular-nums ${isToday ? "bg-accent text-accent-foreground" : day < today ? "text-foreground-muted" : "text-foreground"}`}
                   >
                     {Number(day.slice(8, 10))}
                   </span>
@@ -591,16 +591,23 @@ function WeekView({
             return (
               <div role="gridcell" key={day} className={`flex min-h-64 min-w-0 flex-col gap-1 px-1.5 pb-2 pt-2 ${i ? "border-l border-border" : ""} ${day < today ? "bg-surface-2/25" : ""}`}>
                 <button type="button" onClick={(e) => onDay(day, e)} className="-mx-0.5 rounded-md px-0.5 pb-1 text-left hover:bg-surface-2/60" aria-label={`${dayAria(day)}: ${sumAria(sum)}`}>
-                  <span className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 text-[12px] tabular-nums">
+                  {/* Totali su una riga («120 · 466 p.»), poi i segni (da confermare, da completare) sotto:
+                      nelle colonne strette del tablet non vanno più a capo a pezzi. */}
+                  <span className="flex flex-col gap-0.5 text-[12px] tabular-nums">
                     {sum.count ? (
-                      <span className="font-semibold text-foreground">
-                        <span className="whitespace-nowrap">{sum.count} ·</span> <span className="whitespace-nowrap">{sum.people} pers.</span>
+                      <span className="whitespace-nowrap font-semibold text-foreground">
+                        {sum.count} · {sum.people} <span className="xl:hidden">p.</span>
+                        <span className="max-xl:hidden">pers.</span>
                       </span>
                     ) : (
                       <span className="text-foreground-muted">—</span>
                     )}
-                    {sum.pending > 0 && <span className="whitespace-nowrap text-[11px] font-semibold text-gold">+{sum.pending}</span>}
-                    {sum.incomplete > 0 && <IncompleteDot n={sum.incomplete} />}
+                    {(sum.pending > 0 || sum.incomplete > 0) && (
+                      <span className="flex items-center gap-1.5">
+                        {sum.pending > 0 && <span className="whitespace-nowrap text-[11px] font-semibold text-gold">+{sum.pending}</span>}
+                        {sum.incomplete > 0 && <IncompleteDot n={sum.incomplete} />}
+                      </span>
+                    )}
                   </span>
                   <FullnessBar people={sum.people} capacity={capacity} className="mt-1" />
                 </button>
@@ -638,13 +645,13 @@ function WeekChip({ b, countTests, onOpen }: { b: AgendaBooking; countTests: boo
       onClick={() => onOpen(b.id)}
       aria-label={label}
       title={label}
-      className={`flex min-h-7 w-full min-w-0 flex-col items-stretch rounded-md px-1.5 py-0.5 text-left text-[12px] leading-tight hover:brightness-95 lg:flex-row lg:items-center lg:gap-1 dark:hover:brightness-125 ${tone} ${b.arrivedAt || (b.isTest && !countTests) ? "opacity-60" : ""}`}
+      className={`flex min-h-7 w-full min-w-0 flex-col items-stretch justify-center rounded-md px-1.5 py-0.5 text-left text-[12px] leading-tight pointer-coarse:min-h-11 pointer-coarse:py-1 hover:brightness-95 lg:pointer-fine:flex-row lg:pointer-fine:items-center lg:pointer-fine:gap-1 dark:hover:brightness-125 ${tone} ${b.arrivedAt || (b.isTest && !countTests) ? "opacity-60" : ""}`}
     >
-      {/* Tablet: ora e persone sopra, il nome sotto (le colonne sono strette); computer: una riga. */}
+      {/* Tablet (anche orizzontale, col dito): ora e persone sopra, il nome sotto; computer col mouse: una riga. */}
       <span className="flex shrink-0 items-center gap-1">
         <span className={`font-semibold tabular-nums ${b.timeUnknown ? "text-gold" : "text-foreground"}`}>{time}</span>
         <span className={`tabular-nums ${b.peopleUnknown ? "font-semibold text-gold" : "text-foreground-muted"}`}>{b.peopleUnknown ? "?" : b.people}</span>
-        {b.allergies && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger lg:order-last" />}
+        {b.allergies && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger lg:pointer-fine:order-last" />}
         {b.arrivedAt && <span aria-hidden className="shrink-0 text-success">✓</span>}
       </span>
       <span className="min-w-0 flex-1 truncate text-foreground">{b.name}</span>
@@ -838,7 +845,7 @@ function DateBadge({ day, today }: { day: string; today: string }) {
   return (
     <span className={`flex w-12 shrink-0 flex-col items-center justify-center rounded-xl py-1 ${isToday ? "bg-accent text-accent-foreground" : "bg-surface-2"}`}>
       <span className={`text-[10.5px] font-semibold tracking-wider ${isToday ? "" : "text-foreground-muted"}`}>{wd}</span>
-      <span className="font-serif text-xl font-semibold leading-tight tabular-nums">{Number(day.slice(8, 10))}</span>
+      <span className="font-sans text-xl font-semibold leading-tight tabular-nums">{Number(day.slice(8, 10))}</span>
     </span>
   );
 }

@@ -32,7 +32,7 @@ function Numbers({ stats }: { stats: BookingStatsData }) {
     { label: "Non venuti", value: String(stats.noShow), note: ["prenotati, mai arrivati"] },
     { label: "Risposta tipica", value: stats.medianResponseMinutes === null ? "—" : duration(stats.medianResponseMinutes), note: ["alle richieste dal sito"] },
   ];
-  const max = Math.max(...stats.bySource.map(([, n]) => n), 1);
+  const max = Math.max(...stats.bySource.map(([, s]) => s.n), 1);
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -55,14 +55,20 @@ function Numbers({ stats }: { stats: BookingStatsData }) {
       </div>
       <section className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
         <h2 className="text-base font-semibold text-foreground">Da dove arrivano</h2>
-        <ul className="mt-3 space-y-2">
-          {stats.bySource.map(([source, n]) => (
-            <li key={source} className="grid grid-cols-[7rem_1fr_2.5rem] items-center gap-3 text-sm">
-              <span className="truncate text-foreground">{SOURCE_LABEL[source] ?? "Link diretto"}</span>
-              <span className="h-2.5 overflow-hidden rounded-full bg-surface-2">
-                <span className="block h-full rounded-full bg-chart" style={{ width: `${(n / max) * 100}%` }} />
+        <p className="mt-0.5 text-xs text-foreground-muted">Google, Instagram, Facebook, il menù… e quelle segnate a mano. Ultimi 90 giorni, senza le prove.</p>
+        <ul className="mt-3 space-y-3">
+          {stats.bySource.map(([source, s]) => (
+            <li key={source} className="text-sm" data-testid={`fonte-${source}`}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 truncate font-medium text-foreground">{SOURCE_LABEL[source] ?? "Link diretto"}</span>
+                <span className="shrink-0 tabular-nums text-foreground">{s.n}</span>
+              </div>
+              <span className="mt-1 block h-2.5 overflow-hidden rounded-full bg-surface-2">
+                <span className="block h-full rounded-full bg-chart" style={{ width: `${(s.n / max) * 100}%` }} />
               </span>
-              <span className="text-right tabular-nums text-foreground-muted">{n}</span>
+              <p className="mt-0.5 text-xs text-foreground-muted">
+                {s.confirmed} {s.confirmed === 1 ? "confermata" : "confermate"} · {peopleText(s.people)}
+              </p>
             </li>
           ))}
         </ul>

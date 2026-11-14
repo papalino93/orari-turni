@@ -1406,7 +1406,7 @@ export async function bookingStats(now: Date = new Date()) {
     where: { isTest: false, createdAt: { gte: since } },
     select: { status: true, source: true, manual: true, createdAt: true, handledAt: true, people: true, noShowAt: true, arrivedAt: true, cancelledBy: true, startsAt: true },
   });
-  const bySource = new Map<string, number>();
+  const bySource = new Map<string, { n: number; confirmed: number; people: number }>();
   let total = 0;
   let confirmed = 0;
   let declined = 0;
@@ -1416,7 +1416,16 @@ export async function bookingStats(now: Date = new Date()) {
   const manual = { total: 0, confirmed: 0, people: 0, cancelled: 0 };
   const responseMinutes: number[] = [];
   for (const r of rows) {
-    bySource.set(r.source ?? "altro", (bySource.get(r.source ?? "altro") ?? 0) + 1);
+    {
+      const key = r.source ?? "altro";
+      const s = bySource.get(key) ?? { n: 0, confirmed: 0, people: 0 };
+      s.n++;
+      if (r.status === "CONFIRMED") {
+        s.confirmed++;
+        s.people += r.people;
+      }
+      bySource.set(key, s);
+    }
     if (r.noShowAt) noShow++;
     if (r.manual) {
       manual.total++;
@@ -1438,7 +1447,7 @@ export async function bookingStats(now: Date = new Date()) {
   }
   responseMinutes.sort((a, b) => a - b);
   const median = responseMinutes.length ? responseMinutes[Math.floor(responseMinutes.length / 2)] : null;
-  return { total, confirmed, declined, cancelled, noShow, people, manual, medianResponseMinutes: median, bySource: [...bySource.entries()].sort((a, b) => b[1] - a[1]) };
+  return { total, confirmed, declined, cancelled, noShow, people, manual, medianResponseMinutes: median, bySource: [...bySource.entries()].sort((a, b) => b[1].n - a[1].n) };
 }
 
 // ---------- Conservazione dei dati (informativa: «fino a 6 mesi dopo la data, poi li cancelliamo»)
