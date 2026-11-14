@@ -16,7 +16,7 @@ export type ImportFormat = "vcard" | "google" | "outlook" | "brevo" | "tabella" 
 export type ParsedImport = {
   format: ImportFormat;
   rows: ImportRow[]; // solo chi ha almeno un'email valida
-  noEmail: string[]; // chi non ha un'email valida (nome, o la riga com'era)
+  noEmail: string[]; // chi non ha un'email valida (nome, con l'indirizzo sbagliato se c'è, o la riga com'era)
 };
 
 export const FORMAT_LABEL: Record<ImportFormat, string> = {
@@ -70,7 +70,13 @@ function finish(format: ImportFormat, list: RawRow[]): ParsedImport {
   const noEmail: string[] = [];
   for (const r of list) {
     if (r.emails.length) rows.push({ name: cleanName(r.name), emails: r.emails, phone: cleanPhone(r.phone), groups: splitGroups(r.groups ?? "") });
-    else if (r.name.trim() || r.raw.trim()) noEmail.push(cleanName(r.name) || r.raw.trim().slice(0, 60));
+    else if (r.name.trim() || r.raw.trim()) {
+      // Un indirizzo scritto male («lucia.example.com», «a@b») si mostra accanto al nome: così si capisce
+      // che l'email c'era ma non è giusta, invece di sembrare una colonna vuota.
+      const wrong = r.raw.split(/[\s;,\t"<>()]+/).find((t) => /[@]|^[^\d\s]\S*\.[a-z]{2,}$/i.test(t) && !looksLikePhone(t));
+      const name = cleanName(r.name);
+      noEmail.push(name ? (wrong && wrong !== name ? `${name} (${wrong.slice(0, 60)})` : name) : r.raw.trim().slice(0, 60));
+    }
   }
   return { format, rows, noEmail };
 }

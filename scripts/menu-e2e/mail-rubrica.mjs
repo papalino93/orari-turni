@@ -214,7 +214,7 @@ try {
   const counts = imp.getByTestId("anteprima-conti");
   await counts.waitFor();
   const vcfCounts = await counts.innerText();
-  check("anteprima .vcf: «2 nuovi · 1 già in rubrica · 1 senza email · 1 non vuole più email»", vcfCounts === "2 nuovi · 1 già in rubrica · 1 senza email · 1 non vuole più email", vcfCounts);
+  check("anteprima .vcf: «2 nuovi · 1 già in rubrica · 1 senza email valida · 1 non vuole più email»", vcfCounts === "2 nuovi · 1 già in rubrica · 1 senza email valida · 1 non vuole più email", vcfCounts);
   check("anteprima: nome diverso da confermare («Mario Rossi» → «Dott. Mario Rossi»)", /già in rubrica con un nome diverso/.test(await imp.innerText()) && /«Mario Rossi» → «Dott\. Mario Rossi»/.test(await imp.innerText()));
   check("anteprima: più email, si può scegliere", /1 contatto ha più di un'email/.test(await imp.innerText()));
   check("anteprima: «Importa» spento senza il motivo", await imp.getByRole("button", { name: "Importa 2 contatti" }).isDisabled());

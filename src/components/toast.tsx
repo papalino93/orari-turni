@@ -89,7 +89,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             }`}
           >
             <span aria-hidden>{t.kind === "success" ? "✓" : "⚠"}</span>
-            <span className="min-w-0">{t.message}</span>
+            <span className="min-w-0 [overflow-wrap:anywhere]">{t.message}</span>
             {t.action && (
               <button
                 type="button"

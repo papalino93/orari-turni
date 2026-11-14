@@ -880,7 +880,7 @@ function SavedBar({
             </a>
           ) : (
             <button type="button" onClick={onQueue} className={`${btn} border border-[#137a43]/40 text-[#137a43] hover:bg-[#137a43]/10 dark:text-[#3fae74]`}>
-              Conferma dal telefono enoteca
+              Falla mandare dal telefono enoteca
             </button>
           ))}
         <button type="button" onClick={onClose} aria-label="Chiudi il messaggio" className="ml-auto flex h-10 w-10 items-center justify-center rounded-full text-foreground-muted hover:text-foreground">

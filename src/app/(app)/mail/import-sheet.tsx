@@ -234,7 +234,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
   const summary = [
     `${n(c.nuovo)} ${c.nuovo === 1 ? "nuovo" : "nuovi"}`,
     already ? `${n(already)} già in rubrica` : "",
-    c.senzaEmail ? `${n(c.senzaEmail)} senza email` : "",
+    c.senzaEmail ? `${n(c.senzaEmail)} senza email valida` : "",
     c.nonvuole ? `${n(c.nonvuole)} ${c.nonvuole === 1 ? "non vuole" : "non vogliono"} più email` : "",
     c.doppi ? `${plural(c.doppi, "ripetuto", "ripetuti")} nel file` : "",
   ].filter(Boolean);
@@ -260,7 +260,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
         {c.nonvuole > 0 && <p className="mt-1 text-xs text-foreground-muted">Chi non vuole più email non viene aggiunto né riattivato.</p>}
         {c.senzaEmail > 0 && (
           <details className="mt-1 text-xs text-foreground-muted">
-            <summary className="cursor-pointer py-1">Chi è senza email</summary>
+            <summary className="cursor-pointer py-1">Chi è senza email, o con un'email sbagliata</summary>
             <p className="break-words">
               {parsed.noEmail.slice(0, 20).join(", ")}
               {parsed.noEmail.length > 20 ? ` e altri ${n(parsed.noEmail.length - 20)}` : ""}

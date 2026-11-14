@@ -11,6 +11,7 @@ import { showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
 import {
   addDays,
+  romeParts,
   aroundTime,
   availability,
   bookingsText,
@@ -117,7 +118,7 @@ export function BookingForm({
           source: (MANUAL_SOURCES as readonly string[]).includes(booking.source ?? "") ? (booking.source as ManualSource) : "telefono",
           ...fieldsOf(booking),
         }
-      : { source: "telefono", name: "", phone: "", people: "", day: initialDay, time: "", table: "", note: "", allergies: false, menu: "" },
+      : { source: "telefono", name: "", phone: "", people: "", day: nightDefault(initialDay, today), time: "", table: "", note: "", allergies: false, menu: "" },
   );
   const [initial, setInitial] = useState(() => JSON.stringify(f));
   // I dati che chi modifica ha davanti (vedi editVersion): dopo un conflitto, quelli nuovi.
@@ -666,4 +667,10 @@ export function AgendaPrint({ day, list, totals, countTests, notes = [], events 
     </div>,
     document.body,
   );
+}
+
+// Tra mezzanotte e le 5 la serata in agenda è quella appena finita: una prenotazione presa ora è per
+// un'altra sera, quindi il giorno proposto è quello di calendario («Sab 14 nov»), non «stanotte».
+function nightDefault(day: string, today: string): string {
+  return day === today && romeParts(new Date()).dateKey !== today ? addDays(today, 1) : day;
 }

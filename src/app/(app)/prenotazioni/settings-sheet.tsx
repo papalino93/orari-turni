@@ -172,7 +172,7 @@ export function SettingsSheet({
                 ))}
               </select>
             </Field>
-            <Field label="Di solito pieni oltre" hint="Quante persone ci stanno in una sera: lo vedi accanto a ogni giorno. Lascia 0 se non ti serve.">
+            <Field label="Di solito pieni oltre" hint="Quante persone ci stanno in una sera: serve a colorare i giorni quasi pieni. Con 0 contiamo 50.">
               <input name="capacityHint" type="number" inputMode="numeric" min={0} max={500} defaultValue={settings.capacityHint} className={inputClass} />
             </Field>
           </div>

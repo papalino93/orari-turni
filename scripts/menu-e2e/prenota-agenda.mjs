@@ -63,7 +63,7 @@ const L = {
   undo: "Annulla",
   waConfirm: "Manda conferma",
   waConfirmEdit: "Manda la conferma aggiornata su WhatsApp",
-  waLater: "Conferma dal telefono enoteca",
+  waLater: "Falla mandare dal telefono enoteca",
   waLaterEdit: "Da mandare dal telefono enoteca",
   dayGroup: "Scegli il giorno",
   otherDay: "Altro giorno",
@@ -860,7 +860,7 @@ try {
     check("Marta segna una prenotazione (createdBy Marta)", outcome === "saved" && DB(`select status||'|'||coalesce("createdBy",'')||'|'||manual from "BookingRequest" where id=${q(id)}`) === `CONFIRMED|${MARTA.name}|true`, DB(`select status||'|'||coalesce("createdBy",'') from "BookingRequest" where id=${q(id)}`));
     check("Marta (dal suo telefono): niente «Manda conferma»", (await bar(M).getByRole("link", { name: L.waConfirm }).count()) === 0);
     const later = bar(M).getByRole("button", { name: L.waLater });
-    check("Marta: c'è «Conferma dal telefono enoteca»", (await later.count()) === 1);
+    check("Marta: c'è «Falla mandare dal telefono enoteca»", (await later.count()) === 1);
     await shot(M, "marta-salvata");
     if (await later.count()) {
       await later.click();
@@ -905,7 +905,7 @@ try {
       check(`telefono enoteca: «Sei ${picked}» in cima`, (await chip.count()) === 1 && /^Sei /.test((await chip.getAttribute("aria-label")) ?? ""));
       const d = await fillNew(local.p, { source: L.srcPhone, name: n, phone: nextPhone(), people: 2, day: D2.day, time: D2.slots[2] });
       await saveNew(local.p, d);
-      check("telefono enoteca: «Manda conferma» (e non «Conferma dal telefono enoteca»)", (await bar(local.p).getByRole("link", { name: L.waConfirm }).count()) === 1 && (await bar(local.p).getByRole("button", { name: L.waLater }).count()) === 0);
+      check("telefono enoteca: «Manda conferma» (e non «Falla mandare dal telefono enoteca»)", (await bar(local.p).getByRole("link", { name: L.waConfirm }).count()) === 1 && (await bar(local.p).getByRole("button", { name: L.waLater }).count()) === 0);
       check(`…segnata a nome di «${picked} (telefono enoteca)»`, DB(`select "createdBy" from "BookingRequest" where name=${q(n)}`) === `${picked} (telefono enoteca)`, DB(`select "createdBy" from "BookingRequest" where name=${q(n)}`));
       await local.ctx.close();
     } finally {
