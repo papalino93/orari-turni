@@ -4,22 +4,38 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTheme } from "@/components/theme-provider";
 
-// Da tablet e computer: a destra della barra un solo pulsante col nome, che apre Impostazioni,
-// tema, vista larga ed Esci. Prima erano cinque pulsanti in fila e con sei voci del menù il nome
-// finiva tagliato («Accesso consul…»). Sul telefono la barra resta com'era.
-export function AccountMenu({ userName, isAdmin, settingsActive, onSignOut }: { userName: string; isAdmin: boolean; settingsActive: boolean; onSignOut: () => void }) {
+// A destra della barra: tema chiaro/scuro e vista larga (computer) a un tocco, poi il tondino con la
+// foto (dalla scheda in Dipendenti) o le iniziali e la freccina: apre «Entrato come…», Impostazioni ed Esci.
+// Il nome non sta più nella barra: si guadagna spazio per le voci del menù.
+export function AccountMenu({
+  userName,
+  photoUrl = null,
+  isAdmin,
+  settingsActive,
+  onSignOut,
+}: {
+  userName: string;
+  photoUrl?: string | null;
+  isAdmin: boolean;
+  settingsActive: boolean;
+  onSignOut: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const { theme, setTheme } = useTheme();
   const [wide, setWide] = useState(false);
+  const [photoFailed, setPhotoFailed] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lo stato vero della vista larga è sull'<html>
+    setWide(document.documentElement.getAttribute("data-wide") === "1");
+  }, []);
 
   useEffect(() => {
     if (!open) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- lo stato vero della vista larga è sull'<html>
-    setWide(document.documentElement.getAttribute("data-wide") === "1");
     const onDown = (e: PointerEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+      if (box.current && !box.current.contains(e.target as Node))
+        setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -53,91 +69,151 @@ export function AccountMenu({ userName, isAdmin, settingsActive, onSignOut }: { 
       .map((w) => w[0]?.toUpperCase())
       .join("") || "?";
   const isDark = theme === "dark";
-  const itemBase = "flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm hover:bg-surface-2";
+  const itemBase =
+    "flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm hover:bg-surface-2";
   const item = `${itemBase} text-foreground`;
 
+  const quick =
+    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-band-border text-brand-band-foreground-muted transition-colors hover:text-brand-band-foreground";
   return (
-    <div ref={box} className="relative">
+    <div className="flex items-center gap-1.5">
       <button
-        ref={button}
         type="button"
-        aria-haspopup="true"
-        aria-expanded={open}
-        aria-label={`Account di ${userName}`}
-        title={userName}
-        onClick={() => setOpen((v) => !v)}
-        className={`flex h-11 items-center gap-2 rounded-full border border-brand-band-border pl-1 pr-2.5 transition-colors hover:text-brand-band-foreground ${
-          open || settingsActive ? "bg-brand-band-active text-brand-band-foreground" : "text-brand-band-foreground-muted"
-        }`}
+        onClick={() => setTheme(isDark ? "light" : "dark")}
+        aria-label="Tema chiaro o scuro"
+        title="Tema chiaro o scuro"
+        className={quick}
       >
-        <span aria-hidden className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-band-foreground/15 text-xs font-semibold text-brand-band-foreground">
-          {initials}
+        {/* Le due icone ci sono sempre: il tema lo sa solo il browser, così server e pagina combaciano. */}
+        <span className="dark:hidden">
+          <MoonIcon />
         </span>
-        <span className="hidden max-w-[10rem] truncate text-sm xl:block">{userName}</span>
-        <svg aria-hidden width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${open ? "rotate-180" : ""}`}>
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+        <span className="hidden dark:inline">
+          <SunIcon />
+        </span>
       </button>
-
-      {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-72 rounded-2xl border border-border bg-surface p-2 text-foreground shadow-xl">
-          <p className="truncate px-3 pb-2 pt-1.5 text-xs text-foreground-muted">
-            Entrato come <span className="font-medium text-foreground">{userName}</span>
-          </p>
-          {isAdmin && (
-            <Link href="/account" onClick={() => setOpen(false)} className={item}>
-              <span className="flex items-center gap-2.5">
-                <GearIcon /> Impostazioni
-              </span>
-              <span aria-hidden className="text-foreground-muted">›</span>
-            </Link>
+      <button
+        type="button"
+        onClick={toggleWide}
+        aria-pressed={wide}
+        aria-label="Vista larga"
+        title={wide ? "Vista normale" : "Vista larga: usa tutto lo schermo"}
+        className={`${quick} max-lg:hidden ${wide ? "bg-brand-band-active text-brand-band-foreground" : ""}`}
+      >
+        <WideIcon />
+      </button>
+      <div ref={box} className="relative">
+        <button
+          ref={button}
+          type="button"
+          aria-haspopup="true"
+          aria-expanded={open}
+          aria-label={`Account di ${userName}`}
+          title={userName}
+          onClick={() => setOpen((v) => !v)}
+          className={`flex h-11 items-center gap-1.5 rounded-full border border-brand-band-border pl-1 pr-2 transition-colors hover:text-brand-band-foreground ${
+            open || settingsActive
+              ? "bg-brand-band-active text-brand-band-foreground"
+              : "text-brand-band-foreground-muted"
+          }`}
+        >
+          {photoUrl && !photoFailed ? (
+            // eslint-disable-next-line @next/next/no-img-element -- foto piccola già ridotta dal server
+            <img
+              src={photoUrl}
+              alt=""
+              onError={() => setPhotoFailed(true)}
+              className="h-9 w-9 rounded-full object-cover"
+            />
+          ) : (
+            <span
+              aria-hidden
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-band-foreground/15 text-xs font-semibold text-brand-band-foreground"
+            >
+              {initials}
+            </span>
           )}
-          <button type="button" role="switch" aria-checked={isDark} onClick={() => setTheme(isDark ? "light" : "dark")} className={item}>
-            <span className="flex items-center gap-2.5">
-              <MoonIcon /> Tema scuro
-            </span>
-            <Switch on={isDark} />
-          </button>
-          <button type="button" role="switch" aria-checked={wide} onClick={toggleWide} className={`${item} max-lg:hidden`}>
-            <span className="flex items-center gap-2.5">
-              <WideIcon /> Vista larga
-            </span>
-            <Switch on={wide} />
-          </button>
-          <div className="my-1.5 border-t border-border" />
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onSignOut();
-            }}
-            className={`${itemBase} text-danger`}
+          <svg
+            aria-hidden
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`transition-transform ${open ? "rotate-180" : ""}`}
           >
-            <span className="flex items-center gap-2.5">
-              <ExitIcon /> Esci
-            </span>
-          </button>
-        </div>
-      )}
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        {open && (
+          <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-72 rounded-2xl border border-border bg-surface p-2 text-foreground shadow-xl">
+            <p className="truncate px-3 pb-2 pt-1.5 text-xs text-foreground-muted">
+              Entrato come{" "}
+              <span className="font-medium text-foreground">{userName}</span>
+            </p>
+            {isAdmin && (
+              <Link
+                href="/account"
+                onClick={() => setOpen(false)}
+                className={item}
+              >
+                <span className="flex items-center gap-2.5">
+                  <GearIcon /> Impostazioni
+                </span>
+                <span aria-hidden className="text-foreground-muted">
+                  ›
+                </span>
+              </Link>
+            )}
+            <div className="my-1.5 border-t border-border" />
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onSignOut();
+              }}
+              className={`${itemBase} text-danger`}
+            >
+              <span className="flex items-center gap-2.5">
+                <ExitIcon /> Esci
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function Switch({ on }: { on: boolean }) {
-  return (
-    <span aria-hidden className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${on ? "bg-accent" : "bg-surface-2 ring-1 ring-inset ring-border"}`}>
-      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[1.125rem]" : "left-0.5"}`} />
-    </span>
-  );
-}
-
-const icon = { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.9, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+const icon = {
+  width: 17,
+  height: 17,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.9,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
 
 function GearIcon() {
   return (
     <svg {...icon}>
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+function SunIcon() {
+  return (
+    <svg {...icon}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
     </svg>
   );
 }

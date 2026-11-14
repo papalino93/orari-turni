@@ -39,7 +39,7 @@ export function InstallaView({ backToMyHours }: { backToMyHours: boolean }) {
           ‹ Le mie ore
         </Link>
       )}
-      <h1 className="mb-1 text-xl font-semibold tracking-tight">Installa l&apos;app sul telefono</h1>
+      <h1 className="mb-1 text-xl font-display font-medium">Installa l&apos;app sul telefono</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         Un&apos;icona sulla schermata Home, come una vera app: si apre a schermo intero, senza la
         barra degli indirizzi del browser. Funziona sia su iPhone che su Android.

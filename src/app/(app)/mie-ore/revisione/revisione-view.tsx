@@ -148,7 +148,7 @@ export function RevisioneView({
       </Link>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Revisione ore</h1>
+          <h1 className="text-xl font-display font-medium">Revisione ore</h1>
           <p className="text-sm text-foreground-muted">
             {monthLabel(month - 1)} {year}
           </p>

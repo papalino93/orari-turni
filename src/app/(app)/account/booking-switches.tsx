@@ -136,7 +136,7 @@ export function BookingSwitches({ agendaEnabled, enabled, pending, hasVenueDevic
                 </li>
                 <li className="flex gap-2">
                   <Mark done={false} />
-                  Gli avvisi accesi sul telefono che risponde (Prenotazioni → campanella → «Prova una notifica»)
+                  Gli avvisi accesi sul telefono che risponde (Prenotazioni → campanella → «Prova un avviso»)
                 </li>
                 <li className="flex gap-2">
                   <Mark done={false} />

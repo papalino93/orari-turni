@@ -26,7 +26,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="mx-auto max-w-xl">
-      <h1 className="mb-1 text-xl font-semibold tracking-tight">Impostazioni</h1>
+      <h1 className="mb-1 text-xl font-display font-medium">Impostazioni</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         {users.length > 1
           ? "Prenotazioni, aspetto, app e widget sul telefono, password: la tua e quella degli altri accessi del titolare. Le password dei dipendenti si cambiano da Dipendenti."

@@ -57,7 +57,7 @@ export default async function FeriePage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="mb-1 text-xl font-semibold tracking-tight">Ferie & Permessi {year}</h1>
+      <h1 className="mb-1 text-xl font-display font-medium">Ferie & Permessi {year}</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         I giorni di ferie, permesso e malattia si segnano in «Orari», toccando il giorno del dipendente; qui vedi i saldi.
         Se non hai ancora caricato i saldi di partenza di un dipendente, la sua scheda risulta vuota: imposta il saldo

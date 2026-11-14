@@ -117,11 +117,11 @@ const WEEKDAYS = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "
 export const WEEKDAY_SHORT = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-// Titolo del periodo: «Sabato 14 Novembre» (mese con la maiuscola, come chiesto; con l'anno se non è
-// quello di oggi), «Novembre 2026», e per una settimana a cavallo di due mesi «Nov – Dic 2026».
+// Titolo del periodo: «Sabato 14 Novembre 2026» (mese con la maiuscola e sempre l'anno, come chiesto),
+// «Novembre 2026», e per una settimana a cavallo di due mesi «Nov – Dic 2026».
 export function periodTitle(view: AgendaView, anchor: string, today: string): string {
   const [y, m, d] = anchor.split("-").map(Number);
-  if (view === "day") return `${cap(WEEKDAYS[weekdayOf(anchor)])} ${d} ${cap(MONTHS[m - 1])}${String(y) !== today.slice(0, 4) ? ` ${y}` : ""}`;
+  if (view === "day") return `${cap(WEEKDAYS[weekdayOf(anchor)])} ${d} ${cap(MONTHS[m - 1])} ${y}`;
   if (view === "week") {
     const { from, to } = periodRange("week", anchor);
     const [y1, m1] = from.split("-").map(Number);

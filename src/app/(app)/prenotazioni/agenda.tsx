@@ -9,9 +9,12 @@ import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { showActionError, useToast } from "@/components/toast";
 import { Sheet, inputClass } from "../gestione-menu/sheet";
+import { parseQuick, type QuickResult } from "@/lib/booking/quick";
+import { periodTitle } from "@/lib/booking/agenda";
 import {
   addDays,
   romeParts,
+  withinOpening,
   aroundTime,
   availability,
   bookingsText,
@@ -143,7 +146,51 @@ export function BookingForm({
   useEffect(() => {
     if (conflict) conflictRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [conflict]);
+  // «Scrivi o detta»: il testo e quello che ne ha capito il sito. I campi toccati a mano non li
+  // sovrascrive più; quelli riempiti dal testo si aggiornano (o si svuotano) mentre si scrive.
+  const [quickText, setQuickText] = useState("");
+  const [heard, setHeard] = useState<QuickResult | null>(null);
+  const manual = useRef<Set<keyof FormState>>(new Set());
+  const fromQuick = useRef<Set<keyof FormState>>(new Set());
+  function applyQuick(text: string) {
+    setQuickText(text);
+    const r = text.trim()
+      ? parseQuick(text, { today: romeParts(new Date()).dateKey, isOpen: (day, time) => withinOpening(day, time, hours) === "ok" })
+      : null;
+    setHeard(r);
+    const next: Partial<FormState> = {};
+    const filled = new Set<keyof FormState>();
+    const put = <K extends keyof FormState>(k: K, v: FormState[K] | null | undefined, empty: FormState[K]) => {
+      if (manual.current.has(k)) return;
+      if (v !== null && v !== undefined) {
+        next[k] = v;
+        filled.add(k);
+      } else if (fromQuick.current.has(k)) next[k] = empty;
+    };
+    put("name", r?.name, "");
+    put("phone", r?.phone, "");
+    put("table", r?.table, "");
+    put("menu", r?.menu, "");
+    put("note", r?.note, "");
+    if (r?.allergies) put("allergies", true, false);
+    else put("allergies", null, false);
+    if (r?.day) put("day", r.day, initialDay);
+    else put("day", null, initialDay);
+    // Ora o persone che mancano (o sono un dubbio): «Ancora da definire», così si può segnare lo
+    // stesso «da completare». Solo quando c'è già un nome: mentre si comincia a scrivere non si sceglie niente.
+    const hasName = Boolean(r?.name || (manual.current.has("name") && f.name.trim()));
+    put("people", r?.people != null ? String(r.people) : r && hasName ? UNKNOWN : null, "");
+    put("time", r?.time ?? (r && hasName ? UNKNOWN : null), "");
+    fromQuick.current = filled;
+    if (Object.keys(next).length) {
+      setF((x) => ({ ...x, ...next }));
+      if (next.day && !nextDays(today, quick).some((d) => d.day === next.day)) setOtherDay(true);
+      else if (next.day) setOtherDay(false);
+    }
+    if (errors) setErrors(null);
+  }
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
+    manual.current.add(k);
     setF((x) => ({ ...x, [k]: v }));
     if (errors?.field === k) setErrors(null);
   };
@@ -337,6 +384,29 @@ export function BookingForm({
           </p>
         )}
 
+        {/* «Scrivi o detta»: tutta la prenotazione in una frase, anche col microfono della tastiera.
+            Sotto, i campi si riempiono da soli: si controlla e si segna come sempre. */}
+        {!editing && (
+          <div className="rounded-2xl border border-accent/25 bg-accent/[0.04] p-3.5" data-testid="scrivi-o-detta">
+            <label htmlFor="scrivi-o-detta" className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <MicIcon /> Scrivi o detta
+            </label>
+            <p className="mt-0.5 text-xs text-foreground-muted">Nome, persone, giorno e ora, in qualsiasi ordine. Per dettare, tocca il microfono della tastiera.</p>
+            <textarea
+              id="scrivi-o-detta"
+              rows={2}
+              value={quickText}
+              onChange={(e) => applyQuick(e.target.value)}
+              placeholder="Es. Angelo, 10 persone, sabato alle 20:30"
+              autoCapitalize="sentences"
+              autoComplete="off"
+              enterKeyHint="done"
+              className={`${inputClass} mt-2 min-h-[4.5rem] resize-none`}
+            />
+            {heard && <Heard r={heard} day={f.day} />}
+          </div>
+        )}
+
         {/* Modalità rapida (al telefono, mentre il cliente parla): Persone → Ora → Giorno → Nome, il resto sotto. */}
         <div>
           <span id="nuova-persone" className={fieldLabel}>
@@ -431,7 +501,7 @@ export function BookingForm({
               className={`${inputClass} mt-2 w-auto!`}
             />
           )}
-          {/^\d{4}-\d{2}-\d{2}$/.test(f.day) && <p className="mt-1 text-sm font-medium text-foreground first-letter:uppercase">{dayLong(f.day)}</p>}
+          {/^\d{4}-\d{2}-\d{2}$/.test(f.day) && <p className="mt-1 text-sm font-medium text-foreground">{periodTitle("day", f.day, today)}</p>}
           {err("day")}
         </div>
 
@@ -673,4 +743,51 @@ export function AgendaPrint({ day, list, totals, countTests, notes = [], events 
 // un'altra sera, quindi il giorno proposto è quello di calendario («Sab 14 nov»), non «stanotte».
 function nightDefault(day: string, today: string): string {
   return day === today && romeParts(new Date()).dateKey !== today ? addDays(today, 1) : day;
+}
+
+// «Ho capito: Angelo · 10 persone · Sab 21 nov · 20:30»: quello che il sito ha letto nella frase,
+// con quello che manca (si segna lo stesso, «da completare») e i dubbi da controllare.
+function Heard({ r, day }: { r: QuickResult; day: string }) {
+  const chip = "inline-flex min-h-7 items-center rounded-full bg-surface px-2.5 text-[13px] font-semibold text-foreground ring-1 ring-inset ring-border";
+  const missing = "inline-flex min-h-7 items-center rounded-full bg-gold/15 px-2.5 text-[13px] font-semibold text-gold ring-1 ring-inset ring-gold/35";
+  const parts: { text: string; miss?: boolean }[] = [
+    r.name ? { text: r.name } : { text: "Manca il nome", miss: true },
+    r.people !== null ? { text: peopleText(r.people) } : { text: "Persone da definire", miss: true },
+    { text: r.day ? capital(dayShort(r.day)) : `${capital(dayShort(day))} (scelto qui sotto)` },
+    r.time ? { text: `alle ${r.time}` } : { text: "Ora da definire", miss: true },
+    ...(r.phone ? [{ text: r.phone }] : []),
+    ...(r.table ? [{ text: tableText(r.table) }] : []),
+    ...(r.menu ? [{ text: r.menu }] : []),
+    ...(r.allergies ? [{ text: "⚠ Allergie" }] : []),
+    ...(r.note ? [{ text: `Nota: ${r.note}` }] : []),
+  ];
+  return (
+    <div className="mt-2.5" aria-live="polite" data-testid="ho-capito">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground-muted">Ho capito</p>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {parts.map((p) => (
+          <span key={p.text} className={`${p.miss ? missing : chip} max-w-full [overflow-wrap:anywhere]`}>
+            {p.text}
+          </span>
+        ))}
+      </div>
+      {r.doubts.map((d) => (
+        <p key={d} className="mt-1.5 text-xs font-medium text-gold">
+          {d}
+        </p>
+      ))}
+      <p className="mt-1.5 text-xs text-foreground-muted">
+        {r.name ? "Controlla qui sotto e tocca «Segna in agenda». Quello che manca resta «da completare»." : "Scrivi anche il nome: senza, non si sa di chi è."}
+      </p>
+    </div>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent-ink">
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8" />
+    </svg>
+  );
 }

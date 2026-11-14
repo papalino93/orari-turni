@@ -106,7 +106,7 @@ function Layout({ children, admin, qr = true, back }: { children: React.ReactNod
             {back?.label ?? "‹ Le mie ore"}
           </Link>
         )}
-        <h1 className="mb-1 text-xl font-semibold tracking-tight">Widget sul telefono</h1>
+        <h1 className="mb-1 text-xl font-display font-medium">Widget sul telefono</h1>
         <p className="text-sm text-foreground-muted">
           Riquadri sulla schermata Home dell&apos;iPhone che si aggiornano da soli e con un tocco aprono la pagina giusta. Funzionano con
           l&apos;app gratuita <b className="font-medium text-foreground">Scriptable</b>, su iPhone e iPad.

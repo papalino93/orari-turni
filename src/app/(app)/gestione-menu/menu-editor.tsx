@@ -481,7 +481,7 @@ export function MenuEditor({
       {canSeeStats && <MenuTabs current="gestione" />}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight">Menù</h1>
+          <h1 className="text-xl font-display font-medium">Menù</h1>
           <p className="mt-1 text-sm text-foreground-muted">
             Quello che cambi qui compare subito sul menù dei clienti (quello del QR).
           </p>

@@ -82,7 +82,7 @@ if (process.argv.includes("--servizio")) {
     check("periodi: settimana da lunedì (anche a cavallo del cambio d'ora)", JSON.stringify(A.periodRange("week", "2027-03-28")) === JSON.stringify({ from: "2027-03-22", to: "2027-03-28" }));
     check("periodi: mese a settimane intere (novembre 2026: 26 ott – 6 dic)", JSON.stringify(A.periodRange("month", "2026-11-13")) === JSON.stringify({ from: "2026-10-26", to: "2026-12-06" }));
     check("periodi: «Mese dopo» dal 31 gennaio → 28 febbraio", A.shiftPeriod("month", "2027-01-31", 1) === "2027-02-28");
-    check("titoli: «Novembre 2026», «Sabato 14 Novembre», settimana a cavallo «Nov – Dic 2026»", A.periodTitle("week", "2026-11-13", "2026-11-13") === "Novembre 2026" && A.periodTitle("day", "2026-11-14", "2026-11-13") === "Sabato 14 Novembre" && A.periodTitle("week", "2026-12-01", "2026-11-13") === "Nov – Dic 2026");
+    check("titoli: «Novembre 2026», «Sabato 14 Novembre 2026», settimana a cavallo «Nov – Dic 2026»", A.periodTitle("week", "2026-11-13", "2026-11-13") === "Novembre 2026" && A.periodTitle("day", "2026-11-14", "2026-11-13") === "Sabato 14 Novembre 2026" && A.periodTitle("week", "2026-12-01", "2026-11-13") === "Nov – Dic 2026");
     check("pienezza: capienza 50 se non impostata; colori tranquillo/si riempie/quasi pieno/oltre", A.capacityOf(0) === 50 && A.fullness(10, 50) === 1 && A.fullness(30, 50) === 2 && A.fullness(45, 50) === 3 && A.fullness(51, 50) === 4);
     check("ricerca: nome, cifre del telefono, nota, menù", A.matchesSearch(mk({ name: "Rossi" }), "ross") && A.matchesSearch(mk({ phone: "393331234567" }), "123 45") && A.matchesSearch(mk({ menu: "Menù degustazione" }), "degust") && !A.matchesSearch(mk({ name: "Bianchi" }), "ross"));
   } catch (e) {
@@ -154,7 +154,9 @@ try {
     await agenda(p).waitFor();
   };
   const vista = (p) => agenda(p).getAttribute("data-vista");
-  const title = (p) => agenda(p).getByTestId("agenda-titolo").innerText();
+  // Sul telefono il giorno della settimana sta nella riga piccola sopra (nel titolo resta per i lettori
+  // di schermo): il testo si legge tutto di fila, «Sabato 14 Novembre 2026».
+  const title = async (p) => (await agenda(p).getByTestId("agenda-titolo").innerText()).replace(/\s+/g, " ").trim();
   const pick = async (p, day) => {
     await agenda(p).getByLabel("Scegli la data").fill(day);
     await p.waitForTimeout(300);
@@ -169,7 +171,7 @@ try {
   const capital = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   const WD = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"];
   const MO = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
-  const dayTitle = (d) => `${capital(WD[(new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7])} ${Number(d.slice(8))} ${capital(MO[Number(d.slice(5, 7)) - 1])}${d.slice(0, 4) !== today.slice(0, 4) ? ` ${d.slice(0, 4)}` : ""}`;
+  const dayTitle = (d) => `${capital(WD[(new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7])} ${Number(d.slice(8))} ${capital(MO[Number(d.slice(5, 7)) - 1])} ${d.slice(0, 4)}`;
 
   // ================= Vista di partenza e vista ricordata =================
   const phone = await ctxFor("phone");
@@ -306,7 +308,7 @@ try {
   await pick(P, "2027-03-28");
   await waitRows(P, "Agv Ora legale domenica");
   const dst = await agenda(P).innerText();
-  check("ora legale (28 marzo 2027): domenica con le 20:30 e le 00:30 della stessa serata", dst.includes("Agv Ora legale domenica") && dst.includes("Agv Ora legale notte") && !dst.includes("Agv Ora legale lunedì") && (await title(P)).startsWith("Domenica 28 Marzo"));
+  check("ora legale (28 marzo 2027): domenica con le 20:30 e le 00:30 della stessa serata", dst.includes("Agv Ora legale domenica") && dst.includes("Agv Ora legale notte") && !dst.includes("Agv Ora legale lunedì") && (await title(P)).startsWith("Domenica 28 Marzo 2027"));
   await pick(P, "2026-10-25");
   await waitRows(P, "Agv Ora solare");
   check("ora solare (25 ottobre 2026, già passato): sera e notte nello stesso giorno", (await agenda(P).innerText()).includes("Agv Ora solare notte"));
