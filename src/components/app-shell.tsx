@@ -295,7 +295,8 @@ export function AppShell({
 function BlockedNotice() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  if (searchParams.get("bloccato") !== "1") return null;
+  const why = searchParams.get("bloccato");
+  if (why !== "1" && why !== "menu") return null;
 
   function dismiss() {
     const params = new URLSearchParams(searchParams.toString());
@@ -308,7 +309,11 @@ function BlockedNotice() {
     // Larga come la pagina «Le mie ore» (max-w-xl), dove compare.
     <div role="status" className="mx-auto mb-4 flex max-w-xl items-center gap-3 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-foreground">
       <span aria-hidden className="text-base">🔒</span>
-      <p className="flex-1">Questa pagina è solo per il titolare: ecco la tua area.</p>
+      <p className="flex-1">
+        {why === "menu"
+          ? "Il menù lo cambia solo chi ha il permesso: se ti serve, chiedilo al titolare. Ecco la tua area."
+          : "Questa pagina è solo per il titolare: ecco la tua area."}
+      </p>
       <button
         type="button"
         onClick={dismiss}

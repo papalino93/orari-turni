@@ -77,7 +77,7 @@ export default async function GestioneMenuPage() {
   // permesso): è questa pagina a decidere. Senza permesso si torna alla
   // propria area, come per qualunque altra pagina non concessa.
   const editor = await getMenuEditor();
-  if (!editor) redirect("/mie-ore");
+  if (!editor) redirect("/mie-ore?bloccato=menu");
 
   const dayKey = businessDayKey();
   const [menu, promoRows, blocks, venueData, dailyRows, dailyRecent, history] = await Promise.all([

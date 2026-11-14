@@ -65,6 +65,7 @@ for (const [label, width, height] of [["390", 390, 844], ["768", 768, 1024], ["1
   await login(page, "francesco", EMP_PW);
   await page.goto(`${BASE}/gestione-menu`, { waitUntil: "domcontentloaded", timeout: 120000 });
   check("dipendente senza permesso: /gestione-menu → /mie-ore", new URL(page.url()).pathname === "/mie-ore", page.url());
+  check("…e la pagina spiega perché («chiedilo al titolare»)", await page.getByText(/chiedilo al titolare/).isVisible());
   const nav = await page.locator("nav a").allInnerTexts();
   check("dipendente senza permesso: nessuna voce Menù in navigazione", !nav.some((t) => t.includes("Menù")), nav.join("|"));
   await ctx.close();
