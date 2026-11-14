@@ -25,6 +25,7 @@ import { arrivesText, BellIcon, PushBox, useDeviceWord, usePush, WhatsappIcon, W
 import { clock, viewOf } from "./format";
 import { BookingForm, type SavedInfo } from "./agenda";
 import { AgendaCalendar } from "./calendar";
+import { WaPendingContext } from "./calendar-day";
 import { ImportSheet } from "./import-sheet";
 import { InboxIcon, SearchIcon } from "./lists";
 import { MoreMenu, type MenuItem } from "./panel";
@@ -271,6 +272,7 @@ export function BookingsView({
       .sort((a, b) => b.startsAt - a.startsAt);
     return { pending, proposed, wa, waDone, confirmed, archive, incomplete };
   }, [rows, now, today, settings.agendaEnabled]);
+  const waPendingIds = useMemo(() => new Set(lists.wa.map((x) => x.b.id)), [lists.wa]);
   const todo = requestsCount(lists);
 
   // Una nuova richiesta arrivata con la pagina aperta: un messaggio, oltre al numero.
@@ -548,6 +550,7 @@ export function BookingsView({
         {/* Telefono enoteca: «Chi sei?» sopra la barra (sul tablet e sul computer sta nella barra). */}
         {whoChip && <div className="mb-2 md:hidden">{whoChip}</div>}
 
+        <WaPendingContext.Provider value={waPendingIds}>
         <AgendaCalendar
           today={today}
           now={now}
@@ -567,6 +570,7 @@ export function BookingsView({
           jump={jump}
           bar={{ status: statusPill, who: whoChip, requests: requestsButton, add: addButton, more }}
         />
+        </WaPendingContext.Provider>
 
         {/* Telefono: il «+» tondo in basso a destra, sopra la barra di navigazione. */}
         {!justSaved && (
