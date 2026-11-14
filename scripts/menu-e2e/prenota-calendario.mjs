@@ -82,7 +82,7 @@ if (process.argv.includes("--servizio")) {
     check("periodi: settimana da lunedì (anche a cavallo del cambio d'ora)", JSON.stringify(A.periodRange("week", "2027-03-28")) === JSON.stringify({ from: "2027-03-22", to: "2027-03-28" }));
     check("periodi: mese a settimane intere (novembre 2026: 26 ott – 6 dic)", JSON.stringify(A.periodRange("month", "2026-11-13")) === JSON.stringify({ from: "2026-10-26", to: "2026-12-06" }));
     check("periodi: «Mese dopo» dal 31 gennaio → 28 febbraio", A.shiftPeriod("month", "2027-01-31", 1) === "2027-02-28");
-    check("titoli: «Novembre 2026», «Sabato 14 novembre», settimana a cavallo «Nov – dic 2026»", A.periodTitle("week", "2026-11-13", "2026-11-13") === "Novembre 2026" && A.periodTitle("day", "2026-11-14", "2026-11-13") === "Sabato 14 novembre" && A.periodTitle("week", "2026-12-01", "2026-11-13") === "Nov – dic 2026");
+    check("titoli: «Novembre 2026», «Sabato 14 Novembre», settimana a cavallo «Nov – Dic 2026»", A.periodTitle("week", "2026-11-13", "2026-11-13") === "Novembre 2026" && A.periodTitle("day", "2026-11-14", "2026-11-13") === "Sabato 14 Novembre" && A.periodTitle("week", "2026-12-01", "2026-11-13") === "Nov – Dic 2026");
     check("pienezza: capienza 50 se non impostata; colori tranquillo/si riempie/quasi pieno/oltre", A.capacityOf(0) === 50 && A.fullness(10, 50) === 1 && A.fullness(30, 50) === 2 && A.fullness(45, 50) === 3 && A.fullness(51, 50) === 4);
     check("ricerca: nome, cifre del telefono, nota, menù", A.matchesSearch(mk({ name: "Rossi" }), "ross") && A.matchesSearch(mk({ phone: "393331234567" }), "123 45") && A.matchesSearch(mk({ menu: "Menù degustazione" }), "degust") && !A.matchesSearch(mk({ name: "Bianchi" }), "ross"));
   } catch (e) {

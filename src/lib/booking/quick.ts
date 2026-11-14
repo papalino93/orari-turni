@@ -31,7 +31,7 @@ export type QuickOptions = {
   isOpen?: (day: string, time: string) => boolean;
 };
 
-type Tok = { raw: string; w: string; used: boolean; comma: boolean };
+type Tok = { raw: string; w: string; used: boolean; comma: boolean; day: boolean };
 
 const fold = (s: string) =>
   s
@@ -164,21 +164,39 @@ export function parseQuick(text: string, opts: QuickOptions): QuickResult {
       continue;
     }
     let w = fold(raw).replace(/[.:]+$/, "");
+    // Dettatura: «virgola» e «punto» a volte arrivano come parole.
+    if ((w === "virgola" || w === "punto") && toks.length) {
+      toks[toks.length - 1].comma = true;
+      continue;
+    }
+    if (/[.,]$/.test(raw) && !/\d[.,]$/.test(raw) && raw.length > 1) {
+      // «Rossi.» a fine pezzo: separa come una virgola (ma non «sig.»)
+      if (raw.endsWith(",") || !/^(sig|dott|sig\.ra|ing|avv)\.$/i.test(raw)) {
+        toks.push({ raw: raw.replace(/[.,]+$/, ""), w, used: false, comma: true, day: false });
+        const nn = wordNumber(w);
+        if (nn !== null) toks[toks.length - 1].w = String(nn);
+        continue;
+      }
+    }
     if (/^l'|^all'|^dell'|^un'/.test(w) && w.length > 4) {
       // «all'una», «l'Angolo»: l'articolo resta attaccato, lo si stacca
       const [art, word] = [w.slice(0, w.indexOf("'") + 1), w.slice(w.indexOf("'") + 1)];
-      toks.push({ raw: raw.slice(0, art.length), w: art, used: false, comma: false });
-      toks.push({ raw: raw.slice(art.length), w: word, used: false, comma: false });
+      toks.push({ raw: raw.slice(0, art.length), w: art, used: false, comma: false, day: false });
+      toks.push({ raw: raw.slice(art.length), w: word, used: false, comma: false, day: false });
       continue;
     }
     // numeri in parole → cifre (ma non «un/una»: di solito è un articolo)
     const n = wordNumber(w);
     if (n !== null) w = String(n);
-    toks.push({ raw, w, used: false, comma: false });
+    toks.push({ raw, w, used: false, comma: false, day: false });
   }
   const T = toks;
   const at = (i: number) => (i >= 0 && i < T.length && !T[i].used ? T[i].w : "");
   const take = (...idx: number[]) => idx.forEach((i) => (T[i].used = true));
+  const takeDay = (...idx: number[]) => idx.forEach((i) => {
+    T[i].used = true;
+    T[i].day = true;
+  });
 
   // ---------- Telefono: la prima sequenza di cifre (anche a gruppi, anche dettate una per una)
   for (let i = 0; i < T.length && !out.phone; i++) {
@@ -218,40 +236,43 @@ export function parseQuick(text: string, opts: QuickOptions): QuickResult {
     if (!w) continue;
     if (w === "oggi" || w === "stasera" || w === "stanotte" || w === "stamattina") {
       out.day = opts.today;
-      take(i);
+      takeDay(i);
       continue;
     }
     if (w === "domani" || w === "domattina") {
       out.day = addDays(opts.today, 1);
-      take(i);
+      takeDay(i);
       continue;
     }
     if (w === "dopodomani") {
       out.day = addDays(opts.today, 2);
-      take(i);
+      takeDay(i);
       continue;
     }
-    const m = w.match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2}|\d{4}))?$/);
+    // «21/11», «21-11», e «21.11» solo dopo il giorno della settimana o «il» (altrimenti «20.30» è l'ora)
+    const dotOk = i > 0 && (T[i - 1].day || T[i - 1].w === "il");
+    const m = w.match(dotOk ? /^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2}|\d{4}))?$/ : /^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2}|\d{4}))?$/);
     if (m) {
       const y = m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : null;
       out.day = y ? dateKey(y, +m[2], +m[1]) : nextDate(+m[2], +m[1], opts.today);
-      if (out.day) take(i);
+      if (out.day) takeDay(i);
       continue;
     }
     const wd = weekdayWord(w);
     if (wd !== null && weekday === null) {
       weekday = wd;
-      take(i);
-      // «sabato 21», «sabato 21 novembre», «sabato prossimo»
+      takeDay(i);
+      // «sabato 21», «sabato 21 novembre», «sabato prossimo»; «sab 21/11»: la data la legge il giro dopo
       const nb = at(i + 1);
+      if (/^\d{1,2}[/.-]\d{1,2}([/.-]\d{2,4})?$/.test(nb)) continue;
       const nm = monthOf(at(i + 2));
       if (isInt(nb) && +nb >= 1 && +nb <= 31 && !(at(i + 2) === "e" || /^[:.]/.test(at(i + 2)))) {
         out.day = nm ? nextDate(nm, +nb, opts.today) : nextDayOfMonth(+nb, opts.today, wd);
-        take(i + 1);
-        if (nm) take(i + 2);
+        takeDay(i + 1);
+        if (nm) takeDay(i + 2);
       } else {
         const next = /^prossim[oa]$/.test(nb);
-        if (next) take(i + 1);
+        if (next) takeDay(i + 1);
         out.day = nextWeekday(wd, opts.today, next);
       }
       continue;
@@ -261,14 +282,23 @@ export function parseQuick(text: string, opts: QuickOptions): QuickResult {
       const mo = monthOf(at(i + 1));
       if (mo) {
         out.day = nextDate(mo, +w, opts.today);
-        take(i, i + 1);
+        takeDay(i, i + 1);
         continue;
       }
       if (at(i - 1) === "il" || at(i - 1) === "giorno") {
         out.day = nextDayOfMonth(+w, opts.today, weekday);
-        take(i - 1, i);
+        takeDay(i - 1, i);
         continue;
       }
+    }
+  }
+  // Parole di giorno rimaste («21/11 sabato», «domani sera … domani»): non sono il nome.
+  for (let i = 0; i < T.length; i++) {
+    if (T[i].used) continue;
+    const wd = weekdayWord(T[i].w);
+    if (wd !== null || /^(oggi|stasera|stanotte|stamattina|domani|domattina|dopodomani)$/.test(T[i].w)) {
+      if (wd !== null) weekday ??= wd;
+      takeDay(i);
     }
   }
   if (out.day && weekday !== null && weekdayOf(out.day) !== weekday) {
@@ -304,7 +334,7 @@ export function parseQuick(text: string, opts: QuickOptions): QuickResult {
       if (/^\d{1,2}$/.test(b) && +b <= 59) return { m: +b, used: [i, i + 1] };
     }
     if (a === "meno" && (b === "un" || b === "1") && c === "quarto") return { m: -15, used: [i, i + 1, i + 2] };
-    if (/^\d{2}$/.test(a) && +a <= 59 && +a % 5 === 0 && a !== "00" ? true : a === "00") return { m: +a, used: [i] };
+    if (/^\d{2}$/.test(a) && +a <= 59 && +a % 5 === 0 && !PEOPLE_AFTER.test(b)) return { m: +a, used: [i] };
     return null;
   };
   for (let i = 0; i < T.length && !out.time; i++) {
@@ -351,10 +381,10 @@ export function parseQuick(text: string, opts: QuickOptions): QuickResult {
       continue;
     }
     // «20 e 30», «8 e mezza» anche senza «alle»
-    if (isInt(w) && +w <= 23 && at(i + 1) === "e") {
+    if (isInt(w) && +w <= 23 && (at(i + 1) === "e" || at(i + 1) === "meno")) {
       const mm = minutesAfter(i + 1);
-      if (mm && mm.m >= 0 && (mm.m % 5 === 0)) {
-        const t = fixHour(+w, mm.m, false);
+      if (mm && mm.m % 5 === 0 && !PEOPLE_AFTER.test(at(mm.used[mm.used.length - 1] + 1))) {
+        const t = mm.m < 0 ? fixHour(+w - 1, 45, false) : fixHour(+w, mm.m, false);
         if (t) {
           out.time = t;
           take(i, ...mm.used);
@@ -393,6 +423,12 @@ export function parseQuick(text: string, opts: QuickOptions): QuickResult {
         break;
       }
     }
+    if ((w === "un" || w === "una" || w === "1") && (at(i + 1) === "persona" || (at(i + 1) === "sola" && at(i + 2) === "persona"))) {
+      out.people = 1;
+      take(i, i + 1);
+      if (at(i + 2) === "persona") take(i + 2);
+      break;
+    }
     if (w === "coppia") {
       out.people = 2;
       take(i);
@@ -419,6 +455,16 @@ export function parseQuick(text: string, opts: QuickOptions): QuickResult {
   }
 
   // ---------- Numeri rimasti: con l'ora già scritta, uno solo sono le persone; altrimenti è un dubbio
+  // «domani 21», «sab 21/11 20»: un'ora piena (12–23) subito dopo il giorno, se l'ora non c'è ancora
+  if (!out.time) {
+    for (let i = 1; i < T.length; i++) {
+      if (!T[i].used && T[i - 1].day && /^\d{1,2}$/.test(T[i].w) && +T[i].w >= 12 && +T[i].w <= 23 && !PEOPLE_AFTER.test(at(i + 1))) {
+        out.time = hhmm(+T[i].w, 0);
+        take(i);
+        break;
+      }
+    }
+  }
   const leftover = T.map((t, i) => ({ t, i })).filter(({ t }) => !t.used && /^\d{1,3}$/.test(t.w));
   if (out.people === null && leftover.length === 1 && out.time && okPeople(+leftover[0].t.w)) {
     out.people = +leftover[0].t.w;
@@ -429,32 +475,61 @@ export function parseQuick(text: string, opts: QuickOptions): QuickResult {
     leftover.forEach(({ i }) => take(i));
   }
 
-  // ---------- Nome e nota: le parole rimaste
-  // «a nome Mario Rossi»: il nome comincia subito dopo
-  const runs: { words: Tok[]; noteStart: boolean }[] = [];
+  // ---------- Nome e nota: le parole rimaste, a pezzi (un pezzo finisce dove c'è una parola già letta o una virgola)
+  // Il primo pezzo che non comincia come una nota è il nome; il resto è la nota.
+  const segments: Tok[][] = [];
   let cur: Tok[] = [];
-  const flush = () => {
-    if (cur.length) runs.push({ words: cur, noteStart: NOTE_START.test(cur[0].w) || mentionsAllergy(cur[0].w) });
-    cur = [];
-  };
-  for (let i = 0; i < T.length; i++) {
-    const t = T[i];
-    if (t.used || (FILLER.has(t.w) && !(cur.length && /^(e|di|de|del|della|da)$/.test(t.w) && i + 1 < T.length && !T[i + 1].used && !FILLER.has(T[i + 1].w)))) {
-      // «Angelo e Maria», «Rossi di Firenze»: una parolina in mezzo a due parole libere resta nel nome
-      flush();
-      if (t.comma && !t.used) flush();
+  for (const t of T) {
+    if (t.used) {
+      if (cur.length) segments.push(cur);
+      cur = [];
       continue;
     }
-    if (NOTE_START.test(t.w) && cur.length) flush();
     cur.push(t);
-    if (t.comma) flush();
+    if (t.comma) {
+      segments.push(cur);
+      cur = [];
+    }
   }
-  flush();
-  const cap = (s: string) => (s === s.toLowerCase() ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-  const nameRun = runs.find((r) => !r.noteStart);
-  if (nameRun) out.name = nameRun.words.map((t) => cap(t.raw.replace(/[.,:;]+$/, ""))).join(" ").slice(0, 80);
-  const notes = runs.filter((r) => r !== nameRun).map((r) => r.words.map((t) => t.raw.replace(/[,;]+$/, "")).join(" "));
-  out.note = notes.length ? notes.join(", ").slice(0, 300) : null;
+  if (cur.length) segments.push(cur);
+  const isFill = (t: Tok) => FILLER.has(t.w);
+  const trim = (seg: Tok[]) => {
+    let a = 0;
+    let b = seg.length;
+    while (a < b && isFill(seg[a])) a++;
+    while (b > a && isFill(seg[b - 1])) b--;
+    return seg.slice(a, b);
+  };
+  const capWord = (raw: string) => {
+    const clean = raw.replace(/[.,:;]+$/, "");
+    if (clean !== clean.toLowerCase()) return clean;
+    return clean.replace(/(^|['’-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
+  };
+  const noteWord = (t: Tok) => NOTE_START.test(t.w) || mentionsAllergy(t.w);
+  const notes: string[] = [];
+  for (const seg of segments) {
+    const core = trim(seg);
+    if (!core.length) continue;
+    if (!out.name && !noteWord(core[0])) {
+      // il nome finisce dove comincia una nota («Rossi tavolo fuori», «Lucia, seggiolone»)
+      let k = core.findIndex(noteWord);
+      if (k < 0) k = core.length;
+      const nameToks = trim(core.slice(0, k));
+      if (nameToks.length) {
+        out.name = nameToks.map((t) => capWord(t.raw)).join(" ").slice(0, 80);
+        const after = seg.slice(seg.indexOf(nameToks[nameToks.length - 1]) + 1);
+        const rest = trim(after).length ? after : [];
+        if (rest.length) notes.push(rest.map((t) => t.raw.replace(/[,;]+$/, "")).join(" ").replace(/^(e|ed|con|poi|anche)\s+/i, ""));
+        continue;
+      }
+    }
+    notes.push(core.map((t) => t.raw.replace(/[,;]+$/, "")).join(" "));
+  }
+  const noteText = notes
+    .map((n) => n.trim().replace(/^(nota|note)\s*[:.-]?\s*/i, ""))
+    .filter(Boolean)
+    .join(", ");
+  out.note = noteText ? noteText.slice(0, 300) : null;
   out.allergies = mentionsAllergy(out.note) || mentionsAllergy(text);
   return out;
 }

@@ -949,7 +949,7 @@ function WhoPicker({ choices, current, onClose }: { choices: { id: string; name:
 }
 
 // All'accensione dell'agenda o delle richieste online, se ci sono prenotazioni di prova.
-function TestsDialog({ tests, keepable, busy, onDelete, onKeep, onCancel }: { tests: number; keepable: number; busy: boolean; onDelete: () => void; onKeep: () => void; onCancel: () => void }) {
+export function TestsDialog({ tests, keepable, busy, onDelete, onKeep, onCancel }: { tests: number; keepable: number; busy: boolean; onDelete: () => void; onKeep: () => void; onCancel: () => void }) {
   const title = tests === 1 ? "C'è 1 prenotazione di prova: cancellarla?" : `Ci sono ${tests} prenotazioni di prova: cancellarle?`;
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={() => !busy && onCancel()}>
