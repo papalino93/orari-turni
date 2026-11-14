@@ -408,17 +408,17 @@ try {
   await A.waitForTimeout(1500);
   check("…e la riga diventa «Già mandato da … alle …»", new RegExp(`Prova C Completo · Già mandato da ${ADMIN_NAME} alle \\d{2}:\\d{2}`).test(await waList.innerText()), (await waList.innerText()).replace(/\n/g, " | "));
 
-  // ---------- 1024 px: la barra in alto non scorre e «Esci» si vede tutto
+  // ---------- 1024 px: la barra in alto non scorre e il pulsante dell'account si vede tutto
   {
     const narrow = await newContext(browser, "desktop", { viewport: { width: 1024, height: 768 } });
     const np = await narrow.newPage();
     await login(np, "andrea", ADMIN_PW);
     await np.goto(`${BASE}/prenotazioni`, { waitUntil: "networkidle", timeout: 180000 });
     const bar = await np.evaluate(() => {
-      const out = [...document.querySelectorAll("header button")].find((b) => b.textContent.trim() === "Esci")?.getBoundingClientRect();
+      const out = document.querySelector('header button[aria-label^="Account di"]')?.getBoundingClientRect();
       return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, esciRight: out ? Math.round(out.right) : null, width: window.innerWidth };
     });
-    check("1024 px: niente scorrimento orizzontale, «Esci» dentro lo schermo", bar.overflow <= 0 && bar.esciRight !== null && bar.esciRight <= bar.width, JSON.stringify(bar));
+    check("1024 px: niente scorrimento orizzontale, il pulsante dell'account dentro lo schermo", bar.overflow <= 0 && bar.esciRight !== null && bar.esciRight <= bar.width, JSON.stringify(bar));
     await shot(np, "1024");
     await narrow.close();
   }
