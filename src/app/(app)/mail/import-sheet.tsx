@@ -260,7 +260,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
         {c.nonvuole > 0 && <p className="mt-1 text-xs text-foreground-muted">Chi non vuole più email non viene aggiunto né riattivato.</p>}
         {c.senzaEmail > 0 && (
           <details className="mt-1 text-xs text-foreground-muted">
-            <summary className="cursor-pointer py-1">Chi è senza email, o con unChi è senza email, o con un'email sbagliataapos;email sbagliata</summary>
+            <summary className="cursor-pointer py-1">Chi è senza email, o con un&apos;email sbagliata</summary>
             <p className="break-words">
               {parsed.noEmail.slice(0, 20).join(", ")}
               {parsed.noEmail.length > 20 ? ` e altri ${n(parsed.noEmail.length - 20)}` : ""}
