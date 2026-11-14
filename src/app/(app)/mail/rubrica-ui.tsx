@@ -85,7 +85,7 @@ export function SearchBox({ value, onChange, id, labelText }: { value: string; o
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Cerca nome, email, telefono, note"
+        placeholder="Cerca nome, email, telefono"
         autoComplete="off"
         spellCheck={false}
         enterKeyHint="search"

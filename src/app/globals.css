@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* «dark:» segue il tema scelto nell'app (data-theme sull'html), non quello del telefono: prima un
+   telefono in tema chiaro con l'app in tema scuro vedeva i colori del chiaro (es. il verde WhatsApp). */
+@custom-variant dark (&:where(html:not([data-theme="light"]), html:not([data-theme="light"]) *));
+
 :root {
   /* Tema scuro «da cantina»: neri caldi con un filo di vinaccia, superfici che si staccano
      di più dal fondo (prima #0c0b0d / #18161a / #221f24 / bordo #2f2a2f, quasi piatti). */

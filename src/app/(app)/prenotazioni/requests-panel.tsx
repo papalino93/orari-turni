@@ -98,7 +98,7 @@ export function RequestsPanel({
               ))}
               {lists.waDone.map(({ b, openedAt, by }) => (
                 <li key={b.id} className="flex min-h-11 items-center gap-2 px-3 py-1.5 text-sm text-foreground-muted" data-testid="wa-mandato">
-                  <button type="button" onClick={() => onOpen(b.id)} className="min-w-0 flex-1 truncate text-left">
+                  <button type="button" onClick={() => onOpen(b.id)} className="min-w-0 flex-1 py-1 text-left [overflow-wrap:anywhere]">
                     <span className="font-semibold text-foreground">{b.name}</span> · Già mandato da {by} alle {clock(openedAt)}
                   </button>
                   <span aria-hidden className="text-success">
@@ -174,9 +174,9 @@ function WaRow({ b, kind, today, now, canSend, onOpen }: { b: BookingItem; kind:
   return (
     // Se lo stato a destra («✓ Mandato · Annulla», «In invio da …») non ci sta, va sotto: il nome resta leggibile.
     <li className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 py-1 pl-3 pr-1.5" data-testid="wa-riga">
-      <button type="button" onClick={() => onOpen(b.id)} className="flex min-h-11 min-w-0 flex-[1_1_13rem] flex-col justify-center text-left">
-        {/* Il nome su una riga, sotto che cosa mandare e per quando (sempre intero). */}
-        <span className="block truncate text-sm font-semibold text-foreground">{b.name}</span>
+      <button type="button" onClick={() => onOpen(b.id)} className="flex min-h-11 min-w-0 flex-[1_1_13rem] flex-col justify-center py-1 text-left">
+        {/* Il nome sempre intero (va a capo se è lungo), sotto che cosa mandare e per quando. */}
+        <span className="block text-sm font-semibold leading-snug text-foreground [overflow-wrap:anywhere]">{b.name}</span>
         <span className="block whitespace-nowrap text-xs text-foreground-muted">
           {REPLY_SHORT[kind]} · {dayLabel(b.day, today)} {kind === "proposed" ? b.proposedTime : b.time}
         </span>
