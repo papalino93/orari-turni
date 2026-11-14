@@ -256,12 +256,14 @@ export function AgendaCalendar(props: CalendarProps) {
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 md:gap-x-2" data-testid="agenda-barra">
         {titleBlock}
         <div className="order-2 flex shrink-0 items-center gap-1 md:order-1">
+          {/* Come Google Calendar: già su oggi, «Oggi» resta al suo posto (la barra non salta) ma spento. */}
           <button
             type="button"
             onClick={() => setAnchor(today)}
+            disabled={showsToday}
             aria-current={showsToday ? "date" : undefined}
-            title="Oggi (tasto T)"
-            className={`min-h-11 items-center rounded-full px-3 text-sm font-semibold ring-1 ring-inset md:flex md:px-4 ${showsToday ? "hidden bg-surface text-foreground-muted ring-border" : "flex bg-surface text-foreground ring-accent/60 hover:ring-accent"}`}
+            title={showsToday ? "Stai già guardando oggi" : "Torna a oggi (tasto T)"}
+            className={`min-h-11 items-center rounded-full px-3 text-sm font-semibold ring-1 ring-inset md:flex md:px-4 ${showsToday ? "hidden cursor-default bg-transparent text-foreground-muted/60 ring-border" : "flex bg-surface text-foreground ring-accent/60 hover:ring-accent"}`}
           >
             Oggi
           </button>
@@ -324,11 +326,13 @@ export function AgendaCalendar(props: CalendarProps) {
         <>
           {weekEmpty(data, from, now) && <PeriodEmpty what="week" past={addDays(from, 6) < today} onNew={() => props.onNew(from >= today ? from : today)} onImport={props.onImport} />}
           <WeekView data={data} from={from} today={today} now={now} hours={hours} countTests={countTests} capacity={capacity} onDay={openDay} onOpen={props.onOpen} />
+          <Legend view="week" capacity={capacity} />
         </>
       ) : (
         <>
           {monthEmpty(data, from, to, anchor) && <PeriodEmpty what="month" past={to < today} onNew={() => props.onNew(from >= today ? from : today)} onImport={props.onImport} />}
           <MonthView data={data} from={from} to={to} anchor={anchor} today={today} hours={hours} capacity={capacity} onDay={openDay} />
+          <Legend view="month" capacity={capacity} />
         </>
       )}
     </section>
@@ -409,9 +413,10 @@ export function hoursText(hours: Hours, day: string): string {
 }
 
 const BAR = ["bg-transparent", "bg-gold/45", "bg-gold", "bg-accent", "bg-danger"];
-const TINT = ["", "bg-gold/[0.05]", "bg-gold/[0.12]", "bg-accent/[0.13]", "bg-danger/[0.14]"];
+// Nel tema scuro un po' più forti: con le stesse percentuali i giorni pieni quasi non si distinguevano.
+const TINT = ["", "bg-gold/[0.05] dark:bg-gold/[0.08]", "bg-gold/[0.12] dark:bg-gold/[0.16]", "bg-accent/[0.13] dark:bg-accent/[0.24]", "bg-danger/[0.14] dark:bg-danger/[0.22]"];
 
-export function FullnessBar({ people, capacity, className = "" }: { people: number; capacity: number; className?: string }) {
+export function FullnessBar({ people, capacity, className = "", thick = false }: { people: number; capacity: number; className?: string; thick?: boolean }) {
   const level = fullness(people, capacity);
   const pct = Math.min(100, Math.round((people / capacity) * 100));
   return (
@@ -419,7 +424,7 @@ export function FullnessBar({ people, capacity, className = "" }: { people: numb
       role="img"
       aria-label={`${FULLNESS_TEXT[level]}: ${people} persone su ${capacity}`}
       title={`${people} persone · di solito pieni oltre ${capacity}`}
-      className={`block h-1.5 overflow-hidden rounded-full bg-surface-2 ring-1 ring-inset ring-border/60 ${className}`}
+      className={`block ${thick ? "h-2" : "h-1.5"} overflow-hidden rounded-full bg-foreground/[0.09] ${className}`}
     >
       <span className={`block h-full rounded-full ${BAR[level]}`} style={{ width: `${pct}%` }} />
     </span>
@@ -513,7 +518,7 @@ function WeekView({
                   <span className="flex flex-wrap items-baseline gap-x-2 text-sm text-foreground">
                     <span className="font-semibold tabular-nums">{sum.count ? `${sum.count} pren. · ${sum.people} pers.` : "Nessuna prenotazione"}</span>
                     {sum.pending > 0 && <span className="text-xs font-semibold text-gold">+{sum.pending} da confermare</span>}
-                    {sum.incomplete > 0 && <IncompleteDot n={sum.incomplete} />}
+                    {sum.incomplete > 0 && <span className="text-xs font-semibold text-gold">{sum.incomplete} da completare</span>}
                   </span>
                   {sum.count > 0 && <FullnessBar people={sum.people} capacity={capacity} />}
                 </span>
@@ -702,7 +707,7 @@ function MonthView({
                     </span>
                     <span className="flex items-center gap-0.5">
                       {sum.incomplete > 0 && <span aria-hidden title="Dati da completare" className="h-2 w-2 shrink-0 rounded-full bg-gold ring-2 ring-gold/25" />}
-                      {info.notes.length > 0 && <span aria-hidden title="Nota del giorno" className="text-[10px] leading-none text-gold max-sm:hidden">✎</span>}
+                      {info.notes.length > 0 && <span aria-hidden title="Nota del giorno" className="text-[10px] leading-none text-gold">✎</span>}
                     </span>
                   </span>
                   {info.closed ? (
@@ -714,7 +719,13 @@ function MonthView({
                       <span className="text-foreground-muted max-sm:block">{sum.people} p.</span>
                     </span>
                   ) : null}
-                  {sum.pending > 0 && <span className="truncate text-[10.5px] font-semibold text-gold max-sm:hidden">+{sum.pending} da conf.</span>}
+                  {sum.pending > 0 && (
+                    <span className="truncate text-[10.5px] font-semibold text-gold" title={`${sum.pending} da confermare`}>
+                      +{sum.pending}
+                      <span className="max-sm:hidden lg:hidden"> da conf.</span>
+                      <span className="max-lg:hidden"> da confermare</span>
+                    </span>
+                  )}
                   {info.requestsClosed && !info.closed && <ClosedChip tiny />}
                   {info.events.slice(0, 1).map((ev) => (
                     <span key={ev.slug} className="mt-auto flex min-w-0 items-center gap-1 text-[10.5px] font-medium text-accent-ink">
@@ -729,6 +740,93 @@ function MonthView({
         </div>
       ))}
     </div>
+  );
+}
+
+
+// ---------- Legenda dei segni (sotto la settimana e il mese): piccola, una o due righe.
+
+function Legend({ view, capacity }: { view: "week" | "month"; capacity: number }) {
+  const item = "inline-flex items-center gap-1.5 whitespace-nowrap";
+  return (
+    <div
+      role="note"
+      aria-label="Che cosa vogliono dire i segni"
+      data-testid="agenda-legenda"
+      className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-[11.5px] leading-tight text-foreground-muted ${view === "week" ? "max-md:hidden" : ""}`}
+    >
+      {view === "month" ? (
+        <>
+          <span className={item}>
+            <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-gold ring-2 ring-gold/25" />
+            Dati da completare
+          </span>
+          <span className={item}>
+            <span aria-hidden className="font-semibold text-gold">+2</span>
+            Da confermare
+          </span>
+          <span className={item}>
+            <span aria-hidden className="text-gold">✎</span>
+            Nota del giorno
+          </span>
+          <span className={item}>
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+            Evento del menù
+          </span>
+          <span className={item}>
+            <LockIcon />
+            Richieste online chiuse
+          </span>
+          <span className={item}>
+            <span aria-hidden className="flex gap-0.5">
+              {TINT.slice(1).map((t) => (
+                <span key={t} className={`h-3.5 w-3.5 rounded-[3px] ring-1 ring-inset ring-foreground/15 ${t}`} />
+              ))}
+            </span>
+            Più colore, più pieno (di solito pieni oltre {capacity} persone)
+          </span>
+        </>
+      ) : (
+        <>
+          <span className={item}>
+            <span aria-hidden className="h-4 w-6 rounded-[4px] bg-accent/[0.07] shadow-[inset_3px_0_0_var(--accent)]" />
+            Confermata
+          </span>
+          <span className={item}>
+            <span aria-hidden className="h-4 w-6 rounded-[4px] bg-gold/[0.05] outline-dashed outline-[1.5px] -outline-offset-[1.5px] outline-gold/70" />
+            <span aria-hidden className="font-semibold text-gold">+2</span>
+            Da confermare
+          </span>
+          <span className={item}>
+            <span aria-hidden className="flex h-4 w-6 items-center justify-center rounded-[4px] bg-gold/[0.12] text-[10px] font-bold text-gold shadow-[inset_3px_0_0_var(--gold)]">?</span>
+            Ora o persone da definire
+          </span>
+          <span className={item}>
+            <span aria-hidden className="contents">
+              <IncompleteDot n={3} />
+            </span>
+            Da completare
+          </span>
+          <span className={item}>
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
+            Allergie
+          </span>
+          <span className={item}>
+            <span aria-hidden className="text-success">✓</span>
+            Arrivati
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg aria-hidden width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-danger">
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
   );
 }
 

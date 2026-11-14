@@ -30,8 +30,10 @@ import { chromium } from "playwright-core";
 loadEnvLocal();
 process.env.MAIL_PROVIDER = "log";
 process.env.PUSH_PROVIDER = "log";
-if (!/\/orari_test(\?|$)/.test(process.env.DATABASE_URL || "")) {
-  console.error("DATABASE_URL non è il database di prova orari_test: mi fermo.");
+// Il database di prova: orari_test, oppure quello scelto con E2E_DB (come le altre prove).
+const TEST_DB = process.env.E2E_DB || "orari_test";
+if (!new RegExp(`/${TEST_DB}(\\?|$)`).test(process.env.DATABASE_URL || "")) {
+  console.error(`DATABASE_URL non è il database di prova ${TEST_DB}: mi fermo.`);
   process.exit(2);
 }
 const S = await import("@/lib/booking/service");

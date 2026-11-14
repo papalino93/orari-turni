@@ -83,15 +83,24 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
 
   return (
     <div className="space-y-3">
-      {/* Intestazione del giorno */}
-      <div className="rounded-2xl border border-border bg-surface p-4 shadow-[var(--shadow-card)] sm:p-5">
+      {/* Intestazione del giorno: orari, eventi e «+ Nota» su una riga sola (vanno a capo se serve),
+          le note sotto; poi i totali. Compatta, così le prenotazioni si vedono subito. */}
+      <div className="rounded-2xl border border-border bg-surface px-3.5 py-3 shadow-[var(--shadow-card)] sm:px-5 sm:py-4">
         <div className="flex items-start gap-2">
-          <div className="flex min-h-10 min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
+          <div className="flex min-h-11 min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
             <span className={`inline-flex items-center gap-1.5 tabular-nums ${closed ? "font-semibold text-danger" : "text-foreground-muted"}`} data-testid="agenda-orari">
               <ClockIcon />
               {closed ? `Chiuso${closure?.kind === "closed" && closure.reason ? ` · ${closure.reason}` : ""}` : ranges.map((r) => `${r.open}–${r.close}`).join(" · ")}
             </span>
             {requestsClosed && !closed && <ClosedChip />}
+            {events.map((e) => (
+              <a key={e.slug} href={`/menu/p/${e.slug}`} target="_blank" rel="noopener noreferrer" className="min-w-0 max-w-full hover:opacity-90" title="Apri la pagina dell'evento">
+                <EventPill title={e.title} time={eventTime(e) || undefined} compact />
+              </a>
+            ))}
+            <button type="button" onClick={() => setNoteEdit({ note: null })} className="-mx-1 min-h-9 rounded-full px-1 text-xs font-semibold text-foreground-muted underline decoration-dotted underline-offset-4 hover:text-foreground">
+              + Nota del giorno
+            </button>
           </div>
           {/* Le azioni del giorno: stampa, chiudere o riaprire le richieste online, una nota. */}
           <MoreMenu
@@ -117,41 +126,30 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
           />
         </div>
 
-        {events.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {events.map((e) => (
-              <a key={e.slug} href={`/menu/p/${e.slug}`} target="_blank" rel="noopener noreferrer" className="min-w-0 max-w-full hover:opacity-90" title="Apri la pagina dell'evento">
-                <EventPill title={e.title} time={eventTime(e) || undefined} />
-              </a>
+        {/* Note del giorno */}
+        {notes.length > 0 && (
+          <div className="mt-2 space-y-1.5">
+            {notes.map((n) => (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => setNoteEdit({ note: n })}
+                className="flex min-h-11 w-full items-center gap-2 rounded-xl bg-gold/[0.08] px-3 py-1.5 text-left ring-1 ring-inset ring-gold/35 hover:ring-gold"
+                aria-label={`Nota del giorno: ${n.text}. Tocca per cambiarla`}
+              >
+                <span aria-hidden className="text-gold">✎</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-foreground [overflow-wrap:anywhere]">{n.text}</span>
+                  <span className="block text-[11px] text-foreground-muted">{n.author}</span>
+                </span>
+              </button>
             ))}
           </div>
         )}
 
-        {/* Note del giorno */}
-        <div className="mt-3 space-y-1.5">
-          {notes.map((n) => (
-            <button
-              key={n.id}
-              type="button"
-              onClick={() => setNoteEdit({ note: n })}
-              className="flex w-full items-start gap-2 rounded-xl bg-gold/[0.08] px-3 py-2 text-left ring-1 ring-inset ring-gold/35 hover:ring-gold"
-              aria-label={`Nota del giorno: ${n.text}. Tocca per cambiarla`}
-            >
-              <span aria-hidden className="pt-0.5 text-gold">✎</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-foreground [overflow-wrap:anywhere]">{n.text}</span>
-                <span className="block text-[11px] text-foreground-muted">{n.author}</span>
-              </span>
-            </button>
-          ))}
-          <button type="button" onClick={() => setNoteEdit({ note: null })} className="min-h-9 rounded-full px-1 text-xs font-semibold text-foreground-muted underline decoration-dotted underline-offset-4 hover:text-foreground">
-            + Nota del giorno
-          </button>
-        </div>
-
         {/* Totali (senza prenotazioni lo dice già il riquadro vuoto qui sotto) */}
-        <div className={`mt-3 border-t border-border pt-3 ${live.length === 0 && cancelled.length === 0 ? "hidden" : ""}`}>
-          <p className="text-foreground" data-testid="agenda-totali">
+        <div className={`mt-2.5 border-t border-border pt-2.5 ${live.length === 0 && cancelled.length === 0 ? "hidden" : ""}`}>
+          <p className="leading-snug text-foreground" data-testid="agenda-totali">
             <span className="text-lg font-semibold tabular-nums">{totalsText}</span>
           </p>
           <p className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-foreground-muted" data-testid="agenda-totali-extra">
@@ -166,7 +164,7 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
           </p>
           {sum.count > 0 && (
             <div className="mt-2 flex items-center gap-3">
-              <FullnessBar people={sum.people} capacity={capacity} className="flex-1" />
+              <FullnessBar people={sum.people} capacity={capacity} className="flex-1" thick />
               <span className="shrink-0 text-xs tabular-nums text-foreground-muted">di solito pieni oltre {capacity}</span>
             </div>
           )}
@@ -379,10 +377,10 @@ function LoadStrip({ groups, capacity, nowMin, onPick }: { groups: ReturnType<ty
   }
   const peak = Math.max(...slots.map((s) => s.people), Math.round(capacity / 3), 1);
   return (
-    <div className="mt-3" aria-label="Persone per fascia oraria">
-      <div className="flex h-14 items-end gap-[3px]">
+    <div className="mt-2.5" aria-label="Persone per fascia oraria">
+      <div className="flex h-10 items-end gap-[3px] border-b border-foreground/15 sm:h-12">
         {slots.map((s) => {
-          const h = s.people ? Math.max(10, Math.round((s.people / peak) * 100)) : 4;
+          const h = s.people ? Math.max(12, Math.round((s.people / peak) * 100)) : 6;
           const nowHere = nowMin !== null && nowMin >= s.slot && nowMin < s.slot + 30;
           return (
             <button
@@ -395,7 +393,7 @@ function LoadStrip({ groups, capacity, nowMin, onPick }: { groups: ReturnType<ty
               className="group flex h-full min-w-0 flex-1 items-end disabled:cursor-default"
             >
               <span
-                className={`block w-full rounded-t-[3px] transition-colors ${s.people ? "bg-gold/70 group-hover:bg-accent" : "bg-border/70"} ${nowHere ? "outline outline-2 outline-offset-1 outline-accent/60" : ""}`}
+                className={`block w-full rounded-t-[3px] transition-colors ${s.people ? "bg-gold/65 group-hover:bg-accent dark:bg-gold/90" : "bg-foreground/10"} ${nowHere ? "outline outline-2 outline-offset-1 outline-accent/60" : ""}`}
                 style={{ height: `${h}%` }}
               />
             </button>

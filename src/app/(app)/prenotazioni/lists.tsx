@@ -71,7 +71,7 @@ export function RequestCard({ b, now, today, onOpen, showStatus = false }: { b: 
         </span>
         <span className="min-w-0 flex-1 py-0.5">
           <span className="flex items-baseline justify-between gap-2">
-            <span className="line-clamp-2 min-w-0 text-[15px] font-semibold leading-snug text-foreground [overflow-wrap:anywhere] sm:truncate">{b.name}</span>
+            <span className="min-w-0 text-[15px] font-semibold leading-snug text-foreground [overflow-wrap:anywhere]">{b.name}</span>
             <People n={b.people} unknown={b.peopleUnknown} />
           </span>
           {b.note && <span className="mt-0.5 block truncate text-sm text-foreground-muted">«{b.note}»</span>}

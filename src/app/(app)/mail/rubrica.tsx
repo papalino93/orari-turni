@@ -135,8 +135,10 @@ export function Rubrica() {
       </div>
       {data && total > 0 && (
         <div className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-          <button type="button" onClick={() => setOpen({ kind: "contact", id: null })} className={`${primaryBtn} whitespace-nowrap px-2 sm:order-last sm:px-4`}>
-            + Nuovo<span className="hidden sm:inline">contatto</span>
+          <button type="button" aria-label="+ Nuovo contatto" onClick={() => setOpen({ kind: "contact", id: null })} className={`${primaryBtn} whitespace-nowrap px-2 sm:order-last sm:px-4`}>
+            <span>
+              + Nuovo<span className="max-sm:hidden"> contatto</span>
+            </span>
           </button>
           <button type="button" onClick={() => setOpen({ kind: "import" })} className={`${ghostBtn} px-2 sm:px-4`}>
             Importa
@@ -228,7 +230,8 @@ export function Rubrica() {
             {allShownOn ? `Togli tutti (${n(filtered.length)})` : `Seleziona tutti (${n(filtered.length)})`}
           </label>
           <p className="text-xs text-foreground-muted" aria-live="polite">
-            {filtersOn ? `${plural(filtered.length, "contatto trovato", "contatti trovati")}` : `${plural(filtered.length, "contatto", "contatti")}`}
+            {/* Senza filtri il numero è già in «Seleziona tutti (…)»: qui solo quanti ne ha trovati la ricerca. */}
+            {filtersOn ? plural(filtered.length, "contatto trovato", "contatti trovati") : ""}
           </p>
         </div>
 
@@ -363,7 +366,7 @@ export function Rubrica() {
 }
 
 function ContactRow({ c, on, onToggle, onOpen, groupMap }: { c: RContact; on: boolean; onToggle: (v: boolean) => void; onOpen: () => void; groupMap: Map<string, import("@/lib/mail-rubrica").RGroup> }) {
-  const last = c.lastSentAt ? `ultima mail ${shortDay(c.lastSentAt)}` : "nessuna mail";
+  const last = c.lastSentAt ? `ultima mail ${shortDay(c.lastSentAt)}` : "ancora nessuna mail";
   return (
     <li className={`flex items-start gap-1 py-1 ${on ? "bg-accent/[0.06]" : ""}`}>
       <label className="flex h-12 w-11 shrink-0 cursor-pointer items-center justify-center">

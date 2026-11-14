@@ -58,6 +58,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       frame = requestAnimationFrame(() => setOnTop(dialogOpen()));
     });
     observer.observe(document.body, { childList: true, subtree: true });
+    // La scheda può essersi chiusa nello stesso momento in cui è comparso il messaggio (es. «Importa»):
+    // l'osservatore non l'ha vista, quindi si ricontrolla subito dove metterlo.
+    frame = requestAnimationFrame(() => setOnTop(dialogOpen()));
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
