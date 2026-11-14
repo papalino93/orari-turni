@@ -44,14 +44,14 @@ export function SearchSheet({ rows, archive, now, today, onOpen, onClose }: { ro
     <Sheet title="Cerca una prenotazione" onClose={onClose}>
       <div className="space-y-4" data-unsaved-ignore data-testid="cerca">
         <label className="relative block">
-          <span className="sr-only">Cerca per nome, telefono, codice o menù</span>
+          <span className="sr-only">Cerca per nome, telefono o menù</span>
           <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted" />
           <input
             autoFocus
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Nome, telefono, codice o menù"
+            placeholder="Nome, telefono o menù"
             className={`${inputClass} rounded-full! pl-10`}
           />
         </label>

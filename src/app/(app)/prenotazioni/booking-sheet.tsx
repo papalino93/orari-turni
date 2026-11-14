@@ -724,10 +724,6 @@ export function BookingSheet({
             </dd>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
-            <div>
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">Codice</dt>
-              <dd className="font-mono text-base font-semibold tracking-widest text-foreground">{b.code}</dd>
-            </div>
             <button type="button" onClick={copyLink} className="min-h-10 rounded-full border border-border px-3.5 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground">
               Copia il link della sua pagina
             </button>

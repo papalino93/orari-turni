@@ -17,7 +17,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
     {
       slug: `prenotazione-${b.code.toLowerCase()}`,
       title: b.peopleUnknown ? "Tavolo" : `Tavolo per ${b.people}`,
-      body: `Prenotazione confermata${b.peopleUnknown ? "" : `: ${peopleText(b.people)}`}, a nome ${b.name}. Codice ${b.code}.`,
+      body: `Prenotazione confermata${b.peopleUnknown ? "" : `: ${peopleText(b.people)}`}, a nome ${b.name}.`,
       startDate: date,
       endDate: date,
       startTime: b.time,

@@ -49,7 +49,7 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
   const { contacts } = venue;
   const tel = contacts.phone ? telHref(contacts.phone) : null;
   const wa = contacts.phone
-    ? whatsappHref(contacts.phone, `Ciao! Ho chiesto un tavolo per ${dayLong(b.day)} alle ${b.time}, ${peopleText(b.people)} (codice ${b.code}).`)
+    ? whatsappHref(contacts.phone, `Ciao! Ho chiesto un tavolo per ${dayLong(b.day)} alle ${b.time}, ${peopleText(b.people)}, a nome ${b.name}.`)
     : null;
   const again = settings.enabled ? "/menu/prenota" : null;
   // Il recapito per intero: se è sbagliato, il cliente se ne accorge adesso.
@@ -116,12 +116,6 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
           <h1 className="menu-serif m-0 mb-1 text-balance text-[38px] font-medium leading-[1.05] text-[#6B1020]">{head.title}</h1>
           <Ornament color="#9C7A45" />
           <p className="m-0 mt-3 max-w-[440px] text-balance text-[17.5px] leading-normal text-[#3F4540]">{head.text}</p>
-          {/* Il codice in primo piano: chi ci chiama lo trova subito (è anche in fondo, nei dettagli). */}
-          {active && (
-            <p className="menu-sans m-0 mt-2 text-[13px] text-[#5B605A]" data-testid="codice-in-alto">
-              Codice <strong className="font-semibold tracking-[0.14em] text-[#1F2621]">{b.code}</strong>
-            </p>
-          )}
         </div>
 
         {/* Da quale numero gli scriviamo: un messaggio da un numero sconosciuto si ignora, o finisce nello spam. */}
@@ -133,7 +127,7 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
             {view === "PENDING" && wa && (
               // La chat parte dal cliente, sul numero del locale: il link della richiesta resta nel suo WhatsApp.
               <a href={wa} className={`${pillOutline} mt-3 inline-flex min-w-[240px]`}>
-                Mandaci il codice su WhatsApp
+                Scrivici su WhatsApp
               </a>
             )}
           </div>
@@ -219,13 +213,6 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
             </Row>
           )}
           {b.allergies && <Row label="Allergie">Sì, ne parliamo al tavolo</Row>}
-          <div className="flex items-center justify-between gap-4 bg-[#F1E8DA] px-5 py-3.5">
-            <dt className="menu-sans text-[11px] font-medium uppercase tracking-[0.2em] text-[#5B605A]">
-              Codice
-              <span className="mt-0.5 block text-[11.5px] font-normal normal-case tracking-normal">Se ci chiami, diccelo</span>
-            </dt>
-            <dd className="menu-sans m-0 text-[22px] font-medium tracking-[0.18em] text-[#1F2621]">{b.code}</dd>
-          </div>
         </dl>
 
         {active && (

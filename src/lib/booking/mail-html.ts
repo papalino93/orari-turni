@@ -76,19 +76,13 @@ function summary(input: BookingMailInput): string {
     `<td style="padding:9px 0;${last ? "" : "border-bottom:1px solid #eadfce;"}font-family:${FONT};font-size:13px;color:${MUTED};white-space:nowrap;vertical-align:top">${escapeHtml(label)}</td>` +
     `<td align="right" style="padding:9px 0 9px 12px;${last ? "" : "border-bottom:1px solid #eadfce;"}font-family:${FONT};font-size:15px;font-weight:600;color:${INK}">${escapeHtml(value)}</td>` +
     `</tr>`;
-  const code = m.code
-    ? `<tr><td colspan="2" style="padding:12px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:10px"><tr>` +
-      `<td style="padding:10px 14px;font-family:${FONT};font-size:12px;line-height:1.4;color:${MUTED}">Codice<br><span style="font-size:11.5px">Se ci chiami, diccelo</span></td>` +
-      `<td align="right" style="padding:10px 14px;font-family:${FONT};font-size:20px;font-weight:600;letter-spacing:3px;color:${INK}">${escapeHtml(m.code)}</td>` +
-      `</tr></table></td></tr>`
-    : "";
+  // Niente codice della prenotazione: al telefono bastano nome e giorno (decisione del titolare).
   return (
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 22px;background:#faf6f0;border:1px solid #eadfce;border-radius:14px">` +
     `<tr><td style="padding:16px 18px 14px">` +
     `<span style="display:inline-block;padding:4px 11px;border-radius:999px;background:${badge.bg};color:${badge.fg};font-family:${FONT};font-size:12.5px;font-weight:700">${escapeHtml(badge.text)}</span>` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px">` +
-    rows.map(([l, v], i) => cell(l, v, i === rows.length - 1 && !code)).join("") +
-    code +
+    rows.map(([l, v], i) => cell(l, v, i === rows.length - 1)).join("") +
     `</table></td></tr></table>`
   );
 }

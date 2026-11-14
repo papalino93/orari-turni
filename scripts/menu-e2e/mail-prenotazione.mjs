@@ -18,7 +18,7 @@ const make = (kind, over = {}) => {
 const c = make("confirmed");
 check("conferma: logo dal sito", c.html.includes(`src="${origin}/menu/logo-mail.png"`));
 check("conferma: impaginato a tabelle (Outlook) su fondo crema", /<table role="presentation"/.test(c.html) && c.html.includes("#f4efe7"));
-check("conferma: riepilogo con giorno, ora, persone, nome e codice", ["Sabato 21 novembre", "20:30", "4 persone", "Giulia Rossi", "K7P2QX", "Prenotazione confermata"].every((t) => c.html.includes(t)));
+check("conferma: riepilogo con giorno, ora, persone, nome, senza codice", ["Sabato 21 novembre", "20:30", "4 persone", "Giulia Rossi", "Prenotazione confermata"].every((t) => c.html.includes(t)) && !c.html.includes("K7P2QX"));
 check("conferma: pulsanti «Vedi la tua prenotazione», «Aggiungi al calendario», «Annulla»", c.html.includes(`href="${statusUrl}"`) && c.html.includes(">Vedi la tua prenotazione<") && c.html.includes(`href="${statusUrl}/calendario"`) && c.html.includes(">Aggiungi al calendario<") && c.html.includes(`href="${statusUrl}#annulla"`) && c.html.includes(">Annulla<"));
 check("conferma: indirizzo e telefono del locale in fondo", c.html.includes("Via dei Rossi 53/C") && c.html.includes('href="tel:+393312102464"'));
 check("conferma: «salvalo in rubrica» con il numero WhatsApp del locale", c.html.includes("Ti scriviamo dal numero WhatsApp dell&#39;enoteca, 331 210 2464: salvalo in rubrica.") || c.html.includes("Ti scriviamo dal numero WhatsApp dell'enoteca, 331 210 2464: salvalo in rubrica."));
