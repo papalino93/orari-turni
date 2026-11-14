@@ -414,7 +414,7 @@ pages.push(`<section class="page paper">${chrome(pg(), "Strumenti")}
 pages.push(`<section class="page wine">${chrome(pg(), "Statistiche")}
   <div style="margin-top:6mm"><div class="kicker"><span class="kn">${kn()}</span>Statistiche</div>
   <h2>Quanti aprono il menù,<br><em>quando e per cosa</em></h2>
-  <p class="lead">Solo per il titolare: in alto <b>Menù</b>, poi la scheda <b>Statistiche</b> accanto a «Gestione». In cima c'è il numero di <b>oggi</b>; poi scegli il periodo in una riga (Oggi, Ieri, Questa settimana… Ultimi 7 giorni, Date a scelta) e leggi il grafico: le fasce dorate sono gli eventi. <b>Gli eventi funzionano?</b> confronta i giorni con un evento e gli altri. Dal computer, <b>Vista larga</b> (tocca le tue iniziali in alto a destra) usa tutto lo schermo.</p></div>
+  <p class="lead">Solo per il titolare: in alto <b>Menù</b>, poi la scheda <b>Statistiche</b> accanto a «Gestione». In cima c'è il numero di <b>oggi</b>; poi scegli il periodo in una riga (Oggi, Ieri, Questa settimana… Ultimi 7 giorni, Date a scelta) e leggi il grafico: le fasce dorate sono gli eventi. <b>Gli eventi funzionano?</b> confronta i giorni con un evento e gli altri. Dal computer, il pulsante <b>Vista larga</b> in alto a destra, accanto al tondino con le tue iniziali, usa tutto lo schermo.</p></div>
   <div style="position:relative;margin-top:8mm;height:126mm">
     <div style="position:absolute;left:0;top:0">${mac("mac-statistiche", 148)}</div>
     <div style="position:absolute;right:0;top:14mm">${phone("ges-stat-grafico", 38)}</div>
