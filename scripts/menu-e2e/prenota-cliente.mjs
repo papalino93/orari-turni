@@ -35,6 +35,10 @@ onInterrupt(() => {
 cleanBookings();
 setBookingSetting({ enabled: true });
 const { days } = bookableDays();
+// Come la pagina: per il cliente «oggi» è la data del calendario; tra mezzanotte e le 5 la serata
+// appena finita (giorno commerciale di ieri) non si mostra, a meno che sia ancora prenotabile.
+const calToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const shown = days.filter((d) => d.day >= calToday || d.state === "open");
 // Giorni con orari, da domani in poi (oggi gli orari dipendono dall'ora in cui si lancia la prova).
 const open = days.filter((d, i) => i >= 1 && d.state === "open" && d.slots.length >= 3);
 const D1 = open[0];
@@ -230,8 +234,9 @@ async function browserTests() {
     check("errore: «Scegli il giorno.»", /Scegli il giorno\./.test(await alerts(p)));
     // Giorni: i chiusi/al completo non si possono scegliere (e oggi, dopo la chiusura, è «Chiuso»)
     const disabled = await p.locator("[data-day]:disabled").evaluateAll((els) => els.map((e) => e.getAttribute("data-day")));
-    const todayOver = /Chiuso/.test(await p.locator(`[data-day="${days[0].day}"]`).innerText()) && days[0].state === "noSlots";
-    const notOpen = days.filter((d) => !["open", "noSlots"].includes(d.state) || (todayOver && d.day === days[0].day)).map((d) => d.day);
+    const todayOver = /Chiuso/.test(await p.locator(`[data-day="${shown[0].day}"]`).innerText()) && shown[0].state === "noSlots";
+    const notOpen = shown.filter((d) => !["open", "noSlots"].includes(d.state) || (todayOver && d.day === shown[0].day)).map((d) => d.day);
+    check("dopo mezzanotte la serata finita non compare tra i giorni", days[0].day >= calToday || days[0].state === "open" || (await p.locator(`[data-day="${days[0].day}"]`).count()) === 0);
     check("giorni chiusi o al completo non si possono toccare", disabled.join() === notOpen.join(), `${disabled.length} vs ${notOpen.length}`);
     await pick(p, null, D1.day);
     check("dopo il giorno compaiono i suoi orari", (await p.getByRole("radiogroup", { name: "Ora" }).getByRole("radio").count()) === D1.slots.length);
@@ -290,7 +295,7 @@ async function browserTests() {
     const body = await p.locator("main").innerText();
     const readable = phone.replace(/\s/g, "").replace(/^(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3");
     check("pagina di stato: «Richiesta inviata» e il numero per intero da controllare", /Richiesta inviata/.test(body) && body.replace(/\u00a0/g, " ").includes(`Non è ancora confermata: ti rispondiamo su WhatsApp al ${readable}. Il numero è sbagliato? Annulla la richiesta qui sotto e rifalla.`), body.slice(0, 260));
-    check("pagina di stato: codice breve e riepilogo", body.includes(code) && body.includes(D1.slots[1]) && /Sì, ne parliamo al tavolo/.test(body));
+    check("pagina di stato: riepilogo, senza codice", !body.includes(code) && body.includes(D1.slots[1]) && /Sì, ne parliamo al tavolo/.test(body));
     check("pagina di stato: nel riepilogo il telefono è mascherato", /•/.test(await p.locator("main dl").first().innerText()) && !(await p.locator("main dl").first().innerText()).includes(readable));
     check("pagina di stato: «È per stasera» solo per oggi (questa è per un altro giorno)", !/È per stasera/.test(body));
     check("pagina di stato: «Salva o manda il link»", (await p.getByRole("button", { name: "Salva o manda il link" }).count()) === 1);
@@ -400,11 +405,11 @@ async function browserTests() {
       const closedCard = p.locator(`[data-day="${closed}"]`);
       check("giornata chiusa: il motivo e non si tocca", /Prova C ferie/.test(await closedCard.innerText()) && (await closedCard.isDisabled()));
     }
-    const todayCard = p.locator(`[data-day="${days[0].day}"]`);
+    const todayCard = p.locator(`[data-day="${shown[0].day}"]`);
     // Dopo l'ultima chiusura di oggi la carta dice «Chiuso»; prima, con l'anticipo di 24 ore, «Chiamaci».
     if (/Chiuso/.test(await todayCard.innerText())) {
       check("dopo la chiusura di oggi: «Chiuso» e non si tocca (non «Chiamaci»)", (await todayCard.isDisabled()) && !/Chiamaci/.test(await todayCard.innerText()));
-    } else if (days[0].state === "open" || days[0].state === "noSlots") {
+    } else if (shown[0].state === "open" || shown[0].state === "noSlots") {
       check("anticipo 24 h: oggi «Chiamaci»", /Chiamaci/.test(await todayCard.innerText()), await todayCard.innerText());
       await todayCard.click();
       check("oggi: «Per oggi è tardi per prenotare online: chiamaci…» con Chiama", /Per oggi è tardi per prenotare online/.test(await p.locator("main").innerText()) && (await p.getByRole("link", { name: "Chiama" }).count()) >= 1);
