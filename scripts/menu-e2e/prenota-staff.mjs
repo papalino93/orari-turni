@@ -306,8 +306,8 @@ try {
   await tab(A, "Prossimi giorni");
   const s6 = await openCard(A, "Prova C Conferma");
   await s6.getByRole("button", { name: "Annulla la prenotazione" }).click();
-  check("annullo: due scelte, «Ci ha avvisato il cliente» e «Annulliamo noi»", (await s6.getByRole("button", { name: "Ci ha avvisato il cliente (nessun messaggio)" }).count()) === 1 && (await s6.getByRole("button", { name: "Annulliamo noi (il cliente riceve le scuse)" }).count()) === 1);
-  await s6.getByRole("button", { name: "Annulliamo noi (il cliente riceve le scuse)" }).click();
+  check("annullo: due scelte, «Ci ha avvisato il cliente» e «Annulliamo noi»", (await s6.getByRole("button", { name: /^Il cliente ci ha avvisato/ }).count()) === 1 && (await s6.getByRole("button", { name: /^Annulliamo noi: Gli mandiamo un messaggio di scuse/ }).count()) === 1);
+  await s6.getByRole("button", { name: /^Annulliamo noi: Gli mandiamo un messaggio di scuse/ }).click();
   await s6.getByRole("button", { name: "Sì, annulla e avvisa" }).click();
   await s6.getByText("✓ Prenotazione annullata").waitFor();
   check("il locale annulla: «CANCELLED» dal locale, WhatsApp pronto con le scuse", status(R.conf.id) === `CANCELLED|${ADMIN_NAME}|locale` && decodeURIComponent((await s6.getByRole("link", { name: "Manda la risposta su WhatsApp" }).getAttribute("href")) ?? "").includes("dobbiamo annullare"));
@@ -362,7 +362,7 @@ try {
   await tab(A, "Prossimi giorni");
   const st2 = await openCard(A, R.told.name);
   await st2.getByRole("button", { name: "Annulla la prenotazione" }).click();
-  await st2.getByRole("button", { name: "Ci ha avvisato il cliente (nessun messaggio)" }).click();
+  await st2.getByRole("button", { name: /^Il cliente ci ha avvisato/ }).click();
   await st2.getByText("✓ Annullata: il cliente non viene").waitFor();
   check("«Ci ha avvisato il cliente»: annullata dal cliente, niente WhatsApp da mandare", status(R.told.id) === `CANCELLED|${ADMIN_NAME}|cliente` && (await st2.getByRole("link", { name: "Manda la risposta su WhatsApp" }).count()) === 0);
   await A.keyboard.press("Escape");

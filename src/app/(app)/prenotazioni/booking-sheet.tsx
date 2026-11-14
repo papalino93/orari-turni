@@ -470,19 +470,44 @@ export function BookingSheet({
         {!result && panel && (
           <div className="space-y-3 rounded-xl border border-border p-3">
             <p className="text-sm font-semibold text-foreground">
-              {panel === "confirm" ? "Conferma con un messaggio" : panel === "propose" ? "Proponi un altro orario, stesso giorno" : panel === "decline" ? "Rispondi: siamo al completo" : "Annulla la prenotazione"}
+              {panel === "confirm" ? "Conferma con un messaggio" : panel === "propose" ? "Proponi un altro orario, stesso giorno" : panel === "decline" ? "Rispondi: siamo al completo" : `Annullare la prenotazione di ${b.name}?`}
             </p>
             {panel === "cancel" && cancelBy === null && (
+              // Due scelte con titolo e spiegazione sotto, come due schede: prima erano due frasi lunghe tra parentesi.
               <div className="space-y-2">
-                <p className="text-sm text-foreground-muted">Chi annulla?</p>
-                <button type="button" disabled={busy} onClick={() => send("customerCancel")} className={`${bigBtn} border border-border text-foreground hover:border-accent`}>
-                  Ci ha avvisato il cliente (nessun messaggio)
-                </button>
-                <button type="button" disabled={busy} onClick={() => setCancelBy("venue")} className={`${bigBtn} border border-danger/40 text-danger hover:bg-danger-bg`}>
-                  {unreachable ? "Annulliamo noi (avvisa tu il cliente)" : "Annulliamo noi (il cliente riceve le scuse)"}
-                </button>
+                <p className="text-sm text-foreground-muted">Chi ha deciso di annullare?</p>
+                {[
+                  {
+                    key: "cliente",
+                    title: "Il cliente ci ha avvisato",
+                    text: "Non viene più: si annulla e non gli mandiamo niente.",
+                    onClick: () => send("customerCancel"),
+                    tone: "border-border hover:border-accent",
+                    titleTone: "text-foreground",
+                  },
+                  {
+                    key: "noi",
+                    title: "Annulliamo noi",
+                    text: unreachable ? "Non ha lasciato un recapito: avvisalo tu, chiamandolo." : "Gli mandiamo un messaggio di scuse.",
+                    onClick: () => setCancelBy("venue"),
+                    tone: "border-danger/40 hover:bg-danger-bg",
+                    titleTone: "text-danger",
+                  },
+                ].map((o) => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    disabled={busy}
+                    onClick={o.onClick}
+                    aria-label={`${o.title}: ${o.text}`}
+                    className={`flex min-h-14 w-full flex-col items-start justify-center rounded-xl border px-4 py-3 text-left disabled:opacity-60 ${o.tone}`}
+                  >
+                    <span aria-hidden className={`text-[15px] font-semibold ${o.titleTone}`}>{o.title}</span>
+                    <span aria-hidden className="mt-0.5 text-sm text-foreground-muted">{o.text}</span>
+                  </button>
+                ))}
                 <button type="button" disabled={busy} onClick={() => openPanel(null)} className="min-h-11 w-full rounded-full text-sm font-medium text-foreground-muted hover:text-foreground">
-                  Indietro
+                  Non annullare
                 </button>
               </div>
             )}
@@ -614,8 +639,9 @@ export function BookingSheet({
                   </button>
                 ) : (
                   <>
-                    <button type="button" disabled={busy} onClick={() => arrival(true)} className={`${bigBtn} border border-success/40 text-success hover:bg-success-bg ${b.startsAt > now || b.timeUnknown ? "col-span-2" : ""}`}>
-                      ✓ Arrivati
+                    {/* «Segna arrivati», non «✓ Arrivati»: con la spunta sembrava già segnato. */}
+                    <button type="button" disabled={busy} onClick={() => arrival(true)} className={`${bigBtn} border border-border text-foreground hover:border-success hover:text-success ${b.startsAt > now || b.timeUnknown ? "col-span-2" : ""}`}>
+                      Segna arrivati
                     </button>
                     {b.startsAt <= now && !b.timeUnknown && (
                       <button type="button" disabled={busy} onClick={() => arrival(false)} className={`${bigBtn} border border-border text-foreground-muted hover:border-danger hover:text-danger`}>

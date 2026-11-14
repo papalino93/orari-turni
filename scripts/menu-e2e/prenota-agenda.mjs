@@ -986,8 +986,8 @@ try {
     const id = byName(n9);
     const s9 = await openBooking(A, n9, D2.day);
     await s9.getByRole("button", { name: "Annulla la prenotazione" }).click();
-    const us = s9.getByRole("button", { name: "Annulliamo noi (avvisa tu il cliente)" });
-    check("(3) fisso: «Annulliamo noi (avvisa tu il cliente)» (non «il cliente riceve le scuse»)", (await us.count()) === 1 && (await s9.getByRole("button", { name: /il cliente riceve le scuse/ }).count()) === 0);
+    const us = s9.getByRole("button", { name: /^Annulliamo noi: Non ha lasciato un recapito: avvisalo tu/ });
+    check("(3) fisso: «Annulliamo noi» con «avvisalo tu» (non «messaggio di scuse»)", (await us.count()) === 1 && (await s9.getByRole("button", { name: /messaggio di scuse/ }).count()) === 0);
     await us.click();
     check("(3) …sotto «Il cliente non riceve messaggi: chiamalo tu.» e niente messaggio da scrivere", (await s9.innerText()).includes("Il cliente non riceve messaggi: chiamalo tu.") && (await s9.getByRole("textbox").count()) === 0);
     const yes = s9.getByRole("button", { name: "Sì, annulla", exact: true });
