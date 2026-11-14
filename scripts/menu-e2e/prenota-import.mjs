@@ -144,6 +144,16 @@ is("tavolo in mezzo alla riga", "14/11 21:00 x6 t5 Rossi - vicino finestra", { t
 is("«tavolo fuori» (senza numero) resta nella nota", "14/11 20:30 2 Rossi, tavolo fuori", { table: "", note: "tavolo fuori" });
 
 // Riga del giorno (pagina del librone)
+// «sab 21»: il numero dopo il giorno della settimana è il giorno del mese; «Rossi 4 333…»: 4 persone.
+{
+  const r = one("sab 21 20:30 Rossi 4 333 1234567");
+  check("«sab 21 20:30 Rossi 4 333 1234567»: sabato 21/11, 20:30, 4 persone, telefono", r.day === "2026-11-21" && r.time === "20:30" && r.people === 4 && r.name === "Rossi" && r.phoneIntl === "393331234567", JSON.stringify(r));
+  const d = one("dom 15/11 18:30 10 Saverio");
+  check("le righe con la data intera non cambiano", d.day === "2026-11-15" && d.time === "18:30" && d.people === 10 && d.name === "Saverio", JSON.stringify(d));
+  const g = one("sab 28/11 18:30 8 Dei Grandi 340 701 0226");
+  check("«Dei Grandi 340 701 0226»: il telefono intero, nessuna persona in più", g.people === 8 && g.name === "Dei Grandi" && g.phoneIntl === "393407010226", JSON.stringify(g));
+}
+
 {
   const rows = parseImport("Sabato 21/11\n20:30 4 Rossi\n21:00 2 Bianchi 333 123 4567\n\n22/11 20:00 2 Verdi\ndom 22/11\n21:00 3 Neri", NOW);
   const [h, a, b, c, h2, d] = rows;

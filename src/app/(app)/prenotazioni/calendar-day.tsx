@@ -94,7 +94,7 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
             </span>
             {requestsClosed && !closed && <ClosedChip />}
             {events.map((e) => (
-              <a key={e.slug} href={`/menu/p/${e.slug}`} target="_blank" rel="noopener noreferrer" className="min-w-0 max-w-full hover:opacity-90" title="Apri la pagina dell'evento">
+              <a key={e.slug} href={`/menu/p/${e.slug}`} target="_blank" rel="noopener noreferrer" className="flex min-h-11 min-w-0 max-w-full items-center hover:opacity-90" title="Apri la pagina dell'evento">
                 <EventPill title={e.title} time={eventTime(e) || undefined} compact />
               </a>
             ))}

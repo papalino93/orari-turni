@@ -38,8 +38,19 @@ const VIEWS: { id: AgendaView; label: string; short: string }[] = [
   { id: "week", label: "Settimana", short: "Sett." },
   { id: "month", label: "Mese", short: "Mese" },
 ];
-// Nella vista Settimana, per ogni giorno: le prime prenotazioni, poi «N in più».
+// Nella vista Settimana, per ogni giorno: le prime prenotazioni, poi «N in più». Sugli schermi alti
+// (tablet in verticale) ce ne stanno di più: non si lascia mezzo schermo vuoto sotto la griglia.
 const WEEK_CHIPS = 8;
+function useWeekChips(): number {
+  const [n, setN] = useState(WEEK_CHIPS);
+  useEffect(() => {
+    const fit = () => setN(window.innerHeight >= 1000 ? 13 : window.innerHeight >= 860 ? 10 : WEEK_CHIPS);
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+  return n;
+}
 
 export type CalendarProps = {
   today: string;
@@ -472,6 +483,7 @@ function WeekView({
   onOpen: (id: string) => void;
 }) {
   const days = daysBetween(from, addDays(from, 6));
+  const chipsMax = useWeekChips();
   const byDay = useMemo(() => {
     const m = new Map<string, AgendaBooking[]>();
     for (const b of data.bookings ?? []) {
@@ -586,7 +598,7 @@ function WeekView({
         </div>
         <div role="row" className="grid grid-cols-7">
           {week.map(({ day, sum, rows }, i) => {
-            const shown = rows.length > WEEK_CHIPS ? rows.slice(0, WEEK_CHIPS - 1) : rows;
+            const shown = rows.length > chipsMax ? rows.slice(0, chipsMax - 1) : rows;
             const more = rows.length - shown.length;
             return (
               <div role="gridcell" key={day} className={`flex min-h-64 min-w-0 flex-col gap-1 px-1.5 pb-2 pt-2 ${i ? "border-l border-border" : ""} ${day < today ? "bg-surface-2/25" : ""}`}>
@@ -704,9 +716,10 @@ function MonthView({
                   type="button"
                   onClick={(e) => onDay(day, e)}
                   aria-label={`Apri ${dayAria(day)}: ${info.closed ? `${info.closedText}, ` : ""}${info.requestsClosed && !info.closed ? "richieste chiuse, " : ""}${sumAria(sum)}${info.events.length ? `, evento: ${info.events.map((e) => e.title).join(", ")}` : ""}`}
-                  className={`flex h-full min-h-[4.25rem] w-full flex-col items-stretch gap-0.5 px-1 pb-1.5 pt-1 text-left transition-colors hover:bg-surface-2/70 sm:min-h-[6.5rem] sm:px-1.5 ${TINT[level]} ${out ? "opacity-45" : ""}`}
+                  className={`flex h-full min-h-[4.25rem] w-full min-w-0 flex-col items-stretch gap-0.5 overflow-hidden px-1 pb-1.5 pt-1 text-left transition-colors hover:bg-surface-2/70 sm:min-h-[6.5rem] sm:px-1.5 ${TINT[level]} ${out ? "opacity-45" : ""}`}
                 >
-                  <span className="flex items-center justify-between gap-1">
+                  {/* Numero e segni (da completare, nota): sul telefono piccolo i segni vanno sotto, mai nella casella accanto. */}
+                  <span className="flex flex-wrap items-center justify-between gap-x-1">
                     <span
                       className={`flex h-7 min-w-7 items-center justify-center rounded-full text-[13px] font-semibold tabular-nums sm:text-sm ${isToday ? "bg-accent text-accent-foreground" : day < today ? "text-foreground-muted" : "text-foreground"}`}
                     >
@@ -784,13 +797,13 @@ function Legend({ view, capacity }: { view: "week" | "month"; capacity: number }
             <LockIcon />
             Richieste online chiuse
           </span>
-          <span className={item}>
-            <span aria-hidden className="flex gap-0.5">
+          <span className={`${item} max-w-full`}>
+            <span aria-hidden className="flex shrink-0 gap-0.5">
               {TINT.slice(1).map((t) => (
                 <span key={t} className={`h-3.5 w-3.5 rounded-[3px] ring-1 ring-inset ring-foreground/15 ${t}`} />
               ))}
             </span>
-            Più colore, più pieno (di solito pieni oltre {capacity} persone)
+            <span className="whitespace-normal">Più colore, più pieno (di solito pieni oltre {capacity} persone)</span>
           </span>
         </>
       ) : (

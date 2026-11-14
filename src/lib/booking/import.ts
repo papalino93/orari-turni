@@ -117,6 +117,27 @@ function withoutYear(m: number, d: number, today: string): string | "past" | nul
   return dateKey(y + 1, m, d);
 }
 
+// «sab 21»: solo il numero del giorno dopo il giorno della settimana. Il primo 21 da oggi in avanti
+// che cade di sabato (entro tre mesi); se nessuno combacia, il primo 21 da oggi (e l'avviso sul giorno).
+function dayOfMonthAhead(n: number, weekday: number, today: string): string | null {
+  let y = Number(today.slice(0, 4));
+  let m = Number(today.slice(5, 7));
+  let first: string | null = null;
+  for (let k = 0; k < 4; k++) {
+    const key = dateKey(y, m, n);
+    if (key && key >= today) {
+      if (weekdayOf(key) === weekday) return key;
+      first ??= key;
+    }
+    m++;
+    if (m > 12) {
+      m = 1;
+      y++;
+    }
+  }
+  return first;
+}
+
 type DayHit = { day: string | "past" | "invalid"; used: number };
 
 // Data in un token (14/11, 14-11, 14.11, 14/11/26, 2026-11-14), o «14 nov [2026]» su due/tre token.
@@ -222,6 +243,8 @@ function maxDigits(start: string): number {
 function findPhone(toks: { t: string; f: number }[]): PhoneRun | null {
   for (let i = 0; i < toks.length; i++) {
     if (!phoneTok(toks[i].t)) continue;
+    // «4 333 1234567»: un numero di una o due cifre (non «02», «06»…) davanti al telefono sono le persone.
+    if (/^[1-9]\d?$/.test(toks[i].t) && i + 1 < toks.length && phoneTok(toks[i + 1].t)) continue;
     let text = toks[i].t.replace(/[,;:]+$/, "");
     let end = i + 1;
     // Si aggiungono gruppi di cifre finché il numero non è completo (una virgola lo chiude).
@@ -314,6 +337,16 @@ function parseLine(line: string, today: string): Parsed {
       if (w !== null) {
         weekday = w;
         i++;
+        // «sab 21 20:30 …»: un numero subito dopo il giorno della settimana è il giorno del mese
+        // (non le persone), se dopo non c'è il mese scritto («sab 21 nov» lo legge readDate).
+        const nb = i < toks.length ? bare(words[i]) : "";
+        if (/^\d{1,2}$/.test(nb) && +nb >= 1 && +nb <= 31 && !(i + 1 < toks.length && monthWord(words[i + 1]))) {
+          const hit = dayOfMonthAhead(+nb, w, today);
+          if (hit) {
+            day = hit;
+            i++;
+          }
+        }
         continue;
       }
     }
@@ -454,6 +487,14 @@ function parseLine(line: string, today: string): Parsed {
   if (cut > 0) {
     noteParts.unshift(join(nameWords.slice(cut)));
     nameWords = nameWords.slice(0, cut);
+  }
+  // «Rossi 4 333…»: un numero piccolo in fondo al nome sono le persone, se non sono già scritte.
+  if (!fielded && people === null && !peopleBad && nameWords.length > 1) {
+    const last = bare(nameWords[nameWords.length - 1].t);
+    if (/^\d{1,2}$/.test(last) && okPeople(+last)) {
+      people = +last;
+      nameWords = nameWords.slice(0, -1);
+    }
   }
   if (fielded) noteParts.push(...byField(after));
   else if (after.length) noteParts.push(join(after));
