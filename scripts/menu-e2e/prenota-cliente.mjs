@@ -257,7 +257,7 @@ async function browserTests() {
     check("telefono: tastiera numerica (inputmode=tel) e autocompletamento", (await p.getByLabel("Telefono", { exact: true }).getAttribute("inputmode")) === "tel" && (await p.getByLabel("Telefono", { exact: true }).getAttribute("autocomplete")) === "tel");
     await p.getByLabel("Telefono", { exact: true }).fill("12");
     await send(p);
-    check("errore: numero corto senza prefisso → «scrivilo con il prefisso»", /prefisso/.test(await alerts(p)), await alerts(p));
+    check("errore: numero corto senza prefisso → «sembra incompleto» (non «estero»)", /incompleto/.test(await alerts(p)), await alerts(p));
     await p.getByLabel("Telefono", { exact: true }).fill("333 12345");
     await send(p);
     check("errore: cellulare incompleto → «un cellulare ha 10 cifre» (prima dell'invio)", /incompleto: un cellulare ha 10 cifre/.test(await alerts(p)), await alerts(p));
