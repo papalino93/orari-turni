@@ -259,7 +259,7 @@ export function ContactSheet({ contact, groups, onClose }: { contact: RContact |
           <textarea id="contatto-note" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} rows={2} placeholder="Es. preferisce i rossi, viene il giovedì" className={field} />
         </div>
         <fieldset>
-          <legend className={label}>Perché possiamo scrivergli?</legend>
+          <legend className={label}>Perché puoi scrivere a questa persona?</legend>
           <ConsentRadios name="contatto-consenso" value={consent} onChange={setConsent} />
         </fieldset>
 
@@ -593,7 +593,7 @@ export function ExportSheet({
   onClose: () => void;
 }) {
   function rows(): string[][] {
-    const head = ["Nome o azienda", "Email", "Telefono", "Gruppi", "Note", "Stato", "Perché possiamo scrivergli", "Aggiunto il", "Ultima mail", "Mail ricevute"];
+    const head = ["Nome o azienda", "Email", "Telefono", "Gruppi", "Note", "Stato", "Perché puoi scrivergli", "Aggiunto il", "Ultima mail", "Mail ricevute"];
     return [
       head,
       ...contacts.map((c) => [
