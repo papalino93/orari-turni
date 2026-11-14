@@ -794,6 +794,7 @@ function Legend({ view, capacity }: { view: "week" | "month"; capacity: number }
           </span>
           <span className={item}>
             <span aria-hidden className="h-4 w-6 rounded-[4px] bg-gold/[0.05] outline-dashed outline-[1.5px] -outline-offset-[1.5px] outline-gold/70" />
+            <span aria-hidden className="font-semibold text-gold">+2</span>
             Da confermare
           </span>
           <span className={item}>
