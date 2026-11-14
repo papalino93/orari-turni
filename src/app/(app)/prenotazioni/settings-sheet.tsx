@@ -101,14 +101,14 @@ export function SettingsSheet({
           </div>
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">Richieste online dai clienti {settings.enabled ? "accese" : "spente"}</p>
+              <p className="text-sm font-medium text-foreground">Prenotazioni online dei clienti {settings.enabled ? "accese" : "spente"}</p>
               <p className="text-xs text-foreground-muted">
                 {settings.enabled
                   ? "I clienti chiedono un tavolo dal menù, dagli eventi e dal link per Google. Spegnendole l'agenda resta com'è."
                   : "I clienti non vedono la pagina per chiedere un tavolo: puoi provarla solo tu."}
               </p>
             </div>
-            <Switch on={settings.enabled} disabled={busy} label="Richieste online dai clienti accese" onToggle={() => onToggle("online")} />
+            <Switch on={settings.enabled} disabled={busy} label="Prenotazioni online dei clienti" onToggle={() => onToggle("online")} />
           </div>
           {paused && (
             <div role="status" className="flex flex-wrap items-center justify-between gap-2 bg-gold/10 px-4 py-3">
