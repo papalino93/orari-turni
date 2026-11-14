@@ -1,11 +1,16 @@
 // «Scrivi o detta»: la lettura delle prenotazioni scritte o dettate (funzioni pure, niente browser).
 // 1. le frasi «cieche» (fixtures/scrivi-frasi-cieche*.json): scritte da chi non ha visto il codice,
 //    digitate di fretta e come le scrive la dettatura di iPhone/Android, con la risposta giusta;
-// 2. migliaia di combinazioni generate (nome × persone × giorno × ora × telefono × nota × ordine).
-// Oggi per tutte: venerdì 13 novembre 2026. Regola: mai indovinare (i campi ambigui restano vuoti).
+// 2. migliaia di combinazioni generate (nome × persone × giorno × ora × telefono × nota × ordine);
+// 3. i casi trovati provando a mano (fixtures/scrivi-regressioni.json, oggi sabato 14 novembre):
+//    più correzioni di fila, nome e giorno corretti, mese detto da solo, persone fuori misura,
+//    «questa sera», «dalle 20», «tra le 20 e le 21»; e le righe del librone scritte a parole.
+// Oggi per le prime due: venerdì 13 novembre 2026. Regola: mai indovinare (i campi ambigui restano vuoti).
 // Uso: npx tsx scripts/menu-e2e/prenota-scrivi.mjs [--mostra]
 import { readFileSync } from "node:fs";
 const { parseQuick } = await import("../../src/lib/booking/quick.ts");
+const { parseImport } = await import("../../src/lib/booking/import.ts");
+const { romeInstant } = await import("../../src/lib/booking/rules.ts");
 
 const TODAY = "2026-11-13";
 // Orari dell'enoteca: lun–mar 17–21:30; mer–sab 10–13 e 16:30–22; dom 16:30–21.
@@ -16,8 +21,8 @@ const opts = { today: TODAY, isOpen };
 const SHOW = process.argv.includes("--mostra");
 
 const FIELDS = ["name", "people", "day", "time", "phone", "table", "menu"];
-function compare(text, expect) {
-  const got = parseQuick(text, opts);
+function compare(text, expect, today = TODAY) {
+  const got = parseQuick(text, { ...opts, today });
   const errs = [];
   for (const f of FIELDS) {
     const want = expect[f] ?? null;
@@ -26,6 +31,10 @@ function compare(text, expect) {
   }
   if ((expect.allergies ?? false) !== got.allergies) errs.push(`allergie: atteso ${expect.allergies ?? false}, letto ${got.allergies}`);
   if (expect.noteIncludes && !(got.note ?? "").toLowerCase().includes(expect.noteIncludes.toLowerCase())) errs.push(`nota: doveva contenere «${expect.noteIncludes}», letto ${JSON.stringify(got.note)}`);
+  // (solo nei casi provati a mano) nota esatta, dubbi che devono esserci, nessun dubbio
+  if ("note" in expect && (expect.note ?? null) !== (got.note ?? null)) errs.push(`nota: attesa ${JSON.stringify(expect.note)}, letta ${JSON.stringify(got.note)}`);
+  for (const d of expect.doubts ?? []) if (!got.doubts.some((x) => x.includes(d))) errs.push(`dubbi: manca «${d}», letti ${JSON.stringify(got.doubts)}`);
+  if (expect.noDoubts && got.doubts.length) errs.push(`dubbi: nessuno atteso, letti ${JSON.stringify(got.doubts)}`);
   return { got, errs };
 }
 
@@ -96,8 +105,28 @@ for (let k = 0; k < N_GEN; k++) {
   else ok2++;
 }
 
+// ---------- 3. Casi provati a mano (ognuno era sbagliato: restano giusti)
+const reg = JSON.parse(readFileSync(new URL("./fixtures/scrivi-regressioni.json", import.meta.url), "utf8"));
+let ok3 = 0;
+const fails3 = [];
+reg.quick.forEach((c, k) => {
+  const { errs } = compare(c.text, c.expect, c.today ?? reg.today);
+  if (errs.length) fails3.push({ id: `R${k + 1}`, text: c.text, errs });
+  else ok3++;
+});
+// «Importa dal librone»: righe scritte a parole (stessa lettura di «Scrivi o detta»)
+const NOW = romeInstant(reg.today, 15 * 60);
+reg.import.forEach((c, k) => {
+  const r = parseImport(c.text, NOW).find((x) => x.line === c.row);
+  const errs = r ? Object.entries(c.expect).filter(([f, v]) => JSON.stringify(r[f]) !== JSON.stringify(v)).map(([f, v]) => `${f}: atteso ${JSON.stringify(v)}, letto ${JSON.stringify(r[f])}`) : ["riga non letta"];
+  if (errs.length) fails3.push({ id: `L${k + 1}`, text: c.text.replace(/\n/g, " ⏎ "), errs });
+  else ok3++;
+});
+const N_REG = reg.quick.length + reg.import.length;
+
 console.log(`Frasi cieche: ${ok1}/${blind.length} giuste`);
 console.log(`Combinazioni generate: ${ok2}/${N_GEN} giuste`);
+console.log(`Casi provati a mano: ${ok3}/${N_REG} giusti`);
 const show = (list, n) => list.slice(0, n).forEach((f) => console.log(`  ${f.id ? `#${f.id} ` : ""}«${f.text}»\n     ${f.errs.join(" · ")}`));
 if (fails1.length) {
   console.log(`\nSBAGLIATE (cieche): ${fails1.length}`);
@@ -107,6 +136,10 @@ if (fails2.length) {
   console.log(`\nSBAGLIATE (generate): ${fails2.length}`);
   show(fails2, SHOW ? 200 : 25);
 }
-const all = fails1.length + fails2.length;
+if (fails3.length) {
+  console.log(`\nSBAGLIATI (provati a mano): ${fails3.length}`);
+  show(fails3, 100);
+}
+const all = fails1.length + fails2.length + fails3.length;
 console.log(`\n${all === 0 ? "tutto giusto" : `${all} da sistemare`}`);
 process.exit(all ? 1 : 0);
