@@ -242,6 +242,10 @@ check("calendario di prova: 9/11/2026 è lunedì, 14/11 sabato", weekdayOf("2026
 // Testi
 check("dayShort «Sab 14 nov», dayLong «sabato 14 novembre»", dayShort("2026-11-14") === "Sab 14 nov" && dayLong("2026-11-14") === "sabato 14 novembre");
 check("dayRelative: oggi, domani, poi il giorno per esteso", dayRelative("2026-11-09", NOW) === "oggi" && dayRelative("2026-11-10", NOW) === "domani" && dayRelative("2026-11-11", NOW) === "mercoledì 11 novembre");
+{
+  const night = romeInstant("2026-11-09", 25 * 60); // martedì 10 novembre, l'1:00 di notte
+  check("dayRelative di notte: «oggi» è la data del calendario", dayRelative("2026-11-10", night) === "oggi" && dayRelative("2026-11-11", night) === "domani");
+}
 check("peopleText: 1 persona, 4 persone", peopleText(1) === "1 persona" && peopleText(4) === "4 persone");
 
 // ================= Servizio (database di prova) =================

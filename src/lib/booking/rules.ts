@@ -259,8 +259,10 @@ export function dayShort(dayKey: string): string {
 }
 
 // «oggi», «domani» o «sabato 14 novembre», rispetto al giorno commerciale di adesso.
+// Per il cliente: «oggi» e «domani» secondo il calendario (anche tra mezzanotte e le 5, quando il
+// giorno commerciale è ancora ieri e «domani» sarebbe il giorno già cominciato).
 export function dayRelative(dayKey: string, now: Date): string {
-  const today = businessDay(now);
+  const today = romeParts(now).dateKey;
   if (dayKey === today) return "oggi";
   if (dayKey === addDays(today, 1)) return "domani";
   return dayLong(dayKey);

@@ -1,6 +1,6 @@
 // Testi e link della pagina Prenotazioni (funzioni pure, per i componenti client).
 
-import { addDays, businessDay, dayShort, STATUS_LABEL, viewStatus, whatsappReachable, type BookingView } from "@/lib/booking/rules";
+import { addDays, businessDay, dayShort, romeParts, STATUS_LABEL, viewStatus, whatsappReachable, type BookingView } from "@/lib/booking/rules";
 import { customerMessage, type MessageKind } from "@/lib/booking/messages";
 import { whatsappHref } from "@/lib/menu-venue";
 import type { BookingItem } from "./types";
@@ -28,9 +28,10 @@ export function confirmationSent(b: Pick<BookingItem, "log">): boolean {
 }
 
 // «Oggi», «Domani» oppure «Sab 14 nov».
+// Tra mezzanotte e le 5 «Domani» sarebbe il giorno già cominciato: allora si scrive la data.
 export function dayLabel(day: string, today: string): string {
   if (day === today) return "Oggi";
-  if (day === addDays(today, 1)) return "Domani";
+  if (day === addDays(today, 1)) return romeParts(new Date()).dateKey === today ? "Domani" : dayShort(day);
   if (day === addDays(today, -1)) return "Ieri";
   return dayShort(day);
 }
