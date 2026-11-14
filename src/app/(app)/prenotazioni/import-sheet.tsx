@@ -213,7 +213,7 @@ export function ImportSheet({ now, testMode, onClose }: { now: number; testMode:
 
         {testMode && <p className="px-1 text-xs text-foreground-muted">L&apos;agenda è spenta: quelle che importi sono di prova.</p>}
 
-        <div className="sticky bottom-0 z-10 -mx-5 flex gap-2 border-t border-border bg-surface px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
+        <div className="sticky bottom-[calc(-1.25rem-env(safe-area-inset-bottom))] z-10 mb-[calc(-1.25rem-env(safe-area-inset-bottom))] -mx-5 flex gap-2 border-t border-border bg-surface px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:mb-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
           <button type="button" onClick={onClose} className="min-h-12 shrink-0 rounded-full border border-border px-4 text-sm font-medium text-foreground-muted hover:text-foreground sm:min-h-11 sm:px-5">
             Annulla
           </button>

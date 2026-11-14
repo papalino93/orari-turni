@@ -36,7 +36,7 @@ export function ConfirmSheet({
           role="alertdialog"
           aria-label={title}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-left shadow-2xl sm:rounded-2xl sm:pb-5"
+          className="w-full rounded-t-2xl sm:max-w-sm border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-left shadow-2xl sm:rounded-2xl sm:pb-5"
         >
           <h2 className="text-base font-semibold text-foreground">{title}</h2>
           <div className="mt-2 space-y-2 text-sm text-foreground-muted">{children}</div>

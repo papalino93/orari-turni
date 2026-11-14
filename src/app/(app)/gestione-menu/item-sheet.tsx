@@ -910,7 +910,7 @@ export function ItemSheet({
 
         {/* «Salva» resta sempre in vista in fondo allo schermo: la scheda è lunga e per
             cambiare un prezzo non si deve scorrere fino in fondo. */}
-        <div className="sticky bottom-0 z-10 -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-bottom-6 sm:-mx-6 sm:px-6 sm:pb-6">
+        <div className="sticky bottom-[calc(-1.25rem-env(safe-area-inset-bottom))] z-10 mb-[calc(-1.25rem-env(safe-area-inset-bottom))] -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-bottom-6 sm:-mx-6 sm:mb-0 sm:px-6 sm:pb-6">
           <button
             type="submit"
             onClick={progress ? (e) => void submit(e, true) : undefined}

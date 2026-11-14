@@ -157,8 +157,14 @@ html[data-theme="light"]:has(.menu-root) {
   --font-display: var(--font-jost), var(--font-geist-sans);
 }
 
-* {
-  border-color: var(--border);
+/* Colore dei bordi di partenza. Dentro @layer base: fuori da ogni layer vinceva su tutte le classi
+   (border-accent, border-danger, border-gold…), e le scelte selezionate o gli errori restavano grigi. */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
 }
 
 html {

@@ -218,7 +218,7 @@ export function PricesSheet({ sections, startSectionId, run, onClose }: { sectio
 
       {/* Come «Salva» nella scheda della voce: a tutta larghezza, con margine sotto (anche
           sopra la barra di iPhone), così sul telefono il pulsante non resta tagliato in fondo. */}
-      <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center gap-2 -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-6">
+      <div className="sticky bottom-[calc(-1.25rem-env(safe-area-inset-bottom))] z-10 mb-[calc(-1.25rem-env(safe-area-inset-bottom))] mt-4 flex flex-wrap items-center gap-2 -mx-5 border-t border-border bg-surface px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-6">
         <p className="min-w-0 flex-1 text-xs text-foreground-muted">
           {changes.length === 0 ? "Nessun prezzo cambiato." : changes.length === 1 ? "1 voce cambiata" : `${changes.length} voci cambiate`}
           {problems.length > 0 && <span className="text-danger"> · {problems.length === 1 ? "1 da sistemare" : `${problems.length} da sistemare`}</span>}

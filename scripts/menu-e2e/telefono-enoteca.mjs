@@ -198,7 +198,7 @@ try {
   check("titolare (solo il telefono enoteca): avviso «Partirà dal tuo WhatsApp personale…»", (await aPanel.getByTestId("wa-avviso-personale").count()) === 1);
   await shot(A, "titolare-in-invio");
   // Il telefono enoteca tocca «✓ Mandato»
-  await vRow.getByRole("button", { name: "✓ Mandato" }).click();
+  await vRow.getByRole("button", { name: "L'ho mandato" }).click();
   check("«✓ Mandato»: in cronologia «dal numero dell'enoteca»", await waitDb(() => DB(`select count(*) from "BookingLog" where "requestId"=${q(id)} and kind='WHATSAPP_DONE' and message='dal numero dell''enoteca'`) === "1"));
   await A.goto(`${BASE}/prenotazioni?richieste=1`, { waitUntil: "networkidle", timeout: 180000 });
   await A.getByRole("dialog", { name: "Richieste" }).waitFor();
@@ -233,7 +233,9 @@ try {
   await devs.scrollIntoViewIfNeeded();
   await shot(A, "telefoni-avvisi");
   await devs.getByRole("button", { name: /^Togli gli avvisi: Computer/ }).click();
-  check("«Togli»: tolto", await waitDb(() => DB(`select count(*) from "PushSubscription" where id='provatpush2'`) === "0"));
+  // «Togli» chiede prima conferma
+  await A.getByRole("alertdialog", { name: /^Togliere gli avvisi a/ }).getByRole("button", { name: "Togli gli avvisi" }).click();
+  check("«Togli» (dopo la conferma): tolto", await waitDb(() => DB(`select count(*) from "PushSubscription" where id='provatpush2'`) === "0"));
   await A.keyboard.press("Escape");
 
   // Password nuova del telefono enoteca: gli avvisi di quel telefono si spengono

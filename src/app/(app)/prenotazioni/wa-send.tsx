@@ -138,7 +138,7 @@ export function WhatsappButton({
     try {
       const res = await markWhatsapp(bookingId, how, { device: deviceId() });
       if (!res.ok) toast.showError(res.error);
-      else toast.showSuccess(how === "sent" ? `Mandato alle ${clock(Date.now())}` : "Lasciato libero: lo può mandare un altro");
+      else toast.showSuccess(how === "sent" ? `Segnato come mandato alle ${clock(Date.now())}` : "Ancora da mandare: lo può mandare anche un altro");
       setState("idle");
       router.refresh();
     } catch (e) {
@@ -147,7 +147,7 @@ export function WhatsappButton({
     }
   }
 
-  if (wa.role === "none") return <p className="text-sm text-foreground-muted">La risposta su WhatsApp la manda il telefono enoteca.</p>;
+  if (wa.role === "none") return <p className="text-sm text-foreground-muted">La risposta su WhatsApp la manda il telefono della sala.</p>;
 
   const big = "flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold disabled:opacity-60";
   const green = compact
@@ -159,11 +159,16 @@ export function WhatsappButton({
     if (state === "open")
       return (
         <span className="flex shrink-0 items-center gap-1.5" data-testid="wa-in-invio">
-          <button type="button" onClick={() => finish("sent")} className="min-h-10 rounded-full bg-[#137a43] px-3 text-xs font-semibold text-white hover:bg-[#0f6837]">
-            ✓ Mandato
+          {/* Dopo aver aperto WhatsApp: si dice se è partito. Non verde pieno né con la spunta, che
+              sembravano «già fatto»; «Non ancora» al posto di «Annulla», che sembrava annullare la prenotazione. */}
+          <a href={href} target="_blank" rel="noopener noreferrer" className="min-h-10 px-1 py-2.5 text-xs font-medium text-[#137a43] underline decoration-dotted underline-offset-2 dark:text-[#3fae74]">
+            Riapri
+          </a>
+          <button type="button" onClick={() => finish("sent")} aria-label="L'ho mandato" className="min-h-10 rounded-full px-3 text-xs font-semibold text-[#137a43] ring-1 ring-inset ring-[#137a43]/50 hover:bg-[#137a43]/10 dark:text-[#3fae74]">
+            L&apos;ho mandato
           </button>
-          <button type="button" onClick={() => finish("release")} className="min-h-10 rounded-full px-2.5 text-xs font-medium text-foreground-muted ring-1 ring-inset ring-border">
-            Annulla
+          <button type="button" onClick={() => finish("release")} aria-label="Non ancora" className="min-h-10 rounded-full px-2.5 text-xs font-medium text-foreground-muted ring-1 ring-inset ring-border">
+            Non ancora
           </button>
         </span>
       );
@@ -209,13 +214,13 @@ export function WhatsappButton({
   if (state === "open") {
     return (
       <div className="space-y-2 rounded-xl bg-[#137a43]/[0.06] p-3 ring-1 ring-inset ring-[#137a43]/30" data-testid="wa-in-invio">
-        <p className="text-sm font-medium text-foreground">WhatsApp aperto: dopo aver toccato Invia, segna qui che è partito.</p>
+        <p className="text-sm font-medium text-foreground">Hai toccato Invia su WhatsApp?</p>
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => finish("sent")} className="min-h-11 rounded-xl bg-[#137a43] px-3 text-sm font-semibold text-white hover:bg-[#0f6837]">
-            ✓ Mandato
+          <button type="button" onClick={() => finish("sent")} aria-label="L'ho mandato" className="min-h-11 rounded-xl px-3 text-sm font-semibold text-[#137a43] ring-1 ring-inset ring-[#137a43]/50 hover:bg-[#137a43]/10 dark:text-[#3fae74]">
+            Sì, l&apos;ho mandato
           </button>
-          <button type="button" onClick={() => finish("release")} className="min-h-11 rounded-xl px-3 text-sm font-medium text-foreground-muted ring-1 ring-inset ring-border hover:text-foreground">
-            Annulla
+          <button type="button" onClick={() => finish("release")} aria-label="Non ancora" className="min-h-11 rounded-xl px-3 text-sm font-medium text-foreground-muted ring-1 ring-inset ring-border hover:text-foreground">
+            Non ancora
           </button>
         </div>
         <a href={href} target="_blank" rel="noopener noreferrer" className="block text-center text-xs font-medium text-[#137a43] underline decoration-dotted underline-offset-2 dark:text-[#3fae74]">

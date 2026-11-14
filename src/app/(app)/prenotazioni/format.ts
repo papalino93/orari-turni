@@ -117,6 +117,7 @@ export function sourceText(source: string | null, promoTitle: string | null): st
   if (source === "google") return "da Google";
   if (source === "instagram") return "da Instagram";
   if (source === "facebook") return "da Facebook";
+  if (source === "whatsapp-profilo") return "dal profilo WhatsApp";
   if (source === "menu") return "dal menù";
   return "dal link diretto";
 }

@@ -289,7 +289,7 @@ export function ContactSheet({ contact, groups, onClose }: { contact: RContact |
           </p>
         )}
         {/* Come «Nuova prenotazione»: sul telefono i pulsanti restano in basso, visibili anche a modulo lungo. */}
-        <div className="sticky bottom-0 z-10 -mx-5 flex gap-2 border-t border-border bg-surface px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
+        <div className="sticky bottom-[calc(-1.25rem-env(safe-area-inset-bottom))] z-10 mb-[calc(-1.25rem-env(safe-area-inset-bottom))] -mx-5 flex gap-2 border-t border-border bg-surface px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:mb-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
           <button type="button" onClick={onClose} className={`${ghostBtn} shrink-0`}>
             Annulla
           </button>

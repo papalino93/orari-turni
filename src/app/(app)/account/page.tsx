@@ -15,12 +15,13 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   // Arrivati da /mail con la sezione spenta: si dice perché e dove accenderla.
   const mailOff = (await searchParams).mail === "spenta";
   const session = await getServerSession(authOptions);
-  const [users, features, bookings, bookingsPending, venueDevices] = await Promise.all([
+  const [users, features, bookings, bookingsPending, venueDevices, pushDevices] = await Promise.all([
     prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
     loadFeatures(),
     loadBookingSettings(),
     pendingCount(),
     prisma.employee.count({ where: { isVenueDevice: true } }),
+    prisma.pushSubscription.count(),
   ]);
   const me = users.find((u) => u.username === session?.user?.username);
 
@@ -34,7 +35,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       </p>
 
       {/* Gli interruttori delle prenotazioni in cima: è la cosa che si cerca qui (prima erano nascosti in Prenotazioni → ⋯). */}
-      <BookingSwitches agendaEnabled={bookings.agendaEnabled} enabled={bookings.enabled} pending={bookingsPending} hasVenueDevice={venueDevices > 0} />
+      <BookingSwitches agendaEnabled={bookings.agendaEnabled} enabled={bookings.enabled} pending={bookingsPending} hasVenueDevice={venueDevices > 0} hasPush={pushDevices > 0} />
 
       <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-surface">
         <ThemeSetting />
