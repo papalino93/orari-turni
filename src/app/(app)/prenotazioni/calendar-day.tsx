@@ -187,7 +187,12 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
       {/* Prenotazioni per fascia oraria */}
       <div ref={listRef} className="space-y-3">
         {live.length === 0 && cancelled.length === 0 ? (
-          <PeriodEmpty what={isToday ? "today" : "day"} past={past} onNew={() => onNew(day)} onImport={onImport} />
+          closed && !past ? (
+            // Giorno chiuso: niente invito a segnare (si può comunque, con «+», e il sito chiede conferma).
+            <p className="rounded-2xl border border-dashed border-border px-5 py-6 text-center text-sm text-foreground-muted">Il locale è chiuso: nessuna prenotazione.</p>
+          ) : (
+            <PeriodEmpty what={isToday ? "today" : "day"} past={past} onNew={() => onNew(day)} onImport={onImport} />
+          )
         ) : shown.length === 0 && query ? (
           <p className="rounded-2xl border border-dashed border-border px-5 py-6 text-center text-sm text-foreground-muted">Nessuna prenotazione trovata per «{query.trim()}».</p>
         ) : null}

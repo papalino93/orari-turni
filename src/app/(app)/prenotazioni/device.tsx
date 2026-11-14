@@ -11,6 +11,20 @@ import { removePushSubscription, savePushSubscription, sendTestPush } from "./ac
 // Tutto vale per il dispositivo: il permesso delle notifiche e la scelta salvata nel browser.
 
 
+// «telefono», «tablet» o «computer»: per dire «Avvisi su questo computer» quando si è sul Mac, invece di
+// «telefono». Prima del montaggio (e sul server) «telefono», come il sito è usato di più.
+export type DeviceWord = "telefono" | "tablet" | "computer";
+export function useDeviceWord(): DeviceWord {
+  const [word, setWord] = useState<DeviceWord>("telefono");
+  useEffect(() => {
+    const touch = navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
+    const short = Math.min(screen.width, screen.height);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- dato del dispositivo, noto solo nel browser
+    setWord(!touch ? "computer" : short >= 600 ? "tablet" : "telefono");
+  }, []);
+  return word;
+}
+
 export type PushState = "checking" | "server-off" | "unsupported" | "ios-install" | "denied" | "off" | "on";
 
 function isIos(): boolean {
@@ -189,10 +203,11 @@ const btn = "min-h-11 rounded-full px-4 text-sm font-semibold disabled:opacity-6
 // Il riquadro «Avvisi su questo telefono». arrives: che cosa arriva qui, detto chiaro.
 export function PushBox({ push, arrives }: { push: PushControl; arrives: string }) {
   const { state, busy } = push;
+  const device = useDeviceWord();
   return (
     <section aria-labelledby="avvisi-titolo" className="rounded-2xl border border-border bg-surface p-4">
       <h3 id="avvisi-titolo" className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <BellIcon /> Avvisi su questo telefono
+        <BellIcon /> Avvisi su questo {device}
       </h3>
       {state === "checking" && <p className="mt-1 text-sm text-foreground-muted">Controllo…</p>}
       {state === "server-off" && <p className="mt-1 text-sm text-foreground-muted">Gli avvisi non sono ancora collegati: chiedi a chi ha preparato il sito.</p>}

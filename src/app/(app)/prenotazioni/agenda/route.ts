@@ -49,13 +49,17 @@ export async function GET(request: Request) {
     const text = search.trim().slice(0, 60);
     if (text.length < 2) return NextResponse.json({ results: [] }, { headers: NO_STORE });
     const digits = text.replace(/\D/g, "");
+    // Apostrofo dritto o curvo (quello dell'iPhone): «D'Angelo» e «D’Angelo» si trovano a vicenda.
+    const variants = [...new Set([text, text.replace(/[’‘`]/g, "'"), text.replace(/'/g, "’")])];
     const rows = await prisma.bookingRequest.findMany({
       where: {
         OR: [
-          { name: { contains: text, mode: "insensitive" } },
+          ...variants.flatMap((v) => [
+            { name: { contains: v, mode: "insensitive" as const } },
+            { menu: { contains: v, mode: "insensitive" as const } },
+            { note: { contains: v, mode: "insensitive" as const } },
+          ]),
           { code: { equals: text.toUpperCase() } },
-          { menu: { contains: text, mode: "insensitive" } },
-          { note: { contains: text, mode: "insensitive" } },
           ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
         ],
       },

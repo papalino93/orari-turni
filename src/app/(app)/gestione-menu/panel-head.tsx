@@ -56,7 +56,7 @@ export function PanelHead({
             </svg>
           )}
         </span>
-        {subtitle && <span className="mt-0.5 line-clamp-2 text-xs text-foreground-muted sm:line-clamp-1">{subtitle}</span>}
+        {subtitle && <span className="mt-0.5 line-clamp-2 text-xs text-foreground-muted">{subtitle}</span>}
       </span>
     </span>
   );

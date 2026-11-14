@@ -101,14 +101,14 @@ export function SettingsSheet({
           </div>
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">Richieste online dai clienti {settings.enabled ? "accese" : "spente"}</p>
+              <p className="text-sm font-medium text-foreground">Prenotazioni online dei clienti {settings.enabled ? "accese" : "spente"}</p>
               <p className="text-xs text-foreground-muted">
                 {settings.enabled
                   ? "I clienti chiedono un tavolo dal menù, dagli eventi e dal link per Google. Spegnendole l'agenda resta com'è."
                   : "I clienti non vedono la pagina per chiedere un tavolo: puoi provarla solo tu."}
               </p>
             </div>
-            <Switch on={settings.enabled} disabled={busy} label="Richieste online dai clienti accese" onToggle={() => onToggle("online")} />
+            <Switch on={settings.enabled} disabled={busy} label="Prenotazioni online dei clienti" onToggle={() => onToggle("online")} />
           </div>
           {paused && (
             <div role="status" className="flex flex-wrap items-center justify-between gap-2 bg-gold/10 px-4 py-3">
@@ -173,8 +173,9 @@ export function SettingsSheet({
                 ))}
               </select>
             </Field>
-            <Field label="Di solito pieni oltre" hint={`Quante persone ci stanno in una sera: serve per colorare i giorni dell'agenda. Con 0 l'agenda fa i conti su ${DEFAULT_CAPACITY}.`}>
-              <input name="capacityHint" type="number" inputMode="numeric" min={0} max={500} defaultValue={settings.capacityHint} className={inputClass} />
+            {/* Vuoto = il valore di partenza (scritto in grigio), invece di uno «0» che sembrava «nessuno». */}
+            <Field label="Di solito pieni oltre (persone)" hint={`Quante persone ci stanno in una sera: serve per colorare i giorni dell'agenda. Se lo lasci vuoto, ${DEFAULT_CAPACITY}.`}>
+              <input name="capacityHint" type="number" inputMode="numeric" min={0} max={500} defaultValue={settings.capacityHint || ""} placeholder={String(DEFAULT_CAPACITY)} className={inputClass} />
             </Field>
           </div>
 

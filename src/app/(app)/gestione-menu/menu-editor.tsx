@@ -412,7 +412,7 @@ export function MenuEditor({
         next
           ? wineIds.has(item.id)
             ? `«${item.name}» esaurito: tolto dalla carta fino a domattina`
-            : `«${item.name}» segnata esaurita`
+            : `«${item.name}»: esaurito fino a domattina`
           : `«${item.name}» di nuovo disponibile`,
       );
       if (result === null) setLocal({ base: sections, map: { ...localSold } });
@@ -757,7 +757,7 @@ export function MenuEditor({
 
           {tab === "eventi" && (
           <div>
-            {currentPromos.length === 0 && <p className="text-xs text-foreground-muted">Nessun evento o annuncio in programma.</p>}
+            {/* Senza eventi in programma lo dice già il riquadro tratteggiato accanto: qui niente doppione. */}
             {currentPromos.length > 0 && (
               <nav aria-label="Eventi e annunci" className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
                 {currentPromos.map((p) => promoButton(p))}
@@ -782,7 +782,9 @@ export function MenuEditor({
           {(tab === "menu" ? promoSelected : !promoSelected) ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-foreground-muted">
               {tab === "eventi"
-                ? `Nessun evento o annuncio in programma: crealo con «+ Nuovo evento» o «+ Nuovo annuncio».${archivePromos.length ? " Quelli passati sono nell'«Archivio», a sinistra: si riaprono per duplicarli." : ""}`
+                ? currentPromos.length
+                  ? "Scegli un evento o un annuncio."
+                  : `Nessun evento o annuncio in programma: crealo con «+ Nuovo evento» o «+ Nuovo annuncio».${archivePromos.length ? " Quelli passati sono nell'«Archivio»: si riaprono per duplicarli." : ""}`
                 : "Scegli una categoria."}
             </p>
           ) : (

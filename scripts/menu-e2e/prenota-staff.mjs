@@ -182,7 +182,7 @@ try {
   check("agenda accesa: voce «Prenotazioni» nel menù in alto, niente riga «in prova», «Online: spente» nella barra", (await A.getByRole("link", { name: /^Prenotazioni/ }).count()) >= 1 && (await A.getByTestId("agenda-in-prova").count()) === 0 && /Online: spente/.test(await A.getByTestId("stato-online").innerText()));
   // Le richieste online si accendono toccando lo stato nella barra (apre gli interruttori).
   await A.getByTestId("stato-online").click();
-  await A.getByRole("switch", { name: "Richieste online dai clienti accese" }).click();
+  await A.getByRole("switch", { name: "Prenotazioni online dei clienti" }).last().click();
   await A.getByRole("alertdialog", { name: "Accendere le richieste online?" }).getByRole("button", { name: "Accendi", exact: true }).click();
   check("interruttore «Richieste online dai clienti»: accese nel database", await waitDb(() => /"enabled":true/.test(DB(`select value from "MenuSetting" where id='bookings'`))));
   await shot(A, "interruttori");

@@ -103,6 +103,8 @@ function useAgendaData(view: AgendaView, anchor: string, version: number) {
     if (!r.ok || !json || json.error) throw new Error(json?.error ?? "Non riesco a caricare l'agenda.");
     const l: Loaded = { key: `${v}:${f}:${t}`, data: json, version: ver };
     setStore((s) => {
+      // Una risposta arrivata in ritardo, più vecchia di quella già in memoria, non la sostituisce.
+      if ((s[l.key]?.version ?? -1) > ver) return s;
       const next = { ...s, [l.key]: l };
       const keys = Object.keys(next);
       // Non più di una trentina di periodi in memoria.

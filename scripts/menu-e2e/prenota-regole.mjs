@@ -280,7 +280,8 @@ try {
     [{ people: "due" }, "people", /quante persone/],
     [{ people: 11 }, "people", /Per più di 10 persone chiamaci/],
     [{ name: " A " }, "name", /nome/],
-    [{ phone: "12" }, "phone", /prefisso/],
+    [{ phone: "12" }, "phone", /incompleto/],
+    [{ phone: "4477009001234" }, "phone", /prefisso/],
     [{ phone: "333 12345" }, "phone", /incompleto/],
     [{ phone: "333 1234 5678" }, "phone", /incompleto/],
     [{ phone: "055 123456" }, "phone", /solo su un cellulare/],
@@ -302,7 +303,7 @@ try {
   check("telefono fisso con risposta per email: accettato", landline.ok, landline.error);
   if (landline.ok) DB(`delete from "BookingRequest" where id=${q(landline.id)}`);
   check("phoneProblem: stessi messaggi nel modulo (cellulare giusto, estero col prefisso)", R.phoneProblem("333 123 4567", "whatsapp") === null && R.phoneProblem("+44 7700 900123", "whatsapp") === null && /incompleto/.test(R.phoneProblem("33312345", "whatsapp")));
-  check("phoneReadable: «333 123 4567» e «+44…»", R.phoneReadable("393331234567") === "333 123 4567" && R.phoneReadable("447700900123") === "+447700900123");
+  check("phoneReadable: «333 123 4567» e «+44…»", R.phoneReadable("393331234567") === "333 123 4567" && R.phoneReadable("447700900123") === "+44 770 090 0123");
 
   // Richiesta giusta
   const okIn = base({ people: 4, note: "  Tavolo   vicino alla finestra  " + "x".repeat(400), allergies: true, source: "google" });

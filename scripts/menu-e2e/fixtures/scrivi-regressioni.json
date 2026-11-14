@@ -1,0 +1,628 @@
+{
+ "today": "2026-11-14",
+ "quick": [
+  {
+   "kind": "più correzioni",
+   "text": "Rossi 2 persone sabato alle 20 anzi alle 21 anzi alle 22",
+   "expect": {
+    "name": "Rossi",
+    "people": 2,
+    "day": "2026-11-14",
+    "time": "22:00"
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "più correzioni",
+   "text": "Rossi 4 persone alle 20 anzi alle 21 anzi alle 22 anzi alle 21 domani",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": "21:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "più correzioni",
+   "text": "Rossi domani per 2 anzi per 3 anzi per 4 alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": "20:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "numero corretto",
+   "text": "Rossi 4 persone domani alle 8 anzi 9",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": "21:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "numero corretto",
+   "text": "Rossi in 4 anzi 5 domani alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 5,
+    "day": "2026-11-15",
+    "time": "20:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "numero corretto",
+   "text": "Rossi 4 anzi 5 persone domani alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 5,
+    "day": "2026-11-15",
+    "time": "20:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "correzione con la sera detta prima",
+   "text": "Rossi domani sera alle 10 anzi alle 11 per 4",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": "23:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "correzione che resta in dubbio",
+   "text": "Rossi domani alle 10 anzi alle 11 per 4",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": null,
+    "doubts": [
+     "«Alle 11»"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "giorno corretto",
+   "text": "Bianchi 4 persone sabato anzi domenica alle 20",
+   "expect": {
+    "name": "Bianchi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": "20:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "giorno corretto",
+   "text": "Bianchi 4 persone sabato 22 anzi domenica 22 alle 20",
+   "expect": {
+    "name": "Bianchi",
+    "people": 4,
+    "day": "2026-11-22",
+    "time": "20:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "nome corretto",
+   "text": "Rossi, anzi Russo, 4 persone domani alle 20",
+   "expect": {
+    "name": "Russo",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": "20:00",
+    "note": null
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "nome corretto",
+   "text": "Rossi 4 persone domani anzi dopodomani a nome Bianchi alle 20",
+   "expect": {
+    "name": "Bianchi",
+    "people": 4,
+    "day": "2026-11-16",
+    "time": "20:00"
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "nome dopo la correzione",
+   "text": "Rossi 4 persone domani alle 20 anzi alle 21 grazie mille",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": "21:00",
+    "note": null
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "mese detto da solo",
+   "text": "Rossi 4 persone a gennaio il 3 alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2027-01-03",
+    "time": "20:00",
+    "note": null
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "mese",
+   "text": "Rossi 4 persone il 3 gennaio alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2027-01-03",
+    "time": "20:00"
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "mese con «di»",
+   "text": "Rossi 4 persone 3 di gennaio alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2027-01-03",
+    "time": "20:00",
+    "note": null,
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "mese con «di»",
+   "text": "Rossi 4 persone il 3 di gennaio alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2027-01-03",
+    "time": "20:00",
+    "note": null
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "mese con «di»",
+   "text": "Rossi 4 persone sabato 2 di gennaio alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2027-01-02",
+    "time": "20:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "mese senza giorno",
+   "text": "Rossi 4 persone a gennaio alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": null,
+    "time": "20:00",
+    "note": null,
+    "doubts": [
+     "gennaio"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "mese che non torna",
+   "text": "Rossi 4 persone domani a gennaio alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": null,
+    "time": "20:00",
+    "doubts": [
+     "gennaio"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "giorno che non esiste",
+   "text": "Rossi 4 persone il 31 a febbraio alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": null,
+    "time": "20:00",
+    "doubts": [
+     "31 febbraio"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "99 persone",
+   "text": "Esposito 99 persone domani 20",
+   "expect": {
+    "name": "Esposito",
+    "people": null,
+    "day": "2026-11-15",
+    "time": "20:00",
+    "note": null,
+    "doubts": [
+     "99 persone?"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "0 persone",
+   "text": "Esposito 0 persone domani 20",
+   "expect": {
+    "name": "Esposito",
+    "people": null,
+    "day": "2026-11-15",
+    "time": "20:00",
+    "note": null,
+    "doubts": [
+     "0 persone?"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "x99",
+   "text": "Esposito x99 domani alle 20",
+   "expect": {
+    "name": "Esposito",
+    "people": null,
+    "day": "2026-11-15",
+    "time": "20:00",
+    "note": null,
+    "doubts": [
+     "99 persone?"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "60 persone (il massimo)",
+   "text": "Esposito 60 persone domani alle 20",
+   "expect": {
+    "name": "Esposito",
+    "people": 60,
+    "day": "2026-11-15",
+    "time": "20:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "questa sera",
+   "text": "Rossi 4 persone questa sera alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-14",
+    "time": "20:00",
+    "note": null,
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "questa sera",
+   "text": "Rossi 4 persone questa sera alle 8",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-14",
+    "time": "20:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "sta sera",
+   "text": "Rossi 4 persone sta sera alle 9",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-14",
+    "time": "21:00",
+    "note": null
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "questa stasera",
+   "text": "Rossi 4 persone questa stasera alle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-14",
+    "time": "20:00",
+    "note": null
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "stanotte",
+   "text": "Rossi 4 persone stanotte alle 11",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-14",
+    "time": "23:00"
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "stanotte",
+   "text": "Rossi 4 persone stanotte all'una",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-14",
+    "time": "01:00"
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "di notte: non si capisce",
+   "text": "Rossi 4 persone alle 7 di notte domani",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": null,
+    "doubts": [
+     "«Alle 7»"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "dalle",
+   "text": "Rossi 4 persone domani dalle 20",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": "20:00",
+    "note": null,
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "dalle",
+   "text": "Rossi 4 persone domani dalle 8 e mezza",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": "20:30",
+    "note": null,
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "tra … e …",
+   "text": "Rossi 4 persone domani tra le 20 e le 21",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": null,
+    "note": null,
+    "doubts": [
+     "Tra le 20 e le 21: scegli tu l'ora."
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "fra … e …",
+   "text": "Rossi 4 persone domani fra le 20 e le 21",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": null,
+    "note": null,
+    "doubts": [
+     "Fra le 20 e le 21"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "tra … e …",
+   "text": "Rossi 4 persone domani tra le 8 e mezza e le 9",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": null,
+    "note": null,
+    "doubts": [
+     "scegli tu l'ora"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "dalle … alle …",
+   "text": "Rossi 4 persone domani dalle 20 alle 21",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": null,
+    "note": null,
+    "doubts": [
+     "Dalle 20 alle 21"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "tra … e … a parole",
+   "text": "Ferrari tra le otto e le nove domani 4 persone",
+   "expect": {
+    "name": "Ferrari",
+    "people": 4,
+    "day": "2026-11-15",
+    "time": null,
+    "note": null,
+    "doubts": [
+     "scegli tu l'ora"
+    ]
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "all'una",
+   "text": "Rossi 4 persone sabato 21 all'una",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-21",
+    "time": "13:00",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  },
+  {
+   "kind": "all'una e mezza",
+   "text": "Rossi 4 persone sabato 21 all'una e mezza",
+   "expect": {
+    "name": "Rossi",
+    "people": 4,
+    "day": "2026-11-21",
+    "time": "13:30",
+    "noDoubts": true
+   },
+   "today": "2026-11-14"
+  }
+ ],
+ "import": [
+  {
+   "kind": "riga a parole",
+   "text": "sab 21/11\nLibro Verdi 6 persone alle 20",
+   "row": 2,
+   "expect": {
+    "day": "2026-11-21",
+    "time": "20:00",
+    "people": 6,
+    "name": "Libro Verdi",
+    "note": "",
+    "errors": [],
+    "warnings": []
+   }
+  },
+  {
+   "kind": "punto di domanda davanti al nome",
+   "text": "sab 21/11\n19:30 ? Libro Neri",
+   "row": 2,
+   "expect": {
+    "day": "2026-11-21",
+    "time": "19:30",
+    "people": null,
+    "name": "Libro Neri",
+    "note": "",
+    "errors": []
+   }
+  },
+  {
+   "kind": "riga a parole con telefono e nota",
+   "text": "sab 21/11\nLibro Rossi 4 persone alle 8 e mezza 333 1234567 compleanno",
+   "row": 2,
+   "expect": {
+    "time": "20:30",
+    "people": 4,
+    "name": "Libro Rossi",
+    "phoneIntl": "393331234567",
+    "note": "compleanno",
+    "errors": []
+   }
+  },
+  {
+   "kind": "riga a parole, persone fuori misura",
+   "text": "sab 21/11\nLibro Bianchi persone 99 alle 21",
+   "row": 2,
+   "expect": {
+    "time": "21:00",
+    "people": null,
+    "name": "Libro Bianchi",
+    "errors": [
+     "Persone?"
+    ]
+   }
+  },
+  {
+   "kind": "riga a parole, due ore",
+   "text": "sab 21/11\nLibro Blu 4 persone tra le 20 e le 21",
+   "row": 2,
+   "expect": {
+    "time": null,
+    "people": 4,
+    "name": "Libro Blu",
+    "note": "",
+    "errors": [],
+    "warnings": [
+     "Ora da definire",
+     "Tra le 20 e le 21: scegli tu l'ora."
+    ]
+   }
+  },
+  {
+   "kind": "riga a parole, dalle",
+   "text": "sab 21/11\nLibro Marrone 2 persone dalle 20",
+   "row": 2,
+   "expect": {
+    "time": "20:00",
+    "people": 2,
+    "name": "Libro Marrone",
+    "note": "",
+    "errors": [],
+    "warnings": []
+   }
+  },
+  {
+   "kind": "formato del librone invariato",
+   "text": "sab 21 20:30 Rossi 4 333 1234567",
+   "row": 1,
+   "expect": {
+    "day": "2026-11-21",
+    "time": "20:30",
+    "people": 4,
+    "name": "Rossi",
+    "phoneIntl": "393331234567",
+    "errors": []
+   }
+  }
+ ]
+}

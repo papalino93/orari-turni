@@ -181,7 +181,8 @@ async function browserTests() {
   {
     const { ctx, p } = await client();
     const r = await p.goto(`${BASE}/menu/prenota`, { waitUntil: "networkidle", timeout: 120000 });
-    check("spenta: il cliente riceve 404", r.status() === 404, String(r.status()));
+    // Non più «Pagina non trovata»: i link messi su Instagram e Google portano a «Prenota chiamandoci».
+    check("spenta: il cliente legge «Prenota chiamandoci», con Chiama e il menù (niente modulo)", r.status() === 200 && (await p.getByTestId("prenotazioni-chiuse").count()) === 1 && (await p.getByRole("heading", { name: "Prenota chiamandoci" }).count()) === 1 && (await p.locator("form").count()) === 0, String(r.status()));
     await p.goto(`${BASE}/menu`, { waitUntil: "networkidle", timeout: 120000 });
     check("spenta: nel menù niente «Chiedi un tavolo»", (await p.getByRole("link", { name: "Chiedi un tavolo" }).count()) === 0);
     const rp = await p.goto(`${BASE}/menu/prenota/privacy`, { waitUntil: "networkidle", timeout: 120000 });
@@ -256,7 +257,7 @@ async function browserTests() {
     check("telefono: tastiera numerica (inputmode=tel) e autocompletamento", (await p.getByLabel("Telefono", { exact: true }).getAttribute("inputmode")) === "tel" && (await p.getByLabel("Telefono", { exact: true }).getAttribute("autocomplete")) === "tel");
     await p.getByLabel("Telefono", { exact: true }).fill("12");
     await send(p);
-    check("errore: numero corto senza prefisso → «scrivilo con il prefisso»", /prefisso/.test(await alerts(p)), await alerts(p));
+    check("errore: numero corto senza prefisso → «sembra incompleto» (non «estero»)", /incompleto/.test(await alerts(p)), await alerts(p));
     await p.getByLabel("Telefono", { exact: true }).fill("333 12345");
     await send(p);
     check("errore: cellulare incompleto → «un cellulare ha 10 cifre» (prima dell'invio)", /incompleto: un cellulare ha 10 cifre/.test(await alerts(p)), await alerts(p));
@@ -301,7 +302,8 @@ async function browserTests() {
     const readable = phone.replace(/\s/g, "").replace(/^(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3");
     check("pagina di stato: «Richiesta inviata» e il numero per intero da controllare", /Richiesta inviata/.test(body) && body.replace(/\u00a0/g, " ").includes(`Non è ancora confermata: ti rispondiamo su WhatsApp al ${readable}. Il numero è sbagliato? Annulla la richiesta qui sotto e rifalla.`), body.slice(0, 260));
     check("pagina di stato: riepilogo, senza codice", !body.includes(code) && body.includes(D1.slots[1]) && /Sì, ne parliamo al tavolo/.test(body));
-    check("pagina di stato: nel riepilogo il telefono è mascherato", /•/.test(await p.locator("main dl").first().innerText()) && !(await p.locator("main dl").first().innerText()).includes(readable));
+    // Per intero, come nel testo in alto: prima era coperto a metà e sembravano due numeri diversi.
+    check("pagina di stato: nel riepilogo il telefono per intero, uguale al testo in alto", !/•/.test(await p.locator("main dl").first().innerText()) && (await p.locator("main dl").first().innerText()).replace(/\s+/g, " ").includes(readable));
     check("pagina di stato: «È per stasera» solo per oggi (questa è per un altro giorno)", !/È per stasera/.test(body));
     check("pagina di stato: «Salva o manda il link»", (await p.getByRole("button", { name: "Salva o manda il link" }).count()) === 1);
     check("pagina di stato: «Salva questa pagina…»", /Salva questa pagina: qui vedi sempre a che punto è/.test(body));
@@ -315,8 +317,8 @@ async function browserTests() {
     check("«No, tienila»: resta in attesa", DB(`select status from "BookingRequest" where name='Prova C Cliente'`) === "PENDING");
     await p.getByRole("button", { name: "Annulla la richiesta" }).click();
     await p.getByRole("button", { name: "Sì, annulla" }).click();
-    await p.getByRole("heading", { name: "Richiesta annullata" }).waitFor({ timeout: 15000 }).catch(() => {});
-    check("«Sì, annulla»: annullata dal cliente e la pagina lo dice", DB(`select status||'|'||"cancelledBy" from "BookingRequest" where name='Prova C Cliente'`) === "CANCELLED|cliente" && (await p.getByRole("heading", { name: "Richiesta annullata" }).count()) === 1);
+    await p.getByRole("heading", { name: "Annullata, come ci hai chiesto" }).waitFor({ timeout: 15000 }).catch(() => {});
+    check("«Sì, annulla»: annullata dal cliente e la pagina lo dice", DB(`select status||'|'||"cancelledBy" from "BookingRequest" where name='Prova C Cliente'`) === "CANCELLED|cliente" && (await p.getByRole("heading", { name: "Annullata, come ci hai chiesto" }).count()) === 1);
     check("annullata: «Chiedi un altro giorno»", (await p.getByRole("link", { name: "Chiedi un altro giorno" }).count()) === 1);
     check("nessun errore JavaScript nel modulo e nella pagina di stato", p.errs.length === 0, p.errs.join(" | "));
     await ctx.close();
@@ -443,7 +445,7 @@ async function browserTests() {
     // Spegnere le richieste online non tocca l'agenda (e viceversa la pagina pubblica sparisce).
     setBookingSetting({ agendaEnabled: true, enabled: false });
     const off = await fetch(`${BASE}/menu/prenota`);
-    check("richieste online spente (agenda accesa): la pagina pubblica non c'è (404)", off.status === 404);
+    check("richieste online spente (agenda accesa): la pagina pubblica dice «Prenota chiamandoci»", off.status === 200 && (await off.text()).includes("Prenota chiamandoci"));
     setBookingSetting({ enabled: true, todayUntil: "00:00" });
     const late = await postRequest(body({ t: await formStamp(), name: "Prova C Stasera", day: days[0].day, time: "23:59" }));
     check("«per stasera online fino alle 00:00»: per oggi l'invio è rifiutato", late.json?.ok === false, JSON.stringify(late.json));

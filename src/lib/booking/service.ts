@@ -217,7 +217,8 @@ export async function createBookingRequest(input: NewRequestInput, ctx: NewReque
   const email = str(input.email, 254).toLowerCase();
   const note = str(input.note, 300);
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return { ok: false, error: "Scegli il giorno.", field: "day" };
+  // Anche date che non esistono («31 novembre», da un invio fatto a mano): «Scegli il giorno».
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || addDays(day, 0) !== day) return { ok: false, error: "Scegli il giorno.", field: "day" };
   if (!/^\d{2}:\d{2}$/.test(time)) return { ok: false, error: "Scegli l'ora.", field: "time" };
   if (!Number.isInteger(people) || people < 1) return { ok: false, error: "Scegli quante persone.", field: "people" };
   if (people > settings.maxPeople) {
@@ -573,6 +574,10 @@ function recentTwin(v: CleanManual, actor: StaffActor, now: Date): Promise<Booki
       people: v.people,
       timeUnknown: v.timeUnknown,
       peopleUnknown: v.peopleUnknown,
+      // Anche telefono, tavolo e nota: due Rossi diversi alla stessa ora non sono un doppio tocco.
+      phone: v.phone,
+      table: v.table,
+      note: v.note,
       status: "CONFIRMED",
       createdAt: { gte: new Date(now.getTime() - 2 * 60000) },
     },
@@ -1140,7 +1145,8 @@ export async function proposeTime(id: string, actor: StaffActor, time: unknown, 
   const open = availability(
     b.day,
     hours,
-    { ...settings, firstTime: "05:00", step: 5, lastBeforeClose: 0, leadMinutes: 0, daysAhead: 400 },
+    // todayUntil vuoto: «per stasera online fino alle…» ferma i clienti, non il personale che propone un orario.
+    { ...settings, firstTime: "05:00", step: 5, lastBeforeClose: 0, leadMinutes: 0, daysAhead: 400, todayUntil: "" },
     closure?.kind === "closed" ? closure : null,
     new Date(),
   );
@@ -1295,7 +1301,8 @@ export async function customerAction(token: string, action: unknown, origin: str
   const now = new Date();
   if (action === "cancel") {
     const r = await prisma.bookingRequest.updateMany({
-      where: { id: b.id, status: { in: ["PENDING", "PROPOSED", "CONFIRMED"] }, startsAt: { gt: now }, arrivedAt: null, noShowAt: null },
+      // Ora da definire (startsAt alle 5 di quel giorno): si può annullare fino a fine giornata.
+      where: { id: b.id, status: { in: ["PENDING", "PROPOSED", "CONFIRMED"] }, startsAt: { gt: b.timeUnknown ? new Date(now.getTime() - 24 * 3600000) : now }, arrivedAt: null, noShowAt: null },
       data: { status: "CANCELLED", cancelledBy: "cliente" },
     });
     if (!r.count) return { ok: false, error: "Non si può più annullare da qui: chiamaci." };
@@ -1304,7 +1311,7 @@ export async function customerAction(token: string, action: unknown, origin: str
     // Avvisi ed email dopo la risposta: un servizio lento non fa aspettare il cliente.
     if (!updated.isTest) {
       await later(async () => {
-        await notifyStaff(b.id, "Prenotazione annullata dal cliente", `${updated.name} · ${dayLong(updated.day)} alle ${updated.time} · ${peopleText(updated.people)}`, `/prenotazioni?r=${b.id}`);
+        await notifyStaff(b.id, "Prenotazione annullata dal cliente", `${updated.name} · ${dayLong(updated.day)}${updated.timeUnknown ? "" : ` alle ${updated.time}`} · ${peopleOrUnknown(updated)}`, `/prenotazioni?r=${b.id}`);
         if (updated.contact === "email") await sendCustomerMail(updated, "cancelledByCustomer", origin, b.status === "CONFIRMED");
       });
     }

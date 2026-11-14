@@ -164,7 +164,11 @@ check("dopo la scelta si vede bene quale: «Nero, scelto» e «✓ Scelto»", (a
 check("le anteprime della galleria seguono i colori scelti", (await p.locator('img[alt^="Anteprima del widget"]').first().getAttribute("src")).includes("/anteprime/nero/"));
 DB(`update "User" set "widgetTheme"=null where username='andrea'`);
 
-// Collegare questo telefono
+// Collegare questo telefono (il browser di prova si presenta come computer: il modulo è chiuso
+// dentro «Sono già sul telefono: continua da qui»)
+const goOn = p.getByText("Sono già sul telefono: continua da qui");
+check("dal computer il modulo del telefono resta chiuso", (await goOn.count()) === 1 && !(await p.getByLabel("Nome del telefono").isVisible()));
+await goOn.click();
 await p.getByLabel("Nome del telefono").fill("Prova iPhone di Andrea");
 await p.getByRole("button", { name: "Crea il collegamento" }).click();
 const area = p.getByLabel("Script da incollare in Scriptable");

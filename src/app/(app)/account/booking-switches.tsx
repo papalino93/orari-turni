@@ -136,7 +136,7 @@ export function BookingSwitches({ agendaEnabled, enabled, pending, hasVenueDevic
                 </li>
                 <li className="flex gap-2">
                   <Mark done={false} />
-                  Gli avvisi accesi sul telefono che risponde (Prenotazioni → campanella → «Prova un avviso»)
+                  Gli avvisi accesi sul telefono che risponde (Prenotazioni → ⋯ → «Avvisi su questo telefono» → «Prova un avviso»)
                 </li>
                 <li className="flex gap-2">
                   <Mark done={false} />
@@ -167,7 +167,7 @@ export function BookingSwitches({ agendaEnabled, enabled, pending, hasVenueDevic
 
 function Mark({ done }: { done: boolean }) {
   return (
-    <span aria-hidden className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${done ? "bg-success text-white" : "ring-1.5 ring-inset ring-foreground-muted/60"}`}>
+    <span aria-hidden className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${done ? "bg-success text-white" : "border-[1.5px] border-foreground-muted/60"}`}>
       {done ? "✓" : ""}
     </span>
   );

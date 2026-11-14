@@ -64,8 +64,11 @@ export function BookingForm({
   groupWa,
   address,
   phone: venuePhone,
+  fromVenue = false,
   paused = false,
 }: {
+  // I WhatsApp partono dal telefono dell'enoteca (c'è e lo dicono le impostazioni): solo allora si dice il numero.
+  fromVenue?: boolean;
   // Pausa automatica (troppe richieste in poco tempo): niente modulo, solo «chiamaci».
   paused?: boolean;
   days: FormDay[];
@@ -527,7 +530,7 @@ export function BookingForm({
                     placeholder="Es. 333 123 4567"
                     hint={
                       !useEmail
-                        ? `Ti rispondiamo su WhatsApp a questo numero.${venuePhone ? ` Ti scriviamo dal numero WhatsApp dell'enoteca, ${venuePhone}: salvalo in rubrica.` : ""}`
+                        ? `Ti rispondiamo su WhatsApp a questo numero.${venuePhone && fromVenue ? ` Ti scriviamo dal numero WhatsApp dell'enoteca, ${venuePhone.replace(/ /g, "\u00a0")}: salvalo in rubrica.` : ""}`
                         : "Ci serve per chiamarti se c'è bisogno."
                     }
                   />

@@ -65,11 +65,11 @@ export function formatWeekRange(weekStart: Date): string {
   const end = addDays(weekStart, 6);
   const sameMonth = weekStart.getUTCMonth() === end.getUTCMonth();
   const startStr = weekStart.toLocaleDateString("it-IT", {
-    day: "2-digit",
+    day: "numeric",
     month: sameMonth ? undefined : "long",
     timeZone: "UTC",
   });
-  const endStr = end.toLocaleDateString("it-IT", { day: "2-digit", month: "long", timeZone: "UTC" });
+  const endStr = end.toLocaleDateString("it-IT", { day: "numeric", month: "long", timeZone: "UTC" });
   return `${startStr} – ${endStr}`;
 }
 

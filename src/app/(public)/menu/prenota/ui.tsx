@@ -59,20 +59,6 @@ export function phoneDisplay(international: string): string {
   return `+${international}`;
 }
 
-// Lo stesso numero con le cifre di mezzo nascoste (la pagina si può inoltrare): «333 1•• ••67».
-export function phoneMasked(international: string): string {
-  const shown = phoneDisplay(international);
-  const digits = [...shown].filter((c) => /\d/.test(c)).length;
-  let seen = 0;
-  return [...shown]
-    .map((c) => {
-      if (!/\d/.test(c)) return c;
-      seen++;
-      return seen <= 4 || seen > digits - 2 ? c : "•";
-    })
-    .join("");
-}
-
 export function PhoneIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

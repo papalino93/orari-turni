@@ -722,12 +722,14 @@ try {
   // Frecce, «Oggi», titolo del giorno
   // Titolo su due righe: «Oggi» piccolo sopra, la data sotto → «Oggi · sabato 7 novembre».
   // Agenda a calendario: «Oggi» piccolo sopra il titolo (in maiuscoletto), il titolo «Venerdì 13 novembre».
+  // Titolo del giorno e riga piccola sopra («Oggi», o sul telefono «Oggi · Sabato»).
   const title = async () => {
-    const lines = (await agenda(A).innerText()).split("\n").map((l) => l.trim());
-    const i = lines.findIndex((l) => /^(lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica) \d+/i.test(l));
-    if (i < 0) return "";
-    const near = (lines[i - 1] ?? "").toLowerCase();
-    return /^(oggi|domani|ieri)$/.test(near) ? `${near.charAt(0).toUpperCase()}${near.slice(1)} · ${lines[i]}` : lines[i];
+    const t = agenda(A).getByTestId("agenda-titolo");
+    if (!(await t.count())) return "";
+    const day = (await t.innerText()).replace(/\s+/g, " ").trim();
+    const above = await t.locator("xpath=preceding-sibling::span[1]").evaluateAll((e) => (e[0]?.textContent ?? "").trim());
+    const near = (above.split("·")[0] ?? "").trim().toLowerCase();
+    return /^(oggi|domani|ieri)$/.test(near) ? `${near.charAt(0).toUpperCase()}${near.slice(1)} · ${day}` : day;
   };
   const t0 = await title();
   await agenda(A).getByRole("button", { name: L.nextDay }).click();

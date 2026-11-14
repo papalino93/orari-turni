@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Sheet } from "@/app/(app)/gestione-menu/sheet";
 import { ConfirmSheet } from "@/components/confirm-sheet";
 import { useToast } from "@/components/toast";
@@ -143,6 +143,10 @@ export function ContactSheet({ contact, groups, onClose }: { contact: RContact |
   const [gids, setGids] = useState<Set<string>>(() => new Set(contact?.groups ?? []));
   const [consent, setConsent] = useState<Consent | null>((contact?.consent as Consent | undefined) ?? null);
   const [error, setError] = useState<string | null>(null);
+  // L'errore compare sotto, vicino al campo: sul telefono resterebbe dietro i pulsanti in basso.
+  useEffect(() => {
+    if (error) requestAnimationFrame(() => document.querySelector<HTMLElement>('[role="dialog"] [role="alert"]')?.scrollIntoView({ block: "center", behavior: "smooth" }));
+  }, [error]);
   const [confirm, setConfirm] = useState<null | "delete" | "erase" | "optout">(null);
   const [pending, start] = useTransition();
 

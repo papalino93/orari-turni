@@ -93,6 +93,9 @@ export function OrariView({
   const [confirming, startConfirming] = useTransition();
   const [publishing, startPublishing] = useTransition();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // «N cose da controllare»: una finestra sola con l'elenco (prima apriva «Impostazioni vista» e
+  // l'elenco stava a metà, tra altre cose).
+  const [checksOpen, setChecksOpen] = useState(false);
   const toast = useToast();
 
   const rangeDateKeys = useMemo(() => {
@@ -328,7 +331,8 @@ export function OrariView({
           {(view === "week" || view === "day") && schedule.anomalies.length > 0 && (
             <button
               type="button"
-              onClick={() => setSettingsOpen(true)}
+              onClick={() => setChecksOpen(true)}
+              aria-haspopup="dialog"
               className="min-h-11 rounded-full border border-border px-4 text-xs font-medium text-foreground-muted hover:border-accent hover:text-foreground"
               title="Vedi cosa controllare"
             >
@@ -373,6 +377,7 @@ export function OrariView({
       {view === "month" && <MonthView monthDateKey={dateKey} schedule={schedule} employeeFilter={employeeFilter} />}
       {view === "year" && <YearView year={date.getUTCFullYear()} schedule={schedule} employeeFilter={employeeFilter} />}
 
+      {checksOpen && <ChecksSheet messages={schedule.anomalies.map((a) => a.message)} onClose={() => setChecksOpen(false)} />}
       {settingsOpen && (
         <SettingsSheet
           view={view}
@@ -399,6 +404,43 @@ export function OrariView({
 // Settimana), stato della settimana (condiviso/ore/chiusure/anomalie) e,
 // in fondo, Svuota settimana — la sola azione qui dentro, deliberatamente
 // isolata dal resto perché distruttiva.
+function ChecksSheet({ messages, onClose }: { messages: string[]; onClose: () => void }) {
+  useEscapeToClose(onClose);
+  const backdrop = useBackdropClose(onClose);
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" {...backdrop}>
+      <div className="flex min-h-full items-end justify-center sm:items-center">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="da-controllare-titolo"
+          onClick={(e) => e.stopPropagation()}
+          className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:pb-5"
+        >
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="da-controllare-titolo" className="text-base font-semibold text-foreground">
+              Da controllare ({messages.length})
+            </h2>
+            <button type="button" onClick={onClose} aria-label="Chiudi" className="flex h-10 w-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-2 hover:text-foreground">
+              <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+          <p className="mb-3 text-sm text-foreground-muted">Giornate e turni da guardare meglio in questa settimana: si sistemano toccando la casella del giorno.</p>
+          <ul className="divide-y divide-border rounded-xl border border-gold/30 bg-gold/[0.06]">
+            {messages.map((m, i) => (
+              <li key={i} className="px-3 py-2.5 text-sm text-foreground">
+                {m}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SettingsSheet({
   view,
   displayMode,

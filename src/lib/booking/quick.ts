@@ -8,8 +8,7 @@
 // Funzioni pure (nessun browser, nessun database): le prove sono in scripts/menu-e2e/prenota-scrivi.mjs
 // (frasi scritte da chi non ha visto questo codice, più migliaia di combinazioni).
 
-import { addDays, mentionsAllergy, weekdayOf } from "@/lib/booking/rules";
-import { takeMenu } from "@/lib/booking/import";
+import { addDays, cleanMenu, mentionsAllergy, weekdayOf } from "@/lib/booking/rules";
 
 export type QuickResult = {
   name: string | null;
@@ -40,6 +39,25 @@ const fold = (s: string) =>
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[’`]/g, "'");
+
+// ---------- Menù («menù da 25 €», «menu 25€», «menù degustazione»). Lo usa anche «Importa dal librone».
+
+const MENU_PRICE = /(^|[\s,;|\t(])men[uùú]\.?[ ]*(?:da[ ]*)?(?:€[ ]*)?(\d{1,3}(?:[.,]\d{1,2})?)[ ]*(?:€|euro(?![a-z])|eur(?![a-z]))?\.?(?=$|[\s,;|\t)])/i;
+const MENU_KIND = /(^|[\s,;|\t(])men[uùú][ ]+(degustazione|fisso|bimbi|bambini|vegetariano|vegano|di[ ]+pesce|di[ ]+carne|di[ ]+terra|del[ ]+giorno)(?=$|[\s,;|\t)])/i;
+
+// Toglie il menù dalla riga (così il prezzo non diventa ora o persone) e lo restituisce pulito.
+export function takeMenu(raw: string): { rest: string; menu: string | null } {
+  for (const re of [MENU_PRICE, MENU_KIND]) {
+    const m = raw.match(re);
+    if (!m || m.index === undefined) continue;
+    const start = m.index + m[1].length;
+    const found = raw.slice(start, m.index + m[0].length);
+    const rest = `${raw.slice(0, start)}${raw.slice(m.index + m[0].length)}`.replace(/[ ]{2,}/g, " ");
+    const menu = re === MENU_PRICE ? `Menù da ${m[2]} €` : cleanMenu(`menù ${m[2].replace(/\s+/g, " ").toLowerCase()}`);
+    return { rest: rest.replace(/\([ ]*\)/g, ""), menu: found ? menu : null };
+  }
+  return { rest: raw, menu: null };
+}
 
 // ---------- Numeri scritti in parole (la dettatura a volte li lascia così)
 
@@ -93,7 +111,7 @@ const WEEKDAY_NAMES = ["lunedì", "martedì", "mercoledì", "giovedì", "venerd�
 const PEOPLE_AFTER = /^(persone|persona|pers|p|px|pax|coperti|coperto|posti|ospiti|adulti|amici)$/;
 const KIDS = /^(bambini|bambino|bimbi|bimbo|bimba|bimbe|ragazzi|ragazzini|figli)$/;
 const PM_HINT = /^(sera|stasera|cena|pomeriggio)$/;
-const AM_HINT = /^(mattina|stamattina|domattina|pranzo|mattino)$/;
+const AM_HINT = /^(mattina|stamattina|stamani|stamane|domattina|pranzo|mattino)$/;
 const PHONE_CUE = /^(tel|telefono|cell|cellulare|cel|numero|n°|num)$/;
 // Parole di contorno: non sono né nome né nota (saluti, verbi del «segna…», articoli, riempitivi detti a voce).
 const FILLER = new Set([
@@ -106,6 +124,7 @@ const FILLER = new Set([
   "chiama", "chiamano", "cliente", "si", "chiede", "chiedono", "eh", "ehm", "uhm", "perfetto", "grazie", "va", "bene", "suo", "sua", "loro", "ecco", "dunque",
   "quindi", "aspetta", "richiamo", "richiama", "dopo", "non", "lasciato", "no", "favore", "piacere", "sempre", "solito", "tipo", "ma", "o", "che", "lui", "lei",
   "c'e", "c'", "dice", "dicono", "vuole", "vogliono", "venire", "agenda", "famiglia", "fam", "scusa", "telefono", "ospite", "clienti",
+  "dalle", "tra", "fra", "sta", "mille", "anzi",
 ]);
 // Parole con cui comincia una nota (come nel librone).
 const NOTE_START =
@@ -154,32 +173,81 @@ function nextWeekday(wd: number, today: string, next: boolean): string {
 // ---------- Lettura (con le correzioni dette a voce: «domani no anzi domenica», «alle 8 anzi alle 9»)
 
 const CORRECTION = /\s+(?:no[, ]+)?(?:anzi(?:[, ]+no)?|cioè|cioe|o meglio|no[, ]+scusa|scusa)\s+/i;
+const PEOPLE_WORDS = "persone|persona|pers|p|px|pax|coperti|coperto|posti|ospiti|adulti|amici|bambini|bambino|bimbi|bimbo|ragazzi";
+
+// Campi che una correzione può riscrivere. Ogni dubbio sa di quali parla: se la parte dopo la
+// correzione li riscrive (o li mette in dubbio a sua volta), il dubbio di prima non si mostra più.
+type Field = "people" | "day" | "time" | "phone" | "table" | "menu";
+const FIELDS: Field[] = ["people", "day", "time", "phone", "table", "menu"];
+type Parsed = QuickResult & { about: Field[][]; nameFirst: boolean };
+// Quello che si sa da tutta la frase, per leggere un pezzo detto dopo una correzione («domani sera
+// alle 10 anzi alle 11»: le 11 sono di sera, e di domani).
+type Context = { day: string | null; pm: boolean; am: boolean; night: boolean };
+
+// «99 persone? …»: il dubbio sulle persone fuori misura (lo riconosce anche «Importa dal librone»).
+export const BAD_PEOPLE_DOUBT = /^\d+ persone\? /;
 
 export function parseQuick(text: string, opts: QuickOptions): QuickResult {
   const clean = text
     .replace(/\s+/g, " ")
     .trim()
+    // «all'una», «all una e mezza», «verso l'una»: l'una è le 13 (o, con «di notte», l'1)
+    .replace(/\b(all|verso l|per l)['’ ]\s*una\b/gi, (_m, w: string) => (w.toLowerCase() === "all" ? "alle 1" : `${w.slice(0, -2)} le 1`))
     // «sab 21 anzi 28»: la correzione è il giorno del mese
-    .replace(/(\b(?:lun|mar|mer|gio|ven|sab|dom)[a-zìé]*\.?\s+)\d{1,2}\s+(?:no[, ]+)?(?:anzi|no[, ]+scusa|scusa)\s+(\d{1,2})\b/i, "$1$2");
-  const m = clean.match(CORRECTION);
-  if (m && m.index !== undefined && m.index > 0) {
-    // Vale l'ultima: la parte dopo la correzione sostituisce i campi che ripete.
-    const before = parseOne(clean.slice(0, m.index), opts);
-    const after = parseOne(clean.slice(m.index + m[0].length), opts);
-    const merged: QuickResult = { ...before };
-    for (const k of ["people", "day", "time", "phone", "table", "menu"] as const) if (after[k] !== null) (merged as Record<string, unknown>)[k] = after[k];
-    merged.name = before.name ?? after.name;
-    merged.note = [before.note, after.note].filter(Boolean).join(", ") || null;
-    merged.allergies = before.allergies || after.allergies;
-    // un dubbio della prima parte risolto dalla seconda non si mostra
-    merged.doubts = [...before.doubts.filter((d) => !(after.people !== null && /persone/.test(d)) && !(after.time !== null && /l'ora/.test(d))), ...after.doubts];
-    return merged;
-  }
-  return parseOne(clean.replace(/^(?:cioè|cioe|anzi)\s+/i, ""), opts);
+    .replace(/(\b(?:lun|mar|mer|gio|ven|sab|dom)[a-zìé]*\.?\s+)\d{1,2}\s+(?:no[, ]+)?(?:anzi|no[, ]+scusa|scusa)\s+(\d{1,2})\b/i, "$1$2")
+    // «alle 8 anzi 9», «in 4 anzi 5»: il numero corretto prende il posto del primo (non «4 anzi 5 persone»,
+    // che si legge a pezzi, e non dentro un'ora o una data: «20:30 anzi 21»)
+    .replace(
+      new RegExp(`(^|[^\\d:.,/])(\\d{1,2})\\s+(?:no[, ]+)?(?:anzi|no[, ]+scusa|scusa|cioè|cioe|o meglio)\\s+(\\d{1,2})(?![\\d:.,/]|\\s+(?:${PEOPLE_WORDS})\\b)`, "gi"),
+      "$1$3",
+    );
+  // Vale l'ultima: ogni pezzo dopo una correzione sostituisce i campi che ripete
+  // («alle 20 anzi alle 21 anzi alle 22» → 22:00).
+  const parts = clean
+    .replace(/^(?:cioè|cioe|anzi)\s+/i, "")
+    .split(CORRECTION)
+    .filter((p) => p.trim());
+  const words = fold(clean).split(/[^a-z']+/);
+  const ctx = (day: string | null): Context => ({
+    day,
+    pm: words.some((w) => PM_HINT.test(w)),
+    am: words.some((w) => AM_HINT.test(w)),
+    night: words.some((w, i) => w === "stanotte" || (w === "notte" && /^(di|della|questa|sta)$/.test(words[i - 1] ?? ""))),
+  });
+  let res = parseOne(parts[0] ?? "", opts);
+  for (const part of parts.slice(1)) res = merge(res, parseOne(part, opts, ctx(res.day)));
+  return { name: res.name, people: res.people, day: res.day, time: res.time, phone: res.phone, table: res.table, menu: res.menu, note: res.note, allergies: res.allergies, doubts: res.doubts };
 }
 
-function parseOne(text: string, opts: QuickOptions): QuickResult {
+function merge(before: Parsed, after: Parsed): Parsed {
+  // Il pezzo dopo «anzi» parla di un campo se lo scrive o se lo mette in dubbio («anzi alle 11»: di
+  // mattina o di sera?): in tutti e due i casi il valore di prima non vale più.
+  const talks = (f: Field) => after[f] !== null || after.about.some((a) => a.length === 1 && a[0] === f);
+  const out: Parsed = { ...before };
+  for (const f of FIELDS) if (talks(f)) (out as Record<Field, unknown>)[f] = after[f];
+  // «Rossi, anzi Russo»: un nome detto subito dopo la correzione è quello giusto. Più avanti nella
+  // frase («anzi alle 21 con Bianchi») il nome resta il primo e l'altro va nella nota.
+  let extra: string | null = null;
+  if (after.name && (after.nameFirst || !before.name)) {
+    out.name = after.name;
+    out.nameFirst = after.nameFirst;
+  } else if (after.name) extra = after.name;
+  out.note = [before.note, extra, after.note].filter(Boolean).join(", ") || null;
+  out.allergies = before.allergies || after.allergies;
+  const keep = before.doubts.map((d, k) => ({ d, a: before.about[k] })).filter(({ a }) => !a.some(talks));
+  out.doubts = [...keep.map(({ d }) => d), ...after.doubts];
+  out.about = [...keep.map(({ a }) => a), ...after.about];
+  return out;
+}
+
+function parseOne(text: string, opts: QuickOptions, ctx?: Context): Parsed {
   const out: QuickResult = { name: null, people: null, day: null, time: null, phone: null, table: null, menu: null, note: null, allergies: false, doubts: [] };
+  const about: Field[][] = [];
+  const doubt = (msg: string, ...fields: Field[]) => {
+    out.doubts.push(msg);
+    about.push(fields);
+  };
+  let nameFirst = false;
   // «menù da venticinque euro» → «menù da 25 euro», poi il menù si toglie dalla riga (il prezzo non è ora né persone)
   const numbered = text.replace(/(\p{L}+)(\s*(?:euro|€))/giu, (all, w: string, rest: string) => {
     const n = wordNumber(fold(w));
@@ -280,16 +348,21 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
     while (j < T.length && !T[j].used && /^\+?\d{2,}$/.test(T[j].w)) idx.push(j++);
     if (idx.length && idx.map((x) => T[x].w).join("").length >= 5) {
       take(i, ...idx);
-      out.doubts.push(`Il numero di telefono sembra incompleto: «${idx.map((x) => T[x].raw).join(" ")}».`);
+      doubt(`Il numero di telefono sembra incompleto: «${idx.map((x) => T[x].raw).join(" ")}».`, "phone");
     }
   }
 
   // ---------- Giorno
   let weekday: number | null = null;
   let dayFromWeekdayNumber = false;
-  const pmHint = T.some((t) => PM_HINT.test(t.w));
-  const amHint = T.some((t) => AM_HINT.test(t.w));
-  const nightHint = T.some((t, i) => t.w === "notte" && (T[i - 1]?.w === "di" || T[i - 1]?.w === "della"));
+  // Sera, mattina o notte: dette in questo pezzo, o (dopo una correzione) nel resto della frase.
+  const ownPm = T.some((t) => PM_HINT.test(t.w));
+  const ownAm = T.some((t) => AM_HINT.test(t.w));
+  const ownNight = T.some((t, i) => t.w === "stanotte" || (t.w === "notte" && /^(di|della|questa|sta)$/.test(T[i - 1]?.w ?? "")));
+  const own = ownPm || ownAm || ownNight;
+  const pmHint = ownPm || (!own && !!ctx?.pm);
+  const amHint = ownAm || (!own && !!ctx?.am);
+  const nightHint = ownNight || (!own && !!ctx?.night);
   // «Domenica per due sabato alle 20»: un giorno della settimana detto per primo, con la maiuscola,
   // seguito da «per», quando c'è un altro giorno nella frase, è un nome.
   const dayWords = T.filter((t) => weekdayWord(t.w) !== null || /^(oggi|stasera|domani|dopodomani)$/.test(t.w)).length;
@@ -298,12 +371,44 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
     /^(signor|signora|sig|sigra|sig\.ra)$/.test(T[i - 1]?.w ?? "") ||
     (capitalized(T[i].raw) && i + 1 < T.length && capitalized(T[i + 1].raw) && /^\p{Lu}\p{Ll}/u.test(T[i + 1].raw) && weekdayWord(T[i + 1].w) === null && !FILLER.has(T[i + 1].w) && dayWords > 1);
   const dotted = /^(\d{1,2})\.(\d{1,2})$/;
+  // «a gennaio il 3», «il 3, a gennaio»: il mese detto da solo (per intero) vale per il numero del giorno.
+  // Non «3 gennaio» / «3 di gennaio» (letti sotto) e non «Maggio» con la maiuscola senza «a», «di»… (un nome).
+  let loneMonth: number | null = null;
+  let loneMonthIdx = -1;
+  for (let i = 0; i < T.length && loneMonthIdx < 0; i++) {
+    const mo = MONTHS.indexOf(T[i].w) + 1;
+    if (!mo) continue;
+    const p1 = T[i - 1]?.w ?? "";
+    if (/^\d{1,2}$/.test(p1) || (/^(di|de)$/.test(p1) && /^\d{1,2}$/.test(T[i - 2]?.w ?? ""))) continue;
+    if (capitalized(T[i].raw) && !/^(a|ad|in|di|del|per)$/.test(p1)) continue;
+    loneMonth = mo;
+    loneMonthIdx = i;
+  }
+  // il prossimo «3» del mese detto da solo; «31 febbraio»: un dubbio
+  const inLoneMonth = (n: number, idx: number[]): boolean => {
+    if (loneMonth === null) return false;
+    const d = nextDate(loneMonth, n, opts.today);
+    if (d) {
+      out.day = d;
+      takeDay(...idx, loneMonthIdx);
+    } else {
+      take(...idx, loneMonthIdx);
+      doubt(`Il ${n} ${MONTHS[loneMonth - 1]} non esiste: scegli tu il giorno.`, "day");
+    }
+    return true;
+  };
   for (let i = 0; i < T.length && !out.day; i++) {
     const w = at(i);
     if (!w) continue;
-    if (w === "oggi" || w === "stasera" || w === "stanotte" || w === "stamattina") {
+    if (w === "oggi" || w === "stasera" || w === "stanotte" || w === "stamattina" || w === "stamani" || w === "stamane") {
       out.day = opts.today;
       takeDay(i);
+      continue;
+    }
+    // «questa sera», «sta sera», «questa notte»: come «stasera», «stanotte»
+    if ((w === "questa" || w === "sta") && /^(sera|mattina|notte|stasera|stamattina|stanotte)$/.test(at(i + 1))) {
+      out.day = opts.today;
+      takeDay(i, i + 1);
       continue;
     }
     if (w === "domani" || w === "domattina") {
@@ -332,7 +437,7 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
         if (at(i - 1) === "il") takeDay(i - 1);
       } else {
         take(i);
-        out.doubts.push(`La data «${T[i].raw}» non esiste: scegli tu il giorno.`);
+        doubt(`La data «${T[i].raw}» non esiste: scegli tu il giorno.`, "day");
       }
       continue;
     }
@@ -348,12 +453,14 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
         const cand = +dm[2] <= 12 ? nextDate(+dm[2], +dm[1], opts.today) : null;
         if (cand && weekdayOf(cand) === wd) continue;
       }
-      // «sabato 21», «sabato 21 novembre», «sabato prossimo» / «ven pross»
-      const nm = monthOf(at(i + 2));
+      // «sabato 21», «sabato 21 novembre», «sabato 3 di gennaio», «sabato prossimo» / «ven pross»
+      const ofMonth = /^(di|de)$/.test(at(i + 2)) && monthOf(at(i + 3)) !== null;
+      const nm = ofMonth ? monthOf(at(i + 3)) : monthOf(at(i + 2));
       if (isInt(nb) && +nb >= 1 && +nb <= 31 && at(i + 2) !== "e" && at(i + 2) !== "meno" && !PEOPLE_AFTER.test(at(i + 2))) {
+        if (!nm && inLoneMonth(+nb, [i + 1])) continue;
         out.day = nm ? nextDate(nm, +nb, opts.today) : nextDayOfMonth(+nb, opts.today);
         takeDay(i + 1);
-        if (nm) takeDay(i + 2);
+        if (nm) takeDay(i + 2, ...(ofMonth ? [i + 3] : []));
         else dayFromWeekdayNumber = true;
       } else {
         const next = /^(prossim[oa]|pross)$/.test(nb);
@@ -363,30 +470,32 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
         // spesso si intende quello della settimana dopo (per oggi di solito si dice «stasera»).
         if (!next && out.day === opts.today) {
           const later = addDays(opts.today, 7);
-          out.doubts.push(`«${WEEKDAY_NAMES[wd]}» è oggi: se intendi ${WEEKDAY_NAMES[wd]} ${Number(later.slice(8))}, cambia il giorno.`);
+          doubt(`«${WEEKDAY_NAMES[wd]}» è oggi: se intendi ${WEEKDAY_NAMES[wd]} ${Number(later.slice(8))}, cambia il giorno.`, "day");
         }
       }
       continue;
     }
-    // «21 novembre», «il 21», «il 1° dicembre», «il 21 novembre»
+    // «21 novembre», «il 21», «il 1° dicembre», «il 21 novembre», «il 3 di gennaio»
     if (/^\d{1,2}$/.test(w)) {
-      const mo = monthOf(at(i + 1));
+      const ofMonth = /^(di|de)$/.test(at(i + 1)) && monthOf(at(i + 2)) !== null;
+      const mo = ofMonth ? monthOf(at(i + 2)) : monthOf(at(i + 1));
       if (mo && +w >= 1 && +w <= 31) {
         const d = nextDate(mo, +w, opts.today);
         if (d) {
           out.day = d;
-          takeDay(i, i + 1);
+          takeDay(i, i + 1, ...(ofMonth ? [i + 2] : []));
           if (at(i - 1) === "il") takeDay(i - 1);
         }
         continue;
       }
       if (at(i - 1) === "il" || at(i - 1) === "giorno") {
+        if (+w >= 1 && +w <= 31 && inLoneMonth(+w, [i - 1, i])) continue;
         if (+w >= 1 && +w <= 31) {
           out.day = nextDayOfMonth(+w, opts.today);
           takeDay(i - 1, i);
         } else {
           take(i - 1, i);
-          out.doubts.push(`Il giorno «${w}» non esiste: scegli tu il giorno.`);
+          doubt(`Il giorno «${w}» non esiste: scegli tu il giorno.`, "day");
         }
         continue;
       }
@@ -396,22 +505,37 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
   for (let i = 0; i < T.length; i++) {
     if (T[i].used || nameLikeDay(i)) continue;
     const wd = weekdayWord(T[i].w);
-    if (wd !== null || /^(oggi|stasera|stanotte|stamattina|domani|domattina|dopodomani)$/.test(T[i].w)) {
+    if (wd !== null || /^(oggi|stasera|stanotte|stamattina|stamani|stamane|domani|domattina|dopodomani)$/.test(T[i].w)) {
       if (wd !== null) weekday ??= wd;
       takeDay(i);
     }
   }
+  // Il mese detto da solo e non usato: senza il giorno è un dubbio; con un giorno di un altro mese
+  // («domani … a gennaio») non si sceglie: il giorno resta da scegliere.
+  if (loneMonth !== null && !T[loneMonthIdx].used) {
+    take(loneMonthIdx);
+    const month = MONTHS[loneMonth - 1];
+    if (!out.day) doubt(`Hai detto «${month}» ma non il giorno: scegli tu il giorno.`, "day");
+    else if (Number(out.day.slice(5, 7)) !== loneMonth) {
+      doubt(`Il giorno non torna con «${month}»: scegli tu il giorno.`, "day");
+      out.day = null;
+    }
+  }
   if (out.day && weekday !== null && weekdayOf(out.day) !== weekday) {
-    out.doubts.push(`Il giorno della settimana non torna: il ${Number(out.day.slice(8))}/${Number(out.day.slice(5, 7))} è ${WEEKDAY_NAMES[weekdayOf(out.day)]}.`);
+    doubt(`Il giorno della settimana non torna: il ${Number(out.day.slice(8))}/${Number(out.day.slice(5, 7))} è ${WEEKDAY_NAMES[weekdayOf(out.day)]}.`, "day");
   }
 
   // ---------- Ora
   // 1–9 senza altro: la sera (un'enoteca la mattina presto è chiusa); 10 e 11 senza «mattina»/«pranzo»: un dubbio
-  // (le 10 sono l'apertura del mattino, le 22 la chiusura); «di notte» resta com'è.
+  // (le 10 sono l'apertura del mattino, le 22 la chiusura). «Di notte», «stanotte»: l'1–5 resta com'è
+  // (dopo mezzanotte), le 9–11 sono di sera; le 6–8 di notte non si capiscono.
   const fixHour = (h: number, m: number): string | null | "ambiguous" => {
     if (h > 24 || m > 59) return null;
     if (h === 24) h = 0;
-    if (h >= 1 && h <= 11 && !nightHint) {
+    if (h >= 1 && h <= 11 && nightHint) {
+      if (h >= 9) h += 12;
+      else if (h >= 6) return "ambiguous";
+    } else if (h >= 1 && h <= 11) {
       if (pmHint && !amHint) h += 12;
       else if (!amHint) {
         const day = out.day ?? opts.today;
@@ -429,11 +553,11 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
     const t = fixHour(h, m);
     take(...idx);
     if (t === "ambiguous") {
-      out.doubts.push(`«Alle ${h}${m ? `:${String(m).padStart(2, "0")}` : ""}»: di mattina o di sera? Scegli tu l'ora.`);
+      doubt(`«Alle ${h}${m ? `:${String(m).padStart(2, "0")}` : ""}»: di mattina o di sera? Scegli tu l'ora.`, "time");
       return true;
     }
     if (t === null) {
-      out.doubts.push("L'ora scritta non esiste: scegli tu l'ora.");
+      doubt("L'ora scritta non esiste: scegli tu l'ora.", "time");
       return true;
     }
     out.time = t;
@@ -465,13 +589,38 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
     }
     return setTime(hour, minutes, [...idx, ...(mm?.used ?? [])]);
   };
+  // «tra le 20 e le 21», «fra le 8 e le 9», «dalle 20 alle 21»: due ore. Non si sceglie al posto tuo:
+  // l'ora resta da scegliere, con il dubbio.
+  const clock = (j: number) => /^\d{1,2}([:.]\d{2})?$/.test(at(j));
+  for (let i = 0; i < T.length && !timeSeen; i++) {
+    const w = at(i);
+    if (!/^(tra|fra|dalle)$/.test(w)) continue;
+    let j = i + 1;
+    if (w !== "dalle" && at(j) === "le") j++;
+    if (!clock(j)) continue;
+    const conn = w === "dalle" ? /^(alle|a)$/ : /^(e|ed)$/;
+    // la seconda ora dopo «e (le)» / «alle»: subito («tra le 20 e le 21») o dopo i minuti («tra le 8 e mezza e le 9»)
+    const second = (k: number): number => {
+      if (!conn.test(at(k))) return -1;
+      const y = at(k + 1) === "le" ? k + 2 : k + 1;
+      return clock(y) ? y + 1 + (minutesAfter(y + 1)?.used.length ?? 0) : -1;
+    };
+    const mm = minutesAfter(j + 1);
+    let end = second(j + 1);
+    if (end < 0 && mm && mm.m >= 0) end = second(j + 1 + mm.used.length);
+    if (end < 0) continue;
+    const said = T.slice(i, end).map((t) => t.raw).join(" ");
+    take(...Array.from({ length: end - i }, (_, d) => i + d));
+    timeSeen = true;
+    doubt(`${said.charAt(0).toUpperCase()}${said.slice(1)}: scegli tu l'ora.`, "time");
+  }
   for (let i = 0; i < T.length && !timeSeen; i++) {
     const w = at(i);
     if (!w) continue;
     let m = w.match(/^(\d{1,2})[:.,h](\d{2})$/);
     if (m) {
       setTime(+m[1], +m[2], [i]);
-      if (/^(alle|ore|verso|le|h)$/.test(at(i - 1))) take(i - 1);
+      if (/^(alle|ore|verso|le|h|dalle)$/.test(at(i - 1))) take(i - 1);
       continue;
     }
     m = w.match(/^h(\d{1,2})[:.](\d{2})$/);
@@ -488,8 +637,8 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
       withMinutes(12, i + 1, [i]);
       continue;
     }
-    // «alle 20», «ore 20 e 30», «h 20», «per le 8 e mezza», «verso le 21», «alle 2030»
-    const cue = /^(alle|ore|verso|h)$/.test(w) || (w === "le" && /^(per|verso|dalle)$/.test(at(i - 1)));
+    // «alle 20», «ore 20 e 30», «h 20», «per le 8 e mezza», «verso le 21», «alle 2030», «dalle 20»
+    const cue = /^(alle|ore|verso|h|dalle)$/.test(w) || (w === "le" && /^(per|verso|dalle)$/.test(at(i - 1)));
     if (cue && /^\d{3,4}$/.test(at(i + 1)) && +at(i + 1).slice(-2) <= 59) {
       const v = at(i + 1);
       setTime(+v.slice(0, -2), +v.slice(-2), [i, i + 1]);
@@ -524,9 +673,30 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
     out.people = n + (kids?.n ?? 0);
     take(...idx, ...(kids?.used ?? []));
   };
-  for (let i = 0; i < T.length && out.people === null; i++) {
+  // «99 persone», «0 persone», «x99»: un numero di persone che non si può segnare (come nel foglio
+  // «Nuova prenotazione»: da 1 a 60) resta da scegliere, con un dubbio; non diventa nome, nota o ora.
+  let peopleBad = false;
+  const badPeople = (n: number, idx: number[]) => {
+    take(...idx);
+    peopleBad = true;
+    doubt(`${n} persone? Controlla il numero: si segnano da 1 a 60 persone.`, "people");
+  };
+  for (let i = 0; i < T.length && out.people === null && !peopleBad; i++) {
     const w = at(i);
     if (!w) continue;
+    if (/^\d{1,3}$/.test(w) && PEOPLE_AFTER.test(at(i + 1)) && !okPeople(+w)) {
+      badPeople(+w, [i, i + 1]);
+      break;
+    }
+    if (PEOPLE_AFTER.test(w) && /^\d{1,3}$/.test(at(i + 1)) && !okPeople(+at(i + 1)) && !/^(alle|ore)$/.test(at(i - 1))) {
+      badPeople(+at(i + 1), [i, i + 1]);
+      break;
+    }
+    const bad = w.match(/^(?:x(\d{1,3})|(\d{1,3})(?:p|px|pax|pers)\.?)$/);
+    if (bad && !okPeople(+(bad[1] ?? bad[2]))) {
+      badPeople(+(bad[1] ?? bad[2]), [i]);
+      break;
+    }
     // «10 persone», «4 pax», «2 adulti (e 2 bambini)», «4 bambini»
     if (/^\d{1,2}$/.test(w) && (PEOPLE_AFTER.test(at(i + 1)) || KIDS.test(at(i + 1))) && okPeople(+w)) {
       setPeople(+w, [i, i + 1], i + 2);
@@ -576,7 +746,7 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
     m = null;
   }
   // «Alessandro e la moglie»: due persone (il nome resta Alessandro)
-  if (out.people === null) {
+  if (out.people === null && !peopleBad) {
     for (let i = 0; i + 2 < T.length; i++) {
       if (at(i) === "e" && /^(la|il|sua|suo)$/.test(at(i + 1)) && COMPANION.test(at(i + 2))) {
         out.people = 2;
@@ -618,7 +788,7 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
   }
   // «1 celiaco», «uno allergico»: un numero davanti a una nota fa parte della nota
   const leftover = T.map((t, i) => ({ t, i })).filter(({ t, i }) => !t.used && /^\d{1,3}$/.test(t.w) && !(i + 1 < T.length && !T[i + 1].used && (NOTE_START.test(T[i + 1].w) || mentionsAllergy(T[i + 1].w))));
-  if (out.people === null && leftover.length === 1 && okPeople(+leftover[0].t.w)) {
+  if (out.people === null && !peopleBad && leftover.length === 1 && okPeople(+leftover[0].t.w)) {
     const n = +leftover[0].t.w;
     // Con l'ora già scritta, un numero solo sono le persone. Senza l'ora: le persone solo se come ora
     // non può essere (a quell'ora il locale è chiuso), altrimenti è un dubbio («Rossi 20», «sabato 5»).
@@ -632,13 +802,14 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
   }
   const still = leftover.filter(({ i }) => !T[i].used);
   if (still.length) {
-    out.doubts.push(`Non so a cosa si riferisce «${still.map(({ t }) => t.raw).join(" ")}»: ${out.people === null && !out.time ? "scegli tu persone e ora" : out.people === null ? "scegli tu le persone" : !out.time ? "scegli tu l'ora" : "controlla"}.`);
+    const fields: Field[] = [...(out.people === null ? ["people" as const] : []), ...(!out.time ? ["time" as const] : [])];
+    doubt(`Non so a cosa si riferisce «${still.map(({ t }) => t.raw).join(" ")}»: ${out.people === null && !out.time ? "scegli tu persone e ora" : out.people === null ? "scegli tu le persone" : !out.time ? "scegli tu l'ora" : "controlla"}.`, ...fields);
     still.forEach(({ i }) => take(i));
   }
   // «sabato 5» senza persone: il 5 può essere il giorno o le persone → giorno e persone da scegliere
   if (dayFromWeekdayNumber && out.people === null && !timeSeen) {
     out.day = null;
-    out.doubts.push("Non so se il numero dopo il giorno è la data o le persone: scegli tu giorno e persone.");
+    doubt("Non so se il numero dopo il giorno è la data o le persone: scegli tu giorno e persone.", "day", "people");
   }
 
   // ---------- Nome e nota: le parole rimaste, a pezzi (un pezzo finisce dove c'è una parola già letta o una virgola)
@@ -696,6 +867,8 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
       const nameWords = nameIdx.filter((i) => !/^\d+$/.test(T[i].w));
       if (nameWords.length) {
         out.name = nameWords.map((i) => capWord(T[i].raw)).join(" ").slice(0, 80);
+        // detto per primo (dopo le parole di contorno) o dopo «a nome»: dopo un «anzi» è il nome corretto
+        nameFirst = nameIdx[0] <= T.findIndex((_, i) => !isFill(i)) || /^(nome|cognome)$/.test(T[nameIdx[0] - 1]?.w ?? "");
         const restIdx = trim(core.slice(k));
         if (restIdx.length) notes.push(restIdx.map((i) => T[i].raw).join(" "));
         continue;
@@ -711,5 +884,5 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
   // «nessuna allergia», «no allergie», «senza allergie»: non è un'allergia
   const denied = text.replace(/\b(?:nessuna|niente|no|senza|non\s+(?:ha|hanno)(?:\s+nessuna)?)\s+allergi[ae]\b/gi, "");
   out.allergies = mentionsAllergy(denied);
-  return out;
+  return { ...out, about, nameFirst };
 }

@@ -109,7 +109,7 @@ export function HowToConnect({ username, password, onClose }: { username: string
           {[
             "Sul telefono della sala apri orari-turni.vercel.app ed entra con username e password.",
             "Aggiungilo alla schermata Home (su iPhone: Condividi → «Aggiungi alla schermata Home») e aprilo da lì.",
-            "Apri Prenotazioni, tocca la campanella e accendi gli avvisi: arrivano le nuove richieste e i WhatsApp da mandare.",
+            "Apri Prenotazioni, tocca ⋯ → «Avvisi su questo telefono» e accendili: arrivano le nuove richieste e i WhatsApp da mandare.",
           ].map((t, i) => (
             <li key={i} className="flex gap-2.5">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">{i + 1}</span>
