@@ -233,7 +233,7 @@ export function SettingsSheet({
             <li>Tocca «Aggiungi link», incolla questo link e salva.</li>
             <li>Google può metterci qualche giorno. Poi cerca il locale dal telefono e prova «Prenota».</li>
           </ol>
-          {!settings.enabled && <p className="text-xs text-foreground-muted">Prima accendi le prenotazioni online: da spente, chi tocca il link trova una pagina che non c&apos;è.</p>}
+          {!settings.enabled && <p className="text-xs text-foreground-muted">Prima accendi le prenotazioni online: da spente, chi tocca il link trova solo «Prenota chiamandoci».</p>}
         </section>
 
         <section className="space-y-3 rounded-xl border border-border p-4">
@@ -242,7 +242,8 @@ export function SettingsSheet({
             Ogni link ha il suo segno: nelle richieste vedi «da Instagram» o «da Facebook» e capisci da dove arrivano i clienti.
           </p>
           {SOCIAL_LINKS.map((s) => {
-            const link = googleLink.replace("da=google", `da=${s.source}`);
+            // Link brevi: /ig e /fb (portano al modulo con la provenienza giusta).
+            const link = googleLink.replace(/\/g$/, s.source === "instagram" ? "/ig" : "/fb");
             return (
               <div key={s.source} className="space-y-1.5">
                 <p className="text-sm font-medium text-foreground">{s.title}</p>

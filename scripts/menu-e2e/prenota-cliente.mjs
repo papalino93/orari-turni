@@ -131,6 +131,11 @@ try {
     check("«accetta» senza proposta: errore chiaro", acc.json?.ok === false && /nessun orario/.test(acc.json.error ?? ""), JSON.stringify(acc));
 
     // /prenota?da=google → /menu/prenota?da=google
+    // Link brevi: /g, /ig, /fb → il modulo con la provenienza
+    for (const [short, src] of [["g", "google"], ["ig", "instagram"], ["fb", "facebook"]]) {
+      const r = await fetch(`${BASE}/${short}`, { redirect: "manual" });
+      check(`/${short}: porta a /menu/prenota?da=${src}`, [302, 307, 308].includes(r.status) && (r.headers.get("location") ?? "").endsWith(`/menu/prenota?da=${src}`), `${r.status} ${r.headers.get("location")}`);
+    }
     const red = await fetch(`${BASE}/prenota?da=google`, { redirect: "manual" });
     check("/prenota?da=google: reindirizzamento permanente a /menu/prenota?da=google", [301, 308].includes(red.status) && /\/menu\/prenota\?da=google$/.test(red.headers.get("location") ?? ""), `${red.status} ${red.headers.get("location")}`);
   }
