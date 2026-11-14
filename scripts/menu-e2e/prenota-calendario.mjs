@@ -154,7 +154,9 @@ try {
     await agenda(p).waitFor();
   };
   const vista = (p) => agenda(p).getAttribute("data-vista");
-  const title = (p) => agenda(p).getByTestId("agenda-titolo").innerText();
+  // Sul telefono il giorno della settimana sta nella riga piccola sopra (nel titolo resta per i lettori
+  // di schermo): il testo si legge tutto di fila, «Sabato 14 Novembre 2026».
+  const title = async (p) => (await agenda(p).getByTestId("agenda-titolo").innerText()).replace(/\s+/g, " ").trim();
   const pick = async (p, day) => {
     await agenda(p).getByLabel("Scegli la data").fill(day);
     await p.waitForTimeout(300);
