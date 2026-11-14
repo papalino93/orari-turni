@@ -8,6 +8,7 @@ import { AccountMenu } from "@/components/account-menu";
 import { InstallBanner, EmployeeInstallPrompt, InstalledMark } from "@/components/install-banner";
 import { VERSION_LABEL } from "@/lib/version";
 import { BrandMark } from "@/components/brand-mark";
+import { IosViewportFix } from "@/components/ios-viewport-fix";
 import { forgetPushOnSignOut } from "@/app/(app)/prenotazioni/actions";
 
 // Prima di uscire: gli avvisi delle prenotazioni smettono di arrivare su questo dispositivo
@@ -233,6 +234,7 @@ export function AppShell({
           fissa a fondo schermo presente su ogni pagina mobile — senza,
           le etichette finiscono a ridosso dell'Home Indicator gestuale. */}
       {/* Con una voce sola (il dipendente senza il menù) la barra in basso non serve a niente. */}
+      <IosViewportFix />
       {navItems.length > 1 && (
         <nav className="brand-band-bar brand-band-bar-bottom fixed inset-x-0 bottom-0 z-30 flex bg-brand-band md:hidden">
           {navItems.map((item) => {

@@ -314,7 +314,8 @@ function PushDevices({ devices }: { devices: PushDevice[] }) {
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-xl ring-1 ring-inset ring-border">
           {list.map((d) => (
-            <li key={d.id} className="flex items-center gap-3 px-3 py-2.5" data-testid="telefono-avvisi">
+            // Sul telefono i pulsanti vanno sotto il nome: accanto, il nome e l'etichetta «sala» restavano tagliati.
+            <li key={d.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5" data-testid="telefono-avvisi">
               <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-foreground-muted">
                 {d.kind === "Computer" ? (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -328,15 +329,16 @@ function PushDevices({ devices }: { devices: PushDevice[] }) {
                   </svg>
                 )}
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-foreground">
-                  {d.who}{" "}
-                  {d.venue && <span className="ml-1.5 rounded-full bg-accent/10 px-1.5 py-0.5 text-[11px] font-semibold text-accent-ink">sala</span>}
+              <span className="min-w-0 flex-1 basis-40">
+                <span className="block text-sm font-medium text-foreground [overflow-wrap:anywhere]">
+                  {d.who}
+                  {d.venue && <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-accent/10 px-2 py-0.5 align-middle text-[11px] font-semibold text-accent-ink">in sala</span>}
                 </span>
                 <span className="block text-xs text-foreground-muted">
                   {d.kind} · {d.lastUsed ? `ultimo avviso ${whenText(d.lastUsed)}` : `attivato ${whenText(d.createdAt)}, ancora nessun avviso`}
                 </span>
               </span>
+              <span className="flex shrink-0 gap-2 max-sm:w-full max-sm:justify-end">
               <button
                 type="button"
                 disabled={busy !== null}
@@ -355,6 +357,7 @@ function PushDevices({ devices }: { devices: PushDevice[] }) {
               >
                 {busy === d.id ? "…" : "Togli"}
               </button>
+              </span>
             </li>
           ))}
         </ul>
