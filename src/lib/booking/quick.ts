@@ -359,6 +359,12 @@ function parseOne(text: string, opts: QuickOptions): QuickResult {
         const next = /^(prossim[oa]|pross)$/.test(nb);
         if (next) takeDay(i + 1);
         out.day = nextWeekday(wd, opts.today, next);
+        // Detto il giorno di oggi («sabato» di sabato): si mette oggi, ma lo si fa notare, perché
+        // spesso si intende quello della settimana dopo (per oggi di solito si dice «stasera»).
+        if (!next && out.day === opts.today) {
+          const later = addDays(opts.today, 7);
+          out.doubts.push(`«${WEEKDAY_NAMES[wd]}» è oggi: se intendi ${WEEKDAY_NAMES[wd]} ${Number(later.slice(8))}, cambia il giorno.`);
+        }
       }
       continue;
     }
