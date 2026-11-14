@@ -1,7 +1,7 @@
 // Testi delle prenotazioni: messaggi al cliente (WhatsApp o email) e avvisi al personale.
 // Funzioni pure. Tono del menù: si dà del tu, frasi brevi, firma «L'Angolo del Vino».
 
-import { dayLong, peopleText } from "@/lib/booking/rules";
+import { addDays, businessDay, dayLong, peopleText } from "@/lib/booking/rules";
 
 export const VENUE_NAME = "L'Angolo del Vino";
 
@@ -28,7 +28,10 @@ const first = (name: string) => name.trim().split(/\s+/)[0] || name.trim();
 // Testo semplice, uguale per WhatsApp e per il corpo della mail.
 export function customerMessage(kind: MessageKind, m: MessageInput): string {
   // Ora ancora da definire (time ""): solo il giorno, mai un orario inventato.
-  const when = m.time ? `${dayLong(m.day)} alle ${m.time}` : dayLong(m.day);
+  // «oggi, sabato 14 novembre» / «domani, …»: per il giorno stesso la data da sola fa pensare a un altro sabato.
+  const today = businessDay(new Date());
+  const rel = m.day === today ? "oggi, " : m.day === addDays(today, 1) ? "domani, " : "";
+  const when = m.time ? `${rel}${dayLong(m.day)} alle ${m.time}` : `${rel}${dayLong(m.day)}`;
   const extra = m.staffMessage?.trim() ? `\n\n${m.staffMessage.trim()}` : "";
   const ciao = `Ciao ${first(m.name)},`;
   switch (kind) {
@@ -48,7 +51,10 @@ export function customerMessage(kind: MessageKind, m: MessageInput): string {
 }
 
 export function customerSubject(kind: MessageKind, m: MessageInput): string {
-  const when = m.time ? `${dayLong(m.day)} alle ${m.time}` : dayLong(m.day);
+  // «oggi, sabato 14 novembre» / «domani, …»: per il giorno stesso la data da sola fa pensare a un altro sabato.
+  const today = businessDay(new Date());
+  const rel = m.day === today ? "oggi, " : m.day === addDays(today, 1) ? "domani, " : "";
+  const when = m.time ? `${rel}${dayLong(m.day)} alle ${m.time}` : `${rel}${dayLong(m.day)}`;
   switch (kind) {
     case "received":
       return `Richiesta ricevuta, in attesa di conferma: ${when}`;
