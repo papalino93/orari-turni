@@ -24,8 +24,9 @@ export const metadata: Metadata = {
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export default async function BookingStatusPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function BookingStatusPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ gia?: string }> }) {
   const { token } = await params;
+  const sentTwice = (await searchParams).gia === "1";
   const b = await findByToken(token);
   if (!b) notFound();
   const [venue, settings, promo] = await Promise.all([
@@ -116,6 +117,12 @@ export default async function BookingStatusPage({ params }: { params: Promise<{ 
           <h1 className="menu-serif m-0 mb-1 text-balance text-[38px] font-medium leading-[1.05] text-[#6B1020]">{head.title}</h1>
           <Ornament color="#9C7A45" />
           <p className="m-0 mt-3 max-w-[440px] text-balance text-[17.5px] leading-normal text-[#3F4540]">{head.text}</p>
+          {/* La stessa richiesta (telefono, giorno e ora) era già partita poco fa: non se ne crea un'altra. */}
+          {sentTwice && active && (
+            <p className="m-0 mt-4 max-w-[440px] rounded-2xl border !border-[#E3D2AE] bg-[#FBF5EA] px-4 py-3 text-balance text-[15.5px] leading-normal text-[#5A4520]" data-testid="gia-mandata">
+              Questa richiesta l&apos;avevi già mandata poco fa: è la stessa, non ne abbiamo fatta un&apos;altra. Se volevi cambiare nome o altro, annullala qui sotto e rifalla.
+            </p>
+          )}
         </div>
 
         {/* Da quale numero gli scriviamo: un messaggio da un numero sconosciuto si ignora, o finisce nello spam. */}

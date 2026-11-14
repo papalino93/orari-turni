@@ -117,18 +117,18 @@ const WEEKDAYS = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "
 export const WEEKDAY_SHORT = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-// Titolo del periodo: «Sabato 14 novembre» (con l'anno se non è quello di oggi), «Novembre 2026»,
-// e per una settimana a cavallo di due mesi «Nov – dic 2026».
+// Titolo del periodo: «Sabato 14 Novembre» (mese con la maiuscola, come chiesto; con l'anno se non è
+// quello di oggi), «Novembre 2026», e per una settimana a cavallo di due mesi «Nov – Dic 2026».
 export function periodTitle(view: AgendaView, anchor: string, today: string): string {
   const [y, m, d] = anchor.split("-").map(Number);
-  if (view === "day") return `${cap(WEEKDAYS[weekdayOf(anchor)])} ${d} ${MONTHS[m - 1]}${String(y) !== today.slice(0, 4) ? ` ${y}` : ""}`;
+  if (view === "day") return `${cap(WEEKDAYS[weekdayOf(anchor)])} ${d} ${cap(MONTHS[m - 1])}${String(y) !== today.slice(0, 4) ? ` ${y}` : ""}`;
   if (view === "week") {
     const { from, to } = periodRange("week", anchor);
     const [y1, m1] = from.split("-").map(Number);
     const [y2, m2] = to.split("-").map(Number);
     if (m1 === m2) return `${cap(MONTHS[m1 - 1])} ${y1}`;
-    if (y1 === y2) return `${cap(MONTHS[m1 - 1].slice(0, 3))} – ${MONTHS[m2 - 1].slice(0, 3)} ${y2}`;
-    return `${cap(MONTHS[m1 - 1].slice(0, 3))} ${y1} – ${MONTHS[m2 - 1].slice(0, 3)} ${y2}`;
+    if (y1 === y2) return `${cap(MONTHS[m1 - 1].slice(0, 3))} – ${cap(MONTHS[m2 - 1].slice(0, 3))} ${y2}`;
+    return `${cap(MONTHS[m1 - 1].slice(0, 3))} ${y1} – ${cap(MONTHS[m2 - 1].slice(0, 3))} ${y2}`;
   }
   return `${cap(MONTHS[m - 1])} ${y}`;
 }

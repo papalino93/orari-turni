@@ -138,3 +138,20 @@ export const OPTOUT_LABEL: Record<string, string> = {
 // Numeri all'italiana, con il punto anche a quattro cifre: 5.000 (non «5000»).
 const numFmt = new Intl.NumberFormat("it-IT", { useGrouping: "always" } as Intl.NumberFormatOptions);
 export const n = (x: number) => numFmt.format(x);
+
+// Telefono della rubrica in un formato solo: i cellulari italiani sempre «+39 333 111 2222»,
+// comunque arrivino (file, rubrica del telefono, modulo di prenotazione «393331112222»). I fissi
+// e i numeri esteri restano come scritti (spazi in più tolti): il prefisso di un fisso non si
+// separa con sicurezza.
+export function tidyPhone(raw: string | null | undefined): string {
+  const typed = (raw ?? "").trim().replace(/\s{2,}/g, " ").slice(0, 40);
+  let d = typed.replace(/[\s().\/-]/g, "");
+  if (!/^\+?\d+$/.test(d)) return typed;
+  if (d.startsWith("00")) d = `+${d.slice(2)}`;
+  let it: string | null = null;
+  if (d.startsWith("+39")) it = d.slice(3);
+  else if (!d.startsWith("+") && d.startsWith("39") && d.length === 12) it = d.slice(2);
+  else if (!d.startsWith("+")) it = d;
+  if (it !== null && /^3\d{8,9}$/.test(it)) return `+39 ${it.slice(0, 3)} ${it.slice(3, 6)} ${it.slice(6)}`;
+  return typed;
+}

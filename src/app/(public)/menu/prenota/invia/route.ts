@@ -57,5 +57,5 @@ export async function POST(request: NextRequest) {
   // Avvisi al personale e ricevuta per email dopo aver risposto: il cliente non aspetta.
   // Un doppio invio (stesso telefono, giorno e ora) riusa la richiesta di prima: niente secondo avviso.
   if (!res.reused) after(() => afterCreate(res.id, origin));
-  return json({ ok: true, statusPath: res.statusPath, isTest: res.isTest });
+  return json({ ok: true, statusPath: res.statusPath, isTest: res.isTest, reused: Boolean(res.reused) });
 }

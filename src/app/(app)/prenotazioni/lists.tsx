@@ -35,7 +35,7 @@ export function Empty({ title, text, icon, children }: { title: string; text?: s
   return (
     <div className="rounded-2xl border border-dashed border-border bg-surface/60 px-5 py-8 text-center" data-testid="vuoto">
       {icon && <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent-ink">{icon}</div>}
-      <p className="font-serif text-lg font-semibold text-foreground">{title}</p>
+      <p className="font-sans text-lg font-semibold text-foreground">{title}</p>
       {text && <p className="mx-auto mt-1 max-w-sm text-sm text-foreground-muted">{text}</p>}
       {children && <div className="mt-4 flex flex-wrap items-center justify-center gap-2">{children}</div>}
     </div>

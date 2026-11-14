@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     // Con l'accesso fatto ma senza il permesso sul menù (dipendente): alla sua area, non
     // alla pagina di accesso, che lo farebbe sembrare scollegato.
     const session = await getServerSession(authOptions);
-    return NextResponse.redirect(new URL(session?.user ? "/mie-ore" : "/login", request.url));
+    return NextResponse.redirect(new URL(session?.user ? "/mie-ore?bloccato=menu" : "/login", request.url));
   }
   return serveFile(request, path.join(process.cwd(), "docs/guida/Guida-gestione-menu.pdf"), {
     contentType: "application/pdf",

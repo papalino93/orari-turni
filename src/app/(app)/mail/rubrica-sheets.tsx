@@ -284,11 +284,12 @@ export function ContactSheet({ contact, groups, onClose }: { contact: RContact |
             {error}
           </p>
         )}
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className={ghostBtn}>
+        {/* Come «Nuova prenotazione»: sul telefono i pulsanti restano in basso, visibili anche a modulo lungo. */}
+        <div className="sticky bottom-0 z-10 -mx-5 flex gap-2 border-t border-border bg-surface px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
+          <button type="button" onClick={onClose} className={`${ghostBtn} shrink-0`}>
             Annulla
           </button>
-          <button type="submit" disabled={pending} className={primaryBtn}>
+          <button type="submit" disabled={pending} className={`${primaryBtn} max-sm:flex-1`}>
             {pending ? "Salvo…" : contact ? "Salva" : "Aggiungi alla rubrica"}
           </button>
         </div>

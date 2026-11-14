@@ -90,16 +90,16 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
           <div className="flex min-h-11 min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
             <span className={`inline-flex items-center gap-1.5 tabular-nums ${closed ? "font-semibold text-danger" : "text-foreground-muted"}`} data-testid="agenda-orari">
               <ClockIcon />
-              {closed ? `Chiuso${closure?.kind === "closed" && closure.reason ? ` · ${closure.reason}` : ""}` : ranges.map((r) => `${r.open}–${r.close}`).join(" · ")}
+              {closed ? `Chiuso${closure?.kind === "closed" && closure.reason ? ` · ${closure.reason}` : ""}` : `Aperti ${ranges.map((r) => `${r.open}–${r.close}`).join(" · ")}`}
             </span>
             {requestsClosed && !closed && <ClosedChip />}
             {events.map((e) => (
-              <a key={e.slug} href={`/menu/p/${e.slug}`} target="_blank" rel="noopener noreferrer" className="min-w-0 max-w-full hover:opacity-90" title="Apri la pagina dell'evento">
+              <a key={e.slug} href={`/menu/p/${e.slug}`} target="_blank" rel="noopener noreferrer" className="flex min-h-11 min-w-0 max-w-full items-center hover:opacity-90" title="Apri la pagina dell'evento">
                 <EventPill title={e.title} time={eventTime(e) || undefined} compact />
               </a>
             ))}
-            <button type="button" onClick={() => setNoteEdit({ note: null })} className="-mx-1 min-h-9 rounded-full px-1 text-xs font-semibold text-foreground-muted underline decoration-dotted underline-offset-4 hover:text-foreground">
-              + Nota del giorno
+            <button type="button" onClick={() => setNoteEdit({ note: null })} title="Un promemoria per tutti in cima al giorno (es. «sala piccola riservata»)" className="-mx-1 min-h-9 rounded-full px-1 text-xs font-semibold text-foreground-muted underline decoration-dotted underline-offset-4 hover:text-foreground">
+              + Scrivi una nota per la giornata
             </button>
           </div>
           {/* Le azioni del giorno: stampa, chiudere o riaprire le richieste online, una nota. */}
@@ -107,7 +107,7 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
             small
             label="Azioni del giorno"
             items={[
-              { label: "+ Nota del giorno", hint: "Un promemoria in cima al giorno", onSelect: () => setNoteEdit({ note: null }) },
+              { label: "+ Scrivi una nota per la giornata", hint: "Un promemoria per tutti in cima al giorno", onSelect: () => setNoteEdit({ note: null }) },
               ...(printList.length ? [{ label: "Stampa il giorno", hint: "Il foglio con tutte le prenotazioni", onSelect: () => window.print() }] : []),
               ...(!past && !closed
                 ? [
@@ -205,7 +205,7 @@ export function DayView({ day, data, capacity, today, now, hours, countTests, on
               <h3
                 className={`sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 -mx-1 flex flex-wrap items-baseline gap-x-2 rounded-lg px-2 py-1.5 backdrop-blur-md ${g.minutes < 0 ? "bg-gold/15" : "bg-background/85"}`}
               >
-                <span className={`whitespace-nowrap font-serif text-lg font-semibold tabular-nums ${g.minutes < 0 ? "text-gold" : "text-foreground"}`}>
+                <span className={`whitespace-nowrap font-sans text-lg font-semibold tabular-nums ${g.minutes < 0 ? "text-gold" : "text-foreground"}`}>
                   {g.label}
                   {g.minutes >= 1440 && <span className="ml-1 font-sans text-xs font-normal text-foreground-muted">dopo mezzanotte</span>}
                 </span>
@@ -305,7 +305,7 @@ function DayRow({
       {missing && !cancelled && <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-gold" />}
       {/* Persone, grandi (come sul librone) */}
       <span className={`flex w-11 shrink-0 flex-col items-center justify-center self-start rounded-lg py-1.5 ${b.peopleUnknown ? "bg-gold/15 text-gold" : "bg-surface-2 text-foreground"} ${cancelled ? "line-through" : ""}`}>
-        <span className="font-serif text-2xl font-semibold leading-none tabular-nums">{b.peopleUnknown ? "?" : b.people}</span>
+        <span className="font-sans text-2xl font-semibold leading-none tabular-nums">{b.peopleUnknown ? "?" : b.people}</span>
         <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide opacity-75">pers.</span>
       </span>
       <span className="min-w-0 flex-1">
@@ -347,9 +347,11 @@ function DayRow({
           aria-pressed={Boolean(b.arrivedAt)}
           aria-label={b.arrivedAt ? `Togli «arrivati» a ${b.name}` : `Segna arrivati: ${b.name}`}
           title={b.arrivedAt ? "Togli il segno «arrivati»" : "Segna arrivati"}
-          className={`relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full text-lg ring-1 ring-inset disabled:opacity-50 ${b.arrivedAt ? "bg-success text-white ring-success" : "text-success ring-success/45 hover:bg-success-bg"}`}
+          // Con la scritta sotto la spunta: il cerchio da solo non si capiva che cosa facesse.
+          className={`relative z-[1] flex h-14 w-[3.75rem] shrink-0 flex-col items-center justify-center gap-0.5 self-center rounded-2xl ring-1 ring-inset disabled:opacity-50 ${b.arrivedAt ? "bg-success text-white ring-success" : "text-success ring-success/45 hover:bg-success-bg"}`}
         >
-          ✓
+          <span aria-hidden className="text-lg leading-none">✓</span>
+          <span aria-hidden className="text-[10.5px] font-semibold leading-none">{b.arrivedAt ? "Arrivati" : "Arrivati?"}</span>
         </button>
       )}
     </li>

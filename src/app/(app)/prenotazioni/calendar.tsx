@@ -38,8 +38,19 @@ const VIEWS: { id: AgendaView; label: string; short: string }[] = [
   { id: "week", label: "Settimana", short: "Sett." },
   { id: "month", label: "Mese", short: "Mese" },
 ];
-// Nella vista Settimana, per ogni giorno: le prime prenotazioni, poi «N in più».
+// Nella vista Settimana, per ogni giorno: le prime prenotazioni, poi «N in più». Sugli schermi alti
+// (tablet in verticale) ce ne stanno di più: non si lascia mezzo schermo vuoto sotto la griglia.
 const WEEK_CHIPS = 8;
+function useWeekChips(): number {
+  const [n, setN] = useState(WEEK_CHIPS);
+  useEffect(() => {
+    const fit = () => setN(window.innerHeight >= 1000 ? 13 : window.innerHeight >= 860 ? 10 : WEEK_CHIPS);
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+  return n;
+}
 
 export type CalendarProps = {
   today: string;
@@ -221,7 +232,7 @@ export function AgendaCalendar(props: CalendarProps) {
       <span className="flex min-h-11 items-center gap-1.5 rounded-xl px-1 md:px-2">
         <span className="min-w-0">
           {near && <span className="block text-[11px] font-semibold uppercase leading-tight tracking-wider text-accent-ink">{near}</span>}
-          <span data-testid="agenda-titolo" className="block text-pretty font-serif text-[1.2rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.35rem] md:truncate md:text-[1.6rem]">
+          <span data-testid="agenda-titolo" className="block text-pretty font-sans text-[1.2rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.35rem] md:truncate md:text-[1.6rem]">
             {title}
           </span>
         </span>
@@ -472,6 +483,7 @@ function WeekView({
   onOpen: (id: string) => void;
 }) {
   const days = daysBetween(from, addDays(from, 6));
+  const chipsMax = useWeekChips();
   const byDay = useMemo(() => {
     const m = new Map<string, AgendaBooking[]>();
     for (const b of data.bookings ?? []) {
@@ -546,7 +558,7 @@ function WeekView({
                 >
                   <span className={`text-[11px] font-semibold tracking-wider ${isToday ? "text-accent-ink" : "text-foreground-muted"}`}>{WEEKDAY_SHORT[i]}</span>
                   <span
-                    className={`flex h-10 w-10 items-center justify-center rounded-full font-serif text-[1.45rem] font-semibold tabular-nums ${isToday ? "bg-accent text-accent-foreground" : day < today ? "text-foreground-muted" : "text-foreground"}`}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full font-sans text-[1.45rem] font-semibold tabular-nums ${isToday ? "bg-accent text-accent-foreground" : day < today ? "text-foreground-muted" : "text-foreground"}`}
                   >
                     {Number(day.slice(8, 10))}
                   </span>
@@ -586,21 +598,28 @@ function WeekView({
         </div>
         <div role="row" className="grid grid-cols-7">
           {week.map(({ day, sum, rows }, i) => {
-            const shown = rows.length > WEEK_CHIPS ? rows.slice(0, WEEK_CHIPS - 1) : rows;
+            const shown = rows.length > chipsMax ? rows.slice(0, chipsMax - 1) : rows;
             const more = rows.length - shown.length;
             return (
               <div role="gridcell" key={day} className={`flex min-h-64 min-w-0 flex-col gap-1 px-1.5 pb-2 pt-2 ${i ? "border-l border-border" : ""} ${day < today ? "bg-surface-2/25" : ""}`}>
                 <button type="button" onClick={(e) => onDay(day, e)} className="-mx-0.5 rounded-md px-0.5 pb-1 text-left hover:bg-surface-2/60" aria-label={`${dayAria(day)}: ${sumAria(sum)}`}>
-                  <span className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 text-[12px] tabular-nums">
+                  {/* Totali su una riga («120 · 466 p.»), poi i segni (da confermare, da completare) sotto:
+                      nelle colonne strette del tablet non vanno più a capo a pezzi. */}
+                  <span className="flex flex-col gap-0.5 text-[12px] tabular-nums">
                     {sum.count ? (
-                      <span className="font-semibold text-foreground">
-                        <span className="whitespace-nowrap">{sum.count} ·</span> <span className="whitespace-nowrap">{sum.people} pers.</span>
+                      <span className="whitespace-nowrap font-semibold text-foreground">
+                        {sum.count} · {sum.people} <span className="xl:hidden">p.</span>
+                        <span className="max-xl:hidden">pers.</span>
                       </span>
                     ) : (
                       <span className="text-foreground-muted">—</span>
                     )}
-                    {sum.pending > 0 && <span className="whitespace-nowrap text-[11px] font-semibold text-gold">+{sum.pending}</span>}
-                    {sum.incomplete > 0 && <IncompleteDot n={sum.incomplete} />}
+                    {(sum.pending > 0 || sum.incomplete > 0) && (
+                      <span className="flex items-center gap-1.5">
+                        {sum.pending > 0 && <span className="whitespace-nowrap text-[11px] font-semibold text-gold">+{sum.pending}</span>}
+                        {sum.incomplete > 0 && <IncompleteDot n={sum.incomplete} />}
+                      </span>
+                    )}
                   </span>
                   <FullnessBar people={sum.people} capacity={capacity} className="mt-1" />
                 </button>
@@ -638,13 +657,13 @@ function WeekChip({ b, countTests, onOpen }: { b: AgendaBooking; countTests: boo
       onClick={() => onOpen(b.id)}
       aria-label={label}
       title={label}
-      className={`flex min-h-7 w-full min-w-0 flex-col items-stretch rounded-md px-1.5 py-0.5 text-left text-[12px] leading-tight hover:brightness-95 lg:flex-row lg:items-center lg:gap-1 dark:hover:brightness-125 ${tone} ${b.arrivedAt || (b.isTest && !countTests) ? "opacity-60" : ""}`}
+      className={`flex min-h-7 w-full min-w-0 flex-col items-stretch justify-center rounded-md px-1.5 py-0.5 text-left text-[12px] leading-tight pointer-coarse:min-h-11 pointer-coarse:py-1 hover:brightness-95 lg:pointer-fine:flex-row lg:pointer-fine:items-center lg:pointer-fine:gap-1 dark:hover:brightness-125 ${tone} ${b.arrivedAt || (b.isTest && !countTests) ? "opacity-60" : ""}`}
     >
-      {/* Tablet: ora e persone sopra, il nome sotto (le colonne sono strette); computer: una riga. */}
+      {/* Tablet (anche orizzontale, col dito): ora e persone sopra, il nome sotto; computer col mouse: una riga. */}
       <span className="flex shrink-0 items-center gap-1">
         <span className={`font-semibold tabular-nums ${b.timeUnknown ? "text-gold" : "text-foreground"}`}>{time}</span>
         <span className={`tabular-nums ${b.peopleUnknown ? "font-semibold text-gold" : "text-foreground-muted"}`}>{b.peopleUnknown ? "?" : b.people}</span>
-        {b.allergies && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger lg:order-last" />}
+        {b.allergies && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger lg:pointer-fine:order-last" />}
         {b.arrivedAt && <span aria-hidden className="shrink-0 text-success">✓</span>}
       </span>
       <span className="min-w-0 flex-1 truncate text-foreground">{b.name}</span>
@@ -697,9 +716,10 @@ function MonthView({
                   type="button"
                   onClick={(e) => onDay(day, e)}
                   aria-label={`Apri ${dayAria(day)}: ${info.closed ? `${info.closedText}, ` : ""}${info.requestsClosed && !info.closed ? "richieste chiuse, " : ""}${sumAria(sum)}${info.events.length ? `, evento: ${info.events.map((e) => e.title).join(", ")}` : ""}`}
-                  className={`flex h-full min-h-[4.25rem] w-full flex-col items-stretch gap-0.5 px-1 pb-1.5 pt-1 text-left transition-colors hover:bg-surface-2/70 sm:min-h-[6.5rem] sm:px-1.5 ${TINT[level]} ${out ? "opacity-45" : ""}`}
+                  className={`flex h-full min-h-[4.25rem] w-full min-w-0 flex-col items-stretch gap-0.5 overflow-hidden px-1 pb-1.5 pt-1 text-left transition-colors hover:bg-surface-2/70 sm:min-h-[6.5rem] sm:px-1.5 ${TINT[level]} ${out ? "opacity-45" : ""}`}
                 >
-                  <span className="flex items-center justify-between gap-1">
+                  {/* Numero e segni (da completare, nota): sul telefono piccolo i segni vanno sotto, mai nella casella accanto. */}
+                  <span className="flex flex-wrap items-center justify-between gap-x-1">
                     <span
                       className={`flex h-7 min-w-7 items-center justify-center rounded-full text-[13px] font-semibold tabular-nums sm:text-sm ${isToday ? "bg-accent text-accent-foreground" : day < today ? "text-foreground-muted" : "text-foreground"}`}
                     >
@@ -777,13 +797,13 @@ function Legend({ view, capacity }: { view: "week" | "month"; capacity: number }
             <LockIcon />
             Richieste online chiuse
           </span>
-          <span className={item}>
-            <span aria-hidden className="flex gap-0.5">
+          <span className={`${item} max-w-full`}>
+            <span aria-hidden className="flex shrink-0 gap-0.5">
               {TINT.slice(1).map((t) => (
                 <span key={t} className={`h-3.5 w-3.5 rounded-[3px] ring-1 ring-inset ring-foreground/15 ${t}`} />
               ))}
             </span>
-            Più colore, più pieno (di solito pieni oltre {capacity} persone)
+            <span className="whitespace-normal">Più colore, più pieno (di solito pieni oltre {capacity} persone)</span>
           </span>
         </>
       ) : (
@@ -838,7 +858,7 @@ function DateBadge({ day, today }: { day: string; today: string }) {
   return (
     <span className={`flex w-12 shrink-0 flex-col items-center justify-center rounded-xl py-1 ${isToday ? "bg-accent text-accent-foreground" : "bg-surface-2"}`}>
       <span className={`text-[10.5px] font-semibold tracking-wider ${isToday ? "" : "text-foreground-muted"}`}>{wd}</span>
-      <span className="font-serif text-xl font-semibold leading-tight tabular-nums">{Number(day.slice(8, 10))}</span>
+      <span className="font-sans text-xl font-semibold leading-tight tabular-nums">{Number(day.slice(8, 10))}</span>
     </span>
   );
 }

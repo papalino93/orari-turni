@@ -280,7 +280,7 @@ export function BookingForm({
       setFormError("Non riesco a inviare: controlla la connessione e riprova.");
       return;
     }
-    let data: { ok?: boolean; fake?: boolean; statusPath?: string; error?: string; field?: Field | null } = {};
+    let data: { ok?: boolean; fake?: boolean; statusPath?: string; reused?: boolean; error?: string; field?: Field | null } = {};
     try {
       data = await res.json();
     } catch {
@@ -297,7 +297,8 @@ export function BookingForm({
         // niente
       }
       // replace: con «indietro» non si torna al modulo già inviato.
-      router.replace(data.statusPath);
+      // Stessa richiesta mandata di nuovo da qui (stesso telefono, giorno e ora): la pagina lo dice.
+      router.replace(data.reused ? `${data.statusPath}?gia=1` : data.statusPath);
       return;
     }
     setSending(false);

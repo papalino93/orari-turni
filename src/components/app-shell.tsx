@@ -4,8 +4,6 @@ import { Suspense, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { WideToggle } from "@/components/wide-toggle";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { AccountMenu } from "@/components/account-menu";
 import { InstallBanner, EmployeeInstallPrompt, InstalledMark } from "@/components/install-banner";
 import { VERSION_LABEL } from "@/lib/version";
@@ -196,8 +194,8 @@ export function AppShell({
             })}
           </nav>
 
-          {/* Tablet e computer: un solo pulsante col nome (Impostazioni, tema, vista larga, Esci). */}
-          <div className="hidden shrink-0 md:block">
+          {/* Ovunque, anche sul telefono: un solo pulsante con le iniziali (Impostazioni, tema, vista larga, Esci). */}
+          <div className="shrink-0">
             <AccountMenu
               userName={userName}
               isAdmin={isAdmin}
@@ -207,37 +205,6 @@ export function AppShell({
                 signOut({ callbackUrl: "/login" });
               }}
             />
-          </div>
-          {/* Telefono: come prima. */}
-          <div className="flex shrink-0 items-center gap-1.5 md:hidden">
-            {isAdmin && (
-              <Link
-                href="/account"
-                aria-label="Impostazioni"
-                title="Impostazioni"
-                // Con la parola dove c'è spazio (computer largo): l'ingranaggio da solo non diceva dove porta.
-                className={`flex h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-brand-band-border transition-colors hover:text-brand-band-foreground xl:px-3.5 ${
-                  pathname?.startsWith("/account") || pathname?.startsWith("/widget") || pathname?.startsWith("/installa") ? "bg-brand-band-active text-brand-band-foreground" : "text-brand-band-foreground-muted"
-                }`}
-              >
-                <GearIcon />
-                <span className="hidden text-xs font-medium xl:inline">Impostazioni</span>
-              </Link>
-            )}
-            <WideToggle />
-            <ThemeToggle />
-            {/* Il nome solo dove c'è spazio: sul tablet la barra ha già le voci del menù. */}
-            <span className="hidden text-sm text-brand-band-foreground-muted sm:block md:hidden xl:block">{userName}</span>
-            <button
-              type="button"
-              onClick={async () => {
-                await forgetPushHere();
-                signOut({ callbackUrl: "/login" });
-              }}
-              className="min-h-11 rounded-full border border-brand-band-border px-4 text-xs font-medium text-brand-band-foreground-muted transition-colors hover:text-brand-band-foreground"
-            >
-              Esci
-            </button>
           </div>
         </div>
       </header>
@@ -295,7 +262,8 @@ export function AppShell({
 function BlockedNotice() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  if (searchParams.get("bloccato") !== "1") return null;
+  const why = searchParams.get("bloccato");
+  if (why !== "1" && why !== "menu") return null;
 
   function dismiss() {
     const params = new URLSearchParams(searchParams.toString());
@@ -308,7 +276,11 @@ function BlockedNotice() {
     // Larga come la pagina «Le mie ore» (max-w-xl), dove compare.
     <div role="status" className="mx-auto mb-4 flex max-w-xl items-center gap-3 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-foreground">
       <span aria-hidden className="text-base">🔒</span>
-      <p className="flex-1">Questa pagina è solo per il titolare: ecco la tua area.</p>
+      <p className="flex-1">
+        {why === "menu"
+          ? "Il menù lo cambia solo chi ha il permesso: se ti serve, chiedilo al titolare. Ecco la tua area."
+          : "Questa pagina è solo per il titolare: ecco la tua area."}
+      </p>
       <button
         type="button"
         onClick={dismiss}
@@ -362,15 +334,6 @@ function MenuIcon({ active }: { active: boolean }) {
       <path d="M7 3h10c0 6-2 9-5 9s-5-3-5-9z" />
       <path d="M12 12v8" />
       <path d="M8 21h8" />
-    </svg>
-  );
-}
-
-function GearIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.35a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.65 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.65 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.65a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.35 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.96z" />
     </svg>
   );
 }

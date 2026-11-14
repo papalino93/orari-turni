@@ -160,8 +160,8 @@ try {
   DB(`insert into "BookingRequest" (id, code, "tokenHash", status, day, time, "startsAt", people, name, phone, contact, "isTest", manual, "createdBy", "updatedAt") values ('provacprovavera01', 'PRVC11', 'prova-c-prova-vera', 'CONFIRMED', '${D1.day}', '20:00', now() + interval '2 days', 3, 'Prova C Prova vera', '', 'whatsapp', true, true, 'Andrea', now()), ('provacprovaonl01', 'PRVC12', 'prova-c-prova-onl', 'PENDING', '${D1.day}', '20:30', now() + interval '2 days', 2, 'Prova C Prova online', '393330000000', 'whatsapp', true, false, null, now())`);
   await A.goto(`${BASE}/account`, { waitUntil: "networkidle", timeout: 180000 });
   check("spenta: nel menù in alto niente «Prenotazioni»", (await A.locator("nav").getByRole("link", { name: /^Prenotazioni/ }).count()) === 0);
-  const fromAccount = A.getByRole("link", { name: /Prenotazioni e agenda \(in prova\)/ });
-  check("spenta: in Impostazioni «Prenotazioni e agenda (in prova)»", (await fromAccount.count()) === 1);
+  const fromAccount = A.getByRole("link", { name: /Provala prima di accenderla/ });
+  check("spenta: in Impostazioni la sezione «Prenotazioni» con i due interruttori e «Provala prima di accenderla»", (await fromAccount.count()) === 1 && (await A.getByRole("switch", { name: "Agenda delle prenotazioni" }).getAttribute("aria-checked")) === "false" && (await A.getByRole("switch", { name: "Prenotazioni online dei clienti" }).count()) === 1);
   await fromAccount.click();
   await A.waitForURL(/\/prenotazioni$/);
   check("spenta: una riga «Agenda in prova: quello che segni non è vero» con «Accendi l'agenda», niente fascia grande", /Agenda in prova: quello che segni non è vero/.test(await bodyText(A)) && (await A.getByRole("button", { name: "Accendi l'agenda", exact: true }).count()) === 1 && !/Agenda spenta · Richieste online spente/.test(await bodyText(A)));
@@ -408,17 +408,17 @@ try {
   await A.waitForTimeout(1500);
   check("…e la riga diventa «Già mandato da … alle …»", new RegExp(`Prova C Completo · Già mandato da ${ADMIN_NAME} alle \\d{2}:\\d{2}`).test(await waList.innerText()), (await waList.innerText()).replace(/\n/g, " | "));
 
-  // ---------- 1024 px: la barra in alto non scorre e «Esci» si vede tutto
+  // ---------- 1024 px: la barra in alto non scorre e il pulsante dell'account si vede tutto
   {
     const narrow = await newContext(browser, "desktop", { viewport: { width: 1024, height: 768 } });
     const np = await narrow.newPage();
     await login(np, "andrea", ADMIN_PW);
     await np.goto(`${BASE}/prenotazioni`, { waitUntil: "networkidle", timeout: 180000 });
     const bar = await np.evaluate(() => {
-      const out = [...document.querySelectorAll("header button")].find((b) => b.textContent.trim() === "Esci")?.getBoundingClientRect();
+      const out = document.querySelector('header button[aria-label^="Account di"]')?.getBoundingClientRect();
       return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, esciRight: out ? Math.round(out.right) : null, width: window.innerWidth };
     });
-    check("1024 px: niente scorrimento orizzontale, «Esci» dentro lo schermo", bar.overflow <= 0 && bar.esciRight !== null && bar.esciRight <= bar.width, JSON.stringify(bar));
+    check("1024 px: niente scorrimento orizzontale, il pulsante dell'account dentro lo schermo", bar.overflow <= 0 && bar.esciRight !== null && bar.esciRight <= bar.width, JSON.stringify(bar));
     await shot(np, "1024");
     await narrow.close();
   }
@@ -567,7 +567,7 @@ try {
   check("telefono del cliente tocca-per-chiamare nella riga", /^tel:\+39/.test((await callLink.getAttribute("href")) ?? ""));
   const arr = row1.getByRole("button", { name: "Segna arrivati: Prova C Tavolo arrivato" });
   const arrBox = await arr.boundingBox();
-  check("«✓» arrivati: tondo di 44 px nella riga", Math.round(arrBox?.width ?? 0) === 44 && Math.round(arrBox?.height ?? 0) === 44, JSON.stringify(arrBox));
+  check("«Arrivati?»: pulsante con la scritta, almeno 44 px", Math.round(arrBox?.width ?? 0) >= 44 && Math.round(arrBox?.height ?? 0) >= 44, JSON.stringify(arrBox));
   await shot(A, "stasera");
   await arr.click();
   check("«✓ Arrivati»: segnato", await waitDb(() => DB(`select "arrivedAt" is not null from "BookingRequest" where id='${t1.id}'`) === "t"));

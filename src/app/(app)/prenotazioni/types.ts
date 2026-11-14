@@ -54,5 +54,6 @@ export type BookingStatsData = {
   people: number;
   manual: { total: number; confirmed: number; people: number; cancelled: number };
   medianResponseMinutes: number | null;
-  bySource: [string, number][];
+  // Per provenienza: richieste (o prenotazioni segnate a mano), quante confermate e per quante persone.
+  bySource: [string, { n: number; confirmed: number; people: number }][];
 };

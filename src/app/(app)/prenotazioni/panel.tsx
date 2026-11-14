@@ -41,7 +41,7 @@ export function SidePanel({ title, subtitle, onClose, children, testId }: { titl
         <span aria-hidden className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border lg:hidden" />
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 pb-3 pt-3 lg:pt-5">
           <div className="min-w-0">
-            <h2 id={titleId} className="font-serif text-xl font-semibold tracking-tight text-foreground">
+            <h2 id={titleId} className="font-sans text-xl font-semibold tracking-tight text-foreground">
               {title}
             </h2>
             {subtitle && <p className="mt-0.5 text-sm text-foreground-muted">{subtitle}</p>}
